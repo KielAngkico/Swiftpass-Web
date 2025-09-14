@@ -30,25 +30,24 @@ const SubscriptionAnalytical = () => {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("today");
-  const [user, setUser] = useState(null);
+  const [adminId, setAdminId] = useState(null);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
+        const { data: resUser } = await api.get("/api/me");
+        if (!resUser?.authenticated || !resUser?.user) return;
 
-        
-        const { data: resUser } = await api.get("/api/auth-status");
-        if (!resUser?.isAuthenticated || !resUser?.user) return;
-        setUser(resUser.user);
-
-        const adminId = resUser.user?.id;
-        if (!adminId) return;
-
-      
-        const { data: resAnalytics } = await api.get("/api/prepaid-analytics", {
-          params: { admin_id: adminId, range, system_type: "subscription" },
-        });
+        const id = resUser.user?.adminId || resUser.user?.id;
+        if (!id) return;
+        setAdminId(id);
+        const { data: resAnalytics } = await api.get(
+          "/api/prepaid-activity-analytics",
+          {
+            params: { admin_id: id, range, system_type: "subscription" },
+          }
+        );
 
         setAnalytics(resAnalytics);
       } catch (err) {
@@ -62,10 +61,12 @@ const SubscriptionAnalytical = () => {
   }, [range]);
 
   if (loading || !analytics) {
-    return <div className="p-6 text-gray-600">Loading subscription analytics...</div>;
+    return (
+      <div className="p-6 text-gray-600">
+        Loading subscription analytics...
+      </div>
+    );
   }
-
- 
   const scanLineData = {
     labels: analytics?.scans_by_hour?.map((item) => `${item.hour}:00`) || [],
     datasets: [
@@ -79,15 +80,13 @@ const SubscriptionAnalytical = () => {
       },
     ],
   };
-
-  
   const actionsData = {
     labels: ["New Memberships", "Renewals"],
     datasets: [
       {
         data: [
           analytics?.topups_vs_deductions?.deductions || 0, 
-          analytics?.topups_vs_deductions?.topups || 0,    
+          analytics?.topups_vs_deductions?.topups || 0, 
         ],
         backgroundColor: ["#10B981", "#F59E0B"],
       },
@@ -119,7 +118,6 @@ const SubscriptionAnalytical = () => {
 
     
     <div className="p-6 flex h-screen bg-gray-100 overflow-y-auto flex-col space-y-3">
-      {/* Header and Filter */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Subscription Analytical Dashboard</h1>
         <select
@@ -133,7 +131,6 @@ const SubscriptionAnalytical = () => {
         </select>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard title="Active Members Inside" value={analytics.active_members_inside} color="text-blue-600" />
         <KpiCard
@@ -148,8 +145,6 @@ const SubscriptionAnalytical = () => {
         />
         <KpiCard title="Peak Hour" value={analytics.peak_hour} color="text-gray-700" />
       </div>
-
-      {/* Charts */}
       <div className="flex flex-col lg:flex-row gap-4">
         <div className="lg:w-3/4 w-full">
           <ChartCard title="Login Trends by Hour">

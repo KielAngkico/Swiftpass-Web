@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import api from "../../../api"; 
+
 const PrepaidView = () => {
   const [members, setMembers] = useState([]);
   const [search, setSearch] = useState("");
@@ -10,18 +11,16 @@ const PrepaidView = () => {
 
   const sidebarRef = useRef(null);
 
- 
   useEffect(() => {
     const fetchStaffAndMembers = async () => {
       try {
         setLoading(true);
-        
 
         console.log("🔍 Fetching staff info...");
-        const { data: authData } = await api.get("/api/auth-status");
+        const { data: authData } = await api.get("/api/me");
         console.log("📥 Auth response:", authData);
         
-        if (!authData.isAuthenticated || !authData.user) {
+        if (!authData.authenticated || !authData.user) {
           throw new Error("Not authenticated");
         }
 
@@ -66,23 +65,10 @@ const PrepaidView = () => {
   const filteredMembers = members.filter((m) =>
     m.full_name?.toLowerCase().includes(search.toLowerCase())
   );
-
-  useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => {
-        setNotification(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
-
   return (
   <div className="flex h-screen overflow-hidden bg-gray-100">
-    {/* Main Content */}
     <div className="flex-1 p-6 overflow-y-auto">
       <h1 className="text-2xl font-bold mb-6">Prepaid Members</h1>
-
-      {/* Notification */}
       {notification && (
         <div
           className={`mb-4 p-3 rounded text-white font-semibold ${
@@ -92,8 +78,6 @@ const PrepaidView = () => {
           {notification.message}
         </div>
       )}
-
-      {/* Dashboard Card + Search */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div className="bg-white shadow rounded-lg p-6 w-full md:w-1/3 text-center">
           <h2 className="text-lg font-semibold text-gray-700">Total Members</h2>
@@ -109,7 +93,7 @@ const PrepaidView = () => {
         />
       </div>
 
-      {/* Table */}
+
       {loading ? (
         <p className="text-gray-600">Loading members...</p>
       ) : filteredMembers.length === 0 ? (
@@ -123,7 +107,7 @@ const PrepaidView = () => {
                 <th className="px-6 py-3">Name</th>
                 <th className="px-6 py-3">Phone</th>
                 <th className="px-6 py-3">Balance</th>
-                <th className="px-6 py-3">Status</th> {/* ✅ New column */}
+                <th className="px-6 py-3">Status</th> 
                 <th className="px-6 py-3">Actions</th>
             </tr>
             </thead>
@@ -170,8 +154,6 @@ const PrepaidView = () => {
           </table>
         </div>
       )}
-
-      {/* Floating Detail Card */}
       {selectedMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-3xl mx-4 relative animate-fade-in">

@@ -1,53 +1,106 @@
 import React, { useState, useEffect } from "react";
 import OwnerSidebar from "../../../components/OwnerSidebar";
-import PrepaidActAnalytics from "./PrepaidActAnalytics"; 
+import PrepaidActAnalytics from "./PrepaidActAnalytics";
 import SubscriptionActAnalytics from "./SubscriptionActAnalytics";
-import { API_URL } from "../../../config"; 
+import api from "../../../api";
 
 const ActivityAnalytics = () => {
-  const [user, setUser] = useState(null);
+  const [adminUser, setAdminUser] = useState(null);
+  const [systemType, setSystemType] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchAdmin = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`${API_URL}/api/auth-status`, { credentials: "include" });
-        if (!res.ok) throw new Error("Not authenticated");
+        const { data } = await api.get("/api/me");
+        console.log("📥 Admin info response:", data);
 
-        const data = await res.json();
-        if (!data.isAuthenticated || !data.user) {
-          throw new Error("Authentication required");
+        if (!data.authenticated || !data.user) {
+          throw new Error("Not authenticated");
         }
 
-        setUser(data.user);
+        if (data.user.role !== "admin" && data.user.role !== "owner") {
+          throw new Error("Only admin/owner can access Activity Analytics");
+        }
+
+        setAdminUser(data.user);
+        const stype = data.user.systemType || data.user.system_type || "";
+        setSystemType(stype);
+        console.log("🔍 System type:", stype);
+
       } catch (err) {
-        console.error("❌ Failed to fetch user info:", err);
-        setError(err.message);
-        setUser(null);
+        console.error("❌ Failed to fetch admin info:", err);
+        setError(err.message || "Failed to fetch admin info");
+
+        if (err.response?.status === 401) {
+          window.location.href = "/login";
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUser();
+    fetchAdmin();
   }, []);
 
-  if (loading) return <div className="p-6 text-gray-600">Loading activity analytics...</div>;
-  if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
-  if (!user) return <div className="p-6 text-gray-600">No user found.</div>;
+  if (loading) {
+    return (
+      <div className="flex">
+        <OwnerSidebar />
+        <div className="flex-1 p-6 text-center py-12">
+          <div className="text-4xl mb-4">⏳</div>
+          <p className="text-gray-600">Loading Activity Analytics...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex">
+        <OwnerSidebar />
+        <div className="flex-1 p-6 text-center py-12">
+          <div className="text-6xl mb-4">❌</div>
+          <h2 className="text-2xl font-bold text-red-600 mb-2">Error</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!systemType) {
+    return (
+      <div className="flex">
+        <OwnerSidebar />
+        <div className="flex-1 p-6 text-center py-12 text-gray-600">
+          Unknown system type. Please contact support.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex">
       <OwnerSidebar />
       <div className="flex-1 p-4">
-        {user.system_type === "prepaid_entry" ? (
-          <PrepaidActAnalytics />
+        {systemType === "prepaid_entry" ? (
+          <PrepaidActAnalytics adminUser={adminUser} />
+        ) : systemType === "subscription" ? (
+          <SubscriptionActAnalytics adminUser={adminUser} />
         ) : (
-          <SubscriptionActAnalytics />
+          <div className="text-gray-600">
+            Unknown system type: "{systemType}". Please contact support.
+          </div>
         )}
       </div>
     </div>

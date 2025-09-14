@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { IP } from "../../../IpConfig";
-import api from "../../../api"; 
+import api from "../../../api";
 
-const KEYFOB_FEE = 20; 
+const KEYFOB_FEE = 20;
 
 function formatDateToLocalString(date) {
   const yyyy = date.getFullYear();
@@ -15,7 +13,7 @@ function formatDateToLocalString(date) {
   return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
 }
 
-const SubscriptionDayPass = ({ rfid_tag }) => {
+const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
   const [rfid, setRfid] = useState(rfid_tag || "");
   const [guestName, setGuestName] = useState("");
   const [gender, setGender] = useState("");
@@ -24,50 +22,39 @@ const SubscriptionDayPass = ({ rfid_tag }) => {
   const [sessionFee, setSessionFee] = useState(0);
   const [loadingCheck, setLoadingCheck] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [cashlessRef, setCashlessRef] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
-  const [staffName, setStaffName] = useState("");
-  const [adminId, setAdminId] = useState(null);
 
-  const validateEmail = (email) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const validateMobile = (number) =>
-    /^[0-9]{7,15}$/.test(number);
+  const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId;
+  const staffName = staffUser?.name || "";
+const validateEmail = (email) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  useEffect(() => {
-const fetchUser = async () => {
-  try {
-    const { data } = await api.get("/api/auth-status");
-    if (!data.isAuthenticated || !data.user) {
-      throw new Error("Not authenticated");
-    }
-    setStaffName(data.user.name);
-    setAdminId(data.user.adminId || data.user.admin_id || data.user.userId);
-  } catch (err) {
-    console.error("❌ Failed to fetch staff user:", err);
-    if (err.response?.status === 401) {
-      window.location.href = "/login";
-    } else {
-      alert("Error fetching user. Please log in again.");
-    }
-  }
-};
-    fetchUser();
-  }, []);
+const validateMobile = (number) =>
+  /^[0-9]{7,15}$/.test(number);
+
 
   useEffect(() => {
     if (!adminId) return;
-const fetchPaymentMethods = async () => {
-  try {
-    const { data } = await api.get(`/api/payment-methods/${adminId}`);
-    setPaymentMethods(data);
-  } catch (err) {
-    console.error("❌ Failed to fetch payment methods:", err);
-  }
-};
+
+    const fetchPaymentMethods = async () => {
+      try {
+        const { data } = await api.get(`/api/payment-methods/${adminId}`);
+        if (Array.isArray(data)) {
+          setPaymentMethods(data);
+        } else if (Array.isArray(data.methods)) {
+          setPaymentMethods(data.methods);
+        }
+      } catch (err) {
+        console.error("❌ Failed to fetch payment methods:", err);
+      }
+    };
+
     fetchPaymentMethods();
   }, [adminId]);
+
+
 
   useEffect(() => {
     if (!rfid || !adminId) return;
@@ -75,7 +62,7 @@ const fetchPaymentMethods = async () => {
     const fetchSessionFee = async () => {
       setLoadingCheck(true);
       try {
-        const res = await axios.get(`${IP}/api/session-fee?admin_id=${adminId}`);
+        const res = await axios.get(`/api/session-fee?admin_id=${adminId}`);
         setSessionFee(res.data.session_fee);
       } catch {
         setSessionFee(0);
@@ -133,9 +120,7 @@ const fetchPaymentMethods = async () => {
 
       console.log("Submitting payload:", payload);
 
-      await axios.post(`${IP}/api/register-session`, payload, {
-        headers: { "Content-Type": "application/json" },
-      });
+      await api.post("/api/register-session", payload);
 
       alert("Day pass session registered successfully!");
       setGuestName("");

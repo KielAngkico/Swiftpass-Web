@@ -15,9 +15,10 @@ select * from StaffAccounts_Archived;
 Show create table MembersAccounts;
 Show create table AdminMemberLogins;
 
+insert into superadminaccounts (superadmin_name,email,password)
+values ('KielSuperadmin', 'aerykangkico@gmail.com', '$2b$10$Ne.LRXUr9fManNwVPV6Zx.8d0/vqBkIF4xXpU3UFHI6/nOVfnT/l6');
 
-
-
+select * from superadminaccounts;
 CREATE TABLE SuperAdminAccounts (
     id INT AUTO_INCREMENT PRIMARY KEY,
     superadmin_name VARCHAR(100),
@@ -207,6 +208,27 @@ CREATE TABLE AdminTransactions (
     FOREIGN KEY (admin_id) REFERENCES AdminAccounts(id) ON DELETE CASCADE,
     FOREIGN KEY (member_id) REFERENCES MembersAccounts(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE SuperAdminInventory (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  type VARCHAR(100) NOT NULL, -- limit to smaller size since it's categorical
+  quantity INT UNSIGNED DEFAULT 0 CHECK (quantity >= 0), -- avoid negatives
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_type (type), -- faster filtering by type
+  INDEX idx_name (name)  -- faster searching by name
+);
+
+CREATE TABLE RegisteredRfid (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  rfid_tag VARCHAR(255) NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_rfid_tag (rfid_tag) -- quick lookups when scanning
+);
+
+
+
 
 CREATE TABLE AdminEntryLogs (
   id INT NOT NULL AUTO_INCREMENT,
@@ -498,8 +520,15 @@ CREATE TABLE MemberFoodPreferences (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 select * from membersaccounts;
+UPDATE membersaccounts
+SET email = 'aerykangkico@gmail.com'
+WHERE id = 1;
 
+select * from staffaccounts;
 select * from adminaccounts;
+
+use superadmin;
+
 set foreign_key_checks = 0;
 
 truncate table ExerciseDayCompletions;
@@ -528,6 +557,10 @@ truncate table nutritionassessment;
 truncate table MemberNutritionResult;
 
 use superadmin;
+
+
+SELECT * FROM InitialAssessment WHERE member_id = 1;
+
 select * from staffaccounts;
 select * from adminaccounts;
 select * from foodgroups;
@@ -547,6 +580,30 @@ SHOW CREATE TABLE FoodGroups;
 
 select * from foodlibrary;
 
+truncate table userotp;
+truncate table trusteddevices;
+-- OTP table with type distinction
+CREATE TABLE UserOtp (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  otp VARCHAR(6) NOT NULL,
+  type ENUM('login','reset') NOT NULL DEFAULT 'login',
+  expires_at DATETIME NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES MembersAccounts(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_user_type (user_id, type)  -- ensures only one valid OTP per type per user
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Trusted devices table with unique constraint
+CREATE TABLE TrustedDevices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  device_id VARCHAR(255) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES MembersAccounts(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_user_device (user_id, device_id)  -- prevents duplicate devices
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 

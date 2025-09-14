@@ -25,45 +25,81 @@ ChartJS.register(
 );
 
 const PrepaidAnalytical = () => {
+  const [adminUser, setAdminUser] = useState(null);
   const [analytics, setAnalytics] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("all");
-  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
+    const fetchAdmin = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const { data } = await api.get("/api/me");
+        if (!data.authenticated || !data.user) {
+          throw new Error("Not authenticated");
+        }
+
+        if (data.user.role !== "admin" && data.user.role !== "owner") {
+          throw new Error("Only admin/owner can access prepaid analytics");
+        }
+
+        setAdminUser(data.user);
+      } catch (err) {
+        console.error("❌ Failed to fetch admin info:", err);
+        setError(err.message || "Failed to authenticate");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAdmin();
+  }, []);
+
+  useEffect(() => {
+    if (!adminUser?.adminId) return;
+
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-
-        const { data: authData } = await api.get("/api/auth-status");
-        if (!authData?.isAuthenticated || !authData?.user) return;
-        setUser(authData.user);
+        setError(null);
 
         const { data } = await api.get("/api/prepaid-analytics", {
-          params: { admin_id: authData.user.id, range },
+          params: { admin_id: adminUser.adminId, range },
         });
 
         setAnalytics(data);
       } catch (err) {
-        console.error("❌ Error fetching analytics:", err);
+        console.error("❌ Error fetching prepaid analytics:", err);
+        setError("Failed to load prepaid analytics");
       } finally {
         setLoading(false);
       }
     };
 
     fetchAnalytics();
-  }, [range]);
+  }, [adminUser, range]);
 
-  if (loading || !analytics) {
+  if (loading) {
     return <div className="p-6 text-gray-600">Loading prepaid analytics...</div>;
   }
 
+  if (error) {
+    return <div className="p-6 text-red-600">{error}</div>;
+  }
+
+  if (!analytics) {
+    return <div className="p-6 text-gray-600">No analytics data available.</div>;
+  }
+
   const scanLineData = {
-    labels: analytics?.scans_by_hour?.map((item) => `${item.hour}:00`) || [],
+    labels: analytics.scans_by_hour?.map((item) => `${item.hour}:00`) || [],
     datasets: [
       {
         label: "Prepaid Logins",
-        data: analytics?.scans_by_hour?.map((item) => item.count) || [],
+        data: analytics.scans_by_hour?.map((item) => item.count) || [],
         borderColor: "#4F46E5",
         backgroundColor: "rgba(79, 70, 229, 0.2)",
         tension: 0.4,
@@ -77,8 +113,8 @@ const PrepaidAnalytical = () => {
     datasets: [
       {
         data: [
-          analytics?.topups_vs_deductions?.topups || 0,
-          analytics?.topups_vs_deductions?.deductions || 0,
+          analytics.topups_vs_deductions?.topups || 0,
+          analytics.topups_vs_deductions?.deductions || 0,
         ],
         backgroundColor: ["#10B981", "#F59E0B"],
       },
@@ -107,8 +143,9 @@ const PrepaidAnalytical = () => {
 
   return (
 
+
+
   <div className=" p-6 flex h-screen bg-gray-100 overflow-y-auto flex-col space-y-3">
-    {/* Header and Filter */}
     <div className="flex items-center justify-between">
       <h1 className="text-2xl font-bold text-gray-800">Prepaid Analytical Dashboard</h1>
       <select
@@ -121,8 +158,6 @@ const PrepaidAnalytical = () => {
         <option value="last-7-days">Last 7 Days</option>
       </select>
     </div>
-
-    {/* KPI Cards */}
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <KpiCard title="Active Members Inside" value={analytics.active_members_inside} color="text-blue-600" />
       <KpiCard title="Prepaid Revenue Today" value={`₱${Number(analytics?.prepaid_revenue_today ?? 0).toLocaleString()}`} color="text-green-600" />
@@ -130,7 +165,6 @@ const PrepaidAnalytical = () => {
       <KpiCard title="Peak Hour" value={analytics.peak_hour} color="text-gray-700" />
     </div>
 
-    {/* Charts */}
     <div className="flex flex-col lg:flex-row gap-4">
       <div className="lg:w-3/4 w-full">
         <ChartCard title="Login Trends by Hour">
@@ -144,7 +178,6 @@ const PrepaidAnalytical = () => {
       </div>
     </div>
 
-    {/* Recent Events */}
     <div className="bg-white p-4 rounded shadow max-h-[20rem] overflow-y-auto">
       <h2 className="text-lg font-semibold text-gray-800 mb-4">Recent Prepaid Events</h2>
       <table className="w-full text-sm text-left">

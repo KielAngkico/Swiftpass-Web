@@ -38,9 +38,8 @@ const sendOTPEmail = async (email, otp, name) => {
 
 router.post("/login", (req, res) => {
   const { email, password } = req.body;
-
   if (!email || !password) {
-    return res.status(400).json({ message: "Email and password required" });
+    return res.status(400).json({ success: false, message: "Email and password required" });
   }
 
   const tryLogin = (sql, role) => {
@@ -49,7 +48,6 @@ router.post("/login", (req, res) => {
         if (err) return reject(err);
         if (!results.length) return resolve(null);
         const user = results[0];
-
         bcrypt.compare(password, user.password, (err, isMatch) => {
           if (err) return reject(err);
           if (!isMatch) return resolve(null);
@@ -65,7 +63,6 @@ router.post("/login", (req, res) => {
         "SELECT id, superadmin_name AS name, email, password FROM SuperAdminAccounts WHERE email = ?",
         "superadmin"
       );
-
       if (!user) {
         user = await tryLogin(
           "SELECT id, admin_name AS name, age, email, password, address, gym_name, system_type FROM AdminAccounts WHERE email = ? AND is_archived = 0",
@@ -80,7 +77,6 @@ router.post("/login", (req, res) => {
            WHERE s.email = ? AND a.is_archived = 0`,
           "staff"
         );
-
         if (staff) {
           const adminResult = await new Promise((resolve, reject) => {
             dbSuperAdmin.query(
@@ -89,49 +85,37 @@ router.post("/login", (req, res) => {
               (err, result) => (err ? reject(err) : resolve(result))
             );
           });
-
           if (!adminResult || !adminResult.length) {
-            return res
-              .status(401)
-              .json({ message: "Access denied - Admin account is archived" });
+            return res.status(401).json({ success: false, message: "Access denied - Admin account is archived" });
           }
-
           staff.systemType = adminResult[0].system_type;
           user = staff;
         }
       }
-
       if (!user) {
-        return res.status(401).json({ message: "Invalid email or password" });
+        return res.status(401).json({ success: false, message: "Invalid email or password" });
       }
       const otp = generateOTP();
-
       otpLoginSessions[email] = {
         otp,
         userId: user.id,
         role: user.role,
-        systemType: user.systemType || null,
-        adminId:
-          user.role === "admin"
-            ? user.id
-            : user.role === "staff"
-            ? user.admin_id
-            : null,
+        systemType: user.systemType || user.system_type || null,
+        adminId: user.role === "admin" ? user.id : user.role === "staff" ? user.admin_id : null,
         name: user.name,
         createdAt: Date.now(),
         userData: user,
       };
-
       await sendOTPEmail(email, otp, user.name);
+        res.json({
+          message: "Credentials verified. Check your email for the verification code.",
+          requiresOTP: true,
+          success: true,  // ⚠ make sure this is true
+        });
 
-      res.json({
-        message: "Credentials verified. Check your email for the verification code.",
-        requiresOTP: true,
-        success: false,
-      });
     } catch (error) {
       console.error("Login error:", error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ success: false, message: "Internal server error" });
     }
   })();
 });
@@ -188,7 +172,7 @@ router.post("/verify-login-otp", async (req, res) => {
       name: sessionData.name,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "15m" }
+    { expiresIn: "10m" }
   );
 
   const refreshToken = jwt.sign({ id: sessionData.userId }, process.env.JWT_REFRESH_SECRET, {
@@ -226,51 +210,88 @@ router.post("/verify-login-otp", async (req, res) => {
   });
 });
 
-
-
-
-router.post("/refresh", (req, res) => {
-  const token = req.cookies?.refreshToken || req.body.refreshToken;
-
-  if (!token) {
-    return res.status(401).json({ message: "No refresh token provided" });
-  }
-
-  jwt.verify(token, process.env.JWT_REFRESH_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ message: "Invalid refresh token" });
+router.post("/refresh-token", (req, res) => {
+  const refreshToken = req.cookies?.refreshToken;
+  if (!refreshToken) return res.status(401).json({ success: false, message: "No refresh token" });
+  const { expectedUserId } = req.body;
+  jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, async (err, decoded) => {
+    if (err) return res.status(403).json({ success: false, message: "Invalid refresh token" });
+    if (expectedUserId && decoded.id !== expectedUserId) {
+      return res.status(403).json({ success: false, message: "Token mismatch" });
     }
-    dbSuperAdmin.query(
-      `SELECT id, 'superadmin' AS role, superadmin_name AS name, NULL AS system_type, NULL AS adminId FROM SuperAdminAccounts WHERE id = ?
-       UNION
-       SELECT id, 'admin' AS role, admin_name AS name, system_type, id AS adminId FROM AdminAccounts WHERE id = ?
-       UNION
-       SELECT s.id, 'staff' AS role, s.staff_name AS name, a.system_type, s.admin_id AS adminId
-       FROM StaffAccounts s
-       JOIN AdminAccounts a ON s.admin_id = a.id
-       WHERE s.id = ?`,
-      [decoded.id, decoded.id, decoded.id],
-      (err, results) => {
-        if (err || results.length === 0) {
-          return res.status(404).json({ message: "User not found" });
-        }
-
-        const user = results[0];
-        const newAccessToken = jwt.sign(
-          {
-            id: user.id,
-            role: user.role,
-            systemType: user.system_type,
-            adminId: user.adminId,
-            name: user.name,
-          },
-          process.env.JWT_SECRET,
-          { expiresIn: "15m" }
+    try {
+      let user = null;
+      const superadmin = await new Promise((resolve, reject) => {
+        dbSuperAdmin.query(
+          "SELECT id, superadmin_name AS name, email FROM SuperAdminAccounts WHERE id = ?",
+          [decoded.id],
+          (err, result) => (err ? reject(err) : resolve(result[0] || null))
         );
-
-        res.json({ accessToken: newAccessToken });
+      });
+      if (superadmin) user = { ...superadmin, role: "superadmin" };
+      if (!user) {
+        const admin = await new Promise((resolve, reject) => {
+          dbSuperAdmin.query(
+            "SELECT id, admin_name AS name, system_type FROM AdminAccounts WHERE id = ? AND is_archived = 0",
+            [decoded.id],
+            (err, result) => (err ? reject(err) : resolve(result[0] || null))
+          );
+        });
+        if (admin) user = { ...admin, role: "admin", systemType: admin.system_type };
       }
-    );
+      if (!user) {
+        const staff = await new Promise((resolve, reject) => {
+          dbSuperAdmin.query(
+            `SELECT s.id, s.staff_name AS name, s.admin_id, a.system_type
+             FROM StaffAccounts s
+             INNER JOIN AdminAccounts a ON s.admin_id = a.id
+             WHERE s.id = ? AND a.is_archived = 0`,
+            [decoded.id],
+            (err, result) => (err ? reject(err) : resolve(result[0] || null))
+          );
+        });
+        if (staff) user = { ...staff, role: "staff", systemType: staff.system_type, adminId: staff.admin_id };
+      }
+      if (!user) return res.status(404).json({ success: false, message: "User not found" });
+      const accessToken = jwt.sign(
+        {
+          id: user.id,
+          role: user.role,
+          name: user.name,
+          systemType: user.systemType || null,
+          adminId: user.adminId || null,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "15m" }
+      );
+      const newRefreshToken = jwt.sign(
+        { id: user.id },
+        process.env.JWT_REFRESH_SECRET,
+        { expiresIn: "7d" }
+      );
+      res.cookie("refreshToken", newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+        path: "/",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+      res.json({
+        success: true,
+        message: "Tokens refreshed successfully",
+        user: {
+          id: user.id,
+          role: user.role,
+          name: user.name,
+          systemType: user.systemType || null,
+          adminId: user.adminId || null,
+        },
+        accessToken,
+      });
+    } catch (error) {
+      console.error("Refresh token error:", error);
+      res.status(500).json({ success: false, message: "Failed to refresh tokens" });
+    }
   });
 });
 

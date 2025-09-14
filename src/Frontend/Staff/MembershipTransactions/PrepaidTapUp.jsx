@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import api from "../../../api"; 
-const PrepaidTapUp = ({ rfid_tag, full_name, current_balance }) => {
+const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
+  const staffName = staffUser?.name || "";
+  const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId;
+
   const [rfid, setRfid] = useState(rfid_tag || "");
   const [member, setMember] = useState(
     rfid_tag && full_name
@@ -13,26 +16,11 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance }) => {
   const [customAmount, setCustomAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [reference, setReference] = useState("");
-  const [staffName, setStaffName] = useState("");
-  const [adminId, setAdminId] = useState(null);
   const [message, setMessage] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
 
-  useEffect(() => {
-    const fetchStaff = async () => {
-      try {
-        const { data } = await api.get("/api/auth-status");
-        if (!data.isAuthenticated || !data.user) throw new Error("Not authenticated");
 
-        setStaffName(data.user.name);
-        setAdminId(data.user.adminId);
-      } catch (err) {
-        console.error("❌ Failed to fetch staff user:", err);
-        setMessage("Authentication required. Please login again.");
-      }
-    };
-    fetchStaff();
-  }, []);
+  
 
   useEffect(() => {
     if (!adminId) return;

@@ -4,7 +4,7 @@ import { getAccessToken, setAccessToken, clearAccessToken } from "../tokenMemory
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 1000000,
   headers: { "Content-Type": "application/json" },
   withCredentials: true, 
 });
@@ -29,7 +29,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const res = await axios.post(`${API_URL}/api/refresh`, {}, { withCredentials: true });
+        const res = await axios.post(`${API_URL}/api/refresh-token`, {}, { withCredentials: true });
         const newAccessToken = res.data.accessToken;
 
         setAccessToken(newAccessToken);

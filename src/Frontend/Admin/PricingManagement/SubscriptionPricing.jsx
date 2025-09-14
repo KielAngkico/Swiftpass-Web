@@ -16,24 +16,31 @@ const SubscriptionPricing = () => {
   const [paymentForm, setPaymentForm] = useState({ name: "", reference_number: "" });
   const [paymentMethods, setPaymentMethods] = useState([]);
 
-
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const { data } = await api.get("/api/auth-status");
+        const { data } = await api.get("/api/me");
         console.log("📥 SubscriptionPricing user:", data);
 
-        if (!data.isAuthenticated || !data.user) {
+        if (!data.authenticated || !data.user) {
           throw new Error("Not authenticated");
         }
-        setAdminId(data.user.adminId);
+
+        const id = data.user.adminId || data.user.id;
+        if (!id) throw new Error("Missing admin ID");
+
+        setAdminId(id);
       } catch (err) {
         console.error("❌ Failed to fetch user in SubscriptionPricing:", err);
+
+        if (err.response?.status === 401) {
+          window.location.href = "/login";
+        }
       }
     };
+
     fetchUser();
   }, []);
-
 
   const fetchPlans = async () => {
     if (!adminId) return;
@@ -60,7 +67,6 @@ const SubscriptionPricing = () => {
     fetchPlans();
     fetchPaymentMethods();
   }, [adminId]);
-
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -130,14 +136,10 @@ const SubscriptionPricing = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6 w-full">
       <div className="w-full">
-
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Subscription Pricing</h1>
           <p className="text-gray-600">Manage your subscription plans and payment methods</p>
         </div>
-
-        {/* Action Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <button
             onClick={() => {
@@ -170,8 +172,6 @@ const SubscriptionPricing = () => {
             </div>
           </button>
         </div>
-
-      {/* Plan Form */}
       {showForm && (
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <h3 className="text-xl font-semibold mb-4">{editingId ? "Edit Plan" : "New Plan"}</h3>
@@ -213,8 +213,6 @@ const SubscriptionPricing = () => {
           </form>
         </div>
       )}
-
-      {/* Payment Form */}
       {isAddingPayment && (
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <h3 className="text-xl font-semibold mb-4">Add Payment Method</h3>
@@ -245,8 +243,6 @@ const SubscriptionPricing = () => {
           </form>
         </div>
       )}
-
-      {/* Plans Section */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Current Plans ({plans.length})</h2>
         {plans.length === 0 ? (
@@ -286,8 +282,6 @@ const SubscriptionPricing = () => {
           </div>
         )}
       </div>
-
-      {/* Payment Methods Section */}
       <div>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Payment Methods ({paymentMethods.length})</h2>
         {paymentMethods.length === 0 ? (

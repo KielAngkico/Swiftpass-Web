@@ -18,10 +18,10 @@ const SubscriptionView = () => {
         setLoading(true);
 
         console.log("🔍 Fetching staff info...");
-        const { data: authData } = await api.get("/api/auth-status");
+        const { data: authData } = await api.get("/api/me");
         console.log("📥 Auth response:", authData);
         
-        if (!authData.isAuthenticated || !authData.user) {
+        if (!authData.authenticated || !authData.user) {
           throw new Error("Not authenticated");
         }
 
@@ -69,13 +69,8 @@ const SubscriptionView = () => {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
-
-
-      {/* Main Content */}
       <div className="flex-1 p-6 overflow-y-auto">
         <h1 className="text-2xl font-bold mb-6">Subscription Members</h1>
-
-        {/* Notification */}
         {notification && (
           <div
             className={`mb-4 p-3 rounded text-white font-semibold ${
@@ -85,8 +80,6 @@ const SubscriptionView = () => {
             {notification.message}
           </div>
         )}
-
-        {/* Dashboard Card + Search */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
           <div className="bg-white shadow rounded-lg p-6 w-full md:w-1/3 text-center">
             <h2 className="text-lg font-semibold text-gray-700">Total Members</h2>
@@ -101,8 +94,6 @@ const SubscriptionView = () => {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-
-        {/* Table */}
         {loading ? (
           <p className="text-gray-600">Loading members...</p>
         ) : filteredMembers.length === 0 ? (
@@ -161,8 +152,6 @@ const SubscriptionView = () => {
             </table>
           </div>
         )}
-
-        {/* Floating Detail Card */}
         {selectedMember && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-3xl mx-4 relative animate-fade-in">

@@ -9,37 +9,53 @@ const KpiBox = ({ title, value, color }) => (
 );
 
 const SubscriptionTransactions = () => {
+  const [user, setUser] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [members, setMembers] = useState([]);
   const [search, setSearch] = useState("");
   const [filterMethod, setFilterMethod] = useState("All");
+  const [selectedTxn, setSelectedTxn] = useState(null);
   const [filterType, setFilterType] = useState("All");
   const [loading, setLoading] = useState(true);
- 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
- 
-        const { data } = await api.get("/api/auth-status");
-        console.log("📥 User info response:", data);
 
-        if (!data.isAuthenticated || !data.user) {
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data } = await api.get("/api/me");
+        console.log("📥 SubscriptionTransactions user:", data);
+
+        if (!data.authenticated || !data.user) {
           throw new Error("Not authenticated");
         }
 
-        const adminId = data.user.adminId || data.user.admin_id || data.user.id;
-        console.log("🔍 Using adminId:", adminId);
- 
-        const txRes = await api.get(`/api/get-admin-transactions/${adminId}`);
-        console.log("📥 Transactions response:", txRes.data);
-        setTransactions(txRes.data);
- 
-        const memRes = await api.get(`/api/get-members?admin_id=${adminId}`);
-        console.log("📥 Members response:", memRes.data);
-        setMembers(memRes.data.members || []);
+        setUser(data.user);
+      } catch (err) {
+        console.error("❌ Failed to fetch user:", err);
+        if (err.response?.status === 401) {
+          window.location.href = "/login";
+        }
+      }
+    };
+    fetchUser();
+  }, []);
+  useEffect(() => {
+    if (!user?.id && !user?.adminId) return;
 
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        const adminId = user.adminId || user.id;
+
+        const [txRes, memRes] = await Promise.all([
+          api.get(`/api/get-admin-transactions/${adminId}`),
+          api.get(`/api/get-members?admin_id=${adminId}`),
+        ]);
+
+        setTransactions(txRes.data || []);
+        setMembers(memRes.data?.members || []);
+        setFiltered(txRes.data || []);
       } catch (err) {
         console.error("❌ Failed to fetch subscription transactions:", err);
       } finally {
@@ -48,8 +64,7 @@ const SubscriptionTransactions = () => {
     };
 
     fetchData();
-  }, []);
- 
+  }, [user]);
   useEffect(() => {
     const merged = transactions.map((txn) => {
       const match = members.find((m) => m.rfid_tag === txn.rfid_tag);
@@ -63,29 +78,22 @@ const SubscriptionTransactions = () => {
 
     if (search) {
       filteredData = filteredData.filter((txn) =>
-        txn.member_name.toLowerCase().includes(search.toLowerCase())
+        txn.member_name?.toLowerCase().includes(search.toLowerCase())
       );
     }
 
     if (filterMethod !== "All") {
-      filteredData = filteredData.filter(
-        (txn) => txn.payment_method === filterMethod
-      );
+      filteredData = filteredData.filter((txn) => txn.payment_method === filterMethod);
     }
 
     if (filterType !== "All") {
-      filteredData = filteredData.filter(
-        (txn) => txn.transaction_type === filterType
-      );
+      filteredData = filteredData.filter((txn) => txn.transaction_type === filterType);
     }
 
     setFiltered(filteredData);
   }, [search, filterMethod, filterType, transactions, members]);
- 
-  const totalRevenue = transactions.reduce(
-    (sum, txn) => sum + parseFloat(txn.amount || 0),
-    0
-  );
+
+  const totalRevenue = transactions.reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
   const totalTransactions = filtered.length;
   const cashRevenue = filtered
     .filter((txn) => txn.payment_method === "Cash")

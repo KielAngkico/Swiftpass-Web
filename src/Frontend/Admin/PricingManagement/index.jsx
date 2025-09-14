@@ -14,12 +14,10 @@ const PricingManagement = () => {
       try {
         setLoading(true);
         setError(null);
-
-      
-        const { data } = await api.get("/api/auth-status");
+        const { data } = await api.get("/api/me");
         console.log("📥 Pricing user info:", data);
 
-        if (!data.isAuthenticated || !data.user) {
+        if (!data.authenticated || !data.user) {
           throw new Error("Not authenticated");
         }
 
@@ -27,7 +25,7 @@ const PricingManagement = () => {
         setSystemType(sysType);
       } catch (err) {
         console.error("❌ Failed to fetch pricing user:", err);
-        setError(err.message);
+        setError(err.message || "Failed to fetch pricing user");
 
         if (err.response?.status === 401) {
           window.location.href = "/login";
@@ -52,7 +50,15 @@ const PricingManagement = () => {
     <div className="flex">
       <OwnerSidebar />
       <div className="flex-1 p-4">
-        {systemType === "prepaid_entry" ? <PrepaidPricing /> : <SubscriptionPricing />}
+        {systemType === "prepaid_entry" ? (
+          <PrepaidPricing />
+        ) : systemType === "subscription" ? (
+          <SubscriptionPricing />
+        ) : (
+          <div className="text-gray-600">
+            Unknown system type. Please contact support.
+          </div>
+        )}
       </div>
     </div>
   );

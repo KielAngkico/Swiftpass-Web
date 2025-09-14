@@ -2,25 +2,24 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import OwnerSidebar from "../../components/OwnerSidebar";
 import AddEmployeeModal from "../../components/Modals/AddEmployeeModal";
-import api from "../../api"; 
+import api from "../../api";
 
 const StaffManagement = () => {
   const [user, setUser] = useState(null);
   const [employees, setEmployees] = useState([]);
-  const [showAddForm, setShowAddForm] = useState(false);
+    const [showAddForm, setShowAddForm] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedFilter, setSelectedFilter] = useState("All");
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
- 
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const { data } = await api.get("/api/auth-status");
-        if (!data.isAuthenticated || !data.user) throw new Error("Not authenticated");
-
+        const { data } = await api.get("/api/me");
+        if (!data?.authenticated || !data?.user) throw new Error("Not authenticated");
         setUser(data.user);
       } catch (err) {
         console.error("❌ Failed to fetch user:", err);
@@ -29,14 +28,15 @@ const StaffManagement = () => {
     };
     fetchUser();
   }, [navigate]);
- 
+
   useEffect(() => {
     if (!user?.id && !user?.adminId) return;
 
     const fetchEmployees = async () => {
       try {
         setLoading(true);
-        const { data } = await api.get(`/api/get-employees/${user.id || user.adminId}`);
+        const adminId = user.adminId || user.id;
+        const { data } = await api.get(`/api/get-employees/${adminId}`);
         setEmployees(data.employees || []);
       } catch (error) {
         console.error("❌ Failed to fetch employees:", error);
@@ -48,14 +48,14 @@ const StaffManagement = () => {
 
     fetchEmployees();
   }, [user]);
- 
+
   const handleDelete = async (id, name) => {
     if (!id) return;
     if (!window.confirm(`Are you sure you want to delete ${name}?`)) return;
 
     try {
       await api.delete(`/api/staff/${id}`);
-      setEmployees((prev) => prev.filter((emp) => emp.user_id !== id));
+      setEmployees((prev) => prev.filter((emp) => (emp.user_id || emp.id) !== id));
       alert("✅ Staff account archived and deleted successfully.");
     } catch (error) {
       console.error("❌ Failed to delete staff:", error);
@@ -65,24 +65,23 @@ const StaffManagement = () => {
 
   const handleEmployeeAdded = (newEmployee) => {
     setEmployees((prev) => [...prev, newEmployee]);
-    setShowAddForm(false);
+    setIsModalOpen(false);
   };
 
   const filteredEmployees = employees.filter((employee) =>
     selectedFilter === "All" ? true : employee.branch === selectedFilter
   );
- 
+
   const ProfilePicture = ({ employee, size = "w-12 h-12", textSize = "text-lg" }) => {
     const [imageError, setImageError] = useState(false);
-
     const handleImageError = () => setImageError(true);
 
-    if (!employee.profile_image_url || imageError) {
+    if (!employee?.profile_image_url || imageError) {
       return (
         <div
           className={`${size} rounded-full flex items-center justify-center text-white font-bold ${textSize} shadow-md bg-gradient-to-br from-blue-500 to-blue-600`}
         >
-          {employee.name ? employee.name.charAt(0).toUpperCase() : "N"}
+          {employee?.name ? employee.name.charAt(0).toUpperCase() : "N"}
         </div>
       );
     }
@@ -97,7 +96,7 @@ const StaffManagement = () => {
     );
   };
 
-  return (
+  return(
     <div className="flex min-h-screen bg-gray-50">
       <OwnerSidebar />
 

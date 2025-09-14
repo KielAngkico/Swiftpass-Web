@@ -15,10 +15,10 @@ const AdminViewMember = () => {
         setLoading(true);
         setError(null);
 
-        const { data } = await api.get("/api/auth-status");
+        const { data } = await api.get("/api/me");
         console.log("📥 Admin info response:", data);
 
-        if (!data.isAuthenticated || !data.user) {
+        if (!data.authenticated || !data.user) {
           throw new Error("Not authenticated");
         }
 
@@ -28,7 +28,7 @@ const AdminViewMember = () => {
         setSystemType(type);
       } catch (err) {
         console.error("❌ Failed to fetch admin info:", err);
-        setError(err.message);
+        setError(err.message || "Failed to fetch admin info");
 
         if (err.response?.status === 401) {
           window.location.href = "/login";
@@ -41,14 +41,24 @@ const AdminViewMember = () => {
     fetchAdminInfo();
   }, []);
 
-  if (loading) return <div className="p-4 text-gray-600">Loading user data...</div>;
-  if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
+  if (loading)
+    return <div className="p-4 text-gray-600">Loading user data...</div>;
+  if (error)
+    return <div className="p-4 text-red-600">Error: {error}</div>;
 
   return (
     <div className="flex">
       <OwnerSidebar />
       <div className="flex-1 p-4">
-        {systemType === "prepaid_entry" ? <PrepaidView /> : <SubscriptionView />}
+        {systemType === "prepaid_entry" ? (
+          <PrepaidView />
+        ) : systemType === "subscription" ? (
+          <SubscriptionView />
+        ) : (
+          <div className="text-gray-600">
+            Unknown system type. Please contact support.
+          </div>
+        )}
       </div>
     </div>
   );

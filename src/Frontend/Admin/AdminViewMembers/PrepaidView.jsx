@@ -25,19 +25,26 @@ const PrepaidView = () => {
         setLoading(true);
         setNotification(null);
 
-        const { data } = await api.get("/api/auth-status", { withCredentials: true });
-        if (!data.isAuthenticated || !data.user) throw new Error("Not authenticated");
+        const { data } = await api.get("/api/me");
+        console.log("📥 User info response:", data);
+
+        if (!data.authenticated || !data.user) {
+          throw new Error("Not authenticated");
+        }
 
         setUser(data.user);
-        const adminId = data.user.admin_id || data.user.id;
+        const adminId = data.user.adminId || data.user.id;
         if (!adminId) return;
-
 
         const res = await api.get(`/api/get-members?admin_id=${adminId}`);
         setMembers(res.data.members || []);
       } catch (err) {
         console.error("❌ Error fetching user or members:", err);
         setNotification({ message: "Failed to fetch members", type: "error" });
+
+        if (err.response?.status === 401) {
+          window.location.href = "/login";
+        }
       } finally {
         setLoading(false);
       }
@@ -54,16 +61,17 @@ const PrepaidView = () => {
     });
 
   const totalMembers = members.length;
-  const activeMembers = members.filter((m) => (m.status || "").toLowerCase() === "active").length;
-  const inactiveMembers = members.filter((m) => (m.status || "").toLowerCase() === "inactive").length;
+  const activeMembers = members.filter(
+    (m) => (m.status || "").toLowerCase() === "active"
+  ).length;
+  const inactiveMembers = members.filter(
+    (m) => (m.status || "").toLowerCase() === "inactive"
+  ).length;
 
   return (
   <div className="flex h-screen overflow-hidden bg-gray-100">
-    {/* Main Content */}
     <div className="flex-1 p-6 overflow-y-auto">
       <h1 className="text-2xl font-bold mb-6">Prepaid Members</h1>
-
-      {/* Notification */}
       {notification && (
         <div
           className={`mb-4 p-3 rounded text-white font-semibold ${
@@ -73,20 +81,12 @@ const PrepaidView = () => {
           {notification.message}
         </div>
       )}
-
-      
-
- {/* 🔧 Dashboard Cards + Filters */}
-<div className="flex flex-col gap-6 mb-6">
-
-  {/* 🔢 Summary Cards */}
-  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-    <KpiCard title="Total Members" value={totalMembers} color="text-indigo-600" />
-    <KpiCard title="Active Members" value={activeMembers} color="text-green-600" />
-    <KpiCard title="Inactive Members" value={inactiveMembers} color="text-red-600" />
+        <div className="flex flex-col gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+         <KpiCard title="Total Members" value={totalMembers} color="text-indigo-600" />
+           <KpiCard title="Active Members" value={activeMembers} color="text-green-600" />
+            <KpiCard title="Inactive Members" value={inactiveMembers} color="text-red-600" />
   </div>
-
-  {/* 🔍 Search + Status Filter */}
   <div className="flex flex-col sm:flex-row justify-between gap-4">
     <div className="flex flex-col w-full sm:w-2/3">
       <label className="text-sm text-gray-500 mb-1">🔍 Search by Member</label>
@@ -112,11 +112,7 @@ const PrepaidView = () => {
       </select>
     </div>
   </div>
-
 </div>
-
-
-      {/* Table */}
       {loading ? (
         <p className="text-gray-600">Loading members...</p>
       ) : filteredMembers.length === 0 ? (
@@ -125,15 +121,15 @@ const PrepaidView = () => {
         <div className="overflow-x-auto bg-white rounded shadow">
           <table className="min-w-full text-sm text-left">
             <thead className="bg-gray-800 text-white uppercase text-xs">
-            <tr>
+                <tr>
                 <th className="px-6 py-3">#</th>
                 <th className="px-6 py-3">Profile</th>
                 <th className="px-6 py-3">Name</th>
                 <th className="px-6 py-3">Phone</th>
                 <th className="px-6 py-3">Balance</th>
-                <th className="px-6 py-3">Status</th> {/* ✅ New column */}
+                <th className="px-6 py-3">Status</th> 
                 <th className="px-6 py-3">Actions</th>
-            </tr>
+                </tr>
             </thead>
             <tbody>
             {filteredMembers.map((member, index) => (

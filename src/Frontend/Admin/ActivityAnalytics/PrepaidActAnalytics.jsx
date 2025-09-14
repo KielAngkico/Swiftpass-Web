@@ -10,6 +10,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler,
 } from "chart.js";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
@@ -29,26 +30,25 @@ const PrepaidActAnalytics = () => {
   const [peakHour, setPeakHour] = useState("—");
   const [mostActiveMembers, setMostActiveMembers] = useState([]);
   const [loginData, setLoginData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
- 
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const { data } = await api.get("/api/auth-status");
-        console.log("📥 PrepaidActAnalytics user:", data);
-
-        if (!data.isAuthenticated || !data.user) {
-          throw new Error("Not authenticated");
-        }
+        const { data } = await api.get("/api/me");
+        if (!data.authenticated || !data.user) throw new Error("Not authenticated");
         setAdminId(data.user.adminId);
       } catch (err) {
         console.error("❌ Failed to fetch user in PrepaidActAnalytics:", err);
+        setError("Failed to authenticate");
+      } finally {
+        setLoading(false);
       }
     };
     fetchUser();
   }, []);
 
- 
   useEffect(() => {
     if (!adminId) return;
 
@@ -62,7 +62,7 @@ const PrepaidActAnalytics = () => {
         setHourlyStats(data.scans_by_hour || []);
         setPeakHour(data.peak_hour || "—");
         setMostActiveMembers(data.most_active_members || []);
-        setLoginData(data.activity_logs || []);
+        setLoginData(data.entry_logs || []);
       } catch (err) {
         console.error("❌ Failed to fetch prepaid analytics:", err);
       }
@@ -71,7 +71,6 @@ const PrepaidActAnalytics = () => {
     fetchAnalytics();
   }, [adminId, range]);
 
- 
   const chartData = {
     labels: hourlyStats.map((d) => `${d.hour}:00`),
     datasets: [
@@ -95,11 +94,13 @@ const PrepaidActAnalytics = () => {
     },
   };
 
+  if (loading) return <p>Loading analytics...</p>;
+  if (error) return <p className="text-red-500">{error}</p>;
+
   return (
     <div className="p-6 bg-gray-100 flex flex-col gap-6">
       <h1 className="text-2xl font-bold">📊 Prepaid Activity Analytics</h1>
 
-      {/* Range Buttons */}
       <div className="flex gap-2">
         {["today", "yesterday", "last-7-days", "all"].map((label) => (
           <button
@@ -116,14 +117,12 @@ const PrepaidActAnalytics = () => {
         ))}
       </div>
 
-      {/* KPI Summary */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <KPI title="Total Members Inside" value={loginData.filter((log) => log.status === "inside").length} />
         <KPI title="Total Logins" value={totalLogins} />
         <KPI title="Peak Hour" value={peakHour} />
       </div>
 
-      {/* Members Currently Inside */}
       <div className="bg-white p-4 rounded shadow">
         <h2 className="text-lg font-semibold mb-4">🟢 Members Currently Inside</h2>
         <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
@@ -140,7 +139,6 @@ const PrepaidActAnalytics = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-        {/* 📈 Line Chart */}
         <div className="bg-white p-4 rounded shadow h-full">
           <h2 className="text-lg font-semibold mb-4 text-gray-700">📈 Logins by Hour</h2>
           {hourlyStats.length === 0 ? (
@@ -149,47 +147,48 @@ const PrepaidActAnalytics = () => {
             <Line data={chartData} options={chartOptions} />
           )}
         </div>
-
-        {/* 🏅 Top 3 Podium */}
-        <div className="bg-white p-4 rounded shadow h-full ">
+        <div className="bg-white p-4 rounded shadow h-full">
           <h2 className="text-lg font-semibold mb-4">🏆 Top 3 Most Active Members</h2>
           <div className="grid grid-cols-3 gap-4 text-center items-end mt-12">
-            {/* 🥈 */}
-            {mostActiveMembers[1] && (
-              <div className="p-4 rounded shadow bg-gray-200 text-gray-700 flex flex-col items-center gap-2">
-                <div className="text-3xl">🥈</div>
-                <div className="w-16 h-16 rounded-full bg-gray-300" />
-                <p className="font-semibold">{mostActiveMembers[1].full_name}</p>
-                <p className="text-sm">Visits: {mostActiveMembers[1].login_count}</p>
-              </div>
-            )}
-            {/* 🥇 */}
-            {mostActiveMembers[0] && (
-              <div className="p-4 rounded shadow bg-yellow-100 text-yellow-700 flex flex-col items-center gap-2 scale-110 z-20">
-                <div className="text-3xl">🥇</div>
-                <img
-                  src={`http://localhost:5000/${mostActiveMembers[0].profile_image_url || "default-profile.png"}`}
-                  alt={mostActiveMembers[0].full_name}
-                  className="w-20 h-20 rounded-full object-cover border border-yellow-300"
-                />
-                <p className="font-semibold">{mostActiveMembers[0].full_name}</p>
-                <p className="text-sm">Visits: {mostActiveMembers[0].login_count}</p>
-              </div>
-            )}
-            {/* 🥉 */}
-            {mostActiveMembers[2] && (
-              <div className="p-4 rounded shadow bg-orange-100 text-orange-700 flex flex-col items-center gap-2">
-                <div className="text-3xl">🥉</div>
-                <div className="w-16 h-16 rounded-full bg-gray-300" />
-                <p className="font-semibold">{mostActiveMembers[2].full_name}</p>
-                <p className="text-sm">Visits: {mostActiveMembers[2].login_count}</p>
-              </div>
+            {[1, 0, 2].map((i) =>
+              mostActiveMembers[i] ? (
+                <div
+                  key={i}
+                  className={`p-4 rounded shadow ${
+                    i === 0
+                      ? "bg-yellow-100 text-yellow-700 scale-110 z-10"
+                      : i === 1
+                      ? "bg-gray-200 text-gray-700"
+                      : "bg-orange-100 text-orange-700"
+                  } flex flex-col items-center gap-2`}
+                >
+                  <div className="text-3xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</div>
+                  <img
+                    src={`http://localhost:5000/${mostActiveMembers[i].profile_image_url || "default-profile.png"}`}
+                    alt={mostActiveMembers[i].full_name}
+                    className="w-20 h-20 rounded-full object-cover border"
+                  />
+                  <p className="font-semibold">{mostActiveMembers[i].full_name}</p>
+                  <p className="text-sm">Visits: {mostActiveMembers[i].login_count}</p>
+                  {mostActiveMembers[i].subscription_type && (
+                    <>
+                      <p className="text-xs italic text-gray-600">
+                        Plan: {mostActiveMembers[i].subscription_type}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(mostActiveMembers[i].subscription_start).toLocaleDateString()} –{" "}
+                        {new Date(mostActiveMembers[i].subscription_expiry).toLocaleDateString()}
+                      </p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div key={i}></div>
+              )
             )}
           </div>
         </div>
       </div>
-
-      {/* 🧾 Member Activity Logs */}
       <div className="bg-white rounded shadow overflow-hidden">
         <h2 className="text-lg font-semibold px-6 py-4 border-b">🧾 Member Activity Logs</h2>
         <div className="overflow-x-auto max-h-[500px] overflow-y-auto scroll-smooth">

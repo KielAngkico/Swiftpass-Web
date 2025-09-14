@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../../../api"; 
+import api from "../../../api";
 
-const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry }) => {
+const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUser }) => {
+  const staffName = staffUser?.name || "";
+  const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId;
+  const navigate = useNavigate();
+
   const [rfid, setRfid] = useState(rfid_tag || "");
   const [member, setMember] = useState(
     rfid_tag && full_name
@@ -15,36 +19,42 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry }) => {
   const [amountToPay, setAmountToPay] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [reference, setReference] = useState("");
-  const [staffName, setStaffName] = useState("");
-  const [adminId, setAdminId] = useState(null);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [paymentMethods, setPaymentMethods] = useState([]);
-
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const fetchStaff = async () => {
-      try {
-        const { data } = await api.get("/api/auth-status");
-        if (!data.isAuthenticated || !data.user) throw new Error("Not authenticated");
-
-        setStaffName(data.user.name);
-        setAdminId(data.user.adminId);
-      } catch (err) {
-        console.error("❌ Failed to fetch staff user:", err);
-        setMessage("Authentication required. Please login again.");
-        navigate("/login");
-      }
-    };
-    fetchStaff();
-  }, [navigate]);
 
   useEffect(() => {
     if (rfid_tag && full_name) {
       setMember({ rfid_tag, full_name, subscription_expiry, subscription_type: null });
     }
   }, [rfid_tag, full_name, subscription_expiry]);
+
+
+   useEffect(() => {
+    if (!adminId) return;
+
+    const fetchPlans = async () => {
+      try {
+        const { data } = await api.get(`/api/get-pricing/${adminId}`);
+        const prepaidPlans = data.filter((plan) => plan.system_type === "subscription");
+        setPlans(prepaidPlans);
+      } catch (err) {
+        console.error("❌ Failed to fetch plans:", err);
+      }
+    };
+
+    const fetchPaymentMethods = async () => {
+      try {
+        const { data } = await api.get(`/api/payment-methods/${adminId}`);
+        setPaymentMethods(data);
+      } catch (err) {
+        console.error("❌ Failed to fetch payment methods:", err);
+      }
+    };
+
+    fetchPlans();
+    fetchPaymentMethods();
+  }, [adminId]);
 
   useEffect(() => {
     if (rfid && rfid.length >= 8) fetchMember();
@@ -80,7 +90,6 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry }) => {
 
     setLoading(true);
     try {
-
       const currentExpiry = new Date(member.subscription_expiry);
       const baseDate = isNaN(currentExpiry.getTime()) ? new Date() : currentExpiry;
       const start = baseDate.toISOString().split("T")[0];
@@ -88,19 +97,21 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry }) => {
       expiry.setDate(expiry.getDate() + selectedPlan.duration_in_days);
       const end = expiry.toISOString().split("T")[0];
 
-      const payload = {
-        rfid_tag: member.rfid_tag,
-        full_name: member.full_name,
-        admin_id: member.admin_id || adminId,
-        staff_name: staffName,
-        plan_name: selectedPlan.plan_name,
-        payment: Number(amountToPay),
-        subscription_type: selectedPlan.plan_name,
-        subscription_start: start,
-        subscription_expiry: end,
-        payment_method: paymentMethod,
-        reference: paymentMethod === "gcash" ? reference : null,
-      };
+ const payload = {
+  rfid_tag: member.rfid_tag,
+  full_name: member.full_name,
+  admin_id: member.admin_id || adminId,
+  staff_name: staffName,
+  plan_name: selectedPlan.plan_name,
+  payment: Number(amountToPay),
+  subscription_type: selectedPlan.plan_name,
+  subscription_start: start,
+  subscription_expiry: end,
+  payment_Method: paymentMethod.toLowerCase().includes("gcash") ? "gcash" : paymentMethod, 
+  reference: paymentMethod.toLowerCase().includes("gcash") ? reference || "" : null
+};
+
+      console.log("📤 Payload to submit:", payload);
 
       const { data } = await api.post("/api/renew-subscription", payload);
 
@@ -118,7 +129,8 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry }) => {
       setLoading(false);
     }
   };
-return (
+
+  return (
   <div className="p-6 bg-gray-50 min-h-screen flex gap-6">
     {/* Left: Renewal Form */}
     <div className="flex-1">

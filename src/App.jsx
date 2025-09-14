@@ -27,6 +27,7 @@ const SplitLibrary = React.lazy(() => import("./Frontend/SuperAdmin/SplitLibrary
 const RepRange = React.lazy(() => import("./Frontend/SuperAdmin/RepRange"));
 const FoodLibrary = React.lazy(() => import("./Frontend/SuperAdmin/FoodLibrary"));
 const Allergens = React.lazy(() => import("./Frontend/SuperAdmin/AllergensMasterList"));
+const ItemsInventory = React.lazy(() => import("./Frontend/SuperAdmin/ItemsInventory"));
 
 const AdminAnalyticalDashboard = React.lazy(() => import("./Frontend/Admin/AdminAnalyticalDashboard"));
 const AdminViewMembers = React.lazy(() => import("./Frontend/Admin/AdminViewMembers"));
@@ -55,12 +56,16 @@ const AuthProvider = ({ children }) => {
       try {
         const res = await fetch(`${API_URL}/api/auth-status-auto`, {
           method: "GET",
-          credentials: "include",
+          credentials: "include", 
         });
         const data = await res.json();
-        if (res.ok && data.user && data.accessToken) {
+
+        if (res.ok && data.user) {
+          if (data.accessToken) {
+            setAccessToken(data.accessToken);
+          }
+
           setUser(data.user);
-          setAccessToken(data.accessToken);
         } else {
           clearAccessToken();
           setUser(null);
@@ -73,7 +78,14 @@ const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     };
+
     checkAuth();
+    const handleAuthChanged = () => checkAuth();
+    window.addEventListener("auth-changed", handleAuthChanged);
+
+    return () => {
+      window.removeEventListener("auth-changed", handleAuthChanged);
+    };
   }, []);
 
   if (loading) return <p>Loading session...</p>;
@@ -84,6 +96,8 @@ const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+
+
 
 
 const WebSocketWrapper = ({ children }) => {
@@ -112,7 +126,7 @@ const WebSocketWrapper = ({ children }) => {
   return <WebSocketProvider navigate={customNavigate}>{children}</WebSocketProvider>;
 };
 
-const useAutoLogout = (timeout = 20 * 1000, enabled = true) => {
+const useAutoLogout = (timeout = 60 * 60 * 1000, enabled = true) => {
   const { setUser } = useAuth();
   const timerRef = useRef();
   const countdownRef = useRef();
@@ -149,11 +163,11 @@ const useAutoLogout = (timeout = 20 * 1000, enabled = true) => {
     if (countdownRef.current) clearInterval(countdownRef.current);
 
     let remaining = Math.floor(timeout / 1000);
-    console.log(`🕒 Auto-logout timer reset: ${remaining}s remaining`);
+ 
 
     countdownRef.current = setInterval(() => {
       remaining--;
-      console.log(`🕒 Auto-logout in: ${remaining}s`);
+
       if (remaining <= 0) clearInterval(countdownRef.current);
     }, 1000);
 
@@ -193,6 +207,7 @@ const AppRoutes = () => {
             <Route path="/SuperAdmin/RepRange" element={<RepRange />} />
             <Route path="/SuperAdmin/FoodLibrary" element={<FoodLibrary />} />
             <Route path="/SuperAdmin/AllergensMasterList" element={<Allergens />} />
+            <Route path="/SuperAdmin/ItemsInventory" element={<ItemsInventory />} />
           </>
         )}
 
@@ -247,7 +262,7 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const { resetTimer } = useAutoLogout(20 * 1000, !!user);
+  const { resetTimer } = useAutoLogout(60 * 60 * 1000, !!user);
 
   const handleLogout = async () => {
     setLoading(true);
@@ -275,7 +290,7 @@ const App = () => {
 
   return (
     <>
-      <Navbar /> {/* Always visible */}
+      <Navbar /> 
       <ConditionalHeader onLogoutClick={() => setShowLogoutConfirm(true)} loading={loading} />
       <AppRoutes />
 

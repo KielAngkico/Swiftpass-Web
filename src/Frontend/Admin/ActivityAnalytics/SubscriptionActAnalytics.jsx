@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../../../api"; 
+import api from "../../../api";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -22,52 +22,58 @@ const KPI = ({ title, value }) => (
 );
 
 const SubscriptionActAnalytics = () => {
-  const [loginData, setLoginData] = useState([]);
-  const [hourlyStats, setHourlyStats] = useState([]);
-  const [mostActiveMembers, setMostActiveMembers] = useState([]);
-  const [peakHour, setPeakHour] = useState("—");
+  const [adminId, setAdminId] = useState(null);
   const [range, setRange] = useState("all");
   const [totalLogins, setTotalLogins] = useState(0);
+  const [hourlyStats, setHourlyStats] = useState([]);
+  const [peakHour, setPeakHour] = useState("—");
+  const [mostActiveMembers, setMostActiveMembers] = useState([]);
+  const [loginData, setLoginData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [adminId, setAdminId] = useState(null);
 
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const { data } = await api.get("/api/auth-status");
-        console.log("📥 SubscriptionActAnalytics user:", data);
-
-        if (!data.isAuthenticated || !data.user) {
-          throw new Error("Not authenticated");
-        }
+        const { data } = await api.get("/api/me");
+        if (!data.authenticated || !data.user) throw new Error("Not authenticated");
         setAdminId(data.user.adminId);
       } catch (err) {
         console.error("❌ Failed to fetch user in SubscriptionActAnalytics:", err);
-        setAdminId(null);
+        setError("Failed to authenticate");
+      } finally {
+        setLoading(false);
       }
     };
     fetchUser();
   }, []);
 
+
   useEffect(() => {
     if (!adminId) return;
-    const fetchActivityAnalytics = async () => {
+
+    const fetchAnalytics = async () => {
       try {
         const { data } = await api.get("/api/prepaid-activity-analytics", {
           params: { admin_id: adminId, range, system_type: "subscription" },
         });
 
+        console.log("📊 Subscription analytics response:", data);
+
         setTotalLogins(data.total_logins || 0);
-        setLoginData(data.entry_logs || []);
         setHourlyStats(data.scans_by_hour || []);
         setPeakHour(data.peak_hour || "—");
         setMostActiveMembers(data.most_active_members || []);
+        setLoginData(data.entry_logs || []); 
       } catch (err) {
-        console.error("❌ Failed to fetch subscription analytics:", err);
+        console.error("❌ Failed to fetch Subscription analytics:", err);
       }
     };
-    fetchActivityAnalytics();
+
+    fetchAnalytics();
   }, [adminId, range]);
+
 
   const chartData = {
     labels: hourlyStats.map((d) => `${d.hour}:00`),
@@ -75,7 +81,7 @@ const SubscriptionActAnalytics = () => {
       {
         label: "Logins",
         data: hourlyStats.map((d) => d.count),
-        borderColor: "#4F46E5",
+        borderColor: "#6366f1",
         backgroundColor: "rgba(99, 102, 241, 0.2)",
         tension: 0.4,
         fill: true,
@@ -92,11 +98,12 @@ const SubscriptionActAnalytics = () => {
     },
   };
 
+  if (loading) return <p>Loading analytics...</p>;
+  if (error) return <p className="text-red-500">{error}</p>;
+
   return (
     <div className="p-6 bg-gray-100 flex flex-col gap-6">
       <h1 className="text-2xl font-bold">📊 Subscription Activity Analytics</h1>
-
-      {/* Range Buttons */}
       <div className="flex gap-2">
         {["today", "yesterday", "last-7-days", "all"].map((label) => (
           <button
@@ -110,15 +117,11 @@ const SubscriptionActAnalytics = () => {
           </button>
         ))}
       </div>
-
-      {/* KPI Summary */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <KPI title="Total Members Inside" value={loginData.filter((log) => log.status === "inside").length} />
         <KPI title="Total Logins" value={totalLogins} />
         <KPI title="Peak Hour" value={peakHour} />
       </div>
-
-      {/* Members Currently Inside */}
       <div className="bg-white p-4 rounded shadow">
         <h2 className="text-lg font-semibold mb-4">🟢 Members Currently Inside</h2>
         <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
@@ -133,11 +136,7 @@ const SubscriptionActAnalytics = () => {
           ))}
         </ul>
       </div>
-
-      {/* Chart and Top 3 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-        {/* 📈 Line Chart */}
-        <div className="bg-white p-4 rounded shadow h-full">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">        <div className="bg-white p-4 rounded shadow h-full">
           <h2 className="text-lg font-semibold mb-4 text-gray-700">📈 Logins by Hour</h2>
           {hourlyStats.length === 0 ? (
             <p className="text-gray-400 italic text-sm">No login data available.</p>
@@ -145,8 +144,6 @@ const SubscriptionActAnalytics = () => {
             <Line data={chartData} options={chartOptions} />
           )}
         </div>
-
-        {/* 🏅 Top 3 Members */}
         <div className="bg-white p-4 rounded shadow h-full">
           <h2 className="text-lg font-semibold mb-4">🏆 Top 3 Most Active Members</h2>
           <div className="grid grid-cols-3 gap-4 text-center items-end mt-12">
@@ -189,8 +186,6 @@ const SubscriptionActAnalytics = () => {
           </div>
         </div>
       </div>
-
-      {/* 🧾 Member Activity Logs */}
       <div className="bg-white rounded shadow overflow-hidden">
         <h2 className="text-lg font-semibold px-6 py-4 border-b">🧾 Member Activity Logs</h2>
         <div className="overflow-x-auto max-h-[500px] overflow-y-auto scroll-smooth">

@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../../../api";
+import {IP} from "../../../IpConfig";
 
-const PrepaidAddMember = () => {
+const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
+  const staffName = staffUser?.name;
+  const adminId = staffUser?.adminId;
+
   const [formData, setFormData] = useState({
     full_name: "",
     gender: "",
     age: "",
-    rfid_tag: "",
+    rfid_tag: rfid_tag || "",
     phone_number: "",
     address: "",
     email: "",
@@ -22,8 +26,6 @@ const PrepaidAddMember = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [serverMessage, setServerMessage] = useState("");
-  const [staffName, setStaffName] = useState("");
-  const [adminId, setAdminId] = useState(null);
   const [availablePlans, setAvailablePlans] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
 
@@ -31,23 +33,11 @@ const PrepaidAddMember = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
- 
   useEffect(() => {
-    const fetchStaff = async () => {
-      try {
-        const { data } = await api.get("/api/auth-status");
-        if (!data.isAuthenticated || !data.user) throw new Error("Not authenticated");
-
-        setStaffName(data.user.name);
-        setAdminId(data.user.adminId); 
-      } catch (err) {
-        console.error("❌ Failed to fetch staff user:", err);
-        if (err.response?.status === 401) window.location.href = "/login";
-        else navigate("/login");
-      }
-    };
-    fetchStaff();
-  }, [navigate]);
+    if (rfid_tag) {
+      setFormData(prev => ({ ...prev, rfid_tag }));
+    }
+  }, [rfid_tag]);
 
   useEffect(() => {
     if (!adminId) return; 
@@ -122,52 +112,61 @@ const PrepaidAddMember = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (!staffName || !adminId) {
-      alert("⚠️ Staff info missing. Please login again.");
-      return;
-    }
+  if (!staffName || !adminId) {
+    alert("⚠️ Staff info missing. Please login again.");
+    return;
+  }
 
-    const requestBody = new FormData();
-    Object.entries({ ...formData, staff_name: staffName, admin_id: adminId }).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) requestBody.append(key, value);
+  const requestBody = new FormData();
+  Object.entries({ ...formData, staff_name: staffName, admin_id: adminId }).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) requestBody.append(key, value);
+  });
+
+  if (selectedImage) requestBody.append("member_image", selectedImage);
+
+
+  console.log("📤 Sending FormData:");
+  for (let [key, value] of requestBody.entries()) {
+    console.log(`${key}:`, value);
+  }
+
+  try {
+    const response = await api.post("/api/add-member", requestBody, {
+      headers: { "Content-Type": "multipart/form-data" },
     });
 
-    if (selectedImage) requestBody.append("member_image", selectedImage);
+    const result = response.data; 
+    setServerMessage(result.message);
 
-    try {
-      const response = await fetch(`${IP}/api/add-member`, { method: "POST", body: requestBody });
-      const result = await response.json();
-      setServerMessage(result.message);
+    alert("✅ Member added successfully!");
+    setFormData({
+      full_name: "",
+      gender: "",
+      age: "",
+      rfid_tag: "",
+      phone_number: "",
+      address: "",
+      email: "",
+      password: "",
+      payment: "",
+      payment_method: "cash",
+      initial_balance: "",
+      reference: "",
+    });
+    setSelectedImage(null);
+    setImagePreview(null);
+  } catch (err) {
+    console.error("❌ Error submitting form:", err);
 
-      if (response.ok) {
-        alert("✅ Member added successfully!");
-        setFormData({
-          full_name: "",
-          gender: "",
-          age: "",
-          rfid_tag: "",
-          phone_number: "",
-          address: "",
-          email: "",
-          password: "",
-          payment: "",
-          payment_method: "cash",
-          initial_balance: "",
-          reference: "",
-        });
-        setSelectedImage(null);
-        setImagePreview(null);
-      } else {
-        alert(`❌ Error: ${result.message}`);
-      }
-    } catch (err) {
-      console.error("❌ Error submitting form:", err);
-      alert("Something went wrong. Please try again.");
-    }
-  };
+    const errorMessage = err.response?.data?.message || "Something went wrong. Please try again.";
+    alert(`❌ ${errorMessage}`);
+  }
+};
+
+
 
 return (
   <div className="px-6 py-8 bg-gray-100 min-h-screen">

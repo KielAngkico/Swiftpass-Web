@@ -26,6 +26,9 @@ const addDayPassGuestRoute = require("./routes/DayPassGuests");
 const EntryLogsRoute = require("./routes/Entrylogs");
 const PartnerManagementRoutes = require("./routes/PartnerManagement");
 const EmployeeManagementRoutes = require("./routes/EmployeeManagement");
+const SuperAdminInventory = require ("./routes/SuperAdminInventory");
+const RfidVerification = require ("./routes/RfidVerification");
+
 
 const app = express();
 
@@ -83,5 +86,8 @@ app.use("/api", addDayPassGuestRoute);
 app.use("/api", EntryLogsRoute);
 app.use("/api", PartnerManagementRoutes);
 app.use("/api", EmployeeManagementRoutes);
+app.use("/api", SuperAdminInventory);
+app.use("/api", RfidVerification);
+
 
 module.exports = app;

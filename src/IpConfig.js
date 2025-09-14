@@ -1,1 +1,1 @@
-export const IP = import.meta.env.VITE_IP || "http://192.168.0.196:5000";
+export const IP = import.meta.env.VITE_IP || "";

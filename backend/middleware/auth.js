@@ -73,7 +73,7 @@ const refreshTokenHandler = (req, res) => {
             name: user.name,
           },
           process.env.JWT_SECRET,
-          { expiresIn: "15m" }
+          { expiresIn: "1h" }
         );
 
         return res.json({

@@ -18,12 +18,16 @@ const PrepaidTransactions = () => {
   const [filterMethod, setFilterMethod] = useState("All");
   const [filterType, setFilterType] = useState("All");
   const [loading, setLoading] = useState(true);
- 
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const { data } = await api.get("/api/auth-status");
-        if (!data.isAuthenticated || !data.user) throw new Error("Not authenticated");
+        const { data } = await api.get("/api/me");
+        console.log("📥 PrepaidTransactions user:", data);
+
+        if (!data.authenticated || !data.user) {
+          throw new Error("Not authenticated");
+        }
 
         setUser(data.user);
       } catch (err) {
@@ -35,7 +39,7 @@ const PrepaidTransactions = () => {
     };
     fetchUser();
   }, []);
- 
+
   useEffect(() => {
     if (!user?.id && !user?.adminId) return;
 
@@ -43,9 +47,11 @@ const PrepaidTransactions = () => {
       try {
         setLoading(true);
 
+        const adminId = user.adminId || user.id;
+
         const [txnRes, memberRes] = await Promise.all([
-          api.get(`/api/get-admin-transactions/${user.id || user.adminId}`),
-          api.get(`/api/get-members?admin_id=${user.id || user.adminId}`),
+          api.get(`/api/get-admin-transactions/${adminId}`),
+          api.get(`/api/get-members?admin_id=${adminId}`),
         ]);
 
         setTransactions(txnRes.data || []);
@@ -60,7 +66,6 @@ const PrepaidTransactions = () => {
 
     fetchData();
   }, [user]);
- 
   useEffect(() => {
     const merged = transactions.map((txn) => {
       const match = members.find((m) => m.rfid_tag === txn.rfid_tag);
@@ -88,7 +93,6 @@ const PrepaidTransactions = () => {
 
     setFiltered(filteredData);
   }, [search, filterMethod, filterType, transactions, members]);
- 
   const totalRevenue = transactions.reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
   const totalTransactions = filtered.length;
   const cashRevenue = filtered
@@ -98,21 +102,16 @@ const PrepaidTransactions = () => {
     .filter((txn) => txn.payment_method === "GCash")
     .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
 
-
- return (
+  return (
   <div className="flex h-screen overflow-hidden bg-gray-100">
     <div className="flex-1 p-6 overflow-y-auto">
       <h1 className="text-2xl font-bold mb-6">Prepaid Transactions</h1>
-
-      {/* 📊 KPI Summary Boxes */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full mb-6">
         <KpiBox title="💰 Total Revenue" value={`₱${totalRevenue.toFixed(2)}`} color="text-green-600" />
         <KpiBox title="📄 Total Transactions" value={totalTransactions} color="text-blue-600" />
         <KpiBox title="💵 Cash Revenue" value={`₱${cashRevenue.toFixed(2)}`} color="text-teal-600" />
         <KpiBox title="📲 Cashless" value={`₱${gcashRevenue.toFixed(2)}`} color="text-purple-600" />
       </div>
-
-      {/* 🔍 Search & Filter Controls */}
 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
   <div className="flex flex-col w-full md:w-1/3">
     <label className="text-sm text-gray-500 mb-1">🔍 Search by Member Name</label>
@@ -152,9 +151,6 @@ const PrepaidTransactions = () => {
     </select>
   </div>
 </div>
-
-
-      {/* 📋 Transactions Table */}
       {filtered.length === 0 ? (
         <p className="text-gray-500 italic">No transactions found.</p>
       ) : (
@@ -212,8 +208,6 @@ const PrepaidTransactions = () => {
           </table>
         </div>
       )}
-
-      {/* 🔍 Modal: Transaction Details */}
       {selectedTxn && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl mx-4 relative animate-fade-in">

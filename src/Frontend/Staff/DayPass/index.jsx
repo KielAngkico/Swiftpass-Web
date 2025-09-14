@@ -7,33 +7,39 @@ import api from "../../../api";
 
 const DayPass = () => {
   const location = useLocation();
-  const [user, setUser] = useState(null);
+  const [staffUser, setStaffUser] = useState(null);
+  const [systemType, setSystemType] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [systemType, setSystemType] = useState("");
+
+  const rfid_tag = location.state?.rfid_tag || ""; 
 
   useEffect(() => {
-    const fetchStaffInfo = async () => {
+    const fetchStaff = async () => {
       try {
         setLoading(true);
         setError(null);
-        
-        const { data } = await api.get("/api/auth-status");
+
+        const { data } = await api.get("/api/me");
         console.log("📥 Staff info response:", data);
-        
-        if (!data.isAuthenticated || !data.user) {
+
+        if (!data.authenticated || !data.user) {
           throw new Error("Not authenticated");
         }
 
-        setUser(data.user);
-        const systemType = data.user.systemType || data.user.system_type || "";
-        console.log("🔍 System type:", systemType);
-        setSystemType(systemType);
-        
+        if (data.user.role !== "staff" && data.user.role !== "admin") {
+          throw new Error("Only staff/admin can access DayPass");
+        }
+
+        setStaffUser(data.user);
+        const stype = data.user.systemType || data.user.system_type || "";
+        setSystemType(stype);
+        console.log("🔍 System type:", stype);
+
       } catch (err) {
         console.error("❌ Failed to fetch staff info:", err);
-        setError(err.message);
-        
+        setError(err.message || "Failed to fetch staff info");
+
         if (err.response?.status === 401) {
           window.location.href = "/login";
         }
@@ -41,8 +47,8 @@ const DayPass = () => {
         setLoading(false);
       }
     };
-    
-    fetchStaffInfo();
+
+    fetchStaff();
   }, []);
 
   if (loading) {
@@ -51,7 +57,7 @@ const DayPass = () => {
         <StaffSidebar />
         <div className="flex-1 p-6 text-center py-12">
           <div className="text-4xl mb-4">⏳</div>
-          <p className="text-gray-600">Loading day pass system...</p>
+          <p className="text-gray-600">Loading DayPass system...</p>
         </div>
       </div>
     );
@@ -63,9 +69,7 @@ const DayPass = () => {
         <StaffSidebar />
         <div className="flex-1 p-6 text-center py-12">
           <div className="text-6xl mb-4">❌</div>
-          <h2 className="text-2xl font-bold text-red-600 mb-2">
-            Error Loading Day Pass System
-          </h2>
+          <h2 className="text-2xl font-bold text-red-600 mb-2">Error</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
@@ -78,17 +82,25 @@ const DayPass = () => {
     );
   }
 
-  const rfid_tag = location.state?.rfid_tag || "";
-  const final_system_type = location.state?.system_type || systemType;
+  if (!systemType) {
+    return (
+      <div className="flex">
+        <StaffSidebar />
+        <div className="flex-1 p-6 text-center py-12 text-gray-600">
+          Unknown system type. Please contact admin.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex">
       <StaffSidebar />
       <div className="flex-1 p-4">
-        {final_system_type === "prepaid_entry" ? (
-          <PrepaidDayPass rfid_tag={rfid_tag} />
+        {systemType === "prepaid_entry" ? (
+          <PrepaidDayPass rfid_tag={rfid_tag} staffUser={staffUser} />
         ) : (
-          <SubscriptionDayPass rfid_tag={rfid_tag} />
+          <SubscriptionDayPass rfid_tag={rfid_tag} staffUser={staffUser} />
         )}
       </div>
     </div>

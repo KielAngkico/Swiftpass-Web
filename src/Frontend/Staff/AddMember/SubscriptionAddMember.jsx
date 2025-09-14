@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../../../api";
+import {IP} from "../../../IpConfig";
 
-const SubscriptionAddMember = ({ branchName }) => {
+const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
+  const staffName = staffUser?.name;
+  const adminId = staffUser?.adminId;
+
   const [formData, setFormData] = useState({
     full_name: "",
     age: "",
     gender: "",
-    rfid_tag: "",
+    rfid_tag: rfid_tag || "",
     phone_number: "",
     address: "",
     email: "",
@@ -21,7 +25,6 @@ const SubscriptionAddMember = ({ branchName }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [serverMessage, setServerMessage] = useState("");
-  const [staffName, setStaffName] = useState("");
   const [availablePlans, setAvailablePlans] = useState([]);
   const [amountToPay, setAmountToPay] = useState(0.0);
   const [subscriptionType, setSubscriptionType] = useState("");
@@ -32,29 +35,11 @@ const SubscriptionAddMember = ({ branchName }) => {
   const wsRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
-
-
   useEffect(() => {
-const fetchStaff = async () => {
-  try {
-    const { data } = await api.get("/api/auth-status");
-    if (!data.isAuthenticated || !data.user) {
-      throw new Error("Not authenticated");
+    if (rfid_tag) {
+      setFormData(prev => ({ ...prev, rfid_tag }));
     }
-    setStaffName(data.user.name);
-    setAdminId(data.user.adminId); 
-  } catch (err) {
-    console.error("❌ Failed to fetch staff user:", err);
-    if (err.response?.status === 401) {
-      window.location.href = "/login";
-    } else {
-      navigate("/login");
-    }
-  }
-};
-    fetchStaff();
-  }, [navigate]);
-
+  }, [rfid_tag]);
 
   useEffect(() => {
     const rfidFromState = location.state?.rfid_tag;
@@ -64,31 +49,32 @@ const fetchStaff = async () => {
   }, [location.state, formData.rfid_tag]);
 
 
-  useEffect(() => {
-        if (!adminId) return; 
-const fetchPaymentMethods = async () => {
-  try {
-    const { data } = await api.get("/api/payment-methods");
-    setPaymentMethods(data);
-  } catch (err) {
-    console.error("❌ Failed to fetch payment methods:", err);
-  }
-};
-    fetchPaymentMethods();
-  }, []);
 
   useEffect(() => {
-const fetchPlans = async () => {
-  try {
-    const res = await fetch(`${IP}/api/get-pricing`, { credentials: "include" });
-    const data = await res.json();
-    setAvailablePlans(data.filter((plan) => plan.system_type === "subscription"));
-  } catch (err) {
-    console.error("❌ Failed to fetch plans:", err);
-  }
-};
+    if (!adminId) return; 
+    const fetchPaymentMethods = async () => {
+      try {
+        const { data } = await api.get(`/api/payment-methods/${adminId}`);
+        setPaymentMethods(data);
+      } catch (err) {
+        console.error("❌ Failed to fetch payment methods:", err);
+      }
+    };
+    fetchPaymentMethods();
+  }, [adminId]);
+
+  useEffect(() => {
+    if (!adminId) return; 
+    const fetchPlans = async () => {
+      try {
+        const { data } = await api.get(`/api/get-pricing/${adminId}`);
+        setAvailablePlans(data.filter((plan) => plan.system_type === "subscription"));
+      } catch (err) {
+        console.error("❌ Failed to fetch plans:", err);
+      }
+    };
     fetchPlans();
-  }, []);
+  }, [adminId]);
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -130,66 +116,72 @@ const fetchPlans = async () => {
       setFormData((prev) => ({ ...prev, plan_name: "" }));
     }
   };
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!staffName) {
-      alert("⚠️ Staff info missing. Please login again.");
-      return;
-    }
+  if (!staffName || !adminId) {
+    alert("⚠️ Staff info missing. Please login again.");
+    return;
+  }
 
-    const requestBody = new FormData();
-    Object.entries(formData).forEach(([key, value]) => requestBody.append(key, value || ""));
-    requestBody.append("staff_name", staffName);
-    requestBody.append("subscription_type", subscriptionType);
-    requestBody.append("subscription_start", subscriptionStart);
-    requestBody.append("subscription_expiry", subscriptionExpiry);
-    requestBody.append("payment", amountToPay);
+  const requestBody = new FormData();
+  Object.entries({ ...formData, staff_name: staffName, admin_id: adminId }).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) requestBody.append(key, value);
+  });
 
-    if (selectedImage) {
-      requestBody.append("member_image", selectedImage);
-    }
+  requestBody.append("subscription_type", subscriptionType);
+  requestBody.append("subscription_start", subscriptionStart);
+  requestBody.append("subscription_expiry", subscriptionExpiry);
+  requestBody.append("payment", amountToPay);
 
-    try {
-      const response = await fetch(`${IP}/api/add-subscription-member`, {
-        method: "POST",
-        body: requestBody,
+  if (selectedImage) requestBody.append("member_image", selectedImage);
+
+  console.log("📤 Sending FormData:");
+  for (let [key, value] of requestBody.entries()) {
+    console.log(`${key}:`, value);
+  }
+
+
+  try {
+    const response = await api.post("/api/add-member", requestBody, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    const result = await response.json();
+    setServerMessage(result.message);
+
+    if (response.ok) {
+      alert("✅ Member added successfully!");
+      setFormData({
+        full_name: "",
+        age: "",
+        gender: "",
+        rfid_tag: "",
+        phone_number: "",
+        address: "",
+        email: "",
+        password: "",
+        payment_method: "",
+        reference: "",
+        gcash_reference: "",
+        plan_name: "",
       });
-      const result = await response.json();
-      setServerMessage(result.message);
-
-      if (response.ok) {
-        alert("✅ Member added successfully!");
-        setFormData({
-          full_name: "",
-          age: "",
-          gender: "",
-          rfid_tag: "",
-          phone_number: "",
-          address: "",
-          email: "",
-          password: "",
-          payment_method: "",
-          reference: "",
-          gcash_reference: "",
-          plan_name: "",
-        });
-        setSelectedImage(null);
-        setImagePreview(null);
-        setSubscriptionType("");
-        setAmountToPay(0);
-        setSubscriptionStart("");
-        setSubscriptionExpiry("");
-      } else {
-        alert(`❌ Error: ${result.message}`);
-      }
-    } catch (error) {
-      console.error("❌ Error submitting form:", error);
-      alert("Something went wrong. Please try again.");
+      setSelectedImage(null);
+      setImagePreview(null);
+      setSubscriptionType("");
+      setAmountToPay(0);
+      setSubscriptionStart("");
+      setSubscriptionExpiry("");
+    } else {
+      alert(`❌ Error: ${result.message}`);
     }
-  };
+  } catch (err) {
+    console.error("❌ Error submitting form:", err);
+    alert("Something went wrong. Please try again.");
+  }
+};
 
-  return (
+
+return (
     <div className="flex bg-gray-50 min-h-screen">
       <main className="flex-1 p-6">
         <h1 className="text-2xl font-bold mb-6 text-gray-900">
@@ -199,10 +191,7 @@ const fetchPlans = async () => {
         <form
           onSubmit={handleSubmit}
           className="grid grid-cols-1 md:grid-cols-3 gap-8 bg-white p-8 rounded-2xl shadow-lg"
-        >
-          {/* LEFT COLUMN (Form Inputs) */}
-          <div className="md:col-span-2 space-y-6">
-            {/* Personal Info */}
+        >          <div className="md:col-span-2 space-y-6">
             <section>
               <h2 className="text-lg font-semibold text-gray-800 mb-3">
                 Personal Information
@@ -284,8 +273,6 @@ const fetchPlans = async () => {
                 required
               />
             </section>
-
-            {/* Subscription Info */}
             <section>
               <h2 className="text-lg font-semibold text-gray-800 mb-3">
                 Subscription Details
@@ -313,8 +300,6 @@ const fetchPlans = async () => {
                 />
               </div>
             </section>
-
-            {/* Payment Info */}
             <section>
               <h2 className="text-lg font-semibold text-gray-800 mb-3">
                 Payment Information
@@ -348,8 +333,6 @@ const fetchPlans = async () => {
                   )}
               </div>
             </section>
-
-            {/* Submit */}
             <button
               type="submit"
               className="w-full bg-black text-white py-4 rounded-xl font-semibold hover:bg-gray-800 transition"
@@ -363,8 +346,6 @@ const fetchPlans = async () => {
               </p>
             )}
           </div>
-
-          {/* RIGHT COLUMN (Profile Picture Upload) */}
           <div className="flex flex-col items-center justify-start space-y-4">
             <h2 className="text-lg font-semibold text-gray-800 mb-2">
               Profile Picture

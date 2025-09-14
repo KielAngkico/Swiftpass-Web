@@ -28,6 +28,7 @@ const SuperAdminSidebar = () => {
       { path: "/SuperAdmin/RepRange", label: "Rep Range", icon: <FiPackage /> },
       { path: "/SuperAdmin/FoodLibrary", label: "Food Library", icon: <FiPackage /> },
       { path: "/SuperAdmin/AllergensMasterList", label: "Allergens Master List", icon: <FiPackage /> },
+      { path: "/SuperAdmin/ItemsInventory", label: "Invetory", icon: <FiPackage /> },
     ];
   }, [user]);
 

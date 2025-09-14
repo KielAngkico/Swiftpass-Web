@@ -8,29 +8,35 @@ const Header = ({ onLogoutClick, loading }) => {
   const { user, setUser } = useAuth();
 
 
-  useEffect(() => {
-    const fetchUserInfo = async () => {
-      try {
-        const token = getAccessToken();
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await api.get("/api/me", { headers, withCredentials: true });
+useEffect(() => {
+  const fetchUserInfo = async () => {
+    try {
+      const token = getAccessToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        if (res.data?.user) {
-          setUser(res.data.user);
-          if (res.data.accessToken) setAccessToken(res.data.accessToken);
-        } else {
-          setUser(null);
-          setAccessToken(null);
-        }
-      } catch (err) {
-        console.error("❌ Failed to fetch user info:", err);
+      console.log("📤 Fetching /api/me with headers:", headers);
+
+      const res = await api.get("/api/me", { headers, withCredentials: true });
+
+      console.log("📥 /api/me response:", res.data);
+
+      if (res.data?.user) {
+        setUser(res.data.user);
+        if (res.data.accessToken) setAccessToken(res.data.accessToken);
+      } else {
         setUser(null);
         setAccessToken(null);
       }
-    };
+    } catch (err) {
+      console.error("❌ Failed to fetch user info:", err.response?.status, err.response?.data || err.message);
+      setUser(null);
+      setAccessToken(null);
+    }
+  };
 
-    fetchUserInfo();
-  }, [setUser]);
+  fetchUserInfo();
+}, [setUser]);
+
 
   return (
     <header className="bg-gray-700 text-white p-4 flex justify-between items-center sticky z-20">

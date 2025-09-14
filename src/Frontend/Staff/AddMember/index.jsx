@@ -7,33 +7,39 @@ import api from "../../../api";
 
 const AddMember = () => {
   const location = useLocation();
-  const [user, setUser] = useState(null);
+  const [staffUser, setStaffUser] = useState(null);
+  const [systemType, setSystemType] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [systemType, setSystemType] = useState("");
+
+  const rfid_tag = location.state?.rfid_tag || "";
 
   useEffect(() => {
-    const fetchStaffInfo = async () => {
+    const fetchStaff = async () => {
       try {
         setLoading(true);
         setError(null);
-        
-        const { data } = await api.get("/api/auth-status");
+
+        const { data } = await api.get("/api/me");
         console.log("📥 Staff info response:", data);
-        
-        if (!data.isAuthenticated || !data.user) {
+
+        if (!data.authenticated || !data.user) {
           throw new Error("Not authenticated");
         }
 
-        setUser(data.user);
-        const systemType = data.user.systemType || data.user.system_type || "";
-        console.log("🔍 System type:", systemType);
-        setSystemType(systemType);
-        
+        if (data.user.role !== "staff" && data.user.role !== "admin") {
+          throw new Error("Only staff/admin can access AddMember");
+        }
+
+        setStaffUser(data.user);
+        const stype = data.user.systemType || data.user.system_type || "";
+        setSystemType(stype);
+        console.log("🔍 System type:", stype);
+
       } catch (err) {
         console.error("❌ Failed to fetch staff info:", err);
-        setError(err.message);
-        
+        setError(err.message || "Failed to fetch staff info");
+
         if (err.response?.status === 401) {
           window.location.href = "/login";
         }
@@ -41,24 +47,65 @@ const AddMember = () => {
         setLoading(false);
       }
     };
-    
-    fetchStaffInfo();
+
+    fetchStaff();
   }, []);
 
-  const rfid_tag = location.state?.rfid_tag || "";
-  const final_system_type = location.state?.system_type || systemType;
+  if (loading) {
+    return (
+      <div className="flex">
+        <StaffSidebar />
+        <div className="flex-1 p-6 text-center py-12">
+          <div className="text-4xl mb-4">⏳</div>
+          <p className="text-gray-600">Loading Add Member system...</p>
+        </div>
+      </div>
+    );
+  }
 
-  if (!user) return <div className="p-6 text-gray-600">Loading user data...</div>;
+  if (error) {
+    return (
+      <div className="flex">
+        <StaffSidebar />
+        <div className="flex-1 p-6 text-center py-12">
+          <div className="text-6xl mb-4">❌</div>
+          <h2 className="text-2xl font-bold text-red-600 mb-2">Error</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!systemType) {
+    return (
+      <div className="flex">
+        <StaffSidebar />
+        <div className="flex-1 p-6 text-center py-12 text-gray-600">
+          Unknown system type. Please contact admin.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex">
       <StaffSidebar />
       <div className="flex-1 p-4">
-{final_system_type === "prepaid_entry" ? (
-  <PrepaidAddMember rfid_tag={rfid_tag} />  
-) : (
-  <SubscriptionAddMember rfid_tag={rfid_tag} />
-)}
+        {systemType === "prepaid_entry" ? (
+          <PrepaidAddMember rfid_tag={rfid_tag} staffUser={staffUser} />
+        ) : systemType === "subscription" ? (
+          <SubscriptionAddMember rfid_tag={rfid_tag} staffUser={staffUser} />
+        ) : (
+          <div className="text-gray-600">
+            Unknown system type: "{systemType}". Please contact admin.
+          </div>
+        )}
       </div>
     </div>
   );

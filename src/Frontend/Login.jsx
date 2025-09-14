@@ -48,53 +48,44 @@ useEffect(() => {
 
 const checkExistingAuth = async () => {
   try {
-    const response = await fetch(`${API_URL}/api/me`, {
+    const res = await fetch(`${API_URL}/api/me`, {
       method: "GET",
-      credentials: "include", 
+      credentials: "include", // rely on HttpOnly cookie
     });
-
-    const data = await response.json();
+    const data = await res.json();
     console.log("📡 /me response:", data);
 
-    if (response.ok && data.user) {
+    if (res.ok && data.user) {
       closeModal?.();
       setUser(data.user);
+      // set accessToken in memory if provided by server
+      if (data.accessToken) setAccessToken(data.accessToken);
       navigateBasedOnRole(data.user);
     } else {
       console.warn("⚠ User not authenticated via cookie");
-      const token = getAccessToken();
-      if (!token) return;
-      const tokenRes = await fetch(`${API_URL}/api/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: "include",
-      });
-      const tokenData = await tokenRes.json();
-      if (tokenRes.ok && tokenData.user) {
-        setUser(tokenData.user);
-        navigateBasedOnRole(tokenData.user);
-      } else {
-        clearAccessToken();
-      }
+      clearAccessToken();
+      setUser(null);
     }
   } catch (error) {
     console.error("❌ Auth check failed:", error);
     clearAccessToken();
+    setUser(null);
   }
 };
 
 const handleSuccessfulLogin = async (data) => {
   try {
-    setAccessToken(data.accessToken);
-
+    if (data.accessToken) setAccessToken(data.accessToken);
+    window.dispatchEvent(new Event("auth-changed"));
     const res = await fetch(`${API_URL}/api/me`, {
       method: "GET",
-      credentials: "include",
+      credentials: "include", // rely on HttpOnly cookie
     });
     const userData = await res.json();
 
     if (res.ok && userData.user) {
       setUser(userData.user);
-      if (closeModal) closeModal();
+      closeModal?.();
       navigateBasedOnRole(userData.user, true);
     } else {
       console.error("❌ Failed to fetch /me after login", userData);
@@ -104,6 +95,7 @@ const handleSuccessfulLogin = async (data) => {
     console.error("❌ Error during successful login:", error);
   }
 };
+
 
 const handleSubmit = async (e) => {
   e.preventDefault();
@@ -161,6 +153,7 @@ const handleOTPSubmit = async (e) => {
 
     if (response.ok && data.success) {
       if (data.accessToken) setAccessToken(data.accessToken);
+      window.dispatchEvent(new Event("auth-changed"));
       await handleSuccessfulLogin(data);
     } else {
       alert(data.message || "Invalid code");

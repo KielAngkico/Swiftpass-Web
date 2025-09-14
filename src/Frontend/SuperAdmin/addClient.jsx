@@ -35,42 +35,51 @@ const AddClient = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage('');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setMessage('');
 
-    if (isNaN(formData.age) || formData.age.trim() === "") {
-      setMessage('Age must be a valid number.');
-      return;
-    }
+  // Validate age
+  if (isNaN(formData.age) || formData.age.trim() === "") {
+    setMessage('Age must be a valid number.');
+    return;
+  }
 
-    if (formData.system_type === "prepaid_entry" && (isNaN(formData.session_fee) || formData.session_fee.trim() === "")) {
-      setMessage('Session Fee is required for Prepaid Entry system.');
-      return;
-    }
+  // Ensure session_fee is a number, default to 0 if empty
+  const sessionFeeValue = formData.session_fee ? Number(formData.session_fee) : 0;
 
-    try {
-      const response = await axios.post(`${API_URL}/api/add-client`, formData);
-      setMessage('Client added successfully!');
-      setShowAddForm(false);
+  try {
+    // Build payload with normalized session_fee
+    const payload = {
+      ...formData,
+      age: Number(formData.age),
+      session_fee: sessionFeeValue
+    };
 
-      setFormData({
-        admin_name: '',
-        age: '',
-        address: '',
-        email: '',
-        password: '',
-        gym_name: '',
-        system_type: '',
-        session_fee: '',
-      });
+    const response = await axios.post(`${API_URL}/api/add-client`, payload);
+    setMessage('Client added successfully!');
+    setShowAddForm(false);
 
-      setAdmins([...admins, { id: response.data.id, ...formData }]);
-    } catch (error) {
-      console.error(error);
-      setMessage('Failed to add client. Please try again.');
-    }
-  };
+    // Reset form
+    setFormData({
+      admin_name: '',
+      age: '',
+      address: '',
+      email: '',
+      password: '',
+      gym_name: '',
+      system_type: '',
+      session_fee: '',
+    });
+
+    // Update admins list
+    setAdmins([...admins, { id: response.data.id, ...payload }]);
+  } catch (error) {
+    console.error(error);
+    setMessage('Failed to add client. Please try again.');
+  }
+};
+
 
   const handleArchive = async (id, isArchived) => {
     try {

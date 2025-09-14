@@ -1,37 +1,43 @@
 import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
 import StaffSidebar from "../../../components/StaffSidebar";
-import PrepaidTapUp from "./PrepaidTapUp"; 
+import PrepaidTapUp from "./PrepaidTapUp";
 import SubscriptionRenewal from "./SubscriptionRenewal";
 import api from "../../../api";
+import { useLocation } from "react-router-dom";
 
 const MembershipTransactions = () => {
   const location = useLocation();
   const { rfid_tag, full_name, current_balance, subscription_expiry } = location.state || {};
-  
+
+  const [staffUser, setStaffUser] = useState(null);
   const [systemType, setSystemType] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchStaff = async () => {
       try {
         setLoading(true);
         setError(null);
-        
-        const { data } = await api.get("/api/auth-status");
+
+        const { data } = await api.get("/api/me");
         console.log("📥 Staff info response:", data);
-        
-        if (!data.isAuthenticated || !data.user) {
+
+        if (!data.authenticated || !data.user) {
           throw new Error("Not authenticated");
         }
-        
-        const systemType = data.user.systemType || data.user.system_type || "";
-        console.log("🔍 System type:", systemType);
-        setSystemType(systemType.toLowerCase().trim());
+
+        if (data.user.role !== "staff" && data.user.role !== "admin") {
+          throw new Error("Only staff/admin can access Membership Transactions");
+        }
+
+        setStaffUser(data.user);
+        const stype = (data.user.systemType || data.user.system_type || "").toLowerCase().trim();
+        setSystemType(stype);
       } catch (err) {
-        console.error("❌ Failed to fetch staff user:", err);
-        setError(err.message);
-        
+        console.error("❌ Failed to fetch staff info:", err);
+        setError(err.message || "Failed to fetch staff info");
+
         if (err.response?.status === 401) {
           window.location.href = "/login";
         }
@@ -39,9 +45,9 @@ const MembershipTransactions = () => {
         setLoading(false);
       }
     };
-    fetchUser();
-  }, []);
 
+    fetchStaff();
+  }, []);
 
   if (loading) {
     return (
@@ -76,6 +82,17 @@ const MembershipTransactions = () => {
     );
   }
 
+  if (!systemType) {
+    return (
+      <div className="flex">
+        <StaffSidebar />
+        <div className="flex-1 p-6 text-center py-12 text-gray-600">
+          Unknown system type. Please contact admin.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex">
       <StaffSidebar />
@@ -85,13 +102,19 @@ const MembershipTransactions = () => {
             rfid_tag={rfid_tag}
             full_name={full_name}
             current_balance={current_balance}
+            staffUser={staffUser}
           />
-        ) : (
+        ) : systemType === "subscription" ? (
           <SubscriptionRenewal
             rfid_tag={rfid_tag}
             full_name={full_name}
             subscription_expiry={subscription_expiry}
+            staffUser={staffUser}
           />
+        ) : (
+          <div className="text-gray-600">
+            Unknown system type: "{systemType}". Please contact admin.
+          </div>
         )}
       </div>
     </div>

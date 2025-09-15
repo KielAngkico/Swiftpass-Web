@@ -328,6 +328,16 @@ CREATE TABLE ExerciseDayCompletions (
   UNIQUE KEY unique_daily_completion (rfid_tag, split_name, completion_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+
+CREATE TABLE MacroNutrientBreakdown (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  goal_type VARCHAR(50) NOT NULL,        
+  protein_pct DECIMAL(5,2) NOT NULL,   
+  carbs_pct DECIMAL(5,2) NOT NULL,
+  fats_pct DECIMAL(5,2) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE NutritionAssessment (
   id INT AUTO_INCREMENT PRIMARY KEY,
   member_id INT NOT NULL,
@@ -345,26 +355,6 @@ CREATE TABLE NutritionAssessment (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (macro_breakdown_id) REFERENCES MacroNutrientBreakdown(id),
   FOREIGN KEY (member_id) REFERENCES MembersAccounts(id) ON DELETE CASCADE
-);
-
-CREATE TABLE MemberNutritionResult (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  assessment_id INT NOT NULL,
-  member_id INT NOT NULL,
-  food_id INT NOT NULL,
-  food_name VARCHAR(255),
-  group_id INT NOT NULL,
-  macro_type VARCHAR(50),
-  portion_grams DECIMAL(10,2) NOT NULL,
-  calories DECIMAL(10,2) NOT NULL,
-  protein DECIMAL(10,2) NOT NULL,
-  carbs DECIMAL(10,2) NOT NULL,
-  fats DECIMAL(10,2) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (assessment_id) REFERENCES NutritionAssessment(id) ON DELETE CASCADE,
-  FOREIGN KEY (member_id) REFERENCES MembersAccounts(id) ON DELETE CASCADE,
-  FOREIGN KEY (food_id) REFERENCES FoodLibrary(id),
-  FOREIGN KEY (group_id) REFERENCES FoodGroups(id)
 );
 
 CREATE TABLE FoodGroups (
@@ -404,21 +394,32 @@ CREATE TABLE FoodAllergens (
   FOREIGN KEY (allergen_id) REFERENCES Allergens(id) ON DELETE CASCADE
 );
 
-CREATE TABLE MacroNutrientBreakdown (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  goal_type VARCHAR(50) NOT NULL,        
-  protein_pct DECIMAL(5,2) NOT NULL,   
-  carbs_pct DECIMAL(5,2) NOT NULL,
-  fats_pct DECIMAL(5,2) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE MemberFoodPreferences (
   id INT AUTO_INCREMENT PRIMARY KEY,
   member_id INT NOT NULL,
   food_group_name VARCHAR(100) NOT NULL,
   category ENUM('Protein','Carb','Fat') NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE MemberNutritionResult (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  assessment_id INT NOT NULL,
+  member_id INT NOT NULL,
+  food_id INT NOT NULL,
+  food_name VARCHAR(255),
+  group_id INT NOT NULL,
+  macro_type VARCHAR(50),
+  portion_grams DECIMAL(10,2) NOT NULL,
+  calories DECIMAL(10,2) NOT NULL,
+  protein DECIMAL(10,2) NOT NULL,
+  carbs DECIMAL(10,2) NOT NULL,
+  fats DECIMAL(10,2) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (assessment_id) REFERENCES NutritionAssessment(id) ON DELETE CASCADE,
+  FOREIGN KEY (member_id) REFERENCES MembersAccounts(id) ON DELETE CASCADE,
+  FOREIGN KEY (food_id) REFERENCES FoodLibrary(id),
+  FOREIGN KEY (group_id) REFERENCES FoodGroups(id)
 );
 
 CREATE TABLE UserOtp (

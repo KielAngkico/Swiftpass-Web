@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useAuth } from "../App";
+import { useLocation } from "react-router-dom"; // Add this import
 import Login from "../Frontend/Login";
 import axios from "axios";
 import { API_URL } from "../config";
@@ -7,6 +9,8 @@ import { getAccessToken } from "../tokenMemory";
 const Navbar = () => {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [userName, setUserName] = useState("");
+  const { user } = useAuth();
+  const location = useLocation(); // Get current location
 
   const fetchUser = async () => {
     try {
@@ -46,6 +50,11 @@ const Navbar = () => {
       window.removeEventListener("auth-changed", handleAuthChange);
     };
   }, []);
+
+  // Only show navbar on the homepage (root path)
+  if (location.pathname !== "/") {
+    return null;
+  }
 
   return (
     <div className="absolute top-0 left-0 w-full z-10 fixed">

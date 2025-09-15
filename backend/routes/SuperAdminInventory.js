@@ -1,14 +1,9 @@
-// backend/routes/SuperAdminInventory.js
+
 const express = require("express");
 const db = require("../db");
 
 const router = express.Router();
 
-/* ===============================
-   📦 Inventory Routes
-   =============================== */
-
-// ✅ Get all inventory
 router.get("/inventory", (req, res) => {
   db.query("SELECT * FROM SuperAdminInventory", (err, results) => {
     if (err) return res.status(500).json({ message: "DB error", error: err });
@@ -33,8 +28,6 @@ router.post("/inventory", (req, res) => {
   );
 });
 
-
-// ✅ Update only quantity
 router.put("/inventory/:id", (req, res) => {
   const { quantity } = req.body;
   if (quantity === undefined) {
@@ -52,7 +45,6 @@ router.put("/inventory/:id", (req, res) => {
   );
 });
 
-// ✅ Delete item
 router.delete("/inventory/:id", (req, res) => {
   db.query(
     "DELETE FROM SuperAdminInventory WHERE id = ?",
@@ -65,11 +57,6 @@ router.delete("/inventory/:id", (req, res) => {
   );
 });
 
-/* ===============================
-   🔐 Registered RFID Routes
-   =============================== */
-
-// ✅ Get all registered RFIDs
 router.get("/rfid", (req, res) => {
   db.query("SELECT * FROM RegisteredRfid", (err, results) => {
     if (err) return res.status(500).json({ message: "DB error", error: err });
@@ -95,10 +82,6 @@ router.post("/rfid", (req, res) => {
   );
 });
 
-
-// backend/routes/SuperAdminInventory.js
-
-// ✅ Check if RFID exists
 router.get("/rfid/check/:rfid_tag", (req, res) => {
   const { rfid_tag } = req.params;
   db.query(

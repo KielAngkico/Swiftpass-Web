@@ -1,4 +1,4 @@
-USE SuperAdmin;
+USE swiftpassdb;
 
 select * from SuperAdminAccounts;
 select * from AdminAccounts;

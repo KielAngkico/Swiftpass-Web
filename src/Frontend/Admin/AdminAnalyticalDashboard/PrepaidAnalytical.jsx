@@ -35,71 +35,47 @@ const PrepaidAnalytical = () => {
     const fetchAdmin = async () => {
       try {
         setLoading(true);
-        setError(null);
-
         const { data } = await api.get("/api/me");
-        if (!data.authenticated || !data.user) {
-          throw new Error("Not authenticated");
-        }
-
-        if (data.user.role !== "admin" && data.user.role !== "owner") {
-          throw new Error("Only admin/owner can access prepaid analytics");
-        }
-
+        if (!data.authenticated || !data.user) throw new Error("Not authenticated");
+        if (!["admin", "owner"].includes(data.user.role)) throw new Error("Access denied");
         setAdminUser(data.user);
       } catch (err) {
-        console.error("❌ Failed to fetch admin info:", err);
         setError(err.message || "Failed to authenticate");
       } finally {
         setLoading(false);
       }
     };
-
     fetchAdmin();
   }, []);
 
   useEffect(() => {
     if (!adminUser?.adminId) return;
-
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-        setError(null);
-
         const { data } = await api.get("/api/prepaid-analytics", {
           params: { admin_id: adminUser.adminId, range },
         });
-
         setAnalytics(data);
-      } catch (err) {
-        console.error("❌ Error fetching prepaid analytics:", err);
+      } catch {
         setError("Failed to load prepaid analytics");
       } finally {
         setLoading(false);
       }
     };
-
     fetchAnalytics();
   }, [adminUser, range]);
 
-  if (loading) {
-    return <div className="p-6 text-gray-600">Loading prepaid analytics...</div>;
-  }
-
-  if (error) {
-    return <div className="p-6 text-red-600">{error}</div>;
-  }
-
-  if (!analytics) {
-    return <div className="p-6 text-gray-600">No analytics data available.</div>;
-  }
+  if (loading) return <div className="p-2 text-gray-600">Loading...</div>;
+  if (error) return <div className="p-2 text-red-600">{error}</div>;
+  if (!analytics) return <div className="p-2 text-gray-600">No data available.</div>;
 
   const scanLineData = {
-    labels: analytics.scans_by_hour?.map((item) => `${item.hour}:00`) || [],
+    labels: analytics.scans_by_hour?.map((i) => `${i.hour}:00`) || [],
     datasets: [
       {
         label: "Prepaid Logins",
-        data: analytics.scans_by_hour?.map((item) => item.count) || [],
+        data: analytics.scans_by_hour?.map((i) => i.count) || [],
         borderColor: "#4F46E5",
         backgroundColor: "rgba(79, 70, 229, 0.2)",
         tension: 0.4,
@@ -126,13 +102,8 @@ const PrepaidAnalytical = () => {
     plugins: {
       datalabels: {
         formatter: (value, context) => {
-          const total = context.chart.data.datasets[0].data.reduce(
-            (sum, val) => sum + val,
-            0
-          );
-          const percentage =
-            total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
-          return `${percentage}%`;
+          const total = context.chart.data.datasets[0].data.reduce((s, v) => s + v, 0);
+          return total > 0 ? `${((value / total) * 100).toFixed(1)}%` : "0.0%";
         },
         color: "#fff",
         font: { weight: "bold", size: 12 },
@@ -142,97 +113,81 @@ const PrepaidAnalytical = () => {
   };
 
   return (
-
-
-
-  <div className=" p-6 flex h-screen bg-gray-100 overflow-y-auto flex-col space-y-3">
-    <div className="flex items-center justify-between">
-      <h1 className="text-2xl font-bold text-gray-800">Prepaid Analytical Dashboard</h1>
-      <select
-        value={range}
-        onChange={(e) => setRange(e.target.value)}
-        className="px-3 py-1 w-36 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-      >
-        <option value="today">Today</option>
-        <option value="yesterday">Yesterday</option>
-        <option value="last-7-days">Last 7 Days</option>
-      </select>
-    </div>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <KpiCard title="Active Members Inside" value={analytics.active_members_inside} color="text-blue-600" />
-      <KpiCard title="Prepaid Revenue Today" value={`₱${Number(analytics?.prepaid_revenue_today ?? 0).toLocaleString()}`} color="text-green-600" />
-      <KpiCard title="Total Prepaid Logins" value={Number(analytics?.total_logins_today ?? 0)} color="text-purple-600" />
-      <KpiCard title="Peak Hour" value={analytics.peak_hour} color="text-gray-700" />
-    </div>
-
-    <div className="flex flex-col lg:flex-row gap-4">
-      <div className="lg:w-3/4 w-full">
-        <ChartCard title="Login Trends by Hour">
-          <Line data={scanLineData} options={{ maintainAspectRatio: false }} />
-        </ChartCard>
+    <div className="p-2 flex flex-col space-y-3 w-full min-h-screen">
+      <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-1">
+        <h1 className="text-xl font-semibold text-gray-800">Prepaid Analytical Dashboard</h1>
+        <select
+          value={range}
+          onChange={(e) => setRange(e.target.value)}
+          className="px-2 py-1 w-full sm:w-32 border border-gray-300 rounded-md text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        >
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="last-7-days">Last 7 Days</option>
+        </select>
       </div>
-      <div className="lg:w-1/4 w-full">
-        <ChartCard title="Top-Up vs Session Breakdown">
-          <Pie data={actionsData} options={pieOptions } />
-        </ChartCard>
-      </div>
-    </div>
+      <p className="text-gray-500 text-[11px]">Overview of prepaid logins, revenue, and activity trends</p>
 
-    <div className="bg-white p-4 rounded shadow max-h-[20rem] overflow-y-auto">
-      <h2 className="text-lg font-semibold text-gray-800 mb-4">Recent Prepaid Events</h2>
-      <table className="w-full text-sm text-left">
-        <thead className="sticky top-0 bg-white z-10">
-          <tr className="text-gray-600 border-b">
-            <th className="pb-2 w-10 text-center">#</th>
-            <th className="pb-2 pl-4">Member</th>
-            <th className="pb-2">RFID</th>
-            <th className="pb-2">Action</th>
-            <th className="pb-2">Amount</th>
-            <th className="pb-2">Time</th>
-            <th className="pb-2">Balance After</th>
-          </tr>
-        </thead>
-        <tbody>
-          {analytics?.recent_events?.length > 0 ? (
-            analytics.recent_events.map((event, index) => (
-              <tr key={index} className="border-b">
-                <td className="py-2 text-center text-gray-500">{index + 1}</td>
-                <td className="py-2 pl-4">{event.name}</td>
-                <td className="py-2">{event.rfid}</td>
-                <td className="py-2">{event.action}</td>
-                <td className="py-2">₱{event.amount}</td>
-                <td className="py-2">{event.time}</td>
-                <td className="py-2">₱{event.balance}</td>
-              </tr>
-            ))
-          ) : (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <KpiCard title="Active Members Inside" value={analytics.active_members_inside} color="text-blue-600" />
+        <KpiCard title="Prepaid Revenue Today" value={`₱${Number(analytics?.prepaid_revenue_today ?? 0).toLocaleString()}`} color="text-green-600" />
+        <KpiCard title="Total Prepaid Logins" value={Number(analytics?.total_logins_today ?? 0)} color="text-purple-600" />
+        <KpiCard title="Peak Hour" value={analytics.peak_hour} color="text-gray-700" />
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-2">
+        <div className="flex-1">
+          <ChartCard title="Login Trends by Hour"><Line data={scanLineData} options={{ maintainAspectRatio: false }} /></ChartCard>
+        </div>
+        <div className="lg:w-1/3 w-full">
+          <ChartCard title="Top-Up vs Session Breakdown"><Pie data={actionsData} options={pieOptions} /></ChartCard>
+        </div>
+      </div>
+
+      <div className="bg-white p-2 rounded-md shadow-sm max-h-[18rem] overflow-y-auto">
+        <h2 className="text-xs font-semibold text-gray-700 mb-1">Recent Prepaid Events</h2>
+        <table className="w-full text-[11px] border-collapse">
+          <thead className="bg-gray-700 text-white sticky top-0">
             <tr>
-              <td colSpan="7" className="py-4 text-center text-gray-500">
-                No recent prepaid events available.
-              </td>
+              <th className="p-1 w-6 text-center">#</th>
+              <th className="p-1 text-left">Member</th>
+              <th className="p-1">Action</th>
+              <th className="p-1">Amount</th>
+              <th className="p-1">Time</th>
+              <th className="p-1">Balance After</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {analytics?.recent_events?.length ? analytics.recent_events.map((e, i) => (
+              <tr key={i} className="border-b hover:bg-gray-50">
+                <td className="p-1 text-center text-gray-500">{i + 1}</td>
+                <td className="p-1">{e.name}</td>
+                <td className="p-1">{e.action}</td>
+                <td className="p-1">₱{e.amount}</td>
+                <td className="p-1">{e.time}</td>
+                <td className="p-1">₱{e.balance}</td>
+              </tr>
+            )) : (
+              <tr><td colSpan="7" className="p-2 text-center text-gray-500 text-xs">No recent prepaid events available.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
-);
-
-
+  );
 };
 
-/* Helper components */
 const KpiCard = ({ title, value, color }) => (
-  <div className="bg-white p-4 rounded shadow">
-    <h2 className="text-sm text-gray-500">{title}</h2>
-    <p className={`text-2xl font-bold ${color}`}>{value}</p>
+  <div className="bg-white p-2 rounded-md shadow-sm">
+    <h2 className="text-xs text-gray-500">{title}</h2>
+    <p className={`text-lg font-bold ${color}`}>{value}</p>
   </div>
 );
 
 const ChartCard = ({ title, children }) => (
-  <div className="bg-white p-6 rounded shadow">
-    <h2 className="text-lg font-semibold text-gray-800 mb-4">{title}</h2>
-    <div className="h-64">{children}</div>
+  <div className="bg-white p-2 rounded-md shadow-sm">
+    <h2 className="text-sm font-semibold text-gray-800 mb-1">{title}</h2>
+    <div className="w-full h-52 sm:h-64">{children}</div>
   </div>
 );
 

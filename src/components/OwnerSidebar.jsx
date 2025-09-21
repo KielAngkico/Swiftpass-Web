@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { FiMenu, FiUsers, FiPieChart, FiFileText } from "react-icons/fi";
 import { IoPricetagOutline } from "react-icons/io5";
-import { useAuth } from "../App"; 
+import { useAuth } from "../App";
 
 const OwnerSidebar = () => {
   const { user } = useAuth();
@@ -34,15 +34,15 @@ const OwnerSidebar = () => {
   return (
     <aside
       className={`min-h-screen bg-gray-900 border-r flex flex-col transition-all duration-300 ${
-        isCollapsed ? "w-20" : "w-64"
+        isCollapsed ? "w-14" : "w-56"
       }`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-700">
+      <div className="flex items-center justify-between px-3 py-4 border-b border-gray-700">
         {!isCollapsed && (
           <div>
-            <h2 className="text-lg font-bold text-white">Admin Panel</h2>
-            {user && <p className="text-sm text-gray-300">{user.name}</p>}
+            <h2 className="text-sm font-bold text-white">Admin Panel</h2>
+            {user && <p className="text-xs text-gray-300 truncate">{user.name}</p>}
           </div>
         )}
         <button
@@ -50,30 +50,32 @@ const OwnerSidebar = () => {
           className="p-2 hover:bg-blue-800 text-white rounded-full"
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <FiMenu size={20} />
+          <FiMenu size={18} />
         </button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-4 relative">
-        <ul className="space-y-2">
+      <nav className="flex-1 px-2 py-3 relative">
+        <ul className="space-y-1">
           {navItems.map(({ path, label, icon }) => (
             <li key={path} className="relative group">
               <NavLink
                 to={path}
                 className={({ isActive }) =>
-                  `flex items-center px-4 py-2 rounded-lg transition-all ${
-                    isActive ? "bg-blue-600 text-white" : "text-white hover:bg-blue-800"
+                  `flex items-center px-3 py-2 rounded-lg transition-all text-xs ${
+                    isActive
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-200 hover:bg-blue-800 hover:text-white"
                   }`
                 }
               >
-                <span className="text-xl">{icon}</span>
-                {!isCollapsed && <span className="ml-4">{label}</span>}
+                <span className="text-sm">{icon}</span>
+                {!isCollapsed && <span className="ml-3">{label}</span>}
               </NavLink>
 
               {/* Hover tooltip when collapsed */}
               {isCollapsed && (
-                <span className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 bg-white text-gray-900 px-3 py-1 rounded shadow opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-white text-gray-900 text-xs px-2 py-1 rounded shadow opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                   {label}
                 </span>
               )}

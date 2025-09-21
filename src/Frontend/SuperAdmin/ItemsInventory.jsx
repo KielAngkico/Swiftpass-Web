@@ -2,11 +2,11 @@ import React, { useEffect, useState } from "react";
 import api from "../../api";
 import SuperAdminSidebar from "../../components/SuperAdminSidebar";
 import { useAuth } from "../../App";
-import { useWebSocket } from "../../contexts/WebSocketContext"; // Adjust path
+import { useWebSocket } from "../../contexts/WebSocketContext"; 
 
 const ItemsInventory = () => {
   const { user } = useAuth();
-  const { rfidData } = useWebSocket(); // <-- listen to WS from provider
+  const { rfidData } = useWebSocket(); 
   const [items, setItems] = useState([]);
   const [rfids, setRfids] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,8 +15,6 @@ const ItemsInventory = () => {
   const [form, setForm] = useState({ name: "", quantity: 1 });
   const [selectedItem, setSelectedItem] = useState(null);
   const [addQty, setAddQty] = useState("");
-
-  // Fetch inventory
   const fetchItems = async () => {
     try {
       const { data } = await api.get("/api/inventory");
@@ -27,8 +25,6 @@ const ItemsInventory = () => {
       setLoading(false);
     }
   };
-
-  // Fetch RFIDs
   const fetchRfids = async () => {
     try {
       const { data } = await api.get("/api/rfid");
@@ -53,8 +49,6 @@ const ItemsInventory = () => {
       alert("Failed to add RFID");
     }
   };
-
-  // Add item manually
   const addManualItem = async (e) => {
     e.preventDefault();
     if (!form.name.trim() || form.quantity < 1) return;
@@ -99,7 +93,6 @@ const ItemsInventory = () => {
     }
   }, [user]);
 
-  // Fill scan input whenever a new SUPERADMIN RFID comes from WebSocket
   useEffect(() => {
     if (rfidData?.location === "SUPERADMIN" && rfidData.rfid_tag) {
       console.log("📥 Received SUPERADMIN RFID:", rfidData.rfid_tag);
@@ -113,197 +106,118 @@ const ItemsInventory = () => {
 
   if (!user) return <div>Checking authentication...</div>;
 
-  return (
-    <div className="flex min-h-screen bg-gray-100">
-      <SuperAdminSidebar />
-      <main className="flex-1 p-6">
-        <h1 className="text-2xl font-bold mb-4">Inventory Management</h1>
+return (
+  <div className="flex min-h-screen bg-gray-50">
+    <SuperAdminSidebar />
 
-        {/* Search */}
-        <div className="mb-4">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search..."
-            className="w-1/3 p-2 border border-gray-300 rounded"
-          />
-        </div>
-
-        {/* Add Item / RFID */}
-        <div className="flex gap-4 mb-6">
-          <form
-            onSubmit={addManualItem}
-            className="flex-1 flex gap-2 bg-white p-3 rounded shadow-sm"
+    <main className="flex-1 p-4 space-y-3">
+      {/* Header */}
+      <div className="mb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <h1 className="text-2xl font-semibold text-gray-800">
+            Prepaid Analytical Dashboard
+          </h1>
+          <select
+            value={range}
+            onChange={(e) => setRange(e.target.value)}
+            className="px-2 py-1 w-32 border border-gray-300 rounded-md text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           >
-            <input
-              type="text"
-              placeholder="Item Name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="flex-1 p-2 border border-gray-300 rounded"
-              required
-            />
-            <input
-              type="number"
-              placeholder="Qty"
-              value={form.quantity}
-              onChange={(e) =>
-                setForm({ ...form, quantity: e.target.value })
-              }
-              className="w-24 p-2 border border-gray-300 rounded"
-              min="1"
-              required
-            />
-            <button className="bg-blue-600 text-white px-4 py-2 rounded">
-              Add
-            </button>
-          </form>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              addScannedItem();
-            }}
-            className="flex-1 flex gap-2 bg-white p-3 rounded shadow-sm"
-          >
-            <input
-              type="text"
-              value={scanValue}
-              onChange={(e) => setScanValue(e.target.value)}
-              placeholder="Scan RFID..."
-              className="flex-1 p-2 border border-gray-300 rounded"
-            />
-            <button className="bg-green-600 text-white px-4 py-2 rounded">
-              Add RFID
-            </button>
-          </form>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="last-7-days">Last 7 Days</option>
+          </select>
         </div>
+        <p className="text-gray-600 text-xs mt-1">
+          Overview of prepaid logins, revenue, and activity trends
+        </p>
+      </div>
 
-        {/* Inventory Table */}
-        <div className="flex gap-6">
-          <div className="flex-1 bg-white rounded shadow-sm p-3 overflow-auto max-h-[70vh]">
-            <div className="font-semibold mb-3">Inventory</div>
-            {loading ? (
-              <p>Loading...</p>
-            ) : filteredItems.length === 0 ? (
-              <p>No items found</p>
-            ) : (
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="p-2 border">#</th>
-                    <th className="p-2 border">Name</th>
-                    <th className="p-2 border">Quantity</th>
-                    <th className="p-2 border">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="p-2 border text-center">{index + 1}</td>
-                      <td className="p-2 border text-center">{item.name}</td>
-                      <td className="p-2 border text-center">{item.quantity}</td>
-                      <td className="p-2 border flex justify-center gap-2">
-                        <button
-                          onClick={() => setSelectedItem(item)}
-                          className="bg-blue-500 text-white px-3 py-1 rounded"
-                        >
-                          Add Qty
-                        </button>
-                        <button
-                          onClick={() => deleteItem(item.id, item.name)}
-                          className="bg-red-500 text-white px-3 py-1 rounded"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard
+          title="Active Members Inside"
+          value={analytics.active_members_inside}
+          color="text-blue-600"
+          textSize="text-sm"
+        />
+        <KpiCard
+          title="Prepaid Revenue Today"
+          value={`₱${Number(analytics?.prepaid_revenue_today ?? 0).toLocaleString()}`}
+          color="text-green-600"
+          textSize="text-sm"
+        />
+        <KpiCard
+          title="Total Prepaid Logins"
+          value={Number(analytics?.total_logins_today ?? 0)}
+          color="text-purple-600"
+          textSize="text-sm"
+        />
+        <KpiCard
+          title="Peak Hour"
+          value={analytics.peak_hour}
+          color="text-gray-700"
+          textSize="text-sm"
+        />
+      </div>
 
-          <div className="w-1/2 bg-white rounded shadow-sm p-4">
-            {selectedItem ? (
-              <>
-                <h2 className="text-lg font-semibold mb-4">
-                  Add Quantity for{" "}
-                  <span className="font-bold">{selectedItem.name}</span>
-                </h2>
-                <input
-                  type="number"
-                  placeholder="Enter quantity"
-                  value={addQty}
-                  onChange={(e) => setAddQty(e.target.value)}
-                  className="w-full p-2 border rounded mb-4"
-                  min="1"
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => {
-                      setSelectedItem(null);
-                      setAddQty("");
-                    }}
-                    className="px-4 py-2 bg-gray-400 text-white rounded"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() =>
-                      updateQuantity(
-                        selectedItem.id,
-                        selectedItem.quantity + parseInt(addQty)
-                      )
-                    }
-                    className="px-4 py-2 bg-blue-600 text-white rounded"
-                  >
-                    Save
-                  </button>
-                </div>
-              </>
-            ) : (
-              <p className="text-gray-500">
-                Select an item from the table to add quantity
-              </p>
-            )}
-          </div>
+      {/* Charts */}
+      <div className="flex flex-col lg:flex-row gap-3">
+        <div className="lg:w-3/4 w-full bg-white rounded-md shadow-sm p-2">
+          <h2 className="text-xs font-semibold mb-2">Login Trends by Hour</h2>
+          <Line data={scanLineData} options={{ maintainAspectRatio: false }} />
         </div>
-
-        {/* Registered RFIDs Table */}
-        <div className="bg-white rounded shadow-sm mt-6">
-          <div className="p-3 border-b font-semibold">Registered RFIDs</div>
-          <div className="p-3">
-            {rfids.length === 0 ? (
-              <p>No RFIDs registered</p>
-            ) : (
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="p-2 border">#</th>
-                    <th className="p-2 border">RFID Tag</th>
-                    <th className="p-2 border">Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rfids.map((rfid, index) => (
-                    <tr key={rfid.id}>
-                      <td className="p-2 border">{index + 1}</td>
-                      <td className="p-2 border font-mono">{rfid.rfid_tag}</td>
-                      <td className="p-2 border">
-                        {new Date(rfid.created_at).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+        <div className="lg:w-1/4 w-full bg-white rounded-md shadow-sm p-2">
+          <h2 className="text-xs font-semibold mb-2">Top-Up vs Session Breakdown</h2>
+          <Pie data={actionsData} options={pieOptions} />
         </div>
-      </main>
-    </div>
-  );
+      </div>
+
+      {/* Recent Events Table */}
+      <div className="bg-white p-2 rounded-md shadow-sm max-h-[20rem] overflow-y-auto">
+        <h2 className="text-xs font-semibold text-gray-800 mb-1">
+          Recent Prepaid Events
+        </h2>
+        <table className="w-full text-xs border-collapse">
+          <thead className="sticky top-0 bg-white z-10">
+            <tr className="text-gray-600 border-b">
+              <th className="p-2 w-8 text-center">#</th>
+              <th className="p-2 text-left">Member</th>
+              <th className="p-2">RFID</th>
+              <th className="p-2">Action</th>
+              <th className="p-2">Amount</th>
+              <th className="p-2">Time</th>
+              <th className="p-2">Balance After</th>
+            </tr>
+          </thead>
+          <tbody>
+            {analytics?.recent_events?.length > 0 ? (
+              analytics.recent_events.map((event, index) => (
+                <tr key={index} className="border-b hover:bg-gray-50">
+                  <td className="p-2 text-center text-gray-500">{index + 1}</td>
+                  <td className="p-2">{event.name}</td>
+                  <td className="p-2 font-mono">{event.rfid}</td>
+                  <td className="p-2">{event.action}</td>
+                  <td className="p-2">₱{event.amount}</td>
+                  <td className="p-2">{event.time}</td>
+                  <td className="p-2">₱{event.balance}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="7" className="p-3 text-center text-gray-500 text-xs">
+                  No recent prepaid events available.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+);
+
+
+
 };
 
 export default ItemsInventory;

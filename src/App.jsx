@@ -20,7 +20,7 @@ import Homepage from "./Frontend/Homepage";
 import { API_URL } from "./config";
 import { setAccessToken, clearAccessToken, getAccessToken } from "./tokenMemory";
 
-
+// Lazy imports remain the same...
 const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));
 const ExerciseLibrary = React.lazy(() => import("./Frontend/SuperAdmin/ExerciseLibrary"));
 const SplitLibrary = React.lazy(() => import("./Frontend/SuperAdmin/SplitLibrary"));
@@ -43,7 +43,6 @@ const AddMember = React.lazy(() => import("./Frontend/Staff/AddMember"));
 const MemberEntry = React.lazy(() => import("./Frontend/Staff/member-entry"));
 const MembershipTransactions = React.lazy(() => import("./Frontend/Staff/MembershipTransactions"));
 
-
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
@@ -51,36 +50,83 @@ const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const performLogout = async () => {
+    console.log("🚨 [Frontend] Performing logout at:", new Date().toISOString());
+    try {
+      await fetch(`${API_URL}/api/logout`, {
+        method: "POST",
+        credentials: "include", 
+      });
+      console.log("✅ [Frontend] Backend logout successful");
+    } catch (error) {
+      console.error("❌ [Frontend] Backend logout failed:", error);
+    }
+    
+    clearAccessToken();
+    setUser(null);
+    sessionStorage.clear();
+    localStorage.clear();
+    console.log("🧹 [Frontend] All tokens and storage cleared");
+    window.location.href = "/";
+  };
+
   useEffect(() => {
     const checkAuth = async () => {
+      console.log("🔍 [Frontend] Checking auth status at:", new Date().toISOString());
+      console.log("🎫 [Frontend] Current access token exists:", !!getAccessToken());
+      
       try {
         const res = await fetch(`${API_URL}/api/auth-status-auto`, {
           method: "GET",
           credentials: "include", 
         });
+        
+        console.log("📡 [Frontend] Auth status response:", res.status, res.statusText);
+        
         const data = await res.json();
+        console.log("📦 [Frontend] Auth status data:", {
+          ok: res.ok,
+          hasUser: !!data.user,
+          hasAccessToken: !!data.accessToken,
+          userRole: data.user?.role
+        });
 
         if (res.ok && data.user) {
           if (data.accessToken) {
+            console.log("🎫 [Frontend] Setting new access token from auth check");
             setAccessToken(data.accessToken);
           }
-
           setUser(data.user);
+          console.log("✅ [Frontend] Auth check successful");
         } else {
+          console.log("❌ [Frontend] Auth check failed, clearing tokens");
           clearAccessToken();
           setUser(null);
+          if (window.location.pathname !== "/") {
+            console.log("🔄 [Frontend] Redirecting to login page");
+            window.location.href = "/";
+          }
         }
       } catch (err) {
-        console.error("Auth check failed:", err);
+        console.error("❌ [Frontend] Auth check error:", err.message);
         clearAccessToken();
         setUser(null);
+        if (window.location.pathname !== "/") {
+          console.log("🔄 [Frontend] Redirecting due to auth check error");
+          window.location.href = "/";
+        }
       } finally {
         setLoading(false);
       }
     };
 
     checkAuth();
-    const handleAuthChanged = () => checkAuth();
+    
+    const handleAuthChanged = () => {
+      console.log("🔔 [Frontend] Auth change event received at:", new Date().toISOString());
+      checkAuth();
+    };
+    
     window.addEventListener("auth-changed", handleAuthChanged);
 
     return () => {
@@ -88,17 +134,51 @@ const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const tokenCheckInterval = setInterval(() => {
+      const token = getAccessToken();
+      console.log("⏰ [Frontend] Periodic token check:", {
+        time: new Date().toISOString(),
+        hasToken: !!token,
+        userExists: !!user,
+        currentPath: window.location.pathname
+      });
+
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const expiresAt = new Date(payload.exp * 1000);
+          const timeUntilExpiry = (payload.exp * 1000 - Date.now()) / 1000 / 60;
+          
+          console.log("🎫 [Frontend] Token info:", {
+            expiresAt: expiresAt.toISOString(),
+            minutesUntilExpiry: Math.round(timeUntilExpiry * 100) / 100,
+            isExpired: timeUntilExpiry <= 0
+          });
+
+          if (timeUntilExpiry <= 0) {
+            console.log("⚠️ [Frontend] Token appears expired, triggering auth check");
+            window.dispatchEvent(new Event("auth-changed"));
+          }
+        } catch (e) {
+          console.error("❌ [Frontend] Error parsing token:", e);
+        }
+      }
+    }, 5 * 60 * 1000); 
+
+    return () => clearInterval(tokenCheckInterval);
+  }, [user]);
+
   if (loading) return <p>Loading session...</p>;
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, getAccessToken }}>
+    <AuthContext.Provider value={{ user, setUser, loading, getAccessToken, performLogout }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
-
-
 
 const WebSocketWrapper = ({ children }) => {
   const navigate = useNavigate();
@@ -126,35 +206,14 @@ const WebSocketWrapper = ({ children }) => {
   return <WebSocketProvider navigate={customNavigate}>{children}</WebSocketProvider>;
 };
 
-const useAutoLogout = (timeout = 60 * 60 * 1000, enabled = true) => {
-  const { setUser } = useAuth();
+const useAutoLogout = (timeout = 50 * 60 * 1000, enabled = true) => { 
+  const { performLogout } = useAuth();
   const timerRef = useRef();
   const countdownRef = useRef();
 
-  const performLogout = async () => {
+  const performAutoLogout = async () => {
     console.log("🚨 Auto-logout triggered!");
-    
-    try {
-  
-      await fetch(`${API_URL}/api/logout`, {
-        method: "POST",
-        credentials: "include", 
-      });
-      console.log("✅ Backend logout successful");
-    } catch (error) {
-      console.error("❌ Backend logout failed:", error);
-
-    }
-
-
-    clearAccessToken();
-    setUser(null);
-    sessionStorage.clear();
-    localStorage.clear();
-
-
-    window.dispatchEvent(new Event("auth-changed"));
-    window.location.href = "/";
+    await performLogout();
   };
 
   const resetTimer = () => {
@@ -163,15 +222,13 @@ const useAutoLogout = (timeout = 60 * 60 * 1000, enabled = true) => {
     if (countdownRef.current) clearInterval(countdownRef.current);
 
     let remaining = Math.floor(timeout / 1000);
- 
 
     countdownRef.current = setInterval(() => {
       remaining--;
-
       if (remaining <= 0) clearInterval(countdownRef.current);
     }, 1000);
 
-    timerRef.current = setTimeout(performLogout, timeout);
+    timerRef.current = setTimeout(performAutoLogout, timeout);
   };
 
   useEffect(() => {
@@ -193,6 +250,27 @@ const useAutoLogout = (timeout = 60 * 60 * 1000, enabled = true) => {
 
 const AppRoutes = () => {
   const { user } = useAuth();
+
+  if (!user) {
+    return (
+      <Suspense fallback={<p>Loading page...</p>}>
+        <Routes>
+          <Route path="/" element={<Homepage />} />
+          <Route
+            path="*"
+            element={
+              <div style={{ textAlign: "center", padding: "2rem" }}>
+                <h1>Please Login</h1>
+                <p>
+                  <a href="/">Go to Login</a>
+                </p>
+              </div>
+            }
+          />
+        </Routes>
+      </Suspense>
+    );
+  }
 
   return (
     <Suspense fallback={<p>Loading page...</p>}>
@@ -238,8 +316,9 @@ const AppRoutes = () => {
           element={
             <div style={{ textAlign: "center", padding: "2rem" }}>
               <h1>404 - Page Not Found</h1>
+              <p>You don't have permission to access this page.</p>
               <p>
-                <a href="/">Go Back to Login</a>
+                <a href="/">Go Back to Dashboard</a>
               </p>
             </div>
           }
@@ -257,27 +336,17 @@ const ConditionalHeader = ({ onLogoutClick, loading }) => {
 };
 
 const App = () => {
-  const { user, setUser } = useAuth();
+  const { user, performLogout } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const { resetTimer } = useAutoLogout(60 * 60 * 1000, !!user);
+  const { resetTimer } = useAutoLogout(50 * 60 * 1000, !!user);
 
   const handleLogout = async () => {
     setLoading(true);
     try {
-      await fetch(`${API_URL}/api/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-      clearAccessToken();
-      setUser(null);
-      sessionStorage.clear();
-      localStorage.clear();
-
-      window.dispatchEvent(new Event("auth-changed"));
-
+      await performLogout();
       setShowLogoutConfirm(false);
       navigate("/", { replace: true });
     } catch (error) {
@@ -295,22 +364,29 @@ const App = () => {
       <AppRoutes />
 
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-50 bg-gray-800 bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded shadow-lg w-96">
-            <h2 className="text-lg font-bold mb-4 text-black">Confirm Logout</h2>
-            <p className="text-black mb-6">
-              Are you sure you want to log out, {user?.name}?
-            </p>
-            <div className="flex justify-end space-x-4">
+        <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-80 max-w-sm relative">
+            <button 
+              onClick={() => setShowLogoutConfirm(false)} 
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold"
+              disabled={loading}
+            >
+              ✕
+            </button>
+
+            <h2 className="text-lg text-black font-bold text-center mb-4">Confirm Logout</h2>
+            <p className="text-gray-700 text-center mb-6 text-sm">Are you sure you want to log out?</p>
+
+            <div className="flex gap-3 text-sm">
               <button
-                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 text-black disabled:opacity-50"
+                className="flex-1 bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400 text-black font-medium disabled:opacity-50"
                 onClick={() => setShowLogoutConfirm(false)}
                 disabled={loading}
               >
                 Cancel
               </button>
               <button
-                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 disabled:opacity-50"
+                className="flex-1 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 font-medium disabled:opacity-50"
                 onClick={handleLogout}
                 disabled={loading}
               >

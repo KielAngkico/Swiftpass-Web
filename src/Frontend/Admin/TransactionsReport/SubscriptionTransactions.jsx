@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import api from "../../../api";
 
 const KpiBox = ({ title, value, color }) => (
-  <div className="bg-white shadow p-4 rounded text-center">
-    <h3 className="text-sm text-gray-600">{title}</h3>
-    <p className={`text-xl font-bold ${color}`}>{value}</p>
+  <div className="bg-white shadow p-2 rounded text-center">
+    <h3 className="text-[10px] sm:text-xs text-gray-600 truncate">{title}</h3>
+    <p className={`text-sm sm:text-base font-bold ${color}`}>{value}</p>
   </div>
 );
 
@@ -15,7 +15,6 @@ const SubscriptionTransactions = () => {
   const [members, setMembers] = useState([]);
   const [search, setSearch] = useState("");
   const [filterMethod, setFilterMethod] = useState("All");
-  const [selectedTxn, setSelectedTxn] = useState(null);
   const [filterType, setFilterType] = useState("All");
   const [loading, setLoading] = useState(true);
 
@@ -23,41 +22,29 @@ const SubscriptionTransactions = () => {
     const fetchUser = async () => {
       try {
         const { data } = await api.get("/api/me");
-        console.log("📥 SubscriptionTransactions user:", data);
-
-        if (!data.authenticated || !data.user) {
-          throw new Error("Not authenticated");
-        }
-
+        if (!data.authenticated || !data.user) throw new Error("Not authenticated");
         setUser(data.user);
-      } catch (err) {
-        console.error("❌ Failed to fetch user:", err);
-        if (err.response?.status === 401) {
-          window.location.href = "/login";
-        }
+      } catch {
+        window.location.href = "/login";
       }
     };
     fetchUser();
   }, []);
+
   useEffect(() => {
     if (!user?.id && !user?.adminId) return;
 
     const fetchData = async () => {
       try {
         setLoading(true);
-
         const adminId = user.adminId || user.id;
-
-        const [txRes, memRes] = await Promise.all([
+        const [txnRes, memberRes] = await Promise.all([
           api.get(`/api/get-admin-transactions/${adminId}`),
           api.get(`/api/get-members?admin_id=${adminId}`),
         ]);
-
-        setTransactions(txRes.data || []);
-        setMembers(memRes.data?.members || []);
-        setFiltered(txRes.data || []);
-      } catch (err) {
-        console.error("❌ Failed to fetch subscription transactions:", err);
+        setTransactions(txnRes.data || []);
+        setFiltered(txnRes.data || []);
+        setMembers(memberRes.data?.members || []);
       } finally {
         setLoading(false);
       }
@@ -65,192 +52,146 @@ const SubscriptionTransactions = () => {
 
     fetchData();
   }, [user]);
+
   useEffect(() => {
     const merged = transactions.map((txn) => {
       const match = members.find((m) => m.rfid_tag === txn.rfid_tag);
-      return {
-        ...txn,
-        profile_image_url: match?.profile_image_url || null,
-      };
+      return { ...txn, profile_image_url: match?.profile_image_url || null };
     });
 
     let filteredData = merged;
-
-    if (search) {
-      filteredData = filteredData.filter((txn) =>
-        txn.member_name?.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-
-    if (filterMethod !== "All") {
-      filteredData = filteredData.filter((txn) => txn.payment_method === filterMethod);
-    }
-
-    if (filterType !== "All") {
-      filteredData = filteredData.filter((txn) => txn.transaction_type === filterType);
-    }
+    if (search) filteredData = filteredData.filter((txn) => txn.member_name?.toLowerCase().includes(search.toLowerCase()));
+    if (filterMethod !== "All") filteredData = filteredData.filter((txn) => txn.payment_method === filterMethod);
+    if (filterType !== "All") filteredData = filteredData.filter((txn) => txn.transaction_type === filterType);
 
     setFiltered(filteredData);
   }, [search, filterMethod, filterType, transactions, members]);
 
   const totalRevenue = transactions.reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
   const totalTransactions = filtered.length;
-  const cashRevenue = filtered
-    .filter((txn) => txn.payment_method === "Cash")
-    .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
-  const gcashRevenue = filtered
-    .filter((txn) => txn.payment_method === "GCash")
-    .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
-
-  if (loading) {
-    return <div className="p-6 text-gray-600">Loading subscription transactions...</div>;
-  }
+  const cashRevenue = filtered.filter((txn) => txn.payment_method === "Cash").reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
+  const gcashRevenue = filtered.filter((txn) => txn.payment_method === "GCash").reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
 
   return (
-  <div className="flex h-screen overflow-hidden bg-gray-100">
-    <div className="flex-1 p-6 overflow-y-auto">
-      <h1 className="text-2xl font-bold mb-6">Subscription Sales Report</h1>
-
-      {/* 📊 KPI Summary Boxes */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full mb-6">
-        <KpiBox title="💰 Total Revenue" value={`₱${totalRevenue.toFixed(2)}`} color="text-green-600" />
-        <KpiBox title="📄 Total Transactions" value={totalTransactions} color="text-blue-600" />
-        <KpiBox title="💵 Cash Revenue" value={`₱${cashRevenue.toFixed(2)}`} color="text-teal-600" />
-        <KpiBox title="📲 GCash Revenue" value={`₱${gcashRevenue.toFixed(2)}`} color="text-purple-600" />
+    <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">
+      <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-1">
+        <div>
+          <h2 className="text-lg sm:text-xl font-semibold mb-1">
+            Subscription Transactions
+          </h2>
+          <p className="text-[10px] sm:text-xs text-gray-500">
+            {filtered.length} transactions{search && ` matching "${search}"`}
+          </p>
+        </div>
       </div>
 
-      {/* 🔍 Search & Filter Controls */}
-<div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-  <div className="flex flex-col w-full md:w-1/3">
-    <label className="text-sm text-gray-500 mb-1">🔍 Search by Member Name</label>
-    <input
-      type="text"
-      placeholder="e.g. John Doe"
-      className="p-3 border border-gray-300 rounded"
-      value={search}
-      onChange={(e) => setSearch(e.target.value)}
-    />
-  </div>
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <KpiBox title="💰 Total Revenue" value={`₱${totalRevenue.toFixed(2)}`} color="text-green-600" />
+            <KpiBox title="📄 Total Transactions" value={totalTransactions} color="text-blue-600" />
+            <KpiBox title="💵 Cash Revenue" value={`₱${cashRevenue.toFixed(2)}`} color="text-teal-600" />
+            <KpiBox title="📲 Cashless" value={`₱${gcashRevenue.toFixed(2)}`} color="text-purple-600" />
+          </div>
 
-  <div className="flex flex-col w-full md:w-1/4">
-    <label className="text-sm text-gray-500 mb-1">📄 Filter Transaction Type</label>
-    <select
-      className="p-3 border border-gray-300 rounded"
-      value={filterType}
-      onChange={(e) => setFilterType(e.target.value)}
-    >
-      <option value="All">All Types</option>
-      <option value="new_membership">New Membership</option>
-      <option value="renewal">Renewal</option>
-      <option value="product_purchase">Others</option>
-    </select>
-  </div>
-
-  <div className="flex flex-col w-full md:w-1/4">
-    <label className="text-sm text-gray-500 mb-1">💳 Filter Payment Method</label>
-    <select
-      className="p-3 border border-gray-300 rounded"
-      value={filterMethod}
-      onChange={(e) => setFilterMethod(e.target.value)}
-    >
-      <option value="All">All Methods</option>
-      <option value="Cash">Cash</option>
-      <option value="GCash">Cashless</option>
-    </select>
-  </div>
-</div>
-
-      {/* 📋 Transactions Table */}
-      {filtered.length === 0 ? (
-        <p className="text-gray-500 italic">No transactions found.</p>
-      ) : (
-        <div className="overflow-x-auto bg-white rounded shadow">
-          <table className="min-w-full text-sm text-left">
-            <thead className="bg-gray-800 text-white uppercase text-xs">
-              <tr>
-                <th className="px-6 py-3">#</th>
-                <th className="px-6 py-3">Profile</th>
-                <th className="px-6 py-3">Name</th>
-                <th className="px-6 py-3">Transaction Type</th>
-                <th className="px-6 py-3">Plan</th>
-                <th className="px-6 py-3">Amount</th>
-                <th className="px-6 py-3">Method</th>
-                <th className="px-6 py-3">Staff</th>
-                <th className="px-6 py-3">Date</th>
-                <th className="px-6 py-3">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((txn, index) => (
-                <tr key={txn.transaction_id} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                  <td className="px-6 py-4">{index + 1}</td>
-                  <td className="px-6 py-4">
-                    {txn.profile_image_url ? (
-                      <img
-                        src={`http://localhost:5000/${txn.profile_image_url}`}
-                        alt={txn.member_name}
-                        className="w-10 h-10 rounded-full object-cover border"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                        N/A
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 font-medium text-gray-800">{txn.member_name}</td>
-                  <td className="px-6 py-4">{txn.transaction_type}</td>
-                  <td className="px-6 py-4">{txn.plan_name || "N/A"}</td>
-                  <td className="px-6 py-4">₱{parseFloat(txn.amount).toFixed(2)}</td>
-                  <td className="px-6 py-4">{txn.payment_method}</td>
-                  <td className="px-6 py-4">{txn.staff_name}</td>
-                  <td className="px-6 py-4">{new Date(txn.transaction_date).toLocaleString()}</td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => setSelectedTxn(txn)}
-                      className="px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* 🔍 Modal: Transaction Details */}
-      {selectedTxn && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl mx-4 relative animate-fade-in">
-            <button
-              onClick={() => setSelectedTxn(null)}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-xl font-bold"
-              aria-label="Close"
-            >
-              &times;
-            </button>
-
-            <h2 className="text-2xl font-bold text-indigo-700 mb-4">Transaction Details</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700">
-              <p><span className="font-semibold">Transaction ID:</span> {selectedTxn.transaction_id}</p>
-              <p><span className="font-semibold">Member Name:</span> {selectedTxn.member_name}</p>
-              <p><span className="font-semibold">RFID Tag:</span> {selectedTxn.rfid_tag}</p>
-              <p><span className="font-semibold">Plan:</span> {selectedTxn.plan_name || "N/A"}</p>
-              <p><span className="font-semibold">Amount:</span> ₱{parseFloat(selectedTxn.amount).toFixed(2)}</p>
-              <p><span className="font-semibold">Payment Method:</span> {selectedTxn.payment_method}</p>
-              {selectedTxn.payment_method === "GCash" && (
-                <p><span className="font-semibold">GCash Ref:</span> {selectedTxn.reference || "N/A"}</p>
-              )}
-              <p><span className="font-semibold">Processed By:</span> {selectedTxn.staff_name}</p>
-              <p><span className="font-semibold">Date:</span> {new Date(selectedTxn.transaction_date).toLocaleString()}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="text-[10px] sm:text-xs text-gray-500 mb-1 block">🔍 Search Member</label>
+              <input
+                type="text"
+                placeholder="e.g. John Doe"
+                className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-[10px] sm:text-xs text-gray-500 mb-1 block">📄 Filter Type</label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+              >
+                <option value="All">All Types</option>
+                <option value="new_membership">New Membership</option>
+                <option value="renewal">Renewal</option>
+                <option value="product_purchase">Others</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] sm:text-xs text-gray-500 mb-1 block">💳 Filter Method</label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+                value={filterMethod}
+                onChange={(e) => setFilterMethod(e.target.value)}
+              >
+                <option value="All">All Methods</option>
+                <option value="Cash">Cash</option>
+                <option value="GCash">Cashless</option>
+              </select>
             </div>
           </div>
+
+          {filtered.length === 0 ? (
+            <p className="text-gray-500 italic text-xs sm:text-sm">No transactions found.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-[10px] sm:text-xs text-left border-collapse">
+                <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-[10px]">
+                  <tr>
+                    <th className="px-3 py-2">#</th>
+                    <th className="px-3 py-2">Profile</th>
+                    <th className="px-3 py-2">Name</th>
+                    <th className="px-3 py-2">Type</th>
+                    <th className="px-3 py-2">Plan</th>
+                    <th className="px-3 py-2">Amount</th>
+                    <th className="px-3 py-2">Method</th>
+                    <th className="px-3 py-2">Staff</th>
+                    <th className="px-3 py-2">Date</th>
+                    <th className="px-3 py-2">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((txn, index) => (
+                    <tr key={txn.transaction_id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                      <td className="px-3 py-2">{index + 1}</td>
+                      <td className="px-3 py-2">
+                        {txn.profile_image_url ? (
+                          <img
+                            src={`http://localhost:5000/${txn.profile_image_url}`}
+                            alt={txn.member_name}
+                            className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-500">
+                            N/A
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 font-medium text-gray-800">{txn.member_name}</td>
+                      <td className="px-3 py-2">{txn.transaction_type}</td>
+                      <td className="px-3 py-2">{txn.plan_name || "N/A"}</td>
+                      <td className="px-3 py-2">₱{parseFloat(txn.amount).toFixed(2)}</td>
+                      <td className="px-3 py-2">{txn.payment_method}</td>
+                      <td className="px-3 py-2">{txn.staff_name}</td>
+                      <td className="px-3 py-2">{new Date(txn.transaction_date).toLocaleString()}</td>
+                      <td className="px-3 py-2">
+                        <button
+                          className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-[10px] sm:text-xs"
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default SubscriptionTransactions;

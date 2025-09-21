@@ -1,23 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import SuperAdminSidebar from "../../components/SuperAdminSidebar";
-import AddPartnerModal from "../../components/Modals/AddPartnerModal"; 
+import AddPartnerModal from "../../components/Modals/AddPartnerModal";
 import { API_URL } from "../../config";
 
 const AddClient = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
-    admin_name: '',
-    age: '',
-    address: '',
-    email: '',
-    password: '',
-    gym_name: '',
-    system_type: '',
-    session_fee: '',
+    admin_name: "",
+    age: "",
+    address: "",
+    email: "",
+    password: "",
+    gym_name: "",
+    system_type: "",
+    session_fee: "",
+    profile_image_url: null,
   });
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const [admins, setAdmins] = useState([]);
+  const [selectedAdmin, setSelectedAdmin] = useState(null);
 
   useEffect(() => {
     const fetchAdmins = async () => {
@@ -25,189 +27,274 @@ const AddClient = () => {
         const response = await axios.get(`${API_URL}/api/admins`);
         setAdmins(response.data);
       } catch (error) {
-        console.error('Error fetching admins:', error);
+        setMessage("Error fetching partners. Please try again.");
       }
     };
     fetchAdmins();
   }, []);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const showNotification = (msg, type = "error") => {
+    setMessage(msg);
+    setTimeout(() => setMessage(""), 4000);
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setMessage('');
+  const handleChange = (e) => {
+    if (e.target.type === "file") {
+      setFormData({ ...formData, [e.target.name]: e.target.files[0] });
+    } else {
+      setFormData({ ...formData, [e.target.name]: e.target.value });
+    }
+  };
 
-  // Validate age
-  if (isNaN(formData.age) || formData.age.trim() === "") {
-    setMessage('Age must be a valid number.');
-    return;
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage("");
 
-  // Ensure session_fee is a number, default to 0 if empty
-  const sessionFeeValue = formData.session_fee ? Number(formData.session_fee) : 0;
+    if (isNaN(formData.age) || String(formData.age).trim() === "") {
+      showNotification("Age must be a valid number.");
+      return;
+    }
 
-  try {
-    // Build payload with normalized session_fee
-    const payload = {
-      ...formData,
-      age: Number(formData.age),
-      session_fee: sessionFeeValue
-    };
+    const sessionFeeValue = formData.session_fee
+      ? Number(formData.session_fee)
+      : 0;
 
-    const response = await axios.post(`${API_URL}/api/add-client`, payload);
-    setMessage('Client added successfully!');
-    setShowAddForm(false);
+    try {
+      const formPayload = new FormData();
+      formPayload.append("admin_name", formData.admin_name);
+      formPayload.append("age", Number(formData.age));
+      formPayload.append("address", formData.address);
+      formPayload.append("email", formData.email);
+      formPayload.append("password", formData.password);
+      formPayload.append("gym_name", formData.gym_name);
+      formPayload.append("system_type", formData.system_type);
+      formPayload.append("session_fee", sessionFeeValue);
+      if (formData.profile_image_url) {
+        formPayload.append("profile_image_url", formData.profile_image_url);
+      }
 
-    // Reset form
-    setFormData({
-      admin_name: '',
-      age: '',
-      address: '',
-      email: '',
-      password: '',
-      gym_name: '',
-      system_type: '',
-      session_fee: '',
-    });
+      const response = await axios.post(
+        `${API_URL}/api/add-client`,
+        formPayload,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
 
-    // Update admins list
-    setAdmins([...admins, { id: response.data.id, ...payload }]);
-  } catch (error) {
-    console.error(error);
-    setMessage('Failed to add client. Please try again.');
-  }
-};
+      showNotification("Partner added successfully!", "success");
+      setShowAddForm(false);
 
+      setFormData({
+        admin_name: "",
+        age: "",
+        address: "",
+        email: "",
+        password: "",
+        gym_name: "",
+        system_type: "",
+        session_fee: "",
+        profile_image_url: null,
+      });
+
+      setAdmins([...admins, { id: response.data.id, ...response.data }]);
+    } catch (error) {
+      showNotification("Failed to add partner. Please try again.");
+    }
+  };
 
   const handleArchive = async (id, isArchived) => {
     try {
-      const endpoint = isArchived ? 'restore-admin' : 'archive-admin';
-      const action = isArchived ? 'restore' : 'archive';
-      
-      if (window.confirm(`Are you sure you want to ${action} this admin?`)) {
+      const endpoint = isArchived ? "restore-admin" : "archive-admin";
+      const action = isArchived ? "restore" : "archive";
+
+      if (window.confirm(`Are you sure you want to ${action} this partner?`)) {
         await axios.put(`${API_URL}/api/${endpoint}/${id}`);
 
-        setAdmins(admins.map(admin => 
-          admin.id === id 
-            ? { ...admin, is_archived: !isArchived }
-            : admin
-        ));
-        
-        setMessage(`Admin ${action}d successfully!`);
-        setTimeout(() => setMessage(''), 3000);
+        setAdmins(
+          admins.map((admin) =>
+            admin.id === id ? { ...admin, is_archived: !isArchived } : admin
+          )
+        );
+
+        showNotification(`Partner ${action}d successfully!`, "success");
       }
     } catch (error) {
-      console.error(`${isArchived ? 'Restore' : 'Archive'} request failed:`, error);
-      setMessage(`Failed to ${isArchived ? 'restore' : 'archive'} admin. Please try again.`);
-      setTimeout(() => setMessage(''), 3000);
+      showNotification(
+        `Failed to ${isArchived ? "restore" : "archive"} partner. Please try again.`
+      );
     }
   };
 
   const handleCloseModal = () => {
     setShowAddForm(false);
- 
     setFormData({
-      admin_name: '',
-      age: '',
-      address: '',
-      email: '',
-      password: '',
-      gym_name: '',
-      system_type: '',
-      session_fee: '',
+      admin_name: "",
+      age: "",
+      address: "",
+      email: "",
+      password: "",
+      gym_name: "",
+      system_type: "",
+      session_fee: "",
+      profile_image_url: null,
     });
   };
 
-  return (
-    <div className='flex bg-gray-300'>
-      <SuperAdminSidebar />
-      <div className="p-6 w-full">
-        <h2 className="text-2xl font-bold mb-4">Partner's Management</h2>
-        
-        {/* Actions Bar with Stats */}
-        <div className="flex justify-between items-center mb-4 bg-white p-4 rounded shadow">
-          <button 
-            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600" 
-            onClick={() => setShowAddForm(true)}
-          >
-            Add Partner
-          </button>
-          
-          <div className="flex items-center gap-4 text-sm text-gray-600">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span>Active: {admins.filter(a => !a.is_archived).length}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <span>Archived: {admins.filter(a => a.is_archived).length}</span>
-            </div>
+  const NotificationMessage = ({ message }) => {
+    if (!message) return null;
+
+    const isSuccess = message.includes("success");
+    const bgColor = isSuccess
+      ? "bg-green-50 border-green-200 text-green-700"
+      : "bg-red-50 border-red-200 text-red-700";
+
+    return (
+      <div className={`p-3 mb-4 rounded-md border ${bgColor} text-sm`}>
+        {message}
+      </div>
+    );
+  };
+
+return (
+  <div className="flex min-h-screen bg-gray-50">
+    <SuperAdminSidebar />
+
+    <div className="flex-1 p-4">
+      <div className="mb-4">
+        <h1 className="text-xl font-semibold text-gray-800">
+          Partner Management
+        </h1>
+        <p className="text-gray-600 text-xs">
+          Manage your gym partners and their information
+        </p>
+      </div>
+
+      <div className="mb-3">
+        <button
+          className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors text-xs font-medium w-full sm:w-auto"
+          onClick={() => setShowAddForm(true)}
+        >
+          + Add New Partner
+        </button>
+      </div>
+
+      <NotificationMessage message={message} />
+      <AddPartnerModal
+        isOpen={showAddForm}
+        onClose={handleCloseModal}
+        formData={formData}
+        onFormChange={handleChange}
+        onSubmit={handleSubmit}
+      />
+
+      {admins.length === 0 ? (
+        <div className="text-center py-6 bg-white rounded-md border">
+          <div className="text-gray-400 text-sm mb-1">No partners found</div>
+          <div className="text-gray-500 text-xs">
+            Add your first partner to get started
           </div>
         </div>
-        
-        {/* Feedback Message */}
-        {message && (
-          <div className={`p-3 rounded mb-4 ${
-            message.includes('success') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-          }`}>
-            {message}
-          </div>
-        )}
-
-        {/* Add Partner Modal Component */}
-        <AddPartnerModal
-          isOpen={showAddForm}
-          onClose={handleCloseModal}
-          formData={formData}
-          onFormChange={handleChange}
-          onSubmit={handleSubmit}
-        />
-
-        {/* Simple Admin Cards */}
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {admins.map((admin) => (
-            <div key={admin.id} className={`p-4 border rounded shadow-md w-80 ${
-              admin.is_archived ? 'bg-red-100 border-red-300' : 'bg-gray-200'
-            }`}>
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="text-lg font-bold">{admin.admin_name}</h3>
-                {admin.is_archived && (
-                  <span className="bg-red-500 text-white text-xs px-2 py-1 rounded">ARCHIVED</span>
-                )}
-              </div>
-              <p><strong>Gym:</strong> {admin.gym_name}</p>
-              <p><strong>System Type:</strong> {admin.system_type}</p>
-              <p><strong>Age:</strong> {admin.age}</p>
-              <p><strong>Email:</strong> {admin.email}</p>
-              <p><strong>Address:</strong> {admin.address}</p>
-              
-              <div className="mt-3 flex justify-between gap-2">
-                <button 
-                  className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 flex-1" 
-                  onClick={() => alert(`Viewing details for ${admin.admin_name}`)}
-                >
-                  View Details
-                </button>
-                
-                <button
-                  className={`px-3 py-1 rounded text-white flex-1 ${
-                    admin.is_archived 
-                      ? 'bg-green-500 hover:bg-green-600' 
-                      : 'bg-red-500 hover:bg-red-600'
-                  }`}
-                  onClick={() => handleArchive(admin.id, admin.is_archived)}
-                >
-                  {admin.is_archived ? 'Restore' : 'Archive'}
-                </button>
+            <div
+              key={admin.id}
+              className={`rounded-lg border shadow-sm transition-all text-xs ${
+                admin.is_archived
+                  ? "bg-red-50 border-red-200"
+                  : "bg-white border-gray-200 hover:shadow-md"
+              }`}
+            >
+              {admin.profile_image_url && (
+                <img
+                  src={`${API_URL}${admin.profile_image_url}`}
+                  alt={admin.gym_name}
+                  className="w-full h-28 object-cover rounded-t-lg"
+                />
+              )}
+
+              <div className="p-3">
+                <h3 className="font-bold text-black text-sm truncate">
+                  {admin.gym_name}
+                </h3>
+                <p className="text-black text-xs truncate">
+                  <span className="font-bold">Owner:</span>{" "}
+                  {admin.admin_name}
+                </p>
+                <p className="text-black text-xs line-clamp-2">
+                  <span className="font-bold">Address:</span>{" "}
+                  {admin.address}
+                </p>
+
+                <div className="flex gap-2 mt-3">
+                  <button
+                    className="flex-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-200 transition-colors text-xs font-medium"
+                    onClick={() => setSelectedAdmin(admin)}
+                  >
+                    View
+                  </button>
+
+                  <button
+                    className={`flex-1 px-2 py-1 rounded-md text-white text-xs font-medium transition-colors ${
+                      admin.is_archived
+                        ? "bg-green-500 hover:bg-green-600"
+                        : "bg-red-500 hover:bg-red-600"
+                    }`}
+                    onClick={() => handleArchive(admin.id, admin.is_archived)}
+                  >
+                    {admin.is_archived ? "Restore" : "Archive"}
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      )}
+
+      {selectedAdmin && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-5 w-full max-w-sm shadow-lg">
+            {selectedAdmin.profile_image_url && (
+              <img
+                src={`${API_URL}${selectedAdmin.profile_image_url}`}
+                alt={selectedAdmin.gym_name}
+                className="w-full h-36 object-cover rounded-md mb-3"
+              />
+            )}
+            <h2 className="text-lg font-semibold mb-2">
+              {selectedAdmin.gym_name}
+            </h2>
+            <p className="text-sm text-gray-700">
+              <strong>Owner:</strong> {selectedAdmin.admin_name}
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>Email:</strong> {selectedAdmin.email}
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>Age:</strong> {selectedAdmin.age}
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>Address:</strong> {selectedAdmin.address}
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>System:</strong> {selectedAdmin.system_type}
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>Session Fee:</strong> {selectedAdmin.session_fee}
+            </p>
+            <div className="mt-4 flex justify-end">
+              <button
+                className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-xs hover:bg-gray-300"
+                onClick={() => setSelectedAdmin(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
+
 };
 
 export default AddClient;

@@ -68,125 +68,107 @@ const PrepaidView = () => {
     (m) => (m.status || "").toLowerCase() === "inactive"
   ).length;
 
-  return (
-  <div className="flex h-screen overflow-hidden bg-gray-100">
-    <div className="flex-1 p-6 overflow-y-auto">
-      <h1 className="text-2xl font-bold mb-6">Prepaid Members</h1>
-      {notification && (
-        <div
-          className={`mb-4 p-3 rounded text-white font-semibold ${
-            notification.type === "success" ? "bg-green-500" : "bg-red-500"
-          }`}
+return (
+  <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">
+    <h1 className="text-lg sm:text-xl font-semibold mb-1">Prepaid Members</h1>
+    <p className="text-xs text-gray-500">Overview of member activity and balances</p>
+
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <KpiCard title="Total Members" value={totalMembers} color="text-indigo-600" />
+      <KpiCard title="Active Members" value={activeMembers} color="text-green-600" />
+      <KpiCard title="Inactive Members" value={inactiveMembers} color="text-red-600" />
+    </div>
+
+    <div className="flex flex-col sm:flex-row gap-2">
+      <div className="flex-1">
+        <label className="text-xs text-gray-500 mb-1 block">🔍 Search by Member</label>
+        <input
+          type="text"
+          placeholder="e.g. Maria Santiago"
+          className="p-2 border border-gray-300 rounded w-full text-xs"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      <div className="flex-1 sm:w-1/3">
+        <label className="text-xs text-gray-500 mb-1 block">🧍‍♂️ Filter by Status</label>
+        <select
+          className="p-2 border border-gray-300 rounded w-full text-xs"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
         >
-          {notification.message}
-        </div>
-      )}
-        <div className="flex flex-col gap-6 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-         <KpiCard title="Total Members" value={totalMembers} color="text-indigo-600" />
-           <KpiCard title="Active Members" value={activeMembers} color="text-green-600" />
-            <KpiCard title="Inactive Members" value={inactiveMembers} color="text-red-600" />
-  </div>
-  <div className="flex flex-col sm:flex-row justify-between gap-4">
-    <div className="flex flex-col w-full sm:w-2/3">
-      <label className="text-sm text-gray-500 mb-1">🔍 Search by Member</label>
-      <input
-        type="text"
-        placeholder="e.g. Maria Santiago"
-        className="p-3 border border-gray-300 rounded"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+          <option value="All">All Members</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
     </div>
 
-    <div className="flex flex-col w-full sm:w-1/3">
-      <label className="text-sm text-gray-500 mb-1">🧍‍♂️ Filter by Status</label>
-      <select
-        className="p-3 border border-gray-300 rounded"
-        value={filterStatus}
-        onChange={(e) => setFilterStatus(e.target.value)}
-      >
-        <option value="All">All Members</option>
-        <option value="active">Active</option>
-        <option value="inactive">Inactive</option>
-      </select>
-    </div>
-  </div>
-</div>
-      {loading ? (
-        <p className="text-gray-600">Loading members...</p>
-      ) : filteredMembers.length === 0 ? (
-        <p className="text-gray-500 italic">No members found.</p>
-      ) : (
-        <div className="overflow-x-auto bg-white rounded shadow">
-          <table className="min-w-full text-sm text-left">
-            <thead className="bg-gray-800 text-white uppercase text-xs">
-                <tr>
-                <th className="px-6 py-3">#</th>
-                <th className="px-6 py-3">Profile</th>
-                <th className="px-6 py-3">Name</th>
-                <th className="px-6 py-3">Phone</th>
-                <th className="px-6 py-3">Balance</th>
-                <th className="px-6 py-3">Status</th> 
-                <th className="px-6 py-3">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
+    {loading ? (
+      <p className="text-gray-600 text-xs">Loading members...</p>
+    ) : filteredMembers.length === 0 ? (
+      <p className="text-gray-500 italic text-xs">No members found.</p>
+    ) : (
+      <div className="overflow-x-auto rounded shadow">
+        <table className="min-w-full text-left text-[10px] sm:text-xs">
+          <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-xs">
+            <tr>
+              <th className="px-2 py-1">#</th>
+              <th className="px-2 py-1">Profile</th>
+              <th className="px-2 py-1">Name</th>
+              <th className="px-2 py-1">Phone</th>
+              <th className="px-2 py-1">Balance</th>
+              <th className="px-2 py-1">Status</th>
+              <th className="px-2 py-1">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
             {filteredMembers.map((member, index) => (
-                <tr key={member.rfid_tag || index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                <td className="px-6 py-4">{index + 1}</td>
-                <td className="px-6 py-4">
-                    <img
-                    src={`http://localhost:5000/${member.profile_image_url}`}
+              <tr key={member.rfid_tag || index} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                <td className="px-2 py-1">{index + 1}</td>
+                <td className="px-2 py-1">
+                  <img
+                    src={`http://localhost:5000/${member.profile_image_url || "default-profile.png"}`}
                     alt={member.full_name}
-                    className="w-10 h-10 rounded-full object-cover border"
-                    />
+                    className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
+                  />
                 </td>
-                <td className="px-6 py-4 font-medium text-gray-800">{member.full_name}</td>
-                <td className="px-6 py-4">{member.phone_number}</td>
-                <td className="px-6 py-4">
-                    <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 shadow-sm">
+                <td className="px-2 py-1 font-medium">{member.full_name}</td>
+                <td className="px-2 py-1">{member.phone_number}</td>
+                <td className="px-2 py-1">
+                  <span className="inline-block px-2 py-0.5 text-[9px] sm:text-xs font-semibold rounded-full bg-green-100 text-green-700 shadow-sm">
                     ₱{parseFloat(member.current_balance || 0).toFixed(2)}
-                    </span>
+                  </span>
                 </td>
-                <td className="px-6 py-4">
-                    <span
-                    className={`inline-block px-3 py-1 text-xs font-semibold rounded-full shadow-sm ${
-                        member.status === "active"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
+                <td className="px-2 py-1">
+                  <span
+                    className={`inline-block px-2 py-0.5 text-[9px] sm:text-xs font-semibold rounded-full shadow-sm ${
+                      member.status === "active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                     }`}
-                    >
+                  >
                     {member.status}
-                    </span>
+                  </span>
                 </td>
-                <td className="px-6 py-4">
-                    <button
+                <td className="px-2 py-1">
+                  <button
                     onClick={() => setSelectedMember(member)}
-                    className="px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
+                    className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                  >
                     View
-                    </button>
+                  </button>
                 </td>
-                </tr>
+              </tr>
             ))}
-            </tbody>
+          </tbody>
+        </table>
+      </div>
+    )}
 
-          </table>
-        </div>
-      )}
-
-{selectedMember && (
-  <PrepaidMemberCard
-    member={selectedMember}
-    onClose={() => setSelectedMember(null)}
-  />
-)}
-
-
-    </div>
+    {selectedMember && <PrepaidMemberCard member={selectedMember} onClose={() => setSelectedMember(null)} />}
   </div>
 );
+
+
 
 };
 

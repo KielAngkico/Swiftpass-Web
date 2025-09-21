@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
+
 import LandingPageHeader from "../components/LandingPageHeader";
 
 import logo from "../assets/Final_SwiftPass_Logo.jpg";
@@ -58,8 +60,6 @@ const Homepage = () => {
     <div className="bg-white">
       <LandingPageHeader />
       <Navbar />
-
-      {/* Hero Section */}
       <section className="bg-blue-50" id="main">
         <div className="flex flex-col md:flex-row min-h-screen items-center justify-between px-6 md:px-20 py-10">
           <div className="md:w-1/2 w-full flex flex-col justify-center space-y-6 text-left">
@@ -69,7 +69,7 @@ const Homepage = () => {
             </p>
             <div className="flex space-x-4">
               <button className="px-8 py-3 bg-blue-600 text-white rounded-xl shadow hover:bg-blue-700 transition duration-300">
-                Book a Demo
+                <a href = "#Contact">Book a Demo</a>
               </button>
               <button className="px-8 py-3 border border-blue-600 text-blue-600 rounded-xl shadow hover:bg-blue-50 transition duration-300">
                 Learn More
@@ -83,17 +83,13 @@ const Homepage = () => {
           </div>
         </div>
       </section>
-
-      {/* About Section */}
       <section id="about" className="bg-white flex items-center justify-center px-4 py-20">
         <div className="w-full max-w-6xl">
           <h1 className="text-4xl text-black font-bold mb-8 text-center">What is SwiftPass?</h1>
           <p className="text-xl text-gray-600 text-center mb-12 max-w-4xl mx-auto">
             SwiftPass is an RFID-Based Gym Membership Monitoring and Access Control System designed to help gyms streamline operations, improve member experience, and gain valuable insights.
           </p>
-          
-          {/* Solution Components */}
-          <div className="mb-16">
+            <div className="mb-16">
             <h2 className="text-2xl font-bold text-black text-center mb-8">The SwiftPass Solution Includes:</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-blue-50 p-8 text-center rounded-xl shadow-sm border border-blue-100 hover:shadow-md transition duration-300">
@@ -119,8 +115,6 @@ const Homepage = () => {
               </div>
             </div>
           </div>
-
-          {/* Mission & Vision */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="bg-black text-white p-8 rounded-xl shadow-lg">
               <h3 className="text-2xl font-bold mb-4">Mission</h3>
@@ -137,8 +131,6 @@ const Homepage = () => {
           </div>
         </div>
       </section>
-
-      {/* Features Section */}
       <section id="features" className="bg-blue-50 py-20">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
@@ -178,8 +170,6 @@ const Homepage = () => {
               <p className="text-gray-700">Advanced security features protect member data and facility access.</p>
             </div>
           </div>
-
-          {/* Quote Section */}
           <div className="mt-16 text-center bg-white p-8 rounded-xl shadow-lg border border-blue-200 max-w-4xl mx-auto">
             <blockquote className="text-2xl font-medium text-blue-600 mb-4">
               "Better check-in. Better experience. Better results — with SwiftPass."
@@ -190,10 +180,8 @@ const Homepage = () => {
           </div>
         </div>
       </section>
-
-      {/* Contact Section */}
-      <section id="Contact" className="bg-white min-h-screen flex items-center justify-center px-4 py-16">
-        <div className="w-full max-w-6xl">
+      <section id="Contact" className="bg-white min-h-screen flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-5xl">
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-black mb-4">Ready to Modernize Your Gym?</h1>
             <p className="text-xl text-gray-700">Let's work together to give your members a seamless experience. Fill out the form below and we'll get in touch.</p>
@@ -219,21 +207,25 @@ const Homepage = () => {
               </div>
             </div>
 
-            <div className="md:w-1/2 p-10 bg-white">
+            <div className="md:w-1/2 p-10 bg-white text-sm">
               <h2 className="text-2xl font-semibold mb-6 text-black">Contact Us</h2>
               {successMsg && (
                 <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
                   {successMsg}
                 </div>
               )}
-              <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={handleSubmit}>
+              <form 
+                className="grid grid-cols-1 sm:grid-cols-2 gap-4" 
+                onSubmit={handleSubmit}
+              >
                 <input
                   type="text"
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
                   placeholder="First Name"
-                  className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded-md 
+                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
                 <input
@@ -242,7 +234,8 @@ const Homepage = () => {
                   value={formData.lastName}
                   onChange={handleChange}
                   placeholder="Last Name"
-                  className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded-md 
+                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
                 <input
@@ -251,7 +244,8 @@ const Homepage = () => {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="Email Address"
-                  className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 col-span-2"
+                  className="w-full p-3 border border-gray-300 rounded-md 
+                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 col-span-1 sm:col-span-2"
                   required
                 />
                 <input
@@ -260,40 +254,32 @@ const Homepage = () => {
                   value={formData.phone}
                   onChange={handleChange}
                   placeholder="Phone Number"
-                  className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 col-span-2"
+                  className="w-full p-3 border border-gray-300 rounded-md 
+                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 col-span-1 sm:col-span-2"
                 />
                 <textarea
                   name="message"
                   value={formData.message}
                   onChange={handleChange}
                   placeholder="Your Message"
-                  className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 col-span-2 h-32"
+                  className="w-full p-3 border border-gray-300 rounded-md 
+                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 col-span-1 sm:col-span-2 h-32"
                   required
                 ></textarea>
                 <button
                   type="submit"
-                  className="col-span-2 bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 transition duration-300"
+                  className="col-span-1 sm:col-span-2 bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 transition duration-300"
                   disabled={loading}
                 >
                   {loading ? "Sending..." : "Send Message"}
                 </button>
               </form>
+
             </div>
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-black text-white py-8">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="text-xl font-bold text-blue-400 mb-4 md:mb-0">SwiftPass</div>
-            <p className="text-gray-300 text-center md:text-left">
-              © {new Date().getFullYear()} SwiftPass. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

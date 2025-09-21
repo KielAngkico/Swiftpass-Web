@@ -4,16 +4,36 @@
 -- ------------------------------------------------------
 -- Server version	8.0.43-0ubuntu0.24.04.1
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!50503 SET NAMES utf8mb4 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+CREATE TABLE AdminAccounts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+	admin_name VARCHAR(100),
+	age INT,
+    email VARCHAR(255) UNIQUE,
+    password VARCHAR(255),
+    address varchar(255) NOT NULL,
+    gym_name VARCHAR(100),
+    system_type VARCHAR(20) NOT NULL,
+    session_fee INT,
+    profile_image_url TEXT,
+    is_archived TINYINT(1) DEFAULT 0,
+    status ENUM('active', 'inactive') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE StaffAccounts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    admin_id INT,
+    staff_name VARCHAR(100),
+    age INT,
+    contact_number INT,
+    address varchar(255) NOT NULL,
+    email VARCHAR(255) UNIQUE,
+    password VARCHAR(255),
+    profile_image_url TEXT,
+    status ENUM('active', 'inactive', 'archived', 'disabled') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES AdminAccounts(id)
+);
+>>>>>>> f517dfe (Frontend UI Fix)
 
 --
 -- Table structure for table `AdminAccounts`
@@ -489,6 +509,7 @@ CREATE TABLE `FoodLibrary` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+<<<<<<< HEAD
 --
 -- Dumping data for table `FoodLibrary`
 --
@@ -497,6 +518,9 @@ LOCK TABLES `FoodLibrary` WRITE;
 /*!40000 ALTER TABLE `FoodLibrary` DISABLE KEYS */;
 /*!40000 ALTER TABLE `FoodLibrary` ENABLE KEYS */;
 UNLOCK TABLES;
+=======
+select * from adminaccounts;
+>>>>>>> f517dfe (Frontend UI Fix)
 
 --
 -- Table structure for table `InitialAssessment`

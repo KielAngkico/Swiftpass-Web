@@ -2,76 +2,90 @@ const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db"); 
 const bcrypt = require('bcrypt');
+const partnerUpload = require("../middleware/partnersUpload");
 
-router.post('/add-client', async (req, res) => {
-  const { admin_name, age, email, password, address, gym_name, system_type, session_fee } = req.body;
-
+router.post("/add-client", partnerUpload.single("profile_image_url"), async (req, res) => {
   try {
+    const { admin_name, age, email, password, address, gym_name, system_type, session_fee } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ error: "Password is required" });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    const imagePath = req.file ? `/uploads/partners/${req.file.filename}` : null;
 
     const insertAdminSql = `
       INSERT INTO AdminAccounts 
-      (admin_name, age, email, password, address, gym_name, system_type, session_fee, is_archived)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+      (admin_name, age, email, password, address, gym_name, system_type, session_fee, profile_image_url, is_archived)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
     `;
 
-    dbSuperAdmin.query(insertAdminSql, [
-      admin_name,
-      age,
-      email,
-      hashedPassword,
-      address,
-      gym_name,
-      system_type,
-      session_fee
-    ], (err, result) => {
-      if (err) {
-        console.error('Error adding client:', err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-
-      const admin_id = result.insertId;
-
-      const cashMethodSql = `
-        INSERT INTO AdminPaymentMethods (admin_id, name, is_default, is_enabled)
-        VALUES (?, 'Cash', 1, 1)
-      `;
-
-      dbSuperAdmin.query(cashMethodSql, [admin_id], (cashErr) => {
-        if (cashErr) {
-          console.error('Error adding default Cash method:', cashErr);
+    dbSuperAdmin.query(
+      insertAdminSql,
+      [
+        admin_name,
+        age,
+        email,
+        hashedPassword,
+        address,
+        gym_name,
+        system_type,
+        session_fee,
+        imagePath
+      ],
+      (err, result) => {
+        if (err) {
+          console.error("Error adding client:", err);
+          return res.status(500).json({ error: "Database error" });
         }
-      });
 
+        const admin_id = result.insertId;
 
-      if (system_type === 'prepaid_entry') {
-        const pricingSql = `
-          INSERT INTO AdminPricingOptions 
-          (admin_id, system_type, plan_name, amount_to_pay, amount_to_credit, duration_in_days, is_deletable)
-          VALUES (?, 'prepaid_entry', 'Daily Session', ?, NULL, NULL, FALSE)
-        `;  
-        dbSuperAdmin.query(pricingSql, [admin_id, session_fee], (pricingErr) => {
-          if (pricingErr) {
-            console.error('Error adding daily session pricing:', pricingErr);
-            return res.status(500).json({ error: 'Pricing setup failed' });
+        // Always insert a default Cash method
+        const cashMethodSql = `
+          INSERT INTO AdminPaymentMethods (admin_id, name, is_default, is_enabled)
+          VALUES (?, 'Cash', 1, 1)
+        `;
+
+        dbSuperAdmin.query(cashMethodSql, [admin_id], (cashErr) => {
+          if (cashErr) {
+            console.error("Error adding default Cash method:", cashErr);
           }
-
-          return res.status(201).json({ message: 'Client and pricing added successfully', id: admin_id });
         });
-      } else {
-        return res.status(201).json({ message: 'Client added successfully (no daily pricing needed)', id: admin_id });
-      }
-    });
 
+        if (system_type === "prepaid_entry") {
+          const pricingSql = `
+            INSERT INTO AdminPricingOptions 
+            (admin_id, system_type, plan_name, amount_to_pay, amount_to_credit, duration_in_days, is_deletable)
+            VALUES (?, 'prepaid_entry', 'Daily Session', ?, NULL, NULL, FALSE)
+          `;
+          dbSuperAdmin.query(pricingSql, [admin_id, session_fee], (pricingErr) => {
+            if (pricingErr) {
+              console.error("Error adding daily session pricing:", pricingErr);
+              return res.status(500).json({ error: "Pricing setup failed" });
+            }
+
+            return res.status(201).json({ message: "Client and pricing added successfully", id: admin_id });
+          });
+        } else {
+          return res.status(201).json({ message: "Client added successfully (no daily pricing needed)", id: admin_id });
+        }
+      }
+    );
   } catch (error) {
-    console.error('Error hashing password:', error);
-    res.status(500).json({ error: 'Password hashing failed' });
+    console.error("Error hashing password:", error);
+    res.status(500).json({ error: "Password hashing failed" });
   }
 });
 
 
+
+
+
 router.get('/admins', (req, res) => {
-  const sql = 'SELECT id, admin_name, age, email, address, gym_name, system_type, session_fee, is_archived FROM AdminAccounts ORDER BY is_archived ASC, admin_name ASC';
+  const sql = 'SELECT id, admin_name, age, email, address, gym_name, system_type, session_fee, profile_image_url, is_archived FROM AdminAccounts ORDER BY is_archived ASC, admin_name ASC';
   
   dbSuperAdmin.query(sql, (err, results) => {
     if (err) {

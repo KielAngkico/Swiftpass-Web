@@ -70,6 +70,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
+app.use("/uploads/partners", express.static(path.join(__dirname, "..", "uploads/partners")));
 app.use("/uploads/staff", express.static(path.join(__dirname, "..", "uploads/staff")));
 app.use("/uploads/members", express.static(path.join(__dirname, "..", "uploads/members")));
 app.use("/uploads/exercises", express.static(path.join(__dirname, "..", "uploads/exercises")));

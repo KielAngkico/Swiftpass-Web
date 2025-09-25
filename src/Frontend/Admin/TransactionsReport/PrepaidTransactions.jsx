@@ -197,10 +197,6 @@ return (
     </div>
   </div>
 );
-
-
-
-
 };
 
 export default PrepaidTransactions;

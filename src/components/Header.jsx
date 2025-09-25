@@ -27,7 +27,7 @@ const Header = ({ onLogoutClick, loading }) => {
   }, [setUser]);
 
   return (
-    <header className="bg-gray-700 text-white p-3 flex justify-between items-center sticky z-15 text-xs">
+    <header className="bg-[#212529] text-white p-3 flex justify-between items-center sticky z-15 text-xs">
       <div className="flex items-center gap-3">
         <img src={logo} alt="SwiftPass Logo" className="h-8 w-auto" />
         <h1 className="text-xl font-bold">SwiftPass</h1>

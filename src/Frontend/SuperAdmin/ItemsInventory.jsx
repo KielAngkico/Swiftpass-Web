@@ -109,112 +109,184 @@ const ItemsInventory = () => {
 return (
   <div className="flex min-h-screen bg-gray-50">
     <SuperAdminSidebar />
-
-    <main className="flex-1 p-4 space-y-3">
-      {/* Header */}
-      <div className="mb-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <h1 className="text-2xl font-semibold text-gray-800">
-            Prepaid Analytical Dashboard
-          </h1>
-          <select
-            value={range}
-            onChange={(e) => setRange(e.target.value)}
-            className="px-2 py-1 w-32 border border-gray-300 rounded-md text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="today">Today</option>
-            <option value="yesterday">Yesterday</option>
-            <option value="last-7-days">Last 7 Days</option>
-          </select>
-        </div>
-        <p className="text-gray-600 text-xs mt-1">
-          Overview of prepaid logins, revenue, and activity trends
-        </p>
+    <main className="flex-1 p-5">
+      <div className="mb-4">
+        <h1 className="text-2xl font-semibold text-gray-800">Inventory Management</h1>
+        <p className="text-gray-600 text-xs">Manage items and RFID tags</p>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard
-          title="Active Members Inside"
-          value={analytics.active_members_inside}
-          color="text-blue-600"
-          textSize="text-sm"
-        />
-        <KpiCard
-          title="Prepaid Revenue Today"
-          value={`₱${Number(analytics?.prepaid_revenue_today ?? 0).toLocaleString()}`}
-          color="text-green-600"
-          textSize="text-sm"
-        />
-        <KpiCard
-          title="Total Prepaid Logins"
-          value={Number(analytics?.total_logins_today ?? 0)}
-          color="text-purple-600"
-          textSize="text-sm"
-        />
-        <KpiCard
-          title="Peak Hour"
-          value={analytics.peak_hour}
-          color="text-gray-700"
-          textSize="text-sm"
-        />
+      <div className="flex gap-4 mb-5 items-start">
+        <form
+          onSubmit={addManualItem}
+          className="w-[380px] flex gap-2 bg-white p-2 rounded-md shadow-sm"
+        >
+          <input
+            type="text"
+            placeholder="Item Name"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
+            required
+          />
+          <input
+            type="number"
+            placeholder="Qty"
+            value={form.quantity}
+            onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+            className="w-12 px-2 py-1 border border-gray-300 rounded text-xs"
+            min="1"
+            required
+          />
+          <button className="bg-blue-600 text-white px-2 py-1 rounded-md hover:bg-blue-700 text-xs">
+            Add
+          </button>
+        </form>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            addScannedItem();
+          }}
+          className="w-[300px] flex gap-2 bg-white p-2 rounded-md shadow-sm"
+        >
+          <input
+            type="text"
+            value={scanValue}
+            onChange={(e) => setScanValue(e.target.value)}
+            placeholder="Scan RFID..."
+            className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
+          />
+          <button className="bg-green-600 text-white px-2 py-1 rounded-md hover:bg-green-700 text-xs">
+            Add RFID
+          </button>
+        </form>
       </div>
 
-      {/* Charts */}
-      <div className="flex flex-col lg:flex-row gap-3">
-        <div className="lg:w-3/4 w-full bg-white rounded-md shadow-sm p-2">
-          <h2 className="text-xs font-semibold mb-2">Login Trends by Hour</h2>
-          <Line data={scanLineData} options={{ maintainAspectRatio: false }} />
-        </div>
-        <div className="lg:w-1/4 w-full bg-white rounded-md shadow-sm p-2">
-          <h2 className="text-xs font-semibold mb-2">Top-Up vs Session Breakdown</h2>
-          <Pie data={actionsData} options={pieOptions} />
-        </div>
-      </div>
-
-      {/* Recent Events Table */}
-      <div className="bg-white p-2 rounded-md shadow-sm max-h-[20rem] overflow-y-auto">
-        <h2 className="text-xs font-semibold text-gray-800 mb-1">
-          Recent Prepaid Events
-        </h2>
-        <table className="w-full text-xs border-collapse">
-          <thead className="sticky top-0 bg-white z-10">
-            <tr className="text-gray-600 border-b">
-              <th className="p-2 w-8 text-center">#</th>
-              <th className="p-2 text-left">Member</th>
-              <th className="p-2">RFID</th>
-              <th className="p-2">Action</th>
-              <th className="p-2">Amount</th>
-              <th className="p-2">Time</th>
-              <th className="p-2">Balance After</th>
-            </tr>
-          </thead>
-          <tbody>
-            {analytics?.recent_events?.length > 0 ? (
-              analytics.recent_events.map((event, index) => (
-                <tr key={index} className="border-b hover:bg-gray-50">
-                  <td className="p-2 text-center text-gray-500">{index + 1}</td>
-                  <td className="p-2">{event.name}</td>
-                  <td className="p-2 font-mono">{event.rfid}</td>
-                  <td className="p-2">{event.action}</td>
-                  <td className="p-2">₱{event.amount}</td>
-                  <td className="p-2">{event.time}</td>
-                  <td className="p-2">₱{event.balance}</td>
+      <div className="flex gap-4">
+        {/* Inventory Table */}
+        <div className="flex-1 bg-white rounded-md shadow-sm p-2 overflow-auto max-h-[60vh]">
+          <div className="font-semibold mb-2 text-xs">Inventory</div>
+          {loading ? (
+            <p className="text-xs">Loading...</p>
+          ) : filteredItems.length === 0 ? (
+            <p className="text-xs">No items found</p>
+          ) : (
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="p-2 border">#</th>
+                  <th className="p-2 border">Name</th>
+                  <th className="p-2 border">Quantity</th>
+                  <th className="p-2 border">Actions</th>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="7" className="p-3 text-center text-gray-500 text-xs">
-                  No recent prepaid events available.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {filteredItems.map((item, index) => (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="p-2 border text-center">{index + 1}</td>
+                    <td className="p-2 border text-center">{item.name}</td>
+                    <td className="p-2 border text-center">{item.quantity}</td>
+                    <td className="p-2 border flex justify-center gap-2">
+                      <button
+                        onClick={() => setSelectedItem(item)}
+                        className="bg-blue-500 text-white px-2 py-1 rounded-md text-xs hover:bg-blue-600"
+                      >
+                        Add Qty
+                      </button>
+                      <button
+                        onClick={() => deleteItem(item.id, item.name)}
+                        className="bg-red-500 text-white px-2 py-1 rounded-md text-xs hover:bg-red-600"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Add Quantity Panel */}
+        <div className="w-1/2 bg-white rounded-md shadow-sm p-3">
+          {selectedItem ? (
+            <>
+              <h2 className="text-sm font-semibold mb-2">
+                Add Quantity for <span className="font-bold">{selectedItem.name}</span>
+              </h2>
+              <input
+                type="number"
+                placeholder="Enter quantity"
+                value={addQty}
+                onChange={(e) => setAddQty(e.target.value)}
+                className="w-full px-2 py-1 border rounded text-xs mb-2"
+                min="1"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedItem(null);
+                    setAddQty("");
+                  }}
+                  className="px-3 py-1 bg-gray-400 text-white rounded-md text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() =>
+                    updateQuantity(
+                      selectedItem.id,
+                      selectedItem.quantity + parseInt(addQty)
+                    )
+                  }
+                  className="px-3 py-1 bg-blue-600 text-white rounded-md text-xs hover:bg-blue-700"
+                >
+                  Save
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-gray-500 text-xs">
+              Select an item from the table to add quantity
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* RFID Table */}
+      <div className="bg-white rounded-md shadow-sm mt-5">
+        <div className="p-2 border-b font-semibold text-xs">Registered RFIDs</div>
+        <div className="p-2">
+          {rfids.length === 0 ? (
+            <p className="text-xs">No RFIDs registered</p>
+          ) : (
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="p-2 border">#</th>
+                  <th className="p-2 border">RFID Tag</th>
+                  <th className="p-2 border">Created At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rfids.map((rfid, index) => (
+                  <tr key={rfid.id}>
+                    <td className="p-2 border">{index + 1}</td>
+                    <td className="p-2 border font-mono">{rfid.rfid_tag}</td>
+                    <td className="p-2 border">
+                      {new Date(rfid.created_at).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </main>
   </div>
 );
+
 
 
 

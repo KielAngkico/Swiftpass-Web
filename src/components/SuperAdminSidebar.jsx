@@ -35,9 +35,7 @@ return (
     className={`min-h-screen bg-gray-900 border-r flex flex-col transition-all duration-300 ${
       isCollapsed ? "w-14" : "w-56"
     }`}
-  >
-    {/* Header */}
-    <div className="flex items-center justify-between px-3 py-4 border-b border-gray-700">
+  >    <div className="flex items-center justify-between px-3 py-4 border-b border-gray-700">
       {!isCollapsed && (
         <div>
           <h2 className="text-sm text-base font-bold text-white">Admin Panel</h2>
@@ -52,8 +50,6 @@ return (
         <FiMenu size={18} />
       </button>
     </div>
-
-    {/* Navigation */}
     <nav className="flex-1 px-2 py-3 relative">
       <ul className="space-y-1">
         {navItems.map(({ path, label, icon }) => (
@@ -71,8 +67,6 @@ return (
               <span className="text-sm">{icon}</span>
               {!isCollapsed && <span className="ml-3">{label}</span>}
             </NavLink>
-
-            {/* Hover tooltip when collapsed */}
             {isCollapsed && (
               <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-white text-gray-900 text-xs px-2 py-1 rounded shadow opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                 {label}

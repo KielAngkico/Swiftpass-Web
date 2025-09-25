@@ -52,7 +52,7 @@ const Navbar = () => {
 
   return (
     <div className="absolute top-0 left-0 w-full z-15 fixed">
-      <div className="mx-auto flex justify-between items-center py-3 px-5 md:px-20 lg:px-32 bg-gray-700">
+      <div className="mx-auto flex justify-between items-center py-3 px-5 md:px-20 lg:px-32 bg-[#212529]">
         <img
           src={logo}
           alt="Swiftpass Logo"
@@ -66,7 +66,7 @@ const Navbar = () => {
         </ul>
         <button
           onClick={() => setIsLoginOpen(true)}
-          className="hidden md:block bg-black text-white px-6 py-2 rounded-xl hover:bg-blue-500 transition"
+          className="hidden md:block bg-[#007BFF] text-white px-6 py-2 rounded-xl hover:bg-[#0056b3] transition text-sm"
         >
           {userName ? `Hi, ${userName}` : "Login"}
         </button>

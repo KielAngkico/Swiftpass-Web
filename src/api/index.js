@@ -9,21 +9,17 @@ const api = axios.create({
   withCredentials: true, 
 });
 
-// Function to trigger logout across the app
 const triggerLogout = () => {
   console.log("🚨 [Axios] Triggering logout due to auth failure");
   clearAccessToken();
   sessionStorage.clear();
   localStorage.clear();
   
-  // Dispatch event to notify other parts of the app
   window.dispatchEvent(new Event("auth-changed"));
   
-  // Redirect to login page
   window.location.href = "/";
 };
 
-// Function to decode JWT payload without verification (for logging)
 const decodeTokenPayload = (token) => {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -89,7 +85,7 @@ api.interceptors.response.use(
         
         const res = await axios.post(`${API_URL}/api/refresh-token`, {}, { 
           withCredentials: true,
-          timeout: 10000 // 10 second timeout for refresh
+          timeout: 10000 
         });
         
         const refreshDuration = Date.now() - refreshStartTime;
@@ -121,7 +117,6 @@ api.interceptors.response.use(
           isTimeout: refreshErr.code === 'ECONNABORTED'
         });
         
-        // Check if it's a 401/403 from refresh endpoint (invalid refresh token)
         if (refreshErr.response?.status === 401 || refreshErr.response?.status === 403) {
           console.log("🚨 [Axios] Refresh token invalid - triggering logout");
           triggerLogout();
@@ -134,9 +129,7 @@ api.interceptors.response.use(
           clearAccessToken();
           return Promise.reject(new Error("Network error during token refresh"));
         }
-        
-        // For other errors, just clear token and let the error propagate
-        clearAccessToken();
+                clearAccessToken();
       }
     }
 

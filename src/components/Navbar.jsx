@@ -6,7 +6,7 @@ import axios from "axios";
 import { API_URL } from "../config";
 import { getAccessToken } from "../tokenMemory";
 import { FaBars, FaTimes } from "react-icons/fa";
-import logo from "../../uploads/Final_Swiftpass_Logo-cropped.png"; 
+import logo from "../../uploads/Final_SwiftPass_Logo-cropped.png"; 
 const Navbar = () => {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [userName, setUserName] = useState("");

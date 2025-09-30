@@ -24,48 +24,31 @@ ChartJS.register(
   ChartDataLabels
 );
 
-const PrepaidAnalytical = () => {
-  const [adminUser, setAdminUser] = useState(null);
+const PrepaidAnalytical = ({adminUser}) => {
   const [analytics, setAnalytics] = useState(null);
   const [range, setRange] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchAdmin = async () => {
-      try {
-        setLoading(true);
-        const { data } = await api.get("/api/me");
-        if (!data.authenticated || !data.user) throw new Error("Not authenticated");
-        if (!["admin", "owner"].includes(data.user.role)) throw new Error("Access denied");
-        setAdminUser(data.user);
-      } catch (err) {
-        setError(err.message || "Failed to authenticate");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAdmin();
-  }, []);
-
-  useEffect(() => {
-    if (!adminUser?.adminId) return;
-    const fetchAnalytics = async () => {
-      try {
-        setLoading(true);
-        const { data } = await api.get("/api/prepaid-analytics", {
-          params: { admin_id: adminUser.adminId, range },
-        });
-        setAnalytics(data);
-      } catch {
-        setError("Failed to load prepaid analytics");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAnalytics();
-  }, [adminUser, range]);
-
+useEffect(() => {
+  if (!adminUser?.id) return;
+  
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const admin_id = adminUser.role === "admin" ? adminUser.id : adminUser.adminId;
+      const { data } = await api.get("/api/prepaid-analytics", {
+        params: { admin_id, range },
+      });
+      setAnalytics(data);
+    } catch {
+      setError("Failed to load prepaid analytics");
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchAnalytics();
+}, [adminUser, range]);
   if (loading) return <div className="p-2 text-gray-600">Loading...</div>;
   if (error) return <div className="p-2 text-red-600">{error}</div>;
   if (!analytics) return <div className="p-2 text-gray-600">No data available.</div>;

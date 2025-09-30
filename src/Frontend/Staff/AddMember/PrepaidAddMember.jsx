@@ -15,7 +15,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
     phone_number: "",
     address: "",
     email: "",
-    password: "",
+    password: "123",
     membership_type: "",
     payment: "",
     initial_balance: "",
@@ -150,7 +150,7 @@ const handleSubmit = async (e) => {
       phone_number: "",
       address: "",
       email: "",
-      password: "",
+      password: "123",
       payment: "",
       payment_method: "cash",
       initial_balance: "",
@@ -167,173 +167,172 @@ const handleSubmit = async (e) => {
 };
 
 
-
 return (
-  <div className="px-6 py-8 bg-gray-100 min-h-screen">
-    <main className="max-w-screen-lg">
-      <h1 className="text-xl font-bold mb-6 text-black">➕ Add Prepaid Member</h1>
+  <div className="min-h-screen w-full bg-white p-2">
+    <main className="max-w-screen-xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
+          Add Prepaid Member
+        </h1>
+        <p className="text-xs text-gray-500">
+          Fill out the form to register a new prepaid member.
+        </p>
+      </div>
 
       <form
         onSubmit={handleSubmit}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-white rounded-lg shadow"
+        className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 bg-white rounded-lg shadow"
       >
-        {/* LEFT COLUMN (Form Inputs) */}
-        <div className="md:col-span-2 flex flex-col gap-6">
-          {/* Personal Info */}
-          <section className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold text-black">Personal Information</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block mb-1 text-black">Full Name</label>
-                <input
-                  type="text"
-                  name="full_name"
-                  value={formData.full_name}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-gray-300 px-3 py-2 rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-black">RFID Tag</label>
-                <input
-                  type="text"
-                  name="rfid_tag"
-                  value={formData.rfid_tag}
-                  readOnly
-                  className="w-full border border-gray-300 px-3 py-2 rounded bg-gray-100 text-black cursor-not-allowed"
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="block mb-1 text-black">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-gray-300 px-3 py-2 rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-black">Password</label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  autoComplete="current-password"
-                  className="w-full border border-gray-300 px-3 py-2 rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-black">Phone Number</label>
-                <input
-                  type="text"
-                  name="phone_number"
-                  value={formData.phone_number}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-gray-300 px-3 py-2 rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-black">Age</label>
-                <input
-                  type="number"
-                  name="age"
-                  value={formData.age}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-gray-300 px-3 py-2 rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-black">Gender</label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-gray-300 px-3 py-2 rounded bg-white"
-                >
-                  <option value="">Select gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-            </div>
+        <div className="flex flex-col gap-4 h-full self-stretch">
+          <h2 className="text-sm font-semibold text-gray-700">Personal Information</h2>
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block mb-1 text-black">Address</label>
-              <textarea
-                name="address"
-                value={formData.address}
+              <label className="block text-xs text-gray-600 mb-1">Full Name</label>
+              <input
+                type="text"
+                name="full_name"
+                value={formData.full_name}
                 onChange={handleChange}
                 required
-                className="w-full border border-gray-300 px-3 py-2 rounded"
+                className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
               />
             </div>
-          </section>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">RFID Tag</label>
+              <input
+                type="text"
+                name="rfid_tag"
+                value={formData.rfid_tag}
+                readOnly
+                className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-gray-100 text-gray-700"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-600 mb-1">Email</label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+              />
+            </div>
+<div>
+  <label className="block text-xs text-gray-600 mb-1">Password</label>
+  <input
+    type="text"
+    name="password"
+    value="123"
+    readOnly
+    className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-gray-100 text-gray-700 cursor-not-allowed"
+  />
+</div>
 
-          {/* Plan Info */}
-          <section className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold text-black">Plan Details</h2>
+
+
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Phone</label>
+              <input
+                type="text"
+                name="phone_number"
+                value={formData.phone_number}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Age</label>
+              <input
+                type="number"
+                name="age"
+                value={formData.age}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Gender</label>
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
+              >
+                <option value="">Select</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Address</label>
+            <textarea
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              required
+              className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4 h-full self-stretch">
+          <section>
+            <h2 className="text-sm font-semibold text-gray-700 mb-9">Plan Details</h2>
             <select
               name="plan_name"
               value={formData.plan_name}
               onChange={handleChange}
               required
-              className="w-full border border-gray-300 px-3 py-2 rounded bg-white"
+              className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
             >
               <option value="">-- Choose a Plan --</option>
               {availablePlans.map((plan) => (
                 <option key={plan.id} value={plan.plan_name}>
-                  {plan.plan_name} — ₱{plan.amount_to_pay} → ₱
-                  {plan.amount_to_credit}
+                  {plan.plan_name} — ₱{plan.amount_to_pay} → ₱{plan.amount_to_credit}
                 </option>
               ))}
             </select>
           </section>
 
-          {/* Payment Info */}
-          <section className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold text-black">Payment Information</h2>
+          <section>
+            <h2 className="text-sm font-semibold text-gray-700 mb-2">Payment Information</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block mb-1 text-black">Payment (₱)</label>
+                <label className="block text-xs text-gray-600 mb-1">Payment (₱)</label>
                 <input
                   type="text"
                   name="payment"
                   value={formData.payment}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 px-3 py-2 rounded"
+                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
                 />
               </div>
               <div>
-                <label className="block mb-1 text-black">Balance to be Added</label>
+                <label className="block text-xs text-gray-600 mb-1">Balance Added</label>
                 <input
                   type="text"
                   name="initial_balance"
                   value={formData.initial_balance}
                   readOnly
-                  className="w-full border border-gray-200 bg-gray-50 px-3 py-2 rounded text-black"
+                  className="w-full border border-gray-200 bg-gray-50 px-3 py-2 rounded text-sm text-gray-700"
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block mb-1 text-black">Payment Method</label>
+                <label className="block text-xs text-gray-600 mb-1">Payment Method</label>
                 <select
                   name="payment_method"
                   value={formData.payment_method}
                   onChange={handleChange}
                   required
-                  className="w-full border border-gray-300 px-3 py-2 rounded bg-white"
+                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
                 >
-                  <option value="">Select Payment Method</option>
+                  <option value="">Select</option>
                   {paymentMethods.map((method) => (
                     <option key={method.id} value={method.name.toLowerCase()}>
                       {method.name}
@@ -341,64 +340,71 @@ return (
                   ))}
                 </select>
               </div>
-              {formData.payment_method &&
-                formData.payment_method !== "cash" && (
-                  <div>
-                    <label className="block mb-1 text-black">
-                      {formData.payment_method.toUpperCase()} Reference No.
-                    </label>
-                    <input
-                      type="text"
-                      name="reference"
-                      value={formData.reference}
-                      onChange={handleChange}
-                      required
-                      className="w-full border border-gray-300 px-3 py-2 rounded"
-                    />
-                  </div>
-                )}
+              {formData.payment_method && formData.payment_method !== "cash" && (
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">
+                    {formData.payment_method.toUpperCase()} Ref No.
+                  </label>
+                  <input
+                    type="text"
+                    name="reference"
+                    value={formData.reference}
+                    onChange={handleChange}
+                    required
+                    className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+                  />
+                </div>
+              )}
             </div>
           </section>
 
-          {/* Submit */}
-          <div>
-            <button
-              type="submit"
-              className="w-1/2 mt-2 px-5 py-2 rounded bg-black text-white font-semibold"
-            >
-              ➕ Add Member
-            </button>
-            {serverMessage && (
-              <p className="text-sm text-gray-600 mt-2">{serverMessage}</p>
-            )}
-          </div>
+          <button
+            type="submit"
+            className="w-1/2 mt-2 px-4 py-2 rounded bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700"
+          >
+            Add Member
+          </button>
+          {serverMessage && (
+            <p className="text-xs text-gray-500 mt-2">{serverMessage}</p>
+          )}
         </div>
 
-        {/* RIGHT COLUMN (Profile Picture Upload) */}
-        <div className="flex flex-col items-center gap-3">
-          <h2 className="text-lg font-semibold text-black">Profile Picture</h2>
-          <div className="w-40 h-40 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
-            {imagePreview ? (
-              <img
-                src={imagePreview}
-                alt="Profile Preview"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-gray-400 text-sm">Upload Photo</span>
-            )}
-          </div>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded"
+<div className="flex flex-col items-center gap-3 w-80">
+  <h2 className="text-sm font-semibold text-gray-700">Profile Picture</h2>
+  <div className="bg-white border rounded-lg shadow w-3/4">
+    <div className="bg-black h-16 flex items-center justify-center">
+      <h3 className="text-white font-semibold text-sm">PHOTO</h3>
+    </div>
+    <div className="flex flex-col items-center p-4">
+      <div className="w-50 h-50 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
+        {imagePreview ? (
+          <img
+            src={imagePreview}
+            alt="Profile Preview"
+            className="w-full h-full object-cover"
           />
-        </div>
+        ) : (
+          <span className="text-gray-400 text-sm">Upload Photo</span>
+        )}
+      </div>
+    </div>
+  </div>
+
+  <input
+    type="file"
+    accept="image/*"
+    onChange={handleFileChange}
+    className="w-3/4 px-3 py-2 border border-gray-300 rounded text-sm"
+  />
+</div>
+
       </form>
     </main>
   </div>
 );
+
+
+
 
 
 };

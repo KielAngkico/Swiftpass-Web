@@ -201,207 +201,195 @@ useEffect(() => {
     );
   }
 
-  return (
-    <div className="flex">
-      <StaffSidebar />
-      <div className="flex-1 p-6 overflow-auto">
-        {/* Header */}
-        <div className="mb-6 flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold">Member Entry/Exit Status</h2>
-            {user && (
-              <p className="text-sm text-gray-600">
-                Logged in as: {user.name} ({user.role})
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <button
-              onClick={fetchLogs}
-              disabled={loading}
-              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 disabled:opacity-50"
-            >
-              {loading ? "🔄" : "↻"} Refresh
-            </button>
-            <div className="text-green-600 font-semibold">
-              🟢 Inside: {insideCount}
-            </div>
-            <div className="text-red-600 font-semibold">
-              🔴 Outside: {outsideCount}
-            </div>
-            <div className="text-gray-600">Total: {entryLogs.length}</div>
-          </div>
-        </div>
-          <div className="flex gap-4 mb-6">
-            {/* Latest Entry */}
-            <div className="flex-1 bg-green-100 p-4 rounded-lg shadow flex items-center gap-6">
-              <img
-                src={`${IP}/${recentEntries[0]?.profile_image_url || "uploads/members/default.jpg"}`}
-                alt={recentEntries[0]?.full_name || "N/A"}
-                className="w-28 h-28 rounded-lg object-cover border-2 border-green-200"
-                onError={(e) => {
-                  e.currentTarget.src = `${IP}/uploads/members/default.jpg`;
-                }}
-              />
-              <div className="flex-1">
-                <p className="font-medium text-gray-800 text-lg">
-                  {recentEntries[0]?.full_name || "N/A"}
-                </p>
-                <p className="text-sm text-gray-500">
-                  Time: {recentEntries[0]?.timestamp ? new Date(recentEntries[0].timestamp).toLocaleTimeString() : "N/A"}
-                </p>
-                <span className="text-sm bg-green-200 text-green-800 px-3 py-1 rounded mt-1 inline-block">
-                  {recentEntries[0]?.visitor_type || "N/A"}
-                </span>
-              </div>
-            </div>
+return (
+  <div className="flex">
+    <StaffSidebar />
+    <div className="flex-1 p-6 overflow-auto">
+      <div className="mb-6">
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">
+          Member Entry/Exit Status
+        </h1>
+        {user && (
+          <p className="text-xs text-gray-500 mt-1">
+            Logged in as: {user.name} ({user.role})
+          </p>
+        )}
+      </div>
 
-            {/* Latest Exit */}
-            <div className="flex-1 bg-red-100 p-4 rounded-lg shadow flex items-center gap-6">
-              <img
-                src={`${IP}/${recentExits[0]?.profile_image_url || "uploads/members/default.jpg"}`}
-                alt={recentExits[0]?.full_name || "N/A"}
-                className="w-28 h-28 rounded-lg object-cover border-2 border-red-200"
-                onError={(e) => {
-                  e.currentTarget.src = `${IP}/uploads/members/default.jpg`;
-                }}
-              />
-              <div className="flex-1">
-                <p className="font-medium text-gray-800 text-lg">
-                  {recentExits[0]?.full_name || "N/A"}
-                </p>
-                <p className="text-sm text-gray-500">
-                  Time: {recentExits[0]?.timestamp ? new Date(recentExits[0].timestamp).toLocaleTimeString() : "N/A"}
-                </p>
-                <span className="text-sm bg-red-200 text-red-800 px-3 py-1 rounded mt-1 inline-block">
-                  {recentExits[0]?.visitor_type || "N/A"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-        {/* Main Table - Bottom Half */}
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="bg-gray-50 px-4 py-3 border-b">
-            <h3 className="text-lg font-semibold text-gray-800">All Member Sessions</h3>
-          </div>
-          
-          {entryLogs.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">🏋️</div>
-              <p className="text-gray-600 text-lg">No member activity yet.</p>
-              <p className="text-gray-500 text-sm mt-2">
-                Member statuses will appear here as they scan in/out.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-y-auto max-h-96">
-              <table className="w-full">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    {["Member", "RFID", "Entry", "Exit", "Status", "Type", "Balance"].map(
-                      (h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
-                        >
-                          {h}
-                        </th>
-                      )
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {entryLogs.map((log, index) => {
-                    const memberStatus = log.member_status || log.status || "outside";
-                    const isRecent = new Date(log.last_activity || log.entry_time || log.exit_time) > new Date(Date.now() - 30000);
-                    
-                    return (
-                      <tr
-                        key={`${log.id || log.rfid_tag}-${index}`}
-                        className={`hover:bg-gray-50 transition-colors ${
-                          isRecent ? "bg-yellow-50 border-l-4 border-yellow-400" : ""
-                        }`}
-                      >
-                        <td className="px-4 py-3 text-sm flex items-center">
-                          <img
-                            src={`${IP}/${log.profile_image_url || "uploads/members/default.jpg"}`}
-                            alt={log.full_name || log.rfid_tag}
-                            className="w-10 h-10 rounded-full object-cover mr-3 border-2 border-gray-200"
-                            onError={(e) => {
-                              e.currentTarget.src = `${IP}/uploads/members/default.jpg`;
-                            }}
-                          />
-                          <span className="font-medium">{log.full_name || "Unknown"}</span>
-                        </td>
-                        <td className="px-4 py-3 text-sm font-mono text-gray-600">
-                          {log.rfid_tag}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {log.entry_time
-                            ? new Date(log.entry_time).toLocaleString()
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {log.exit_time
-                            ? new Date(log.exit_time).toLocaleString()
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                              memberStatus === "inside"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {memberStatus === "inside"
-                              ? "🟢 Inside"
-                              : "🔴 Outside"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                            {log.visitor_type || "Member"}
-                          </span>
-                          {log.system_type && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              {log.system_type.replace('_', ' ')}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          {log.system_type === "prepaid_entry" && (
-                            <div className="text-xs">
-                              {log.deducted_amount && (
-                                <div className="text-red-600 font-medium">
-                                  -₱{log.deducted_amount}
-                                </div>
-                              )}
-                              {log.remaining_balance !== undefined && (
-                                <div className="text-gray-600">
-                                  ₱{log.remaining_balance}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {log.system_type === "subscription" && log.subscription_expiry && (
-                            <div className="text-xs text-gray-600">
-                              Expires: {new Date(log.subscription_expiry).toLocaleDateString()}
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+      <div className="flex justify-between items-center mb-6">
+        <button
+          onClick={fetchLogs}
+          disabled={loading}
+          className="px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 disabled:opacity-50"
+        >
+          {loading ? "🔄" : "↻"} Refresh
+        </button>
+        <div className="flex items-center gap-4 text-xs">
+          <div className="text-green-600 font-medium">🟢 Inside: {insideCount}</div>
+          <div className="text-red-600 font-medium">🔴 Outside: {outsideCount}</div>
+          <div className="text-gray-600">Total: {entryLogs.length}</div>
         </div>
       </div>
+
+      <div className="flex gap-4 mb-6">
+        <div className="flex-1 bg-green-50 p-4 rounded-lg shadow flex items-center gap-4">
+          <img
+            src={`${IP}/${recentEntries[0]?.profile_image_url || "uploads/members/default.jpg"}`}
+            alt={recentEntries[0]?.full_name || "N/A"}
+            className="w-24 h-24 rounded-lg object-cover border border-green-200"
+            onError={(e) => { e.currentTarget.src = `${IP}/uploads/members/default.jpg`; }}
+          />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-800">
+              {recentEntries[0]?.full_name || "N/A"}
+            </p>
+            <p className="text-xs text-gray-500">
+              Time: {recentEntries[0]?.timestamp ? new Date(recentEntries[0].timestamp).toLocaleTimeString() : "N/A"}
+            </p>
+            <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded mt-1 inline-block">
+              {recentEntries[0]?.visitor_type || "N/A"}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex-1 bg-red-50 p-4 rounded-lg shadow flex items-center gap-4">
+          <img
+            src={`${IP}/${recentExits[0]?.profile_image_url || "uploads/members/default.jpg"}`}
+            alt={recentExits[0]?.full_name || "N/A"}
+            className="w-24 h-24 rounded-lg object-cover border border-red-200"
+            onError={(e) => { e.currentTarget.src = `${IP}/uploads/members/default.jpg`; }}
+          />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-800">
+              {recentExits[0]?.full_name || "N/A"}
+            </p>
+            <p className="text-xs text-gray-500">
+              Time: {recentExits[0]?.timestamp ? new Date(recentExits[0].timestamp).toLocaleTimeString() : "N/A"}
+            </p>
+            <span className="text-xs bg-red-200 text-red-800 px-2 py-1 rounded mt-1 inline-block">
+              {recentExits[0]?.visitor_type || "N/A"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="bg-gray-50 px-4 py-3 border-b">
+          <h3 className="text-sm font-medium text-gray-800">All Member Sessions</h3>
+        </div>
+
+        {entryLogs.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-5xl mb-3">🏋️</div>
+            <p className="text-gray-600 text-sm">No member activity yet.</p>
+            <p className="text-gray-500 text-xs mt-1">
+              Member statuses will appear here as they scan in/out.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-y-auto max-h-96">
+            <table className="w-full">
+              <thead className="bg-gray-100 sticky top-0">
+                <tr>
+                  {["Member", "RFID", "Entry", "Exit", "Status", "Type", "Balance"].map((h) => (
+                    <th
+                      key={h}
+                      className="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {entryLogs.map((log, index) => {
+                  const memberStatus = log.member_status || log.status || "outside";
+                  const isRecent =
+                    new Date(log.last_activity || log.entry_time || log.exit_time) >
+                    new Date(Date.now() - 30000);
+
+                  return (
+                    <tr
+                      key={`${log.id || log.rfid_tag}-${index}`}
+                      className={`hover:bg-gray-50 transition-colors ${
+                        isRecent ? "bg-yellow-50 border-l-4 border-yellow-400" : ""
+                      }`}
+                    >
+                      <td className="px-3 py-2 text-xs flex items-center">
+                        <img
+                          src={`${IP}/${log.profile_image_url || "uploads/members/default.jpg"}`}
+                          alt={log.full_name || log.rfid_tag}
+                          className="w-8 h-8 rounded-full object-cover mr-2 border border-gray-200"
+                          onError={(e) => {
+                            e.currentTarget.src = `${IP}/uploads/members/default.jpg`;
+                          }}
+                        />
+                        <span className="font-medium">{log.full_name || "Unknown"}</span>
+                      </td>
+                      <td className="px-3 py-2 text-xs font-mono text-gray-600">
+                        {log.rfid_tag}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-gray-600">
+                        {log.entry_time ? new Date(log.entry_time).toLocaleString() : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-gray-600">
+                        {log.exit_time ? new Date(log.exit_time).toLocaleString() : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        <span
+                          className={`px-2 py-1 rounded-full text-[10px] font-medium ${
+                            memberStatus === "inside"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {memberStatus === "inside" ? "🟢 Inside" : "🔴 Outside"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-[10px]">
+                          {log.visitor_type || "Member"}
+                        </span>
+                        {log.system_type && (
+                          <div className="text-[10px] text-gray-500 mt-1">
+                            {log.system_type.replace("_", " ")}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        {log.system_type === "prepaid_entry" && (
+                          <div className="text-[11px]">
+                            {log.deducted_amount && (
+                              <div className="text-red-600 font-medium">
+                                -₱{log.deducted_amount}
+                              </div>
+                            )}
+                            {log.remaining_balance !== undefined && (
+                              <div className="text-gray-600">
+                                ₱{log.remaining_balance}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {log.system_type === "subscription" && log.subscription_expiry && (
+                          <div className="text-[11px] text-gray-600">
+                            Expires:{" "}
+                            {new Date(log.subscription_expiry).toLocaleDateString()}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
-  );
+  </div>
+)
+
 };
 
 export default MemberEntryBranch;

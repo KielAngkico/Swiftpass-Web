@@ -5,10 +5,10 @@ const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
 
-const otpLoginSessions = {}; 
+const otpLoginSessions = {};
 
 const transporter = nodemailer.createTransport({
-  service: "gmail", 
+  service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -36,90 +36,88 @@ const sendOTPEmail = async (email, otp, name) => {
   return transporter.sendMail(mailOptions);
 };
 
-router.post("/login", (req, res) => {
+// ============ LOGIN =============
+router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ success: false, message: "Email and password required" });
   }
 
-  const tryLogin = (sql, role) => {
-    return new Promise((resolve, reject) => {
-      dbSuperAdmin.query(sql, [email], (err, results) => {
-        if (err) return reject(err);
-        if (!results.length) return resolve(null);
-        const user = results[0];
-        bcrypt.compare(password, user.password, (err, isMatch) => {
-          if (err) return reject(err);
-          if (!isMatch) return resolve(null);
-          resolve({ ...user, role });
-        });
-      });
-    });
+  const tryLogin = async (sql, role) => {
+    const [results] = await dbSuperAdmin.promise().query(sql, [email]);
+    if (!results.length) return null;
+    const user = results[0];
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return null;
+    return { ...user, role };
   };
 
-  (async () => {
-    try {
-      let user = await tryLogin(
-        "SELECT id, superadmin_name AS name, email, password FROM SuperAdminAccounts WHERE email = ?",
-        "superadmin"
-      );
-      if (!user) {
-        user = await tryLogin(
-          "SELECT id, admin_name AS name, age, email, password, address, gym_name, system_type FROM AdminAccounts WHERE email = ? AND is_archived = 0",
-          "admin"
-        );
-      }
-      if (!user) {
-        const staff = await tryLogin(
-          `SELECT s.id, s.staff_name AS name, s.admin_id, s.age, s.contact_number, s.address, s.email, s.password 
-           FROM StaffAccounts s
-           INNER JOIN AdminAccounts a ON s.admin_id = a.id
-           WHERE s.email = ? AND a.is_archived = 0`,
-          "staff"
-        );
-        if (staff) {
-          const adminResult = await new Promise((resolve, reject) => {
-            dbSuperAdmin.query(
-              "SELECT system_type FROM AdminAccounts WHERE id = ? AND is_archived = 0",
-              [staff.admin_id],
-              (err, result) => (err ? reject(err) : resolve(result))
-            );
-          });
-          if (!adminResult || !adminResult.length) {
-            return res.status(401).json({ success: false, message: "Access denied - Admin account is archived" });
-          }
-          staff.systemType = adminResult[0].system_type;
-          user = staff;
-        }
-      }
-      if (!user) {
-        return res.status(401).json({ success: false, message: "Invalid email or password" });
-      }
-      const otp = generateOTP();
-      otpLoginSessions[email] = {
-        otp,
-        userId: user.id,
-        role: user.role,
-        systemType: user.systemType || user.system_type || null,
-        adminId: user.role === "admin" ? user.id : user.role === "staff" ? user.admin_id : null,
-        name: user.name,
-        createdAt: Date.now(),
-        userData: user,
-      };
-      await sendOTPEmail(email, otp, user.name);
-        res.json({
-          message: "Credentials verified. Check your email for the verification code.",
-          requiresOTP: true,
-          success: true,  // ⚠ make sure this is true
-        });
+  try {
+    let user = await tryLogin(
+      "SELECT id, superadmin_name AS name, email, password FROM SuperAdminAccounts WHERE email = ?",
+      "superadmin"
+    );
 
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ success: false, message: "Internal server error" });
+    if (!user) {
+      user = await tryLogin(
+        "SELECT id, admin_name AS name, age, email, password, address, gym_name, system_type FROM AdminAccounts WHERE email = ? AND is_archived = 0",
+        "admin"
+      );
     }
-  })();
+
+    if (!user) {
+      const staff = await tryLogin(
+        `SELECT s.id, s.staff_name AS name, s.admin_id, s.age, s.contact_number, s.address, s.email, s.password
+         FROM StaffAccounts s
+         INNER JOIN AdminAccounts a ON s.admin_id = a.id
+         WHERE s.email = ? AND a.is_archived = 0`,
+        "staff"
+      );
+
+      if (staff) {
+        const [adminResult] = await dbSuperAdmin
+          .promise()
+          .query("SELECT system_type FROM AdminAccounts WHERE id = ? AND is_archived = 0", [staff.admin_id]);
+
+        if (!adminResult || !adminResult.length) {
+          return res.status(401).json({ success: false, message: "Access denied - Admin account is archived" });
+        }
+
+        staff.systemType = adminResult[0].system_type;
+        user = staff;
+      }
+    }
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+
+    const otp = generateOTP();
+    otpLoginSessions[email] = {
+      otp,
+      userId: user.id,
+      role: user.role,
+      systemType: user.systemType || user.system_type || null,
+      adminId: user.role === "admin" ? user.id : user.role === "staff" ? user.admin_id : null,
+      name: user.name,
+      createdAt: Date.now(),
+      userData: user,
+    };
+
+    await sendOTPEmail(email, otp, user.name);
+
+    res.json({
+      message: "Credentials verified. Check your email for the verification code.",
+      requiresOTP: true,
+      success: true,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
 });
 
+// ============ VERIFY LOGIN OTP =============
 router.post("/verify-login-otp", async (req, res) => {
   const { email, otp } = req.body;
 
@@ -144,19 +142,13 @@ router.post("/verify-login-otp", async (req, res) => {
 
   if (sessionData.role === "staff") {
     try {
-      await new Promise((resolve, reject) => {
-        dbSuperAdmin.query(
-          `INSERT INTO StaffSessionLogs (staff_id, staff_name, admin_id, system_type, status) 
+      await dbSuperAdmin
+        .promise()
+        .query(
+          `INSERT INTO StaffSessionLogs (staff_id, staff_name, admin_id, system_type, status)
            VALUES (?, ?, ?, ?, 'online')`,
-          [
-            sessionData.userData.id,
-            sessionData.userData.name,
-            sessionData.userData.admin_id,
-            sessionData.systemType,
-          ],
-          (err) => (err ? reject(err) : resolve())
+          [sessionData.userData.id, sessionData.userData.name, sessionData.userData.admin_id, sessionData.systemType]
         );
-      });
     } catch (err) {
       console.error("Failed to log staff session:", err);
       return res.status(500).json({ message: "Internal server error" });
@@ -172,18 +164,18 @@ router.post("/verify-login-otp", async (req, res) => {
       name: sessionData.name,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "10m" }
+    { expiresIn: "3m" }
   );
 
-  const refreshToken = jwt.sign({ id: sessionData.userId }, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: "7d",
+  const refreshToken = jwt.sign({ id: sessionData.userId, role:sessionData.role }, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: "1d",
   });
 
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-    maxAge: 15 * 60 * 1000,
+    maxAge: 3 * 60 * 1000,
     path: "/",
   });
 
@@ -191,7 +183,6 @@ router.post("/verify-login-otp", async (req, res) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/",
   });
 
@@ -207,52 +198,55 @@ router.post("/verify-login-otp", async (req, res) => {
       adminId: sessionData.adminId,
       name: sessionData.name,
     },
+	accessToken,
   });
 });
-
-router.post("/refresh-token", (req, res) => {
+// ============ REFRESH TOKEN =============
+router.post("/refresh-token", async (req, res) => {
   const refreshToken = req.cookies?.refreshToken;
   if (!refreshToken) return res.status(401).json({ success: false, message: "No refresh token" });
-  const { expectedUserId } = req.body;
+
   jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, async (err, decoded) => {
     if (err) return res.status(403).json({ success: false, message: "Invalid refresh token" });
-    if (expectedUserId && decoded.id !== expectedUserId) {
-      return res.status(403).json({ success: false, message: "Token mismatch" });
-    }
+
     try {
       let user = null;
-      const superadmin = await new Promise((resolve, reject) => {
-        dbSuperAdmin.query(
-          "SELECT id, superadmin_name AS name, email FROM SuperAdminAccounts WHERE id = ?",
-          [decoded.id],
-          (err, result) => (err ? reject(err) : resolve(result[0] || null))
+
+      // ✅ FIX: Check role from decoded token first, then query the correct table
+      if (decoded.role === "superadmin") {
+        const [superadmin] = await dbSuperAdmin
+          .promise()
+          .query("SELECT id, superadmin_name AS name, email FROM SuperAdminAccounts WHERE id = ?", [decoded.id]);
+
+        if (superadmin.length) {
+          user = { ...superadmin[0], role: "superadmin" };
+        }
+      } else if (decoded.role === "admin") {
+        const [admin] = await dbSuperAdmin
+          .promise()
+          .query("SELECT id, admin_name AS name, system_type FROM AdminAccounts WHERE id = ? AND is_archived = 0", [
+            decoded.id,
+          ]);
+
+        if (admin.length) {
+          user = { ...admin[0], role: "admin", systemType: admin[0].system_type };
+        }
+      } else if (decoded.role === "staff") {
+        const [staff] = await dbSuperAdmin.promise().query(
+          `SELECT s.id, s.staff_name AS name, s.admin_id, a.system_type
+           FROM StaffAccounts s
+           INNER JOIN AdminAccounts a ON s.admin_id = a.id
+           WHERE s.id = ? AND a.is_archived = 0`,
+          [decoded.id]
         );
-      });
-      if (superadmin) user = { ...superadmin, role: "superadmin" };
-      if (!user) {
-        const admin = await new Promise((resolve, reject) => {
-          dbSuperAdmin.query(
-            "SELECT id, admin_name AS name, system_type FROM AdminAccounts WHERE id = ? AND is_archived = 0",
-            [decoded.id],
-            (err, result) => (err ? reject(err) : resolve(result[0] || null))
-          );
-        });
-        if (admin) user = { ...admin, role: "admin", systemType: admin.system_type };
+
+        if (staff.length) {
+          user = { ...staff[0], role: "staff", systemType: staff[0].system_type, adminId: staff[0].admin_id };
+        }
       }
-      if (!user) {
-        const staff = await new Promise((resolve, reject) => {
-          dbSuperAdmin.query(
-            `SELECT s.id, s.staff_name AS name, s.admin_id, a.system_type
-             FROM StaffAccounts s
-             INNER JOIN AdminAccounts a ON s.admin_id = a.id
-             WHERE s.id = ? AND a.is_archived = 0`,
-            [decoded.id],
-            (err, result) => (err ? reject(err) : resolve(result[0] || null))
-          );
-        });
-        if (staff) user = { ...staff, role: "staff", systemType: staff.system_type, adminId: staff.admin_id };
-      }
+
       if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
       const accessToken = jwt.sign(
         {
           id: user.id,
@@ -262,20 +256,27 @@ router.post("/refresh-token", (req, res) => {
           adminId: user.adminId || null,
         },
         process.env.JWT_SECRET,
-        { expiresIn: "15m" }
+        { expiresIn: "3m" }
       );
-      const newRefreshToken = jwt.sign(
-        { id: user.id },
-        process.env.JWT_REFRESH_SECRET,
-        { expiresIn: "7d" }
-      );
+
+      res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+        maxAge: 3 * 60 * 1000,
+        path: "/",
+      });
+
+      const newRefreshToken = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_REFRESH_SECRET, { expiresIn: "1d" });
+
       res.cookie("refreshToken", newRefreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+        maxAge: 24 * 60 * 60 * 1000,
         path: "/",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
+
       res.json({
         success: true,
         message: "Tokens refreshed successfully",
@@ -294,10 +295,6 @@ router.post("/refresh-token", (req, res) => {
     }
   });
 });
-
-
-
-
 router.post("/resend-login-otp", async (req, res) => {
   const { email } = req.body;
 
@@ -305,9 +302,7 @@ router.post("/resend-login-otp", async (req, res) => {
 
   const sessionData = otpLoginSessions[email];
   if (!sessionData) {
-    return res
-      .status(400)
-      .json({ message: "No pending login session. Please start login again." });
+    return res.status(400).json({ message: "No pending login session. Please start login again." });
   }
 
   const newOTP = generateOTP();
@@ -319,12 +314,11 @@ router.post("/resend-login-otp", async (req, res) => {
     return res.json({ message: "New verification code sent to your email" });
   } catch (emailError) {
     console.error("Resend OTP error:", emailError);
-    return res
-      .status(500)
-      .json({ message: "Failed to send verification code. Please try again." });
+    return res.status(500).json({ message: "Failed to send verification code. Please try again." });
   }
 });
 
+// ============ STAFF LOGOUT =============
 router.post("/staff/logout", async (req, res) => {
   const { staff_id } = req.body;
 
@@ -333,17 +327,16 @@ router.post("/staff/logout", async (req, res) => {
   }
 
   try {
-    await new Promise((resolve, reject) => {
-      dbSuperAdmin.query(
-        `UPDATE StaffSessionLogs 
-         SET status = 'offline', logout_time = NOW() 
-         WHERE staff_id = ? AND status = 'online' 
-         ORDER BY login_time DESC 
+    await dbSuperAdmin
+      .promise()
+      .query(
+        `UPDATE StaffSessionLogs
+         SET status = 'offline', logout_time = NOW()
+         WHERE staff_id = ? AND status = 'online'
+         ORDER BY login_time DESC
          LIMIT 1`,
-        [staff_id],
-        (err) => (err ? reject(err) : resolve())
+        [staff_id]
       );
-    });
 
     return res.json({ message: "Logout logged successfully" });
   } catch (err) {

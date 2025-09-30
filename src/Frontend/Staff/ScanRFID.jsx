@@ -1,5 +1,5 @@
 import React from "react";
-import { useWebSocket } from "../../../contexts/WebSocketContext";
+import { useWebSocket } from "../../contexts/WebSocketContext";
 
 const ScanRFID = () => {
     const { ws } = useWebSocket(); 

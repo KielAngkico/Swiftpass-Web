@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { API_URL } from "../config";
 import { useAuth } from "../App"; 
 import { getAccessToken, setAccessToken, clearAccessToken } from "../tokenMemory";
+import { scheduleTokenRefresh } from "../api";
 
 const Login = ({ closeModal }) => {
   const navigate = useNavigate();
@@ -55,8 +56,11 @@ const Login = ({ closeModal }) => {
       if (res.ok && data.user) {
         closeModal?.();
         setUser(data.user);
-        if (data.accessToken) setAccessToken(data.accessToken);
-        navigateBasedOnRole(data.user);
+        if (data.accessToken) {
+	setAccessToken(data.accessToken);
+	scheduleTokenRefresh(data.accessToken);
+        }
+	navigateBasedOnRole(data.user);
       } else {
         clearAccessToken();
         setUser(null);
@@ -69,7 +73,10 @@ const Login = ({ closeModal }) => {
 
   const handleSuccessfulLogin = async (data) => {
     try {
-      if (data.accessToken) setAccessToken(data.accessToken);
+      if (data.accessToken) {
+	setAccessToken(data.accessToken);
+	scheduleTokenRefresh(data.accessToken);
+	}
       window.dispatchEvent(new Event("auth-changed"));
       const res = await fetch(`${API_URL}/api/me`, {
         method: "GET",
@@ -144,7 +151,10 @@ const Login = ({ closeModal }) => {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        if (data.accessToken) setAccessToken(data.accessToken);
+        if (data.accessToken) {
+	setAccessToken(data.accessToken);
+	scheduleTokenRefresh(data.accessToken);
+	}
         window.dispatchEvent(new Event("auth-changed"));
         await handleSuccessfulLogin(data);
       } else {

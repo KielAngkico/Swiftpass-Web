@@ -130,172 +130,180 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
     }
   };
 
-  return (
-  <div className="p-6 bg-gray-50 min-h-screen flex gap-6">
-    {/* Left: Renewal Form */}
-    <div className="flex-1">
-      <h2 className="text-2xl font-bold mb-6 text-gray-900">
-        Subscription Renewal
-      </h2>
-
-      {/* RFID Input */}
+return (
+  <div className="min-h-screen w-fit bg-white p-2">
+    <main className="max-w-screen-xl mx-auto">
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700">
-          Scan or Enter RFID
-        </label>
-        <div className="flex gap-2 mt-2">
-          <input
-            type="text"
-            value={rfid}
-            onChange={(e) => setRfid(e.target.value)}
-            placeholder="Enter RFID tag"
-            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none"
-          />
-          <button
-            onClick={fetchMember}
-            className="bg-black text-white px-5 py-3 rounded-lg font-semibold hover:bg-gray-800 transition"
-          >
-            Search
-          </button>
-        </div>
-      </div>
-
-      {/* Plan Selection */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700">
-          Select Renewal Plan
-        </label>
-        <select
-          value={selectedPlan?.plan_name || ""}
-          onChange={(e) => {
-            const plan = plans.find((p) => p.plan_name === e.target.value);
-            setSelectedPlan(plan);
-            setAmountToPay(plan ? plan.amount_to_pay : "");
-          }}
-          className="w-full p-3 border rounded-lg mt-2 focus:ring-2 focus:ring-black focus:border-black outline-none"
-        >
-          <option value="">-- Choose a Plan --</option>
-          {plans.map((plan) => (
-            <option key={plan.id} value={plan.plan_name}>
-              {plan.plan_name} — ₱{plan.amount_to_pay} for{" "}
-              {plan.duration_in_days} day
-              {plan.duration_in_days > 1 ? "s" : ""}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Amount to Pay */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700">
-          Amount to Pay
-        </label>
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          value={amountToPay}
-          onChange={(e) => setAmountToPay(e.target.value)}
-          placeholder="Enter amount to pay"
-          className="w-full p-3 border rounded-lg mt-2 focus:ring-2 focus:ring-black focus:border-black outline-none"
-        />
-      </div>
-
-      {/* Payment Method */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Payment Method
-          </label>
-<select
-  value={paymentMethod}
-  onChange={(e) => setPaymentMethod(e.target.value)}
-  className="w-full p-3 border rounded-lg mt-2 focus:ring-2 focus:ring-black focus:border-black outline-none"
->
-  <option value="">Select</option>
-  {paymentMethods.map((method) => (
-    <option key={method.id} value={method.name.toLowerCase()}>
-      {method.name}
-    </option>
-  ))}
-</select>
-
-        </div>
-
-{paymentMethod !== "cash" && paymentMethod !== "" && (
-  <div>
-    <label className="block text-sm font-medium">
-      {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)} Reference No.
-    </label>
-    <input
-      type="text"
-      value={reference}
-      onChange={(e) => setReference(e.target.value)}
-      className="w-full p-3 border rounded-lg mt-2 focus:ring-2 focus:ring-black focus:border-black outline-none"
-      required
-    />
-  </div>
-)}
-</div>
-
-      {/* Submit Button */}
-      <button
-        onClick={handleSubmit}
-        className="w-full bg-black text-white py-4 rounded-xl font-semibold hover:bg-gray-800 transition"
-      >
-        Confirm Renewal
-      </button>
-
-      {/* Message */}
-      {message && (
-        <p className="mt-6 text-center text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border">
-          {message}
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
+          Subscription Renewal
+        </h1>
+        <p className="text-xs text-gray-500">
+          Renew a member’s subscription using RFID or manual entry.
         </p>
-      )}
-    </div>
-
-    {/* Right: Member ID Card */}
-    <div className="w-80 mt-20">
-      <div className="bg-white border rounded-2xl shadow-lg overflow-hidden">
-        {/* Banner */}
-        <div className="bg-black h-20 flex items-center justify-center">
-          <h3 className="text-white font-bold text-lg">GYM MEMBER ID</h3>
-        </div>
-
-        {/* Profile Section */}
-<div className="flex flex-col items-center p-6">
-  <div className="w-40 h-40 bg-gray-200 flex items-center justify-center overflow-hidden mb-4">
-    {member?.profile_image_url ? (
-      <img src={member.profile_image_url} alt="Member Photo" />
-    ) : (
-      <span className="text-2xl text-gray-500 font-bold">
-        {member?.full_name
-          ? member.full_name.charAt(0).toUpperCase()
-          : "?"}
-      </span>
-    )}
-  </div>
-
-
-
-          <h4 className="text-lg font-semibold text-gray-900">
-            {member?.full_name || "No Member Loaded"}
-          </h4>
-          <p className="text-sm text-gray-600 mb-2">
-            Plan:{" "}
-            <span className="font-medium">
-              {member?.subscription_type || "N/A"}
-            </span>
-          </p>
-          <p className="text-sm text-gray-600">
-            Expires:{" "}
-            <span className="font-medium">
-              {member?.subscription_expiry || "N/A"}
-            </span>
-          </p>
-        </div>
       </div>
-    </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+        className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-white rounded-lg shadow items-start"
+      >
+        <div className="flex flex-col gap-4 h-full">
+          <h2 className="text-sm font-semibold text-gray-700">
+            Renewal Details & Payment
+          </h2>
+
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              Scan or Enter RFID
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={rfid}
+                onChange={(e) => setRfid(e.target.value)}
+                placeholder="Enter RFID tag"
+                className="w-full border border-gray-300 px-3 py-2 rounded text-sm focus:ring focus:ring-indigo-100"
+              />
+              <button
+                type="button"
+                onClick={fetchMember}
+                className="px-4 py-2 rounded bg-black text-white font-semibold text-sm hover:bg-blue-700"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              Select Renewal Plan
+            </label>
+            <select
+              value={selectedPlan?.plan_name || ""}
+              onChange={(e) => {
+                const plan = plans.find((p) => p.plan_name === e.target.value);
+                setSelectedPlan(plan);
+                setAmountToPay(plan ? plan.amount_to_pay : "");
+              }}
+              className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
+            >
+              <option value="">-- Choose a Plan --</option>
+              {plans.map((plan) => (
+                <option key={plan.id} value={plan.plan_name}>
+                  {plan.plan_name} — ₱{plan.amount_to_pay} for{" "}
+                  {plan.duration_in_days} day
+                  {plan.duration_in_days > 1 ? "s" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              Amount to Pay
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={amountToPay}
+              onChange={(e) => setAmountToPay(e.target.value)}
+              placeholder="Enter amount to pay"
+              className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              Payment Method
+            </label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
+            >
+              <option value="">Select</option>
+              {paymentMethods.map((method) => (
+                <option key={method.id} value={method.name.toLowerCase()}>
+                  {method.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {paymentMethod !== "cash" && paymentMethod !== "" && (
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">
+                {paymentMethod.charAt(0).toUpperCase() +
+                  paymentMethod.slice(1)}{" "}
+                Reference No.
+              </label>
+              <input
+                type="text"
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+                className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+                required
+              />
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="w-1/2 mt-4 px-4 py-2 rounded bg-black text-white font-semibold text-sm hover:bg-blue-700"
+          >
+            Confirm Renewal
+          </button>
+
+          {message && <p className="text-xs text-gray-500 mt-2">{message}</p>}
+        </div>
+
+        <div className="flex flex-col items-center gap-3 w-80">
+          <h2 className="text-sm font-semibold text-gray-700">Member ID</h2>
+          <div className="bg-white border rounded-lg shadow w-3/4">
+            <div className="bg-black h-16 flex items-center justify-center">
+              <h3 className="text-white font-semibold text-sm">
+                GYM MEMBER ID
+              </h3>
+            </div>
+            <div className="flex flex-col items-center p-4">
+              <div className="w-32 h-32 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden mb-3">
+                {member?.profile_image_url ? (
+                  <img
+                    src={member.profile_image_url}
+                    alt="Member Photo"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-gray-400 text-sm">
+                    {member?.full_name
+                      ? member.full_name.charAt(0).toUpperCase()
+                      : "?"}
+                  </span>
+                )}
+              </div>
+              <h4 className="text-sm font-semibold text-gray-800">
+                {member?.full_name || "No Member Loaded"}
+              </h4>
+              <p className="text-xs text-gray-600">
+                Plan:{" "}
+                <span className="font-medium">
+                  {member?.subscription_type || "N/A"}
+                </span>
+              </p>
+              <p className="text-xs text-gray-600">
+                Expires:{" "}
+                <span className="font-medium">
+                  {member?.subscription_expiry || "N/A"}
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </form>
+    </main>
   </div>
 );
 

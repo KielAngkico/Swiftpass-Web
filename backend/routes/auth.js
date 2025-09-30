@@ -57,21 +57,29 @@ router.get("/me", (req, res) => {
   const token = req.cookies?.accessToken;
 
   if (!token) {
-    return res.status(401).json({ authenticated: false, message: "No access token - please login" });
+    console.log("❌ /me - No access token cookie found");
+    return refreshTokenHandler(req, res); // Try to refresh automatically
   }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(401).json({ authenticated: false, message: "Token expired - please login again" });
+      console.log("❌ /me - Access token invalid/expired", err.message);
+      return refreshTokenHandler(req, res); // Refresh if expired
     }
 
+    console.log("✅ /me - Access token valid for user:", user.id);
     res.json({
       authenticated: true,
-      user: { id: user.id, role: user.role, systemType: user.systemType, adminId: user.adminId, name: user.name },
+      user: {
+        id: user.id,
+        role: user.role,
+        systemType: user.systemType,
+        adminId: user.adminId,
+        name: user.name,
+      },
     });
   });
 });
-
  
   router.post('/logout', (req, res) => {
     res.clearCookie('refreshToken', {

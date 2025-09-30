@@ -136,99 +136,120 @@ await api.post("/api/register-session", payload);
       setSubmitting(false);
     }
   };
+return (
+  <div className="min-h-screen w-full bg-white p-2">
+    <main className="max-w-screen-md">
+      {/* Page Title */}
+      <div className="mb-6">
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
+          Prepaid Day Pass
+        </h1>
+        <p className="text-xs text-gray-500">
+          Register guests with an RFID day pass and payment details.
+        </p>
+      </div>
 
-  return (
-    <div className="px-6 py-8 bg-gray-100 h-screen ">
-      <main className="max-w-screen-lg">
-        <h1 className="text-xl font-bold mb-6 text-black">Prepaid Day Pass</h1>
-
-        <form
-          onSubmit={handleSubmit}
-          className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-white rounded-lg shadow"
-        >
-          <div className="md:col-span-2 flex flex-col gap-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block mb-1 text-black">Guest Name</label>
-                <input
-                  type="text"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  required
-                  className="w-full border border-gray-300 px-3 py-2 rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-black">RFID Tag</label>
-                <input
-                  type="text"
-                  value={rfid}
-                  readOnly
-                  placeholder="Scan RFID tag"
-                  className="w-full border border-gray-300 px-3 py-2 rounded bg-gray-100 text-black cursor-not-allowed"
-                />
-              </div>
+      {/* Form */}
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white rounded-lg shadow"
+      >
+        <div className="md:col-span-2 flex flex-col gap-3">
+          {/* Guest Name + RFID */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block mb-1 text-xs text-gray-600">
+                Guest Name
+              </label>
+              <input
+                type="text"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                required
+                className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm"
+              />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block mb-1 text-black">Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full border border-gray-300 px-3 py-2 rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-black">Mobile Number</label>
-                <input
-                  type="tel"
-                  value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
-                  required
-                  className="w-full border border-gray-300 px-3 py-2 rounded"
-                />
-              </div>
+            <div>
+              <label className="block mb-1 text-xs text-gray-600">RFID Tag</label>
+              <input
+                type="text"
+                value={rfid}
+                readOnly
+                placeholder="Scan RFID tag"
+                className="w-full border border-gray-200 px-2 py-1.5 rounded bg-gray-50 text-sm text-gray-700 cursor-not-allowed"
+              />
             </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block mb-1 text-black">Gender</label>
-                <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  required
-                  className="w-full border border-gray-300 px-3 py-2 rounded bg-white"
-                >
-                  <option value="" disabled>Select gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block mb-1 text-black">Payment Method</label>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full border border-gray-300 px-3 py-2 rounded bg-white"
-                >
-                  <option value="">Select</option>
-                  {paymentMethods.map((method) => (
-                    <option key={method.id} value={method.name}>
-                      {method.name}
-                    </option>
-                  ))}
-                </select>
-
-              </div>
+          {/* Email + Mobile */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block mb-1 text-xs text-gray-600">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm"
+              />
             </div>
+            <div>
+              <label className="block mb-1 text-xs text-gray-600">
+                Mobile Number
+              </label>
+              <input
+                type="tel"
+                value={mobileNumber}
+                onChange={(e) => setMobileNumber(e.target.value)}
+                required
+                className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm"
+              />
+            </div>
+          </div>
 
+          {/* Gender + Payment */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block mb-1 text-xs text-gray-600">Gender</label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                required
+                className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm bg-white"
+              >
+                <option value="" disabled>
+                  Select gender
+                </option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1 text-xs text-gray-600">
+                Payment Method
+              </label>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm bg-white"
+              >
+                <option value="">Select</option>
+                {paymentMethods.map((method) => (
+                  <option key={method.id} value={method.name}>
+                    {method.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Reference if not cash */}
           {paymentMethod && paymentMethod.toLowerCase() !== "cash" && (
             <div>
-              <label className="block mb-1 text-black">
+              <label className="block mb-1 text-xs text-gray-600">
                 {paymentMethod} Reference
               </label>
               <input
@@ -237,47 +258,53 @@ await api.post("/api/register-session", payload);
                 onChange={(e) => setCashlessRef(e.target.value)}
                 required
                 placeholder={`Enter ${paymentMethod} reference`}
-                className="w-full border border-gray-300 px-3 py-2 rounded"
+                className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm"
               />
             </div>
           )}
 
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block mb-1 text-black">RFID Tag Fee(₱)</label>
-                <input
-                  type="number"
-                  value={KEYFOB_FEE}
-                  readOnly
-                  className="w-full border border-gray-200 bg-gray-50 px-3 py-2 rounded text-black"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-black">Session Fee (₱)</label>
-                <input
-                  type="number"
-                  value={sessionFee}
-                  readOnly
-                  className="w-full border border-gray-200 bg-gray-50 px-3 py-2 rounded text-black"
-                />
-              </div>
-            </div>
-
+          {/* Fees */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <button
-                type="submit"
-                disabled={submitting || loadingCheck}
-                className="w-1/2 mt-2 px-5 py-2 rounded bg-black text-white font-semibold"
-              >
-                {submitting ? "Submitting..." : "Add Member"}
-              </button>
+              <label className="block mb-1 text-xs text-gray-600">
+                RFID Tag Fee (₱)
+              </label>
+              <input
+                type="number"
+                value={KEYFOB_FEE}
+                readOnly
+                className="w-full border border-gray-200 bg-gray-50 px-2 py-1.5 rounded text-sm text-gray-700"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-xs text-gray-600">
+                Session Fee (₱)
+              </label>
+              <input
+                type="number"
+                value={sessionFee}
+                readOnly
+                className="w-full border border-gray-200 bg-gray-50 px-2 py-1.5 rounded text-sm text-gray-700"
+              />
             </div>
           </div>
-        </form>
-      </main>
-    </div>
-  );
+
+          {/* Submit */}
+          <div>
+            <button
+              type="submit"
+              disabled={submitting || loadingCheck}
+              className="w-1/2 mt-2 px-4 py-2 rounded bg-black text-white text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
+            >
+              {submitting ? "Submitting..." : "Add Member"}
+            </button>
+          </div>
+        </div>
+      </form>
+    </main>
+  </div>
+);
+
 };
 
 export default PrepaidDayPass;

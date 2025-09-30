@@ -26,40 +26,36 @@ ChartJS.register(
   Filler
 );
 
-const SubscriptionAnalytical = () => {
+const SubscriptionAnalytical = ({adminUser}) => {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("today");
-  const [adminId, setAdminId] = useState(null);
 
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        setLoading(true);
-        const { data: resUser } = await api.get("/api/me");
-        if (!resUser?.authenticated || !resUser?.user) return;
+useEffect(() => {
+  if (!adminUser?.id) return;
+  
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const admin_id = adminUser.role === "admin" ? adminUser.id : adminUser.adminId;
+      
+      const { data: resAnalytics } = await api.get(
+        "/api/prepaid-activity-analytics",
+        {
+          params: { admin_id, range, system_type: "subscription" },
+        }
+      );
 
-        const id = resUser.user?.adminId || resUser.user?.id;
-        if (!id) return;
-        setAdminId(id);
-        const { data: resAnalytics } = await api.get(
-          "/api/prepaid-activity-analytics",
-          {
-            params: { admin_id: id, range, system_type: "subscription" },
-          }
-        );
+      setAnalytics(resAnalytics);
+    } catch (err) {
+      console.error("Error fetching subscription analytics:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        setAnalytics(resAnalytics);
-      } catch (err) {
-        console.error("❌ Error fetching subscription analytics:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAnalytics();
-  }, [range]);
-
+  fetchAnalytics();
+}, [adminUser, range]);
   if (loading || !analytics) {
     return (
       <div className="p-6 text-gray-600">

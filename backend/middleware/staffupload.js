@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 
 
-const staffDir = path.join(__dirname, "..","..", "uploads", "staff");
+const staffDir = path.join(__dirname, "..","..", "public","uploads", "staff");
 if (!fs.existsSync(staffDir)) {
   fs.mkdirSync(staffDir, { recursive: true });
 }

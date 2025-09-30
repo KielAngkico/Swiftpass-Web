@@ -12,6 +12,7 @@ import {
   Route,
   useNavigate,
   useLocation,
+  Navigate,
 } from "react-router-dom";
 import { WebSocketProvider } from "./contexts/WebSocketContext.jsx";
 import Header from "./components/Header";
@@ -19,6 +20,7 @@ import Navbar from "./components/Navbar";
 import Homepage from "./Frontend/Homepage";
 import { API_URL } from "./config";
 import { setAccessToken, clearAccessToken, getAccessToken } from "./tokenMemory";
+import { scheduleTokenRefresh } from "./api";
 
 // Lazy imports remain the same...
 const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));
@@ -95,6 +97,7 @@ const AuthProvider = ({ children }) => {
           if (data.accessToken) {
             console.log("🎫 [Frontend] Setting new access token from auth check");
             setAccessToken(data.accessToken);
+		scheduleTokenRefresh(data.accessToken);
           }
           setUser(data.user);
           console.log("✅ [Frontend] Auth check successful");
@@ -102,7 +105,7 @@ const AuthProvider = ({ children }) => {
           console.log("❌ [Frontend] Auth check failed, clearing tokens");
           clearAccessToken();
           setUser(null);
-          if (window.location.pathname !== "/") {
+          if (window.location.pathname !== "/" && (res.status === 401 || res.status === 403)) {
             console.log("🔄 [Frontend] Redirecting to login page");
             window.location.href = "/";
           }
@@ -206,7 +209,7 @@ const WebSocketWrapper = ({ children }) => {
   return <WebSocketProvider navigate={customNavigate}>{children}</WebSocketProvider>;
 };
 
-const useAutoLogout = (timeout = 50 * 60 * 1000, enabled = true) => { 
+const useAutoLogout = (timeout = 1 * 60 * 60 * 1000, enabled = true) => { 
   const { performLogout } = useAuth();
   const timerRef = useRef();
   const countdownRef = useRef();
@@ -250,23 +253,14 @@ const useAutoLogout = (timeout = 50 * 60 * 1000, enabled = true) => {
 
 const AppRoutes = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   if (!user) {
     return (
       <Suspense fallback={<p>Loading page...</p>}>
         <Routes>
           <Route path="/" element={<Homepage />} />
-          <Route
-            path="*"
-            element={
-              <div style={{ textAlign: "center", padding: "2rem" }}>
-                <h1>Please Login</h1>
-                <p>
-                  <a href="/">Go to Login</a>
-                </p>
-              </div>
-            }
-          />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     );
@@ -315,11 +309,18 @@ const AppRoutes = () => {
           path="*"
           element={
             <div style={{ textAlign: "center", padding: "2rem" }}>
-              <h1>404 - Page Not Found</h1>
+              <h1>Access Denied</h1>
               <p>You don't have permission to access this page.</p>
-              <p>
-                <a href="/">Go Back to Dashboard</a>
-              </p>
+              <button 
+                onClick={() => {
+                  if (user.role === "superadmin") navigate("/SuperAdmin/addClient");
+                  else if (user.role === "admin") navigate("/Admin/StaffManagement");  
+                  else if (user.role === "staff") navigate("/Staff/member-entry");
+                }}
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mt-4"
+              >
+                Go to Dashboard
+              </button>
             </div>
           }
         />
@@ -341,7 +342,7 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const { resetTimer } = useAutoLogout(50 * 60 * 1000, !!user);
+const { resetTimer } = useAutoLogout(1 * 60 * 60 * 1000, !!user);
 
   const handleLogout = async () => {
     setLoading(true);

@@ -22,50 +22,33 @@ const KPI = ({ title, value }) => (
 );
 
 const SubscriptionActAnalytics = () => {
-  const [adminId, setAdminId] = useState(null);
   const [range, setRange] = useState("all");
   const [totalLogins, setTotalLogins] = useState(0);
   const [hourlyStats, setHourlyStats] = useState([]);
   const [peakHour, setPeakHour] = useState("—");
   const [mostActiveMembers, setMostActiveMembers] = useState([]);
   const [loginData, setLoginData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const { data } = await api.get("/api/me");
-        if (!data.authenticated || !data.user) throw new Error();
-        setAdminId(data.user.adminId);
-      } catch {
-        setError("Failed to authenticate");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUser();
-  }, []);
 
-  useEffect(() => {
-    if (!adminId) return;
-    const fetchAnalytics = async () => {
-      try {
-        const { data } = await api.get("/api/prepaid-activity-analytics", {
-          params: { admin_id: adminId, range, system_type: "subscription" },
-        });
-        setTotalLogins(data.total_logins || 0);
-        setHourlyStats(data.scans_by_hour || []);
-        setPeakHour(data.peak_hour || "—");
-        setMostActiveMembers(data.most_active_members || []);
-        setLoginData(data.entry_logs || []);
-      } catch {
-        setError("Failed to fetch subscription analytics");
-      }
-    };
-    fetchAnalytics();
-  }, [adminId, range]);
-
+useEffect(() => {
+  if (!adminUser?.id) return;
+  
+  const fetchAnalytics = async () => {
+    try {
+      const admin_id = adminUser.role === "admin" ? adminUser.id : adminUser.adminId;
+      
+      const { data } = await api.get("/api/prepaid-activity-analytics", {
+        params: { admin_id, range, system_type: "subscription" },
+      });
+      setTotalLogins(data.total_logins || 0);
+      setHourlyStats(data.scans_by_hour || []);
+      setPeakHour(data.peak_hour || "—");
+      setMostActiveMembers(data.most_active_members || []);
+      setLoginData(data.entry_logs || []);
+    } catch {}
+  };
+  fetchAnalytics();
+}, [adminUser, range]);
   const chartData = {
     labels: hourlyStats.map((d) => `${d.hour}:00`),
     datasets: [
@@ -89,8 +72,6 @@ const SubscriptionActAnalytics = () => {
     },
   };
 
-  if (loading) return <p className="text-xs">Loading analytics...</p>;
-  if (error) return <p className="text-red-500 text-xs">{error}</p>;
 
   return (
     <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">

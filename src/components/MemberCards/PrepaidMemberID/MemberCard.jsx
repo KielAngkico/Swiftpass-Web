@@ -18,10 +18,9 @@ const MemberCard = ({ member, onClose }) => {
           </button>
         )}
 
-        {/* 📸 Cover Image Full Width */}
         <div className="relative w-full h-80">
           <img
-            src={`http://localhost:5000/${member.profile_image_url}`}
+    		src={member.member_image}
             alt={member.full_name}
             className="absolute inset-0 w-full h-full object-cover brightness-90"
           />
@@ -31,29 +30,29 @@ const MemberCard = ({ member, onClose }) => {
           </div>
         </div>
 
-        {/* 📄 Member Info */}
-        <div className="px-6 py-4 text-sm text-gray-700">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <p><span className="font-semibold">RFID:</span> {member.rfid_tag}</p>
-            <p><span className="font-semibold">Age:</span> {member.age}</p>
-            <p><span className="font-semibold">Phone:</span> {member.phone_number}</p>
-            <p><span className="font-semibold">Email:</span> {member.email}</p>
-            <p><span className="font-semibold">Address:</span> {member.address}</p>
-            <p><span className="font-semibold">Joined:</span> {new Date(member.created_at).toLocaleDateString()}</p>
-            <p><span className="font-semibold">Balance:</span>{" "}
-              <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
-                ₱{parseFloat(member.current_balance || 0).toFixed(2)}
-              </span>
-            </p>
-            <p><span className="font-semibold">Status:</span>{" "}
-              <span className={`px-2 py-1 rounded-full font-semibold ${
-                member.status === "active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-              }`}>
-                {member.status}
-              </span>
-            </p>
-          </div>
-        </div>
+
+<div className="px-6 py-4 text-xs text-gray-700 ">
+  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+    <p><span className="font-semibold">RFID:</span> {member.rfid_tag}</p>
+    <p><span className="font-semibold">Age:</span> {member.age}</p>
+    <p><span className="font-semibold">Phone:</span> {member.phone_number}</p>
+    <p><span className="font-semibold">Email:</span> {member.email}</p>
+    <p><span className="font-semibold">Address:</span> {member.address}</p>
+    <p><span className="font-semibold">Joined:</span> {new Date(member.created_at).toLocaleDateString()}</p>
+    <p><span className="font-semibold">Balance:</span>{" "}
+      <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
+        ₱{parseFloat(member.current_balance || 0).toFixed(2)}
+      </span>
+    </p>
+    <p><span className="font-semibold">Status:</span>{" "}
+      <span className={`px-2 py-1 rounded-full font-semibold ${
+        member.status === "active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+      }`}>
+        {member.status}
+      </span>
+    </p>
+  </div>
+</div>
       </div>
     </div>
   );

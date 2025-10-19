@@ -80,7 +80,32 @@ router.get("/me", (req, res) => {
     });
   });
 });
- 
+router.get("/gym-info/:adminId", (req, res) => {
+  const { adminId } = req.params;
+
+  dbSuperAdmin.query(
+    "SELECT gym_name, admin_name FROM AdminAccounts WHERE id = ?",
+    [adminId],
+    (err, results) => {
+      if (err) {
+        console.error("❌ /gym-info - Database error:", err);
+        return res.status(500).json({ message: "Failed to fetch gym info" });
+      }
+
+      if (results.length === 0) {
+        return res.status(404).json({ message: "Gym not found for this admin" });
+      }
+
+      const gym = results[0];
+      res.json({
+        success: true,
+        gym_name: gym.gym_name,
+        admin_name: gym.admin_name,
+      });
+    }
+  );
+});
+
   router.post('/logout', (req, res) => {
     res.clearCookie('refreshToken', {
       path: '/',

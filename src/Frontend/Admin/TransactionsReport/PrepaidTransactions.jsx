@@ -60,7 +60,7 @@ const PrepaidTransactions = () => {
   useEffect(() => {
     const merged = transactions.map((txn) => {
       const match = members.find((m) => m.rfid_tag === txn.rfid_tag);
-      return { ...txn, profile_image_url: match?.profile_image_url || null };
+      return { ...txn, profile_image_url: match?.member_image || null };
     });
 
     let filteredData = merged;
@@ -162,7 +162,7 @@ return (
                     <td className="px-3 py-2">
                       {txn.profile_image_url ? (
                         <img
-                          src={`http://localhost:5000/${txn.profile_image_url}`}
+                          src={txn.profile_image_url}
                           alt={txn.member_name}
                           className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
                         />

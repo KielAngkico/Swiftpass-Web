@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import SubscriptionMemberCard from "../../../components/MemberCards/SubscriptionMemberID";
+import { generateSubscriptionMembersPDF } from "../../../utils/membersReport.js";
 import api from "../../../api";
 
 const KpiCard = ({ title, value, color }) => (
@@ -26,7 +27,8 @@ const SubscriptionView = () => {
         setNotification(null);
 
         const { data } = await api.get("/api/me");
-        if (!data.authenticated || !data.user) throw new Error("Not authenticated");
+        if (!data.authenticated || !data.user)
+          throw new Error("Not authenticated");
 
         setUser(data.user);
         const adminId = data.user.adminId || data.user.id;
@@ -35,6 +37,7 @@ const SubscriptionView = () => {
         const res = await api.get(`/api/get-members?admin_id=${adminId}`);
         setMembers(res.data.members || []);
       } catch (err) {
+        console.error("❌ Error fetching members:", err);
         setNotification({ message: "Failed to fetch members", type: "error" });
         if (err.response?.status === 401) window.location.href = "/login";
       } finally {
@@ -60,20 +63,129 @@ const SubscriptionView = () => {
     (m) => (m.status || "").toLowerCase() === "inactive"
   ).length;
 
+  const handleDownloadPDF = async () => {
+    if (filteredMembers.length === 0) {
+      setNotification({ message: "No members to download", type: "error" });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    try {
+      setNotification({ message: "Generating PDF...", type: "info" });
+
+      const { data: meData } = await api.get("/api/me");
+      if (!meData.authenticated || !meData.user)
+        throw new Error("Not authenticated");
+
+      const adminId = meData.user.adminId || meData.user.id;
+      if (!adminId) throw new Error("Missing admin ID");
+
+      const { data: gymInfo } = await api.get(`/api/gym-info/${adminId}`);
+
+      console.log("🔍 Gym Info from API:", gymInfo);
+
+      const filterData = {
+        status: filterStatus,
+        search: search,
+        gym_name: gymInfo.gym_name,
+        owner_name: gymInfo.admin_name,
+        reportType: "Subscription Members Report",
+      };
+
+      console.log("📤 Sending filterData to PDF:", filterData);
+
+      const filename =  generateSubscriptionMembersPDF(filteredMembers, filterData);
+
+      setNotification({
+        message: `PDF generated successfully: ${filename}`,
+        type: "success",
+      });
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error("❌ Error generating PDF:", error);
+      setNotification({
+        message: "Failed to generate PDF",
+        type: "error",
+      });
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
   return (
     <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">
-      <h1 className="text-lg sm:text-xl font-semibold mb-1">Subscription Members</h1>
-      <p className="text-xs text-gray-500">Overview of subscription member activity</p>
+      {notification && (
+        <div
+          className={`p-3 rounded text-sm ${
+            notification.type === "success"
+              ? "bg-green-100 text-green-800 border border-green-300"
+              : notification.type === "info"
+              ? "bg-blue-100 text-blue-800 border border-blue-300"
+              : "bg-red-100 text-red-800 border border-red-300"
+          }`}
+        >
+          {notification.message}
+        </div>
+      )}
+
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-lg sm:text-xl font-semibold mb-1">
+            Subscription Members
+          </h1>
+          <p className="text-xs text-gray-500">
+            Overview of subscription member activity
+          </p>
+        </div>
+        <button
+          onClick={handleDownloadPDF}
+          disabled={filteredMembers.length === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium shadow-sm"
+          title="Download PDF Report"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <line x1="9" y1="15" x2="15" y2="15"></line>
+          </svg>
+          <span className="hidden sm:inline">Download PDF</span>
+          <span className="sm:hidden">PDF</span>
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <KpiCard title="Total Members" value={totalMembers} color="text-indigo-600" />
-        <KpiCard title="Active Members" value={activeMembers} color="text-green-600" />
-        <KpiCard title="Inactive Members" value={inactiveMembers} color="text-red-600" />
+        <KpiCard
+          title="Total Members"
+          value={totalMembers}
+          color="text-indigo-600"
+        />
+        <KpiCard
+          title="Active Members"
+          value={activeMembers}
+          color="text-green-600"
+        />
+        <KpiCard
+          title="Inactive Members"
+          value={inactiveMembers}
+          color="text-red-600"
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex-1">
-          <label className="text-xs text-gray-500 mb-1 block">🔍 Search by Member</label>
+          <label className="text-xs text-gray-500 mb-1 block">
+            🔍 Search by Member
+          </label>
           <input
             type="text"
             placeholder="e.g. Maria Santiago"
@@ -83,7 +195,9 @@ const SubscriptionView = () => {
           />
         </div>
         <div className="flex-1 sm:w-1/3">
-          <label className="text-xs text-gray-500 mb-1 block">🧍‍♂️ Filter by Status</label>
+          <label className="text-xs text-gray-500 mb-1 block">
+            🧍‍♂️ Filter by Status
+          </label>
           <select
             className="p-2 border border-gray-300 rounded w-full text-xs"
             value={filterStatus}
@@ -103,60 +217,56 @@ const SubscriptionView = () => {
       ) : (
         <div className="overflow-x-auto rounded shadow">
           <table className="min-w-full text-left text-[10px] sm:text-xs">
-            <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-xs">
-              <tr>
-                <th className="px-2 py-1">#</th>
-                <th className="px-2 py-1">Profile</th>
-                <th className="px-2 py-1">Name</th>
-                <th className="px-2 py-1">Phone</th>
-                <th className="px-2 py-1">Balance</th>
-                <th className="px-2 py-1">Status</th>
-                <th className="px-2 py-1">Actions</th>
+          <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-xs">
+            <tr>
+              <th className="px-2 py-1">#</th>
+              <th className="px-2 py-1">Profile</th>
+              <th className="px-2 py-1">Name</th>
+              <th className="px-2 py-1">Phone</th>
+              {/* <th className="px-2 py-1">Balance</th> */} {/* Remove this */}
+              <th className="px-2 py-1">Status</th>
+              <th className="px-2 py-1">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredMembers.map((member, index) => (
+              <tr
+                key={member.rfid_tag || index}
+                className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+              >
+                <td className="px-2 py-1">{index + 1}</td>
+                <td className="px-2 py-1">
+                  <img
+                    src={`http://localhost:5000/${
+                      member.profile_image_url || "default-profile.png"
+                    }`}
+                    alt={member.full_name}
+                    className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
+                  />
+                </td>
+                <td className="px-2 py-1 font-medium">{member.full_name}</td>
+                <td className="px-2 py-1">{member.phone_number}</td>
+                <td className="px-2 py-1">
+                  <span
+                    className={`inline-block px-2 py-0.5 text-[9px] sm:text-xs font-semibold rounded-full shadow-sm ${
+                      member.status === "active"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
+                    }`}>
+                    {member.status}
+                  </span>
+                </td>
+                <td className="px-2 py-1">
+                  <button
+                    onClick={() => setSelectedMember(member)}
+                    className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">
+                    View
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filteredMembers.map((member, index) => (
-                <tr
-                  key={member.rfid_tag || index}
-                  className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                >
-                  <td className="px-2 py-1">{index + 1}</td>
-                  <td className="px-2 py-1">
-                    <img
-                      src={`http://localhost:5000/${member.profile_image_url || "default-profile.png"}`}
-                      alt={member.full_name}
-                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
-                    />
-                  </td>
-                  <td className="px-2 py-1 font-medium">{member.full_name}</td>
-                  <td className="px-2 py-1">{member.phone_number}</td>
-                  <td className="px-2 py-1">
-                    <span className="inline-block px-2 py-0.5 text-[9px] sm:text-xs font-semibold rounded-full bg-green-100 text-green-700 shadow-sm">
-                      ₱{parseFloat(member.current_balance || 0).toFixed(2)}
-                    </span>
-                  </td>
-                  <td className="px-2 py-1">
-                    <span
-                      className={`inline-block px-2 py-0.5 text-[9px] sm:text-xs font-semibold rounded-full shadow-sm ${
-                        member.status === "active"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {member.status}
-                    </span>
-                  </td>
-                  <td className="px-2 py-1">
-                    <button
-                      onClick={() => setSelectedMember(member)}
-                      className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-                    >
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+            ))}
+          </tbody>
+
           </table>
         </div>
       )}

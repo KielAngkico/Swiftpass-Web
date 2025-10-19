@@ -4,7 +4,7 @@ const helmet = require('helmet');
 const cookieParser = require("cookie-parser");
 const path = require("path");
 require('dotenv').config();
-
+require("./middleware/expiryHandler");
 
 const dbSuperAdmin = require('./db');
 
@@ -28,7 +28,7 @@ const PartnerManagementRoutes = require("./routes/PartnerManagement");
 const EmployeeManagementRoutes = require("./routes/EmployeeManagement");
 const SuperAdminInventory = require ("./routes/SuperAdminInventory");
 const RfidVerification = require ("./routes/RfidVerification");
-
+const SubscriptionPackages = require ("./routes/SubscriptionPackages.js");
 
 const app = express();
 
@@ -97,6 +97,6 @@ app.use("/api", PartnerManagementRoutes);
 app.use("/api", EmployeeManagementRoutes);
 app.use("/api", SuperAdminInventory);
 app.use("/api", RfidVerification);
-
+app.use("/api", SubscriptionPackages);
 
 module.exports = app;

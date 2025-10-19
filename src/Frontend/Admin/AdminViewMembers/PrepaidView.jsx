@@ -127,11 +127,11 @@ return (
               <tr key={member.rfid_tag || index} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                 <td className="px-2 py-1">{index + 1}</td>
                 <td className="px-2 py-1">
-                  <img
-                    src={`http://localhost:5000/${member.profile_image_url || "default-profile.png"}`}
-                    alt={member.full_name}
-                    className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
-                  />
+		<img
+  		src={member.member_image}
+  		alt={member.full_name}
+  		className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
+		/>
                 </td>
                 <td className="px-2 py-1 font-medium">{member.full_name}</td>
                 <td className="px-2 py-1">{member.phone_number}</td>

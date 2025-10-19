@@ -1,7 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { API_URL } from "../../config";
+import { useWebSocket } from "../../contexts/WebSocketContext";
 
 const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded, adminId }) => {
+  const { 
+    scanModeEnabled, 
+    scannedRfidForStaff, 
+    toggleScanMode, 
+    clearScannedRfid 
+  } = useWebSocket();
+
   const [formData, setFormData] = useState({
     name: "",
     age: "",
@@ -9,10 +17,33 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded, adminId }) => {
     contact_number: "",
     email: "",
     password: "",
+    rfid_tag: "", // ✅ NEW: RFID field
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notification, setNotification] = useState(null);
+
+  // ✅ Auto-fill RFID when scanned
+  useEffect(() => {
+    if (scannedRfidForStaff && isOpen) {
+      setFormData(prev => ({ ...prev, rfid_tag: scannedRfidForStaff }));
+      clearScannedRfid();
+      
+      setNotification({
+        type: "success",
+        message: `✅ RFID Card Scanned: ${scannedRfidForStaff}`
+      });
+      setTimeout(() => setNotification(null), 3000);
+    }
+  }, [scannedRfidForStaff, isOpen, clearScannedRfid]);
+
+  // ✅ Cleanup scan mode when modal closes
+  useEffect(() => {
+    if (!isOpen && scanModeEnabled) {
+      toggleScanMode(false);
+    }
+  }, [isOpen, scanModeEnabled, toggleScanMode]);
 
   if (!isOpen) return null;
 
@@ -24,6 +55,23 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded, adminId }) => {
     } else {
       setFormData({ ...formData, [e.target.name]: e.target.value });
     }
+  };
+
+  const handleScanRfid = () => {
+    if (scanModeEnabled) {
+      toggleScanMode(false);
+      setNotification({
+        type: "info",
+        message: "🔴 RFID Scan Mode Disabled"
+      });
+    } else {
+      toggleScanMode(true);
+      setNotification({
+        type: "info",
+        message: "🟢 RFID Scan Mode Active - Please scan RFID card now..."
+      });
+    }
+    setTimeout(() => setNotification(null), 4000);
   };
 
   const handleSubmit = async (e) => {
@@ -40,10 +88,25 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded, adminId }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to add employee");
 
-      onEmployeeAdded({ user_id: data.id, ...formData, profile_image_url: data.profile_image_url });
-      setFormData({ name: "", age: "", address: "", contact_number: "", email: "", password: "" });
+      onEmployeeAdded({ 
+        user_id: data.id, 
+        ...formData, 
+        profile_image_url: data.profile_image_url 
+      });
+
+      // Reset form
+      setFormData({ 
+        name: "", 
+        age: "", 
+        address: "", 
+        contact_number: "", 
+        email: "", 
+        password: "",
+        rfid_tag: "" 
+      });
       setImageFile(null);
       setImagePreview(null);
+
       alert("Employee added successfully!");
       onClose();
     } catch (err) {
@@ -70,6 +133,19 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded, adminId }) => {
             </svg>
           </button>
         </div>
+
+        {/* ✅ Notification Banner */}
+        {notification && (
+          <div
+            className={`mb-4 p-3 rounded-md text-sm font-medium ${
+              notification.type === "success"
+                ? "bg-green-100 text-green-800 border border-green-300"
+                : "bg-blue-100 text-blue-800 border border-blue-300"
+            }`}
+          >
+            {notification.message}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -145,6 +221,39 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded, adminId }) => {
                   className="w-full p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
+              </div>
+
+              {/* ✅ NEW: RFID Tag Field with Scan Button */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  RFID Tag (Optional)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="rfid_tag"
+                    value={formData.rfid_tag}
+                    onChange={handleChange}
+                    placeholder="Scan or enter manually"
+                    className="flex-1 p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleScanRfid}
+                    className={`px-4 py-2 rounded-md text-xs font-medium transition-colors ${
+                      scanModeEnabled
+                        ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                        : "bg-blue-500 hover:bg-blue-600 text-white"
+                    }`}
+                  >
+                    {scanModeEnabled ? "🔴 Scanning..." : "📡 Scan RFID"}
+                  </button>
+                </div>
+                {scanModeEnabled && (
+                  <p className="text-xs text-blue-600 mt-1 animate-pulse">
+                    ⏳ Waiting for RFID scan...
+                  </p>
+                )}
               </div>
             </div>
 

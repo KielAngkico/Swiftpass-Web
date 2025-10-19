@@ -126,8 +126,13 @@ const handleSubmit = async (e) => {
   }
 
   const requestBody = new FormData();
+  
+  // Only append non-empty values
   Object.entries({ ...formData, staff_name: staffName, admin_id: adminId }).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) requestBody.append(key, value);
+    // Skip empty strings, null, and undefined
+    if (value !== undefined && value !== null && value !== '') {
+      requestBody.append(key, value);
+    }
   });
 
   requestBody.append("subscription_type", subscriptionType);
@@ -142,46 +147,58 @@ const handleSubmit = async (e) => {
     console.log(`${key}:`, value);
   }
 
-
   try {
-    const response = await api.post("/api/add-member", requestBody, {
+    // Use the correct endpoint for subscription members
+    const response = await api.post("/api/add-subscription-member", requestBody, {
       headers: { "Content-Type": "multipart/form-data" },
     });
-    const result = await response.json();
+    
+    // Axios automatically parses JSON, so response.data contains the parsed object
+    const result = response.data;
     setServerMessage(result.message);
 
-    if (response.ok) {
-      alert("✅ Member added successfully!");
-      setFormData({
-        full_name: "",
-        age: "",
-        gender: "",
-        rfid_tag: "",
-        phone_number: "",
-        address: "",
-        email: "",
-        password: "",
-        payment_method: "",
-        reference: "",
-        gcash_reference: "",
-        plan_name: "",
-      });
-      setSelectedImage(null);
-      setImagePreview(null);
-      setSubscriptionType("");
-      setAmountToPay(0);
-      setSubscriptionStart("");
-      setSubscriptionExpiry("");
-    } else {
-      alert(`❌ Error: ${result.message}`);
-    }
+    // Check response status (axios throws error for non-2xx, so this will be 200-299)
+    alert("✅ Member added successfully!");
+    
+    // Reset form
+    setFormData({
+      full_name: "",
+      age: "",
+      gender: "",
+      rfid_tag: "",
+      phone_number: "",
+      address: "",
+      email: "",
+      password: "",
+      payment_method: "",
+      reference: "",
+      gcash_reference: "",
+      plan_name: "",
+    });
+    setSelectedImage(null);
+    setImagePreview(null);
+    setSubscriptionType("");
+    setAmountToPay(0);
+    setSubscriptionStart("");
+    setSubscriptionExpiry("");
+
   } catch (err) {
     console.error("❌ Error submitting form:", err);
-    alert("Something went wrong. Please try again.");
+    
+    // Handle axios error response
+    if (err.response) {
+      // Server responded with error status
+      console.log("Server error response:", err.response.data);
+      alert(`❌ Error: ${err.response.data.message || 'Something went wrong'}`);
+    } else if (err.request) {
+      // Request made but no response
+      alert("❌ Network error. Please check your connection.");
+    } else {
+      // Something else happened
+      alert("❌ Something went wrong. Please try again.");
+    }
   }
 };
-
-
 return (
   <div className="min-h-screen w-full bg-white p-2">
     <main className="max-w-screen-xl mx-auto">

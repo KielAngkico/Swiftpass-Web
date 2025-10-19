@@ -10,20 +10,18 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
     console.log("REQ.BODY:", req.body);
     console.log("REQ.FILE:", req.file);
 
-    const { name, age, address, contact_number, email, password, admin_id } = req.body;
-
+    const { name, age, address, contact_number, email, password, admin_id, rfid_tag } = req.body;
 
     if (!name || !age || !address || !contact_number || !email || !password || !admin_id) {
-      return res.status(400).json({ message: "All fields are required." });
+      return res.status(400).json({ message: "All required fields must be filled." });
     }
 
-  
     const emailRegex = /^[a-zA-Z0-9._-]+@gmail\.com$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ message: "Email must be a valid Gmail address." });
     }
 
-
+    // Check if email already exists
     const [existing] = await dbSuperAdmin
       .promise()
       .query("SELECT * FROM StaffAccounts WHERE email = ?", [email]);
@@ -31,24 +29,40 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
       return res.status(400).json({ message: "Email already exists. Use a different one." });
     }
 
+    // ✅ NEW: Check if RFID tag already exists (if provided)
+    if (rfid_tag && rfid_tag.trim() !== "") {
+      const [existingRfid] = await dbSuperAdmin
+        .promise()
+        .query("SELECT * FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ?", [rfid_tag, admin_id]);
+      if (existingRfid.length > 0) {
+        return res.status(400).json({ message: "RFID tag already assigned to another staff member." });
+      }
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-
     const profile_image_filename = req.file ? req.file.filename : null;
 
-   
+    // ✅ UPDATED: Include rfid_tag in INSERT
     const [result] = await dbSuperAdmin
       .promise()
       .query(
         `INSERT INTO StaffAccounts
-          (admin_id, staff_name, age, address, contact_number, email, password, profile_image_url, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
-        [admin_id, name, age, address, contact_number, email, hashedPassword, profile_image_filename]
+          (admin_id, staff_name, age, address, contact_number, email, password, profile_image_url, rfid_tag, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+        [
+          admin_id, 
+          name, 
+          age, 
+          address, 
+          contact_number, 
+          email, 
+          hashedPassword, 
+          profile_image_filename,
+          rfid_tag || null  // Store null if empty
+        ]
       );
 
-   
-    const profile_image_url = profile_image_filename 
+    const profile_image_url = profile_image_filename
       ? `${req.protocol}://${req.get('host')}/uploads/staff/${profile_image_filename}`
       : null;
 
@@ -56,6 +70,7 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
       message: "Employee added successfully!",
       id: result.insertId,
       profile_image_url,
+      rfid_tag: rfid_tag || null
     });
 
   } catch (err) {
@@ -67,8 +82,9 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
 router.get("/get-employees/:admin_id", (req, res) => {
     const adminId = req.params.admin_id;
 
+    // ✅ UPDATED: Include rfid_tag in SELECT
     const sql = `
-        SELECT id AS user_id, staff_name AS name, age, address, contact_number, email, profile_image_url
+        SELECT id AS user_id, staff_name AS name, age, address, contact_number, email, profile_image_url, rfid_tag
         FROM StaffAccounts
         WHERE admin_id = ? AND status = 'active'
     `;
@@ -79,17 +95,15 @@ router.get("/get-employees/:admin_id", (req, res) => {
             return res.status(500).json({ message: "Internal server error while fetching employees." });
         }
 
-       
         const employeesWithImages = results.map(emp => {
             let imageUrl = null;
-            
-            if (emp.profile_image_url) {
 
+            if (emp.profile_image_url) {
                 imageUrl = `${req.protocol}://${req.get('host')}${emp.profile_image_url}`;
             }
-            
+
             console.log(`Employee ${emp.name}: DB value = ${emp.profile_image_url}, Final URL = ${imageUrl}`);
-            
+
             return {
                 ...emp,
                 profile_image_url: imageUrl
@@ -124,11 +138,11 @@ router.delete('/staff/:id', (req, res) => {
 
     const staff = results[0];
 
-
+    // ✅ UPDATED: Include rfid_tag in archive
     const archiveQuery = `
-      INSERT INTO StaffAccounts_Archived 
-        (id, admin_id, staff_name, age, contact_number, address, email, password, profile_image_url, status, created_at, archived_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      INSERT INTO StaffAccounts_Archived
+        (id, admin_id, staff_name, age, contact_number, address, email, password, profile_image_url, rfid_tag, status, created_at, archived_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `;
 
     dbSuperAdmin.query(
@@ -142,7 +156,8 @@ router.delete('/staff/:id', (req, res) => {
         staff.address,
         staff.email,
         staff.password,
-        staff.profile_image_url, 
+        staff.profile_image_url,
+        staff.rfid_tag || null,  // ✅ Include RFID tag
         'inactive',
         staff.created_at
       ],
@@ -152,7 +167,6 @@ router.delete('/staff/:id', (req, res) => {
           return res.status(500).json({ message: "Error archiving staff. Possible duplicate ID or missing table." });
         }
 
-      
         const deleteQuery = "DELETE FROM StaffAccounts WHERE id = ?";
         dbSuperAdmin.query(deleteQuery, [id], (err, deleteResults) => {
           if (err) {

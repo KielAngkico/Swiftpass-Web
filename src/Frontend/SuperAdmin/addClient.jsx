@@ -3,8 +3,10 @@ import axios from "axios";
 import SuperAdminSidebar from "../../components/SuperAdminSidebar";
 import AddPartnerModal from "../../components/Modals/AddPartnerModal";
 import { API_URL } from "../../config";
+import { useLocation } from "react-router-dom";
 
 const AddClient = () => {
+  const location = useLocation();
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
     admin_name: "",
@@ -16,6 +18,7 @@ const AddClient = () => {
     system_type: "",
     session_fee: "",
     profile_image_url: null,
+    rfid_tag: "",
   });
   const [message, setMessage] = useState("");
   const [admins, setAdmins] = useState([]);
@@ -32,6 +35,17 @@ const AddClient = () => {
     };
     fetchAdmins();
   }, []);
+
+  useEffect(() => {
+    if (location.state?.rfid_tag && location.state?.is_registered === true) {
+      console.log("RFID from navigation:", location.state.rfid_tag);
+      setFormData((prev) => ({
+        ...prev,
+        rfid_tag: location.state.rfid_tag,
+      }));
+      setShowAddForm(true);
+    }
+  }, [location.state]);
 
   const showNotification = (msg, type = "error") => {
     setMessage(msg);
@@ -62,6 +76,7 @@ const AddClient = () => {
     try {
       const formPayload = new FormData();
       formPayload.append("admin_name", formData.admin_name);
+      formPayload.append("rfid_tag", formData.rfid_tag);
       formPayload.append("age", Number(formData.age));
       formPayload.append("address", formData.address);
       formPayload.append("email", formData.email);
@@ -69,18 +84,20 @@ const AddClient = () => {
       formPayload.append("gym_name", formData.gym_name);
       formPayload.append("system_type", formData.system_type);
       formPayload.append("session_fee", sessionFeeValue);
+
       if (formData.profile_image_url) {
         formPayload.append("profile_image_url", formData.profile_image_url);
       }
 
-      const response = await axios.post(
-        `${API_URL}/api/add-client`,
-        formPayload,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
+      const response = await axios.post(`${API_URL}/api/add-client`, formPayload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
       showNotification("Partner added successfully!", "success");
       setShowAddForm(false);
+
+	    sessionStorage.removeItem("scanned_rfid_superadmin");
+    sessionStorage.removeItem("is_rfid_registered");
 
       setFormData({
         admin_name: "",
@@ -92,10 +109,29 @@ const AddClient = () => {
         system_type: "",
         session_fee: "",
         profile_image_url: null,
+        rfid_tag: "",
       });
 
-      setAdmins([...admins, { id: response.data.id, ...response.data }]);
+      setAdmins([
+        ...admins,
+        {
+          id: response.data.id,
+          admin_name: formData.admin_name,
+          age: formData.age,
+          address: formData.address,
+          email: formData.email,
+          gym_name: formData.gym_name,
+          system_type: formData.system_type,
+          session_fee: sessionFeeValue,
+          profile_image_url: response.data.profile_image_url || null,
+          is_archived: 0,
+        },
+      ]);
     } catch (error) {
+      console.error(
+        "Add partner error:",
+        error.response ? error.response.data : error
+      );
       showNotification("Failed to add partner. Please try again.");
     }
   };
@@ -123,6 +159,34 @@ const AddClient = () => {
     }
   };
 
+  const handleDelete = async (id, adminName) => {
+    const admin = admins.find(a => a.id === id);
+    if (!admin || admin.is_archived === 0) {
+      showNotification("Only archived accounts can be deleted");
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to permanently delete "${adminName}"?\n\nThis action cannot be undone and will remove all associated data.`)) {
+      return;
+    }
+
+    if (!window.confirm(`FINAL WARNING: Permanently delete "${adminName}"? This will delete all members, transactions, and logs associated with this account.`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${API_URL}/api/delete-admin/${id}`);
+      
+      setAdmins(admins.filter(admin => admin.id !== id));
+      setSelectedAdmin(null);
+      
+      showNotification(`${adminName} deleted permanently!`, "success");
+    } catch (error) {
+      console.error("Delete admin error:", error);
+      showNotification(`Failed to delete ${adminName}. Please try again.`);
+    }
+  };
+
   const handleCloseModal = () => {
     setShowAddForm(false);
     setFormData({
@@ -135,6 +199,7 @@ const AddClient = () => {
       system_type: "",
       session_fee: "",
       profile_image_url: null,
+      rfid_tag: "",
     });
   };
 
@@ -153,148 +218,160 @@ const AddClient = () => {
     );
   };
 
-return (
-  <div className="flex min-h-screen bg-gray-50">
-    <SuperAdminSidebar />
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      <SuperAdminSidebar />
 
-    <div className="flex-1 p-4">
-      <div className="mb-4">
-        <h1 className="text-xl font-semibold text-gray-800">
-          Partner Management
-        </h1>
-        <p className="text-gray-600 text-xs">
-          Manage your gym partners and their information
-        </p>
-      </div>
-
-      <div className="mb-3">
-        <button
-          className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors text-xs font-medium w-full sm:w-auto"
-          onClick={() => setShowAddForm(true)}
-        >
-          + Add New Partner
-        </button>
-      </div>
-
-      <NotificationMessage message={message} />
-      <AddPartnerModal
-        isOpen={showAddForm}
-        onClose={handleCloseModal}
-        formData={formData}
-        onFormChange={handleChange}
-        onSubmit={handleSubmit}
-      />
-
-      {admins.length === 0 ? (
-        <div className="text-center py-6 bg-white rounded-md border">
-          <div className="text-gray-400 text-sm mb-1">No partners found</div>
-          <div className="text-gray-500 text-xs">
-            Add your first partner to get started
-          </div>
+      <div className="flex-1 p-4">
+        <div className="mb-4">
+          <h1 className="text-xl font-semibold text-gray-800">
+            Partner Management
+          </h1>
+          <p className="text-gray-600 text-xs">
+            Manage your gym partners and their information
+          </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {admins.map((admin) => (
-            <div
-              key={admin.id}
-              className={`rounded-lg border shadow-sm transition-all text-xs ${
-                admin.is_archived
-                  ? "bg-red-50 border-red-200"
-                  : "bg-white border-gray-200 hover:shadow-md"
-              }`}
-            >
-              {admin.profile_image_url && (
-                <img
-                  src={`${API_URL}${admin.profile_image_url}`}
-                  alt={admin.gym_name}
-                  className="w-full h-28 object-cover rounded-t-lg"
-                />
-              )}
 
-              <div className="p-3">
-                <h3 className="font-bold text-black text-sm truncate">
-                  {admin.gym_name}
-                </h3>
-                <p className="text-black text-xs truncate">
-                  <span className="font-bold">Owner:</span>{" "}
-                  {admin.admin_name}
-                </p>
-                <p className="text-black text-xs line-clamp-2">
-                  <span className="font-bold">Address:</span>{" "}
-                  {admin.address}
-                </p>
+        <div className="mb-3">
+          <button
+            className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors text-xs font-medium w-full sm:w-auto"
+            onClick={() => setShowAddForm(true)}
+          >
+            + Add New Partner
+          </button>
+        </div>
 
-                <div className="flex gap-2 mt-3">
-                  <button
-                    className="flex-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-200 transition-colors text-xs font-medium"
-                    onClick={() => setSelectedAdmin(admin)}
-                  >
-                    View
-                  </button>
+        <NotificationMessage message={message} />
+        <AddPartnerModal
+          isOpen={showAddForm}
+          onClose={handleCloseModal}
+          formData={formData}
+          onFormChange={handleChange}
+          onSubmit={handleSubmit}
+        />
 
-                  <button
-                    className={`flex-1 px-2 py-1 rounded-md text-white text-xs font-medium transition-colors ${
-                      admin.is_archived
-                        ? "bg-green-500 hover:bg-green-600"
-                        : "bg-red-500 hover:bg-red-600"
-                    }`}
-                    onClick={() => handleArchive(admin.id, admin.is_archived)}
-                  >
-                    {admin.is_archived ? "Restore" : "Archive"}
-                  </button>
+        {admins.length === 0 ? (
+          <div className="text-center py-6 bg-white rounded-md border">
+            <div className="text-gray-400 text-sm mb-1">No partners found</div>
+            <div className="text-gray-500 text-xs">
+              Add your first partner to get started
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {admins.map((admin) => (
+              <div
+                key={admin.id}
+                className={`rounded-lg border shadow-sm transition-all text-xs ${
+                  admin.is_archived
+                    ? "bg-red-50 border-red-200"
+                    : "bg-white border-gray-200 hover:shadow-md"
+                }`}
+              >
+                {admin.profile_image_url && (
+                  <img
+                    src={`${API_URL}${admin.profile_image_url}`}
+                    alt={admin.gym_name}
+                    className="w-full h-28 object-cover rounded-t-lg"
+                  />
+                )}
+
+                <div className="p-3">
+                  <h3 className="font-bold text-black text-sm truncate">
+                    {admin.gym_name}
+                  </h3>
+                  <p className="text-black text-xs truncate">
+                    <span className="font-bold">Owner:</span>{" "}
+                    {admin.admin_name}
+                  </p>
+                  <p className="text-black text-xs line-clamp-2">
+                    <span className="font-bold">Address:</span>{" "}
+                    {admin.address}
+                  </p>
+
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      className="flex-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-200 transition-colors text-xs font-medium"
+                      onClick={() => setSelectedAdmin(admin)}
+                    >
+                      View
+                    </button>
+
+                    {admin.is_archived ? (
+                      <>
+                        <button
+                          className="flex-1 px-2 py-1 rounded-md text-white text-xs font-medium transition-colors bg-green-500 hover:bg-green-600"
+                          onClick={() => handleArchive(admin.id, admin.is_archived)}
+                        >
+                          Restore
+                        </button>
+                        <button
+                          className="flex-1 px-2 py-1 rounded-md text-white text-xs font-medium transition-colors bg-red-600 hover:bg-red-700"
+                          onClick={() => handleDelete(admin.id, admin.gym_name)}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="flex-1 px-2 py-1 rounded-md text-white text-xs font-medium transition-colors bg-red-500 hover:bg-red-600"
+                        onClick={() => handleArchive(admin.id, admin.is_archived)}
+                      >
+                        Archive
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
 
-      {selectedAdmin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-5 w-full max-w-sm shadow-lg">
-            {selectedAdmin.profile_image_url && (
-              <img
-                src={`${API_URL}${selectedAdmin.profile_image_url}`}
-                alt={selectedAdmin.gym_name}
-                className="w-full h-36 object-cover rounded-md mb-3"
-              />
-            )}
-            <h2 className="text-lg font-semibold mb-2">
-              {selectedAdmin.gym_name}
-            </h2>
-            <p className="text-sm text-gray-700">
-              <strong>Owner:</strong> {selectedAdmin.admin_name}
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>Email:</strong> {selectedAdmin.email}
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>Age:</strong> {selectedAdmin.age}
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>Address:</strong> {selectedAdmin.address}
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>System:</strong> {selectedAdmin.system_type}
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>Session Fee:</strong> {selectedAdmin.session_fee}
-            </p>
-            <div className="mt-4 flex justify-end">
-              <button
-                className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-xs hover:bg-gray-300"
-                onClick={() => setSelectedAdmin(null)}
-              >
-                Close
-              </button>
+        {selectedAdmin && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-5 w-full max-w-sm shadow-lg">
+              {selectedAdmin.profile_image_url && (
+                <img
+                  src={`${API_URL}${selectedAdmin.profile_image_url}`}
+                  alt={selectedAdmin.gym_name}
+                  className="w-full h-36 object-cover rounded-md mb-3"
+                />
+              )}
+              <h2 className="text-lg font-semibold mb-2">
+                {selectedAdmin.gym_name}
+              </h2>
+              <p className="text-sm text-gray-700">
+                <strong>Owner:</strong> {selectedAdmin.admin_name}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Email:</strong> {selectedAdmin.email}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Age:</strong> {selectedAdmin.age}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Address:</strong> {selectedAdmin.address}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>System:</strong> {selectedAdmin.system_type}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Session Fee:</strong> {selectedAdmin.session_fee}
+              </p>
+              <div className="mt-4 flex justify-end">
+                <button
+                  className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-xs hover:bg-gray-300"
+                  onClick={() => setSelectedAdmin(null)}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
-  </div>
-);
-
+  );
 };
 
 export default AddClient;

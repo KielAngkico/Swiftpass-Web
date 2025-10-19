@@ -21,7 +21,7 @@ const MemberCard = ({ member, onClose }) => {
         {/* 🎟️ Subscription Cover */}
         <div className="relative w-full h-80">
           <img
-            src={`http://localhost:5000/${member.profile_image_url}`}
+            src={member.member.image}
             alt={member.full_name}
             className="absolute inset-0 w-full h-full object-cover brightness-90"
           />
@@ -34,7 +34,7 @@ const MemberCard = ({ member, onClose }) => {
         </div>
 
         {/* 📋 Info Section */}
-        <div className="px-6 py-4 text-sm text-gray-700">
+        <div className="px-6 py-4 text-xs text-gray-700">
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <p><span className="font-semibold">RFID:</span> {member.rfid_tag}</p>
             <p><span className="font-semibold">Age:</span> {member.age}</p>

@@ -30,6 +30,7 @@ const RepRange = React.lazy(() => import("./Frontend/SuperAdmin/RepRange"));
 const FoodLibrary = React.lazy(() => import("./Frontend/SuperAdmin/FoodLibrary"));
 const Allergens = React.lazy(() => import("./Frontend/SuperAdmin/AllergensMasterList"));
 const ItemsInventory = React.lazy(() => import("./Frontend/SuperAdmin/ItemsInventory"));
+const PricingsManagement = React.lazy(() => import("./Frontend/SuperAdmin/PricingManagement"));
 
 const AdminAnalyticalDashboard = React.lazy(() => import("./Frontend/Admin/AdminAnalyticalDashboard"));
 const AdminViewMembers = React.lazy(() => import("./Frontend/Admin/AdminViewMembers"));
@@ -186,7 +187,7 @@ const AuthProvider = ({ children }) => {
 const WebSocketWrapper = ({ children }) => {
   const navigate = useNavigate();
 
-  const customNavigate = (path, state, role) => {
+  const customNavigate = (path, options, role) => {
     const allowedPrefixes =
       role === "superadmin"
         ? ["/SuperAdmin/"]
@@ -197,7 +198,7 @@ const WebSocketWrapper = ({ children }) => {
         : [];
 
     if (allowedPrefixes.some((prefix) => path.startsWith(prefix))) {
-      navigate(path, state);
+      navigate(path, options);
     } else {
       console.warn(`⛔ Navigation blocked for role=${role}:`, path);
       if (role === "superadmin") navigate("/SuperAdmin/addClient");
@@ -208,7 +209,6 @@ const WebSocketWrapper = ({ children }) => {
 
   return <WebSocketProvider navigate={customNavigate}>{children}</WebSocketProvider>;
 };
-
 const useAutoLogout = (timeout = 1 * 60 * 60 * 1000, enabled = true) => { 
   const { performLogout } = useAuth();
   const timerRef = useRef();
@@ -280,6 +280,7 @@ const AppRoutes = () => {
             <Route path="/SuperAdmin/FoodLibrary" element={<FoodLibrary />} />
             <Route path="/SuperAdmin/AllergensMasterList" element={<Allergens />} />
             <Route path="/SuperAdmin/ItemsInventory" element={<ItemsInventory />} />
+	    <Route path="/SuperAdmin/PricingManagement" element={<PricingsManagement />} />
           </>
         )}
 

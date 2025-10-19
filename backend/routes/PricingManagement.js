@@ -2,7 +2,9 @@ const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
 
-
+/**
+ * Add Pricing Plan
+ */
 router.post("/add-pricing", async (req, res) => {
   console.log("✅ /add-pricing route hit");
   const {
@@ -12,6 +14,7 @@ router.post("/add-pricing", async (req, res) => {
     amount_to_pay,
     duration_in_days,
     amount_to_credit,
+    day_pass_fee,
   } = req.body;
 
   try {
@@ -19,13 +22,22 @@ router.post("/add-pricing", async (req, res) => {
 
     if (system_type === "subscription") {
       sql = `
-        INSERT INTO AdminPricingOptions (admin_id, system_type, plan_name, amount_to_pay, duration_in_days, is_deletable)
-        VALUES (?, ?, ?, ?, ?, 1)
+        INSERT INTO AdminPricingOptions 
+          (admin_id, system_type, plan_name, amount_to_pay, duration_in_days, day_pass_fee, is_deletable)
+        VALUES (?, ?, ?, ?, ?, ?, 1)
       `;
-      values = [admin_id, system_type, plan_name, amount_to_pay, duration_in_days];
+      values = [
+        admin_id,
+        system_type,
+        plan_name,
+        amount_to_pay,
+        duration_in_days,
+        day_pass_fee || 0,
+      ];
     } else if (system_type === "prepaid_entry") {
       sql = `
-        INSERT INTO AdminPricingOptions (admin_id, system_type, plan_name, amount_to_pay, amount_to_credit)
+        INSERT INTO AdminPricingOptions 
+          (admin_id, system_type, plan_name, amount_to_pay, amount_to_credit)
         VALUES (?, ?, ?, ?, ?)
       `;
       values = [admin_id, system_type, plan_name, amount_to_pay, amount_to_credit];
@@ -41,7 +53,9 @@ router.post("/add-pricing", async (req, res) => {
   }
 });
 
-
+/**
+ * Get Pricing Plans for Admin
+ */
 router.get("/get-pricing/:admin_id", async (req, res) => {
   const { admin_id } = req.params;
 
@@ -69,6 +83,9 @@ router.get("/get-pricing/:admin_id", async (req, res) => {
   }
 });
 
+/**
+ * Update Pricing Plan
+ */
 router.put("/update-pricing/:id", async (req, res) => {
   const { id } = req.params;
   const {
@@ -77,6 +94,7 @@ router.put("/update-pricing/:id", async (req, res) => {
     amount_to_pay,
     duration_in_days,
     amount_to_credit,
+    day_pass_fee,
   } = req.body;
 
   try {
@@ -103,10 +121,10 @@ router.put("/update-pricing/:id", async (req, res) => {
     if (system_type === "subscription") {
       sql = `
         UPDATE AdminPricingOptions
-        SET plan_name = ?, amount_to_pay = ?, duration_in_days = ?
+        SET plan_name = ?, amount_to_pay = ?, duration_in_days = ?, day_pass_fee = ?
         WHERE id = ?
       `;
-      values = [plan_name, amount_to_pay, duration_in_days, id];
+      values = [plan_name, amount_to_pay, duration_in_days, day_pass_fee || 0, id];
     } else if (system_type === "prepaid_entry") {
       sql = `
         UPDATE AdminPricingOptions
@@ -127,7 +145,9 @@ router.put("/update-pricing/:id", async (req, res) => {
   }
 });
 
-
+/**
+ * Delete Pricing Plan
+ */
 router.delete("/delete-pricing/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -157,6 +177,9 @@ router.delete("/delete-pricing/:id", async (req, res) => {
   }
 });
 
+/**
+ * Add Payment Method
+ */
 router.post("/add-payment-method", async (req, res) => {
   console.log("✅ /add-payment-method route hit");
   const { admin_id, name, reference_number } = req.body;
@@ -178,8 +201,12 @@ router.post("/add-payment-method", async (req, res) => {
     console.error("Error adding payment method:", err);
     res.status(500).json({ message: "Server error while adding payment method" });
   }
-  });
-  router.get("/payment-methods/:admin_id", async (req, res) => {
+});
+
+/**
+ * Get Payment Methods
+ */
+router.get("/payment-methods/:admin_id", async (req, res) => {
   const { admin_id } = req.params;
 
   try {
@@ -193,9 +220,5 @@ router.post("/add-payment-method", async (req, res) => {
     res.status(500).json({ message: "Server error while fetching payment methods" });
   }
 });
-
-
-
-
 
 module.exports = router;

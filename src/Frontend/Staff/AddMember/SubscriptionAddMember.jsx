@@ -6,6 +6,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../../../api";
 import {IP} from "../../../IpConfig";
+import { useToast } from "../../../components/ToastManager";
 
 const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
   const staffName = staffUser?.name;
@@ -36,6 +37,7 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
   const wsRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (rfid_tag) {
@@ -57,7 +59,7 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
         const { data } = await api.get(`/api/payment-methods/${adminId}`);
         setPaymentMethods(data);
       } catch (err) {
-        console.error("❌ Failed to fetch payment methods:", err);
+        console.error(" Failed to fetch payment methods:", err);
       }
     };
     fetchPaymentMethods();
@@ -100,12 +102,12 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
     e.preventDefault();
 
     if (!staffName || !adminId) {
-      alert("⚠️ Staff info missing. Please login again.");
+showToast({ message: "Staff info missing. Please login again.", type: "error" });
       return;
     }
 
     if (membershipFee <= 0) {
-      alert("⚠️ Membership fee not found. Please contact administrator.");
+showToast({ message: "Membership fee not found. Please contact administrator.", type: "error" });
       return;
     }
 
@@ -138,7 +140,7 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
       const result = response.data;
       setServerMessage(result.message);
 
-      alert("✅ Member added successfully!");
+showToast({ message: "Member added successfully!", type: "success" });
 
       setFormData({
         full_name: "",
@@ -163,11 +165,11 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
 
       if (err.response) {
         console.log("Server error response:", err.response.data);
-        alert(`❌ Error: ${err.response.data.message || 'Something went wrong'}`);
+showToast({ message: err.response.data.message || 'Something went wrong', type: "error" });
       } else if (err.request) {
-        alert("❌ Network error. Please check your connection.");
+showToast({ message: "Network error. Please check your connection.", type: "error" });
       } else {
-        alert("❌ Something went wrong. Please try again.");
+showToast({ message: "Something went wrong. Please try again.", type: "error" });
       }
     }
   };

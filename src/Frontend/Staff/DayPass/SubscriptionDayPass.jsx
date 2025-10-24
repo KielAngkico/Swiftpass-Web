@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../../../api";
+import { useToast } from "../../../components/ToastManager";
 
 function formatDateToLocalString(date) {
   const yyyy = date.getFullYear();
@@ -27,6 +28,7 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
 
   const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId;
   const staffName = staffUser?.name || "";
+  const { showToast } = useToast();
 
   const validateEmail = (email) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -79,22 +81,22 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
     e.preventDefault();
 
     if (!validateEmail(email)) {
-      alert("Please enter a valid email address.");
+showToast({ message: "Please enter a valid email address.", type: "error" });
       return;
     }
 
     if (!validateMobile(mobileNumber)) {
-      alert("Please enter a valid mobile number (7-15 digits).");
+showToast({ message: "Please enter a valid mobile number (7-15 digits).", type: "error" });
       return;
     }
 
     if (paymentMethod === "Cashless" && cashlessRef.trim() === "") {
-      alert("Please enter your cashless payment reference number.");
+showToast({ message: "Please enter your cashless payment reference number.", type: "error" });
       return;
     }
 
     if (!adminId || !staffName) {
-      alert("⚠️ Staff info missing. Please log in again.");
+showToast({ message: "Staff info missing. Please log in again.", type: "error" });
       return;
     }
 
@@ -123,7 +125,7 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
 
       await api.post("/api/register-session", payload);
 
-      alert("Day pass session registered successfully!");
+showToast({ message: "Day pass session registered successfully!", type: "success" });
       setGuestName("");
       setGender("");
       setMobileNumber("");
@@ -131,7 +133,7 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
       setCashlessRef("");
     } catch (error) {
       console.error("Error registering session:", error);
-      alert("Failed to register day pass session. Please try again.");
+showToast({ message: "Failed to register day pass session. Please try again.", type: "error" });
     } finally {
       setSubmitting(false);
     }

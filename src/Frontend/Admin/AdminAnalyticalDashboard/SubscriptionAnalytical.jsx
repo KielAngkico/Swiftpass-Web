@@ -58,7 +58,7 @@ const SubscriptionAnalytical = () => {
         if (!data.authenticated || !data.user) throw new Error("Not authenticated");
         setAdminId(data.user.adminId || data.user.id);
       } catch (err) {
-        console.error("❌ Error fetching admin:", err);
+        console.error(" Error fetching admin:", err);
         setError("Failed to authenticate");
         if (err.response?.status === 401) window.location.href = "/login";
       } finally {
@@ -90,7 +90,7 @@ const SubscriptionAnalytical = () => {
         setAnalyticsData(data);
         setError(null);
       } catch (err) {
-        console.error("❌ Failed to load analytics:", err);
+        console.error("Failed to load analytics:", err);
         setError("Failed to load analytics");
         setAnalyticsData(null);
       } finally {
@@ -132,7 +132,7 @@ showToast({ message: "Generating PDF...", type: "info" });
 showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
 
     } catch (error) {
-      console.error("❌ Error generating PDF:", error);
+      console.error("error generating PDF:", error);
 showToast({ message: "Failed to generate PDF", type: "error" });
 
     }

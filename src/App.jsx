@@ -57,8 +57,8 @@ const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 const performLogout = async () => {
-  console.log("🚨 [Frontend] Performing logout at:", new Date().toISOString());
-  console.log("👤 [Frontend] Current user:", JSON.stringify(user, null, 2));
+  console.log(" [Frontend] Performing logout at:", new Date().toISOString());
+  console.log(" [Frontend] Current user:", JSON.stringify(user, null, 2));
   
   // ✅ IMPORTANT: Store user info BEFORE clearing anything
   const userRole = user?.role;
@@ -67,8 +67,8 @@ const performLogout = async () => {
   try {
     // ✅ If user is staff, log their session out FIRST (before clearing tokens)
     if (userRole === "staff" && staffId) {
-      console.log("👤 [Frontend] Staff logout detected");
-      console.log("👤 [Frontend] Staff ID to use:", staffId);
+      console.log(" [Frontend] Staff logout detected");
+      console.log(" [Frontend] Staff ID to use:", staffId);
       
       try {
         const response = await fetch(`${API_URL}/api/staff/logout`, {
@@ -81,13 +81,13 @@ const performLogout = async () => {
         });
         
         const result = await response.json();
-        console.log("✅ [Frontend] Staff session logout response:", result);
+        console.log(" [Frontend] Staff session logout response:", result);
         
         if (!response.ok) {
-          console.error("❌ [Frontend] Staff logout failed with status:", response.status);
+          console.error("[Frontend] Staff logout failed with status:", response.status);
         }
       } catch (staffLogoutError) {
-        console.error("❌ [Frontend] Staff session logout error:", staffLogoutError);
+        console.error("[Frontend] Staff session logout error:", staffLogoutError);
         // Continue with general logout even if staff logout fails
       }
       
@@ -100,9 +100,9 @@ const performLogout = async () => {
       method: "POST",
       credentials: "include", 
     });
-    console.log("✅ [Frontend] Backend logout successful");
+    console.log(" [Frontend] Backend logout successful");
   } catch (error) {
-    console.error("❌ [Frontend] Backend logout failed:", error);
+    console.error(" [Frontend] Backend logout failed:", error);
   }
   
   // ✅ NOW clear everything and redirect
@@ -110,13 +110,13 @@ const performLogout = async () => {
   setUser(null);
   sessionStorage.clear();
   localStorage.clear();
-  console.log("🧹 [Frontend] All tokens and storage cleared");
+  console.log(" [Frontend] All tokens and storage cleared");
   window.location.href = "/";
 };
   useEffect(() => {
     const checkAuth = async () => {
-      console.log("🔍 [Frontend] Checking auth status at:", new Date().toISOString());
-      console.log("🎫 [Frontend] Current access token exists:", !!getAccessToken());
+      console.log(" [Frontend] Checking auth status at:", new Date().toISOString());
+      console.log(" [Frontend] Current access token exists:", !!getAccessToken());
       
       try {
         const res = await fetch(`${API_URL}/api/auth-status-auto`, {
@@ -124,10 +124,10 @@ const performLogout = async () => {
           credentials: "include", 
         });
         
-        console.log("📡 [Frontend] Auth status response:", res.status, res.statusText);
+        console.log(" [Frontend] Auth status response:", res.status, res.statusText);
         
         const data = await res.json();
-        console.log("📦 [Frontend] Auth status data:", {
+        console.log(" [Frontend] Auth status data:", {
           ok: res.ok,
           hasUser: !!data.user,
           hasAccessToken: !!data.accessToken,
@@ -136,27 +136,27 @@ const performLogout = async () => {
 
         if (res.ok && data.user) {
           if (data.accessToken) {
-            console.log("🎫 [Frontend] Setting new access token from auth check");
+            console.log(" [Frontend] Setting new access token from auth check");
             setAccessToken(data.accessToken);
 		scheduleTokenRefresh(data.accessToken);
           }
           setUser(data.user);
-          console.log("✅ [Frontend] Auth check successful");
+          console.log(" [Frontend] Auth check successful");
         } else {
-          console.log("❌ [Frontend] Auth check failed, clearing tokens");
+          console.log(" [Frontend] Auth check failed, clearing tokens");
           clearAccessToken();
           setUser(null);
           if (window.location.pathname !== "/" && (res.status === 401 || res.status === 403)) {
-            console.log("🔄 [Frontend] Redirecting to login page");
+            console.log(" [Frontend] Redirecting to login page");
             window.location.href = "/";
           }
         }
       } catch (err) {
-        console.error("❌ [Frontend] Auth check error:", err.message);
+        console.error("[Frontend] Auth check error:", err.message);
         clearAccessToken();
         setUser(null);
         if (window.location.pathname !== "/") {
-          console.log("🔄 [Frontend] Redirecting due to auth check error");
+          console.log(" [Frontend] Redirecting due to auth check error");
           window.location.href = "/";
         }
       } finally {
@@ -167,7 +167,7 @@ const performLogout = async () => {
     checkAuth();
     
     const handleAuthChanged = () => {
-      console.log("🔔 [Frontend] Auth change event received at:", new Date().toISOString());
+      console.log(" [Frontend] Auth change event received at:", new Date().toISOString());
       checkAuth();
     };
     
@@ -183,7 +183,7 @@ const performLogout = async () => {
 
     const tokenCheckInterval = setInterval(() => {
       const token = getAccessToken();
-      console.log("⏰ [Frontend] Periodic token check:", {
+      console.log(" [Frontend] Periodic token check:", {
         time: new Date().toISOString(),
         hasToken: !!token,
         userExists: !!user,
@@ -196,18 +196,18 @@ const performLogout = async () => {
           const expiresAt = new Date(payload.exp * 1000);
           const timeUntilExpiry = (payload.exp * 1000 - Date.now()) / 1000 / 60;
           
-          console.log("🎫 [Frontend] Token info:", {
+          console.log(" [Frontend] Token info:", {
             expiresAt: expiresAt.toISOString(),
             minutesUntilExpiry: Math.round(timeUntilExpiry * 100) / 100,
             isExpired: timeUntilExpiry <= 0
           });
 
           if (timeUntilExpiry <= 0) {
-            console.log("⚠️ [Frontend] Token appears expired, triggering auth check");
+            console.log(" [Frontend] Token appears expired, triggering auth check");
             window.dispatchEvent(new Event("auth-changed"));
           }
         } catch (e) {
-          console.error("❌ [Frontend] Error parsing token:", e);
+          console.error(" [Frontend] Error parsing token:", e);
         }
       }
     }, 5 * 60 * 1000); 
@@ -240,7 +240,7 @@ const WebSocketWrapper = ({ children }) => {
     if (allowedPrefixes.some((prefix) => path.startsWith(prefix))) {
       navigate(path, options);
     } else {
-      console.warn(`⛔ Navigation blocked for role=${role}:`, path);
+      console.warn(` Navigation blocked for role=${role}:`, path);
       if (role === "superadmin") navigate("/SuperAdmin/addClient");
       if (role === "admin") navigate("/Admin/StaffManagement");
       if (role === "staff") navigate("/Staff/member-entry");

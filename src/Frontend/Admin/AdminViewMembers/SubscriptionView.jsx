@@ -38,7 +38,7 @@ const SubscriptionView = () => {
         const res = await api.get(`/api/get-members?admin_id=${adminId}`);
         setMembers(res.data.members || []);
       } catch (err) {
-        console.error("❌ Error fetching members:", err);
+        console.error("Error fetching members:", err);
 showToast({ message: "Failed to fetch members", type: "error" });
         if (err.response?.status === 401) window.location.href = "/login";
       } finally {
@@ -99,7 +99,7 @@ showToast({ message: "Generating PDF...", type: "info" });
 showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
 
     } catch (error) {
-      console.error("❌ Error generating PDF:", error);
+      console.error("Error generating PDF:", error);
 showToast({ message: "Failed to generate PDF", type: "error" });
 
     }

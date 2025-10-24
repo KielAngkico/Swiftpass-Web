@@ -4,6 +4,7 @@ import SuperAdminSidebar from "../../components/SuperAdminSidebar";
 import { useAuth } from "../../App";
 import { useWebSocket } from "../../contexts/WebSocketContext";
 import { useLocation } from "react-router-dom";
+import { useToast } from "../../components/ToastManager";
 
 const ItemsInventory = () => {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ const ItemsInventory = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [scanValue, setScanValue] = useState("");
   const [rfidError, setRfidError] = useState(null);
+  const { showToast, showConfirm } = useToast();
 
   const [form, setForm] = useState({
     name: "",
@@ -34,7 +36,7 @@ const ItemsInventory = () => {
       setItems(data);
     } catch (error) {
       console.error("Failed to fetch inventory:", error);
-      alert("Failed to fetch inventory");
+showToast({ message: "Failed to fetch inventory", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -58,13 +60,13 @@ const ItemsInventory = () => {
   const addScannedItem = async (rfidTag) => {
     const tag = rfidTag || scanValue.trim();
     if (!tag) {
-      alert("Please scan an RFID tag or enter one manually");
+showToast({ message: "Please scan an RFID tag or enter one manually", type: "error" });
       return;
     }
 
     // Check if already registered
     if (rfids.some((r) => r.rfid_tag === tag)) {
-      alert(`RFID ${tag} is already registered.`);
+showToast({ message: `RFID ${tag} is already registered.`, type: "error" });
       return;
     }
 
@@ -76,10 +78,10 @@ const ItemsInventory = () => {
       await fetchRfids();
 
       if (!rfidTag) setScanValue("");
-      alert("RFID registered successfully!");
+showToast({ message: "RFID registered successfully!", type: "success" });
     } catch (error) {
       console.error("Failed to add RFID:", error.response?.data || error.message);
-      alert(error.response?.data?.message || "Failed to add RFID");
+showToast({ message: error.response?.data?.message || "Failed to add RFID", type: "error" });
     }
   };
 
@@ -87,7 +89,7 @@ const ItemsInventory = () => {
   const addManualItem = async (e) => {
     e.preventDefault();
     if (!form.name.trim() || form.quantity < 1) {
-      alert("Please fill in all required fields");
+showToast({ message: "Please fill in all required fields", type: "error" });
       return;
     }
 
@@ -101,17 +103,18 @@ const ItemsInventory = () => {
 
       setForm({ name: "", purchase_price: "", selling_price: "", quantity: 1 });
       await fetchItems();
-      alert("Item added successfully!");
+showToast({ message: "Item added successfully!", type: "success" });
     } catch (error) {
       console.error("Failed to add item:", error);
-      alert("Failed to add item");
+showToast({ message: "Failed to add item", type: "error" });
+
     }
   };
 
   // Update item quantity
   const updateQuantity = async (id, newQty) => {
     if (!newQty || newQty < 0) {
-      alert("Invalid quantity");
+showToast({ message: "Invalid quantity", type: "error" });
       return;
     }
 
@@ -120,26 +123,29 @@ const ItemsInventory = () => {
       await fetchItems();
       setSelectedItem(null);
       setAddQty("");
-      alert("Quantity updated!");
+showToast({ message: "Quantity updated!", type: "success" });
     } catch (error) {
       console.error("Failed to update quantity:", error);
-      alert("Failed to update quantity");
+showToast({ message: "Failed to update quantity", type: "error" });
     }
   };
 
   // Delete item
-  const deleteItem = async (id, name) => {
-    if (!window.confirm(`Delete "${name}"?`)) return;
-
-    try {
-      await api.delete(`/api/inventory/${id}`);
-      await fetchItems();
-      alert("Item deleted!");
-    } catch (error) {
-      console.error("Failed to delete item:", error);
-      alert("Failed to delete item");
+const deleteItem = async (id, name) => {
+  showConfirm(
+    `Delete "${name}"?`,
+    async () => {
+      try {
+        await api.delete(`/api/inventory/${id}`);
+        await fetchItems();
+        showToast({ message: "Item deleted!", type: "success" });
+      } catch (error) {
+        console.error("Failed to delete item:", error);
+        showToast({ message: "Failed to delete item", type: "error" });
+      }
     }
-  };
+  );
+};
 
   // ✅ Initialize on component mount
   useEffect(() => {

@@ -19,7 +19,7 @@ const StaffActivityLogs = () => {
   const [endDate, setEndDate] = useState(null);
 
   const navigate = useNavigate();
-  const { showToast } = useToast(); // ;
+  const { showToast } = useToast(); 
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -134,7 +134,7 @@ const handleDownloadPDF = async () => {
       type: "success"
     });
   } catch (error) {
-    console.error("❌ Error generating PDF:", error);
+    console.error(" Error generating PDF:", error);
     showToast({
       message: "Failed to generate PDF",
       type: "error"

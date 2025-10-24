@@ -4,6 +4,7 @@ import SuperAdminSidebar from "../../components/SuperAdminSidebar";
 import ExerciseCard from "../../components/ExerciseCard";
 import AddExerciseModal from "../../components/Modals/AddExerciseModal";
 import { API_URL } from "../../config";
+import { useToast } from "../../components/ToastManager";
 
 const ExerciseLibrary = () => {
   const [localExercises, setLocalExercises] = useState([]);
@@ -25,6 +26,7 @@ const ExerciseLibrary = () => {
   const [allExercises, setAllExercises] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAlts, setSelectedAlts] = useState([]);
+  const { showToast } = useToast();
 
 const openEditModal = (exercise) => {
   console.log("Opening edit modal for:", exercise);
@@ -62,6 +64,7 @@ const openEditModal = (exercise) => {
       });
 
       fetchLocalExercises();
+      showToast({ message: "Exercise updated successfully!", type: "success" });
       setShowEditModal(false);
       setEditExercise(null);
       setSelectedAlts([]);
@@ -78,6 +81,8 @@ const openEditModal = (exercise) => {
       setAllExercises(res.data);
     } catch (err) {
       console.error("Fetch Error:", err.message);
+      showToast({ message: "Failed to fetch exercises", type: "error" });
+
     }
   };
 

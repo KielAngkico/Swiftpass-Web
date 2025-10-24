@@ -29,7 +29,7 @@ const SubscriptionPricing = () => {
         if (!id) throw new Error("Missing admin ID");
         setAdminId(id);
       } catch (err) {
-        console.error("❌ Failed to fetch user in SubscriptionPricing:", err);
+        console.error(" Failed to fetch user in SubscriptionPricing:", err);
         if (err.response?.status === 401) window.location.href = "/login";
       }
     };
@@ -42,7 +42,7 @@ const SubscriptionPricing = () => {
       const { data } = await api.get(`/api/get-pricing/${adminId}`);
       setPlans(data.filter((plan) => plan.system_type === "subscription"));
     } catch (err) {
-      console.error("❌ Failed to fetch subscription plans:", err);
+      console.error(" Failed to fetch subscription plans:", err);
     }
   };
 
@@ -52,7 +52,7 @@ const SubscriptionPricing = () => {
       const { data } = await api.get(`/api/payment-methods/${adminId}`);
       setPaymentMethods(data);
     } catch (err) {
-      console.error("❌ Failed to fetch payment methods:", err);
+      console.error(" Failed to fetch payment methods:", err);
     }
   };
 
@@ -79,7 +79,7 @@ showToast({ message: data.message, type: "success" });
       setShowForm(false);
       fetchPlans();
     } catch (err) {
-      console.error("❌ Failed to save subscription plan:", err);
+      console.error(" Failed to save subscription plan:", err);
     }
   };
 
@@ -99,7 +99,7 @@ showToast({ message: data.message, type: "success" });
       setIsAddingPayment(false);
       fetchPaymentMethods();
     } catch (err) {
-      console.error("❌ Failed to save payment method:", err);
+      console.error(" Failed to save payment method:", err);
     }
   };
 
@@ -123,7 +123,7 @@ showConfirm(
       showToast({ message: data.message, type: "success" });
       fetchPlans();
     } catch (err) {
-      console.error("❌ Failed to delete subscription plan:", err);
+      console.error("Failed to delete subscription plan:", err);
       showToast({ message: err.response?.data?.error || "Failed to delete plan", type: "error" });
     }
   }
@@ -149,7 +149,7 @@ showConfirm(
       showToast({ message: data.message, type: "success" });
       fetchPaymentMethods();
     } catch (err) {
-      console.error("❌ Failed to delete payment method:", err);
+      console.error(" Failed to delete payment method:", err);
       showToast({ message: err.response?.data?.error || "Failed to delete payment method", type: "error" });
     }
   }

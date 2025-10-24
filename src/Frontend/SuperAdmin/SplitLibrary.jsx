@@ -4,12 +4,14 @@ import SuperAdminSidebar from "../../components/SuperAdminSidebar";
 import SplitCard from "../../components/SplitCard";
 import AddSplitModal from "../../components/Modals/AddSplitModal"; 
 import { API_URL } from "../../config";
+import { useToast } from "../../components/ToastManager";
 
 const SplitLibrary = () => {
   const [splits, setSplits] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [viewSplit, setViewSplit] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { showToast, showConfirm } = useToast();
 
 
   const fetchSplits = async () => {
@@ -25,7 +27,7 @@ const SplitLibrary = () => {
         setSplits([]);
       }
     } catch (err) {
-      console.error("Failed to fetch splits:", err);
+showToast({ message: "Failed to fetch splits", type: "error" });
       setSplits([]);
     } finally {
       setLoading(false);
@@ -41,17 +43,21 @@ const SplitLibrary = () => {
     fetchSplits(); 
   };
 
-  const handleDeleteSplit = async (splitId) => {
-    if (window.confirm("Are you sure you want to delete this split?")) {
+const handleDeleteSplit = async (splitId) => {
+  showConfirm(
+    "Are you sure you want to delete this split?",
+    async () => {
       try {
         await axios.delete(`${API_URL}/api/splits/${splitId}`);
-        fetchSplits(); 
+        fetchSplits();
+        showToast({ message: "Split deleted successfully!", type: "success" });
       } catch (error) {
         console.error("Failed to delete split:", error);
-        alert("Failed to delete split. Please try again.");
+        showToast({ message: "Failed to delete split. Please try again.", type: "error" });
       }
     }
-  };
+  );
+};
 
 return (
   <div className="flex min-h-screen bg-gray-50">

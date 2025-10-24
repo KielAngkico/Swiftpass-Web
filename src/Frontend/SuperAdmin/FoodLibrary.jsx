@@ -3,6 +3,7 @@ import SuperAdminSidebar from "../../components/SuperAdminSidebar";
 import AddFoodModal from "../../components/Modals/AddFoodModal";
 import axios from "axios";
 import { API_URL } from "../../config";
+import { useToast } from "../../components/ToastManager";
 
 const FoodLibrary = () => {
   const [foodItems, setFoodItems] = useState([]);
@@ -17,7 +18,7 @@ const FoodLibrary = () => {
   const [allergens, setAllergens] = useState([]);
   const [newAllergen, setNewAllergen] = useState("");
   const [loadingAllergens, setLoadingAllergens] = useState(true);
-
+const { showToast, showConfirm } = useToast();
   const fetchFoodItems = async () => {
     try {
       setLoadingFoods(true);
@@ -26,7 +27,7 @@ const FoodLibrary = () => {
       setFilteredFoods(response.data);
     } catch (error) {
       console.error("Error fetching food items:", error);
-      alert("Failed to fetch food items");
+showToast({ message: "Failed to fetch food items", type: "error" });
     } finally {
       setLoadingFoods(false);
     }
@@ -39,7 +40,7 @@ const FoodLibrary = () => {
       setAllergens(res.data);
     } catch (err) {
       console.error("Error fetching allergens:", err);
-      alert("Failed to fetch allergens");
+showToast({ message: "Failed to fetch allergens", type: "error" });
     } finally {
       setLoadingAllergens(false);
     }
@@ -81,18 +82,21 @@ const FoodLibrary = () => {
     setFilteredFoods(filtered);
   };
 
-  const handleDeleteFood = async (foodId) => {
-    if (window.confirm("Are you sure you want to delete this food item?")) {
+const handleDeleteFood = async (foodId) => {
+  showConfirm(
+    "Are you sure you want to delete this food item?",
+    async () => {
       try {
         await axios.delete(`${API_URL}/api/food-database/${foodId}`);
         fetchFoodItems();
-        alert("Food item deleted successfully!");
+        showToast({ message: "Food item deleted successfully!", type: "success" });
       } catch (error) {
         console.error("Error deleting food item:", error);
-        alert("Failed to delete food item");
+        showToast({ message: "Failed to delete food item", type: "error" });
       }
     }
-  };
+  );
+};
 
   const totalPages = Math.ceil(filteredFoods.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -187,7 +191,7 @@ const FoodCard = ({ food }) => (
   // ===== ALLERGEN LOGIC =====
   const handleAddAllergen = async () => {
     if (!newAllergen.trim()) {
-      alert("Please enter an allergen name");
+showToast({ message: "Please enter an allergen name", type: "error" });
       return;
     }
 
@@ -195,26 +199,28 @@ const FoodCard = ({ food }) => (
       await axios.post(`${API_URL}/api/allergens`, { name: newAllergen.trim() });
       setNewAllergen("");
       fetchAllergens();
-      alert("Allergen added successfully!");
+showToast({ message: "Allergen added successfully!", type: "success" });
     } catch (err) {
       console.error("Error adding allergen:", err);
-      alert("Failed to add allergen");
+showToast({ message: "Failed to add allergen", type: "error" });
     }
   };
 
-  const handleDeleteAllergen = async (id, name) => {
-    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
+const handleDeleteAllergen = async (id, name) => {
+  showConfirm(
+    `Are you sure you want to delete "${name}"?`,
+    async () => {
       try {
         await axios.delete(`${API_URL}/api/allergens/${id}`);
         fetchAllergens();
-        alert("Allergen deleted successfully!");
+        showToast({ message: "Allergen deleted successfully!", type: "success" });
       } catch (err) {
         console.error("Error deleting allergen:", err);
-        alert("Failed to delete allergen");
+        showToast({ message: "Failed to delete allergen", type: "error" });
       }
     }
-  };
-
+  );
+};
   const handleAllergenKeyPress = (e) => {
     if (e.key === "Enter") {
       handleAddAllergen();

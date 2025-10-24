@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../api";
+import { useToast } from "../../../components/ToastManager";
+
 
 const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUser }) => {
   const staffName = staffUser?.name || "";
@@ -22,8 +24,9 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
   const [paymentMethod, setPaymentMethod] = useState("");
   const [reference, setReference] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
-  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+    const { showToast } = useToast();
+  
 
   useEffect(() => {
     if (rfid_tag && full_name) {
@@ -82,11 +85,11 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
         setMessage("");
       } else {
         setMember(null);
-        setMessage("❌ Member not found or not a subscription account.");
+showToast({ message: "Member not found or not a subscription account.", type: "error" });
       }
     } catch (err) {
-      console.error("❌ Error fetching member:", err);
-      setMessage("❌ Error fetching member data.");
+      console.error(" Error fetching member:", err);
+showToast({ message: "Error fetching member data.", type: "error" });
       setMember(null);
     } finally {
       setLoading(false);
@@ -95,7 +98,7 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
 
   const handleSubmit = async () => {
     if (!member || !selectedPlan || !paymentMethod || !staffName || !amountToPay) {
-      setMessage("⚠️ Please complete all required fields.");
+showToast({ message: "Please complete all required fields.", type: "error" });
       return;
     }
 
@@ -126,7 +129,7 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
 
       const { data } = await api.post("/api/renew-subscription", payload);
 
-      setMessage("✅ Subscription renewed successfully!");
+showToast({ message: "Subscription renewed successfully!", type: "success" });
       setMember(null);
       setRfid("");
       setSelectedPlan(null);
@@ -134,8 +137,8 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
       setPaymentMethod("");
       setReference("");
     } catch (err) {
-      console.error("❌ Error submitting renewal:", err);
-      setMessage("❌ Failed to renew subscription.");
+      console.error("Error submitting renewal:", err);
+showToast({ message: "Failed to renew subscription.", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -268,7 +271,6 @@ return (
             Confirm Renewal
           </button>
 
-          {message && <p className="text-xs text-gray-500 mt-2">{message}</p>}
         </div>
 
         <div className="flex flex-col items-center gap-3 w-80">

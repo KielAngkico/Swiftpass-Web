@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import api from "../../../api"; 
 import { IP } from "../../../IpConfig";
 
+
 const SubscriptionView = () => {
   const [members, setMembers] = useState([]);
   const [search, setSearch] = useState("");
@@ -11,6 +12,7 @@ const SubscriptionView = () => {
   const [adminId, setAdminId] = useState(null);
 
   const sidebarRef = useRef(null);
+  
 
   useEffect(() => {
     const fetchStaffAndMembers = async () => {

@@ -4,6 +4,7 @@ import SuperAdminSidebar from "../../components/SuperAdminSidebar";
 import AddPartnerModal from "../../components/Modals/AddPartnerModal";
 import { API_URL } from "../../config";
 import { useLocation } from "react-router-dom";
+import { useToast } from "../../components/ToastManager";
 
 const AddClient = () => {
   const location = useLocation();
@@ -25,9 +26,10 @@ const AddClient = () => {
     profile_image_url: null,
     rfid_tag: "",
   });
-  const [message, setMessage] = useState("");
   const [admins, setAdmins] = useState([]);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
+  const { showToast, showConfirm } = useToast();
+
 
   // Fetch all admins
   useEffect(() => {
@@ -56,7 +58,7 @@ const AddClient = () => {
       // If in replace mode, turn off the flag and show success
       if (isReplacingRfid) {
         setIsReplacingRfid(false);
-        showNotification("✅ RFID scanned! Click 'Update Partner' to save", "success");
+showToast({ message: " RFID scanned! Click 'Update Partner' to save", type: "success" });
       }
 
       // For add mode, open the modal
@@ -88,7 +90,7 @@ const AddClient = () => {
     setMessage("");
 
     if (isNaN(formData.age) || String(formData.age).trim() === "") {
-      showNotification("Age must be a valid number.");
+showToast({ message: "Age must be a valid number.", type: "error" });
       return;
     }
 
@@ -140,7 +142,7 @@ const AddClient = () => {
           { headers: { "Content-Type": "multipart/form-data" } }
         );
 
-        showNotification("✅ Partner updated successfully!", "success");
+showToast({ message: "Partner updated successfully!", type: "success" });
 
         // Update admins list
         setAdmins(
@@ -185,7 +187,7 @@ const AddClient = () => {
           { headers: { "Content-Type": "multipart/form-data" } }
         );
 
-        showNotification("✅ Partner added successfully!", "success");
+showToast({ message: " Partner added successfully!", type: "success" });
 
         setAdmins([
           ...admins,
@@ -225,9 +227,8 @@ const AddClient = () => {
       });
     } catch (error) {
       console.error("Partner operation error:", error.response?.data || error);
-      showNotification(
-        `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`
-      );
+showToast({ message: `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`, type: "error" });
+
     }
   };
 
@@ -258,36 +259,35 @@ const AddClient = () => {
   const handleReplaceRfid = () => {
     console.log("🔄 Replace RFID button clicked");
     setIsReplacingRfid(true);
-    showNotification("🏷️ Scan the new RFID tag now...", "success");
+showToast({ message: "Scan the new RFID tag now...", type: "info" });
   };
 
   const handleArchive = async (id, isArchived) => {
     try {
       const endpoint = isArchived ? "restore-admin" : "archive-admin";
       const action = isArchived ? "restore" : "archive";
-
-      if (window.confirm(`Are you sure you want to ${action} this partner?`)) {
-        await axios.put(`${API_URL}/api/${endpoint}/${id}`);
-
-        setAdmins(
-          admins.map((admin) =>
-            admin.id === id ? { ...admin, is_archived: !isArchived } : admin
-          )
-        );
-
-        showNotification(`Partner ${action}d successfully!`, "success");
-      }
+showConfirm(
+  `Are you sure you want to ${action} this partner?`,
+  async () => {
+    try {
+      await axios.put(`${API_URL}/api/${endpoint}/${id}`);
+      setAdmins(admins.map((admin) => admin.id === id ? { ...admin, is_archived: !isArchived } : admin));
+      showToast({ message: `Partner ${action}d successfully!`, type: "success" });
     } catch (error) {
-      showNotification(
-        `Failed to ${isArchived ? "restore" : "archive"} partner. Please try again.`
-      );
+      showToast({ message: `Failed to ${isArchived ? "restore" : "archive"} partner. Please try again.`, type: "error" });
+    }
+  }
+);
+    } catch (error) {
+showToast({ message: `Failed to ${isArchived ? "restore" : "archive"} partner. Please try again.`, type: "error" });
+
     }
   };
 
   const handleDelete = async (id, adminName) => {
     const admin = admins.find((a) => a.id === id);
     if (!admin || admin.is_archived === 0) {
-      showNotification("Only archived accounts can be deleted");
+showToast({ message: "Only archived accounts can be deleted", type: "error" });
       return;
     }
 
@@ -299,27 +299,26 @@ const AddClient = () => {
       return;
     }
 
-    if (
-      !window.confirm(
-        `FINAL WARNING: Permanently delete "${adminName}"? This will delete all members, transactions, and logs associated with this account.`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      await axios.delete(`${API_URL}/api/delete-admin/${id}`);
-
-      setAdmins(admins.filter((admin) => admin.id !== id));
-      setSelectedAdmin(null);
-
-      showNotification(`${adminName} deleted permanently!`, "success");
-    } catch (error) {
-      console.error("Delete admin error:", error);
-      showNotification(`Failed to delete ${adminName}. Please try again.`);
-    }
+showConfirm(
+  `Are you sure you want to permanently delete "${adminName}"?\n\nThis action cannot be undone and will remove all associated data.`,
+  () => {
+    showConfirm(
+      `FINAL WARNING: Permanently delete "${adminName}"? This will delete all members, transactions, and logs associated with this account.`,
+      async () => {
+        try {
+          await axios.delete(`${API_URL}/api/delete-admin/${id}`);
+          setAdmins(admins.filter((admin) => admin.id !== id));
+          setSelectedAdmin(null);
+          showToast({ message: `${adminName} deleted permanently!`, type: "success" });
+        } catch (error) {
+          console.error("Delete admin error:", error);
+          showToast({ message: `Failed to delete ${adminName}. Please try again.`, type: "error" });
+        }
+      }
+    );
+  }
+); 
   };
-
   const handleCloseModal = () => {
     setShowAddForm(false);
     setEditingAdmin(null);
@@ -340,20 +339,6 @@ const AddClient = () => {
     });
   };
 
-  const NotificationMessage = ({ message }) => {
-    if (!message) return null;
-
-    const isSuccess = message.includes("success") || message.includes("✅");
-    const bgColor = isSuccess
-      ? "bg-green-50 border-green-200 text-green-700"
-      : "bg-red-50 border-red-200 text-red-700";
-
-    return (
-      <div className={`p-3 mb-4 rounded-md border ${bgColor} text-sm`}>
-        {message}
-      </div>
-    );
-  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -382,7 +367,6 @@ const AddClient = () => {
           </button>
         </div>
 
-        <NotificationMessage message={message} />
 
         <AddPartnerModal
           isOpen={showAddForm}

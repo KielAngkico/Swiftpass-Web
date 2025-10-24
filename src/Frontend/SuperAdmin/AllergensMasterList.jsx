@@ -2,11 +2,13 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import SuperAdminSidebar from "../../components/SuperAdminSidebar";
 import { API_URL } from "../../config";
+import { useToast } from "../../components/ToastManager";
 
 const Allergens = () => {
   const [allergens, setAllergens] = useState([]);
   const [newAllergen, setNewAllergen] = useState("");
   const [loading, setLoading] = useState(true);
+  const { showToast, showConfirm } = useToast();
 
   useEffect(() => {
     fetchAllergens();
@@ -19,7 +21,7 @@ const Allergens = () => {
       setAllergens(res.data);
     } catch (err) {
       console.error("Error fetching allergens:", err);
-      alert("Failed to fetch allergens");
+showToast({ message: "Failed to fetch allergens", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -27,7 +29,7 @@ const Allergens = () => {
 
   const handleAdd = async () => {
     if (!newAllergen.trim()) {
-      alert("Please enter an allergen name");
+showToast({ message: "Please enter an allergen name", type: "error" });
       return;
     }
 
@@ -35,25 +37,28 @@ const Allergens = () => {
       await axios.post(`${API_URL}/api/allergens`, { name: newAllergen.trim() });
       setNewAllergen("");
       fetchAllergens();
-      alert("Allergen added successfully!");
+showToast({ message: "Allergen added successfully!", type: "success" });
     } catch (err) {
       console.error("Error adding allergen:", err);
-      alert("Failed to add allergen");
+showToast({ message: "Failed to add allergen", type: "error" });
     }
   };
 
-  const handleDelete = async (id, name) => {
-    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
+ const handleDelete = async (id, name) => {
+  showConfirm(
+    `Are you sure you want to delete "${name}"?`,
+    async () => {
       try {
         await axios.delete(`${API_URL}/api/allergens/${id}`);
         fetchAllergens();
-        alert("Allergen deleted successfully!");
+        showToast({ message: "Allergen deleted successfully!", type: "success" });
       } catch (err) {
         console.error("Error deleting allergen:", err);
-        alert("Failed to delete allergen");
+        showToast({ message: "Failed to delete allergen", type: "error" });
       }
     }
-  };
+  );
+};
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {

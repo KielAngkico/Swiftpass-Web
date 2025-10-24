@@ -34,7 +34,7 @@ const SubscriptionActAnalytics = () => {
         }
         setAdminId(data.user.adminId || data.user.id);
       } catch (err) {
-        console.error("❌ Error fetching user:", err);
+        console.error(" Error fetching user:", err);
         setError("Failed to authenticate");
         if (err.response?.status === 401) {
           window.location.href = "/login";
@@ -139,7 +139,7 @@ showToast({ message: "Generating PDF...", type: "info" });
 showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
 
     } catch (error) {
-      console.error("❌ Error generating PDF:", error);
+      console.error(" Error generating PDF:", error);
 showToast({ message: "Failed to generate PDF", type: "error" });
 
     }

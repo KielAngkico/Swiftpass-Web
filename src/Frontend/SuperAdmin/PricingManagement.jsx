@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API from "../../api";
 import SuperAdminSidebar from "../../components/SuperAdminSidebar";
+import { useToast } from "../../components/ToastManager";
 
 export default function PricingManagement() {
   const [packages, setPackages] = useState([]);
@@ -10,6 +11,7 @@ export default function PricingManagement() {
   const [selectedItem, setSelectedItem] = useState("");
   const [selectedQty, setSelectedQty] = useState(1);
   const [editingPackage, setEditingPackage] = useState(null);
+  const { showToast, showConfirm } = useToast();
 
   useEffect(() => {
     fetchPackages();
@@ -58,48 +60,50 @@ export default function PricingManagement() {
     setPackageItems(packageItems.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    try {
-      if (editingPackage) {
-        // 🟡 Update existing promo
-        await API.put(`/api/packages/${editingPackage.id}`, {
-          ...form,
-          items: packageItems,
-        });
-        alert("✅ Promo updated successfully!");
-      } else {
-        // 🟢 Create new promo
-        await API.post("/api/packages", {
-          ...form,
-          items: packageItems,
-        });
-        alert("✅ Promo created successfully!");
+  try {
+    if (editingPackage) {
+      await API.put(`/api/packages/${editingPackage.id}`, {
+        ...form,
+        items: packageItems,
+      });
+      showToast({ message: "Promo updated successfully!", type: "success" });
+    } else {
+      await API.post("/api/packages", {
+        ...form,
+        items: packageItems,
+      });
+      showToast({ message: "Promo created successfully!", type: "success" });
+    }
+
+    // Reset form after submit
+    setForm({ name: "", price: "", duration_days: "" });
+    setPackageItems([]);
+    setEditingPackage(null);
+    fetchPackages();
+  } catch (err) {
+    console.error("Error submitting promo:", err);
+    showToast({ message: "Failed to save promo", type: "error" });
+  }
+};
+
+const deletePackage = async (id) => {
+  showConfirm(
+    "Delete this promo?",
+    async () => {
+      try {
+        await API.delete(`/api/packages/${id}`);
+        showToast({ message: "Promo deleted", type: "success" });
+        fetchPackages();
+      } catch (err) {
+        console.error("Error deleting package:", err);
+        showToast({ message: "Failed to delete promo", type: "error" });
       }
-
-      // Reset form after submit
-      setForm({ name: "", price: "", duration_days: "" });
-      setPackageItems([]);
-      setEditingPackage(null);
-      fetchPackages();
-    } catch (err) {
-      console.error("Error submitting promo:", err);
-      alert("❌ Failed to save promo");
     }
-  };
-
-  const deletePackage = async (id) => {
-    if (!window.confirm("Delete this promo?")) return;
-    try {
-      await API.delete(`/api/packages/${id}`);
-      alert("✅ Promo deleted");
-      fetchPackages();
-    } catch (err) {
-      console.error("Error deleting package:", err);
-      alert("❌ Failed to delete promo");
-    }
-  };
+  );
+};
 
   const handleEdit = (pkg) => {
     setEditingPackage(pkg);

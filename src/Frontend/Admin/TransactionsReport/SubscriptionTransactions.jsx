@@ -134,7 +134,7 @@ showToast({ message: "Generating PDF...", type: "info" });
 showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
 
     } catch (error) {
-      console.error("❌ Error generating PDF:", error);
+      console.error("Error generating PDF:", error);
 showToast({ message: "Failed to generate PDF", type: "error" });
 
     }

@@ -7,20 +7,18 @@ import { useWebSocket } from "../../contexts/WebSocketContext";
 import { generateStaffSessionLogsPDF } from "../../utils/StaffSessionLogsReports";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { useToast } from "../../contexts/ToastContext"; // ✅ Import Toast
 
 const StaffManagement = () => {
   const [user, setUser] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [archivedEmployees, setArchivedEmployees] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [modalMode, setModalMode] = useState("add");
   const [loading, setLoading] = useState(true);
   const [archivedLoading, setArchivedLoading] = useState(true);
-  const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState("active");
-  const [notification, setNotification] = useState(null);
 
   const [sessionLogs, setSessionLogs] = useState([]);
   const [filteredSessionLogs, setFilteredSessionLogs] = useState([]);
@@ -32,7 +30,9 @@ const StaffManagement = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { scannedRfidForStaff } = useWebSocket();
+  const { showToast } = useToast(); // ✅ Use Toast
 
+  // Fetch current user
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -46,6 +46,7 @@ const StaffManagement = () => {
     fetchUser();
   }, [navigate]);
 
+  // Fetch employees
   useEffect(() => {
     if (!user?.id && !user?.adminId) return;
 
@@ -57,14 +58,15 @@ const StaffManagement = () => {
         setEmployees(data.employees || []);
       } catch (error) {
         console.error(error);
-        setMessage("Failed to load staff.");
+        showToast("Failed to load staff.", "error"); // ✅ Use Toast
       } finally {
         setLoading(false);
       }
     };
     fetchEmployees();
-  }, [user]);
+  }, [user, showToast]);
 
+  // Fetch archived employees
   useEffect(() => {
     if (!user?.id && !user?.adminId) return;
 
@@ -76,13 +78,15 @@ const StaffManagement = () => {
         setArchivedEmployees(data.employees || []);
       } catch (error) {
         console.error("Failed to load archived staff:", error);
+        showToast("Failed to load archived staff.", "error"); // ✅ Use Toast
       } finally {
         setArchivedLoading(false);
       }
     };
     fetchArchivedEmployees();
-  }, [user]);
+  }, [user, showToast]);
 
+  // Fetch session logs
   useEffect(() => {
     if (!user?.id && !user?.adminId) return;
 
@@ -94,106 +98,76 @@ const StaffManagement = () => {
         setSessionLogs(data.logs || []);
       } catch (error) {
         console.error("Failed to load session logs:", error);
+        showToast("Failed to load session logs.", "error"); // ✅ Use Toast
       } finally {
         setLogsLoading(false);
       }
     };
     fetchSessionLogs();
-  }, [user]);
+  }, [user, showToast]);
 
-  // Apply filters to session logs
+  // Filter session logs
   useEffect(() => {
     let filtered = sessionLogs;
-
-    // Filter by staff name
-    if (selectedStaffFilter !== "All") {
-      filtered = filtered.filter(log => log.staff_name === selectedStaffFilter);
-    }
-
-    // Filter by date range
-    if (startDate) {
-      filtered = filtered.filter(
-        (log) => new Date(log.login_time) >= startDate
-      );
-    }
-
-    if (endDate) {
-      filtered = filtered.filter(
-        (log) => new Date(log.login_time) <= endDate
-      );
-    }
-
+    if (selectedStaffFilter !== "All") filtered = filtered.filter(log => log.staff_name === selectedStaffFilter);
+    if (startDate) filtered = filtered.filter(log => new Date(log.login_time) >= startDate);
+    if (endDate) filtered = filtered.filter(log => new Date(log.login_time) <= endDate);
     setFilteredSessionLogs(filtered);
   }, [selectedStaffFilter, startDate, endDate, sessionLogs]);
 
-  const showNotification = (msg, type = "error") => {
-    setMessage(msg);
-    setTimeout(() => setMessage(""), 4000);
-  };
-
+  // ✅ Notification functions replaced by Toast
   const handleArchive = async (id, name) => {
     if (!window.confirm(`Archive ${name}? They will not be able to access the system.`)) return;
-    
     try {
       await api.put(`/api/staff/${id}/archive`);
-      setEmployees((prev) => prev.filter((emp) => emp.user_id !== id));
-      
+      setEmployees(prev => prev.filter(emp => emp.user_id !== id));
       const adminId = user.adminId || user.id;
       const { data } = await api.get(`/api/get-archived-employees/${adminId}`);
       setArchivedEmployees(data.employees || []);
-      
-      showNotification("✅ Staff archived successfully!", "success");
+      showToast("Staff archived successfully!", "success");
     } catch (error) {
-      showNotification(error.response?.data?.message || "Failed to archive staff.");
+      showToast(error.response?.data?.message || "Failed to archive staff.", "error");
     }
   };
 
   const handleRestore = async (id, name) => {
     if (!window.confirm(`Restore ${name}? They will be able to access the system again.`)) return;
-    
     try {
       await api.put(`/api/staff/${id}/restore`);
-      setArchivedEmployees((prev) => prev.filter((emp) => emp.user_id !== id));
-      
+      setArchivedEmployees(prev => prev.filter(emp => emp.user_id !== id));
       const adminId = user.adminId || user.id;
       const { data } = await api.get(`/api/get-employees/${adminId}`);
       setEmployees(data.employees || []);
-      
-      showNotification("✅ Staff restored successfully!", "success");
+      showToast("Staff restored successfully!", "success");
     } catch (error) {
-      showNotification(error.response?.data?.message || "Failed to restore staff.");
+      showToast(error.response?.data?.message || "Failed to restore staff.", "error");
     }
   };
 
   const handlePermanentDelete = async (id, name) => {
     if (!window.confirm(`⚠️ PERMANENTLY DELETE ${name}? This cannot be undone!`)) return;
     if (!window.confirm(`Are you ABSOLUTELY SURE? This will delete all data for ${name}.`)) return;
-    
     try {
       await api.delete(`/api/staff/${id}/permanent`);
-      setArchivedEmployees((prev) => prev.filter((emp) => emp.user_id !== id));
-      showNotification("✅ Staff permanently deleted!", "success");
+      setArchivedEmployees(prev => prev.filter(emp => emp.user_id !== id));
+      showToast("Staff permanently deleted!", "success");
     } catch (error) {
-      showNotification(error.response?.data?.message || "Failed to delete staff.");
+      showToast(error.response?.data?.message || "Failed to delete staff.", "error");
     }
   };
 
   const handleEmployeeAdded = (newEmployee) => {
-    setEmployees((prev) => [...prev, newEmployee]);
+    setEmployees(prev => [...prev, newEmployee]);
     setShowAddForm(false);
-    showNotification("✅ Employee added successfully!", "success");
+    showToast("Employee added successfully!", "success");
   };
 
   const handleEmployeeUpdated = (updatedEmployee) => {
-    setEmployees((prev) =>
-      prev.map((emp) =>
-        emp.user_id === updatedEmployee.user_id ? updatedEmployee : emp
-      )
-    );
+    setEmployees(prev => prev.map(emp => emp.user_id === updatedEmployee.user_id ? updatedEmployee : emp));
     setShowAddForm(false);
     setEditingEmployee(null);
     setModalMode("add");
-    showNotification("✅ Employee updated successfully!", "success");
+    showToast("Employee updated successfully!", "success");
   };
 
   const handleEdit = (employee) => {
@@ -317,19 +291,7 @@ const StaffManagement = () => {
     <div className="flex min-h-screen bg-gray-50">
       <OwnerSidebar />
       <main className="flex-1 p-4">
-        {notification && (
-          <div
-            className={`p-3 mb-4 rounded text-sm ${
-              notification.type === "success"
-                ? "bg-green-100 text-green-800 border border-green-300"
-                : notification.type === "info"
-                ? "bg-blue-100 text-blue-800 border border-blue-300"
-                : "bg-red-100 text-red-800 border border-red-300"
-            }`}
-          >
-            {notification.message}
-          </div>
-        )}
+
 
         <div className="mb-3 p-2">
           <h2 className="text-lg sm:text-xl font-semibold mb-1">Staff Management</h2>
@@ -349,7 +311,6 @@ const StaffManagement = () => {
           </button>
         </div>
 
-        <NotificationMessage message={message} />
 
         <div className="mb-4 border-b border-gray-200">
           <div className="flex gap-4">

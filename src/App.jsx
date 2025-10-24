@@ -21,6 +21,8 @@ import Homepage from "./Frontend/Homepage";
 import { API_URL } from "./config";
 import { setAccessToken, clearAccessToken, getAccessToken } from "./tokenMemory";
 import { scheduleTokenRefresh } from "./api";
+import { ToastProvider } from "./components/ToastManager";
+
 
 // Lazy imports remain the same...
 const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));
@@ -295,16 +297,23 @@ const AppRoutes = () => {
 
   if (!user) {
     return (
-      <Suspense fallback={<p>Loading page...</p>}>
-        <Routes>
-          <Route path="/" element={<Homepage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
+ <ToastProvider>
+  <Suspense fallback={<p>Loading page...</p>}>
+    {user && <Routes> ... </Routes>}
+    {!user && (
+      <Routes>
+        <Route path="/" element={<Homepage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    )}
+  </Suspense>
+</ToastProvider>
+
     );
   }
 
   return (
+      <ToastProvider>
     <Suspense fallback={<p>Loading page...</p>}>
       <Routes>
         <Route path="/" element={<Homepage />} />
@@ -367,6 +376,7 @@ const AppRoutes = () => {
         />
       </Routes>
     </Suspense>
+    </ToastProvider>
   );
 };
 

@@ -5,6 +5,7 @@ import api from "../../../api";
 import { useToast } from "../../../components/ToastManager";
 
 
+
 const KpiCard = ({ title, value, color }) => (
   <div className="bg-white shadow p-2 sm:p-4 rounded text-center text-xs sm:text-sm">
     <h3 className="text-gray-600 truncate">{title}</h3>

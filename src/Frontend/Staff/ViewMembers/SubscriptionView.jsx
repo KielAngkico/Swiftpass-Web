@@ -1,15 +1,17 @@
 import React, { useEffect, useState, useRef } from "react";
 import api from "../../../api"; 
 import { IP } from "../../../IpConfig";
-
+import { useToast } from "../../../components/ToastManager";
+import MemberCard from "../../../components/MemberCards/SubscriptionMemberID/MemberCard";
 
 const SubscriptionView = () => {
   const [members, setMembers] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
-  const [notification, setNotification] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
   const [adminId, setAdminId] = useState(null);
+  const { showToast } = useToast();
+
 
   const sidebarRef = useRef(null);
   
@@ -45,21 +47,21 @@ const SubscriptionView = () => {
         setMembers(membersRes.data.members || []);
         console.log("✅ Members fetched:", membersRes.data.members?.length || 0);
         
-      } catch (err) {
-        console.error("❌ Failed to fetch data:", err);
-        
-        if (err.response?.status === 401) {
-          window.location.href = "/login";
-          return;
-        }
-        
-        setNotification({ 
-          message: err.message || "Failed to load data. Please try again.", 
-          type: "error" 
-        });
-      } finally {
-        setLoading(false);
-      }
+} catch (err) {
+  console.error("❌ Failed to fetch data:", err);
+  
+  if (err.response?.status === 401) {
+    window.location.href = "/login";
+    return;
+  }
+  
+  showToast({ 
+    message: err.message || "Failed to load data. Please try again.", 
+    type: "error" 
+  });
+} finally {
+  setLoading(false);
+}
     };
 
     fetchStaffAndMembers();
@@ -174,81 +176,12 @@ return (
       </div>
     )}
 
-    {selectedMember && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
-        <div className="bg-white rounded-xl shadow-2xl p-4 w-full max-w-2xl mx-4 relative animate-fade-in">
-          <button
-            onClick={() => setSelectedMember(null)}
-            className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-lg font-bold"
-            aria-label="Close"
-          >
-            &times;
-          </button>
-
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-shrink-0">
-              <img
-                src={`http://localhost:5000/${
-                  selectedMember.profile_image_url || "default-profile.png"
-                }`}
-                alt={selectedMember.full_name}
-                className="w-32 h-32 object-cover border-4 border-indigo-500 shadow-md rounded-full"
-              />
-            </div>
-
-            <div className="flex-1 text-xs sm:text-sm">
-              <h2 className="text-lg font-semibold text-indigo-700 mb-2">
-                {selectedMember.full_name}
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-700">
-                <p>
-                  <span className="font-semibold">Age:</span>{" "}
-                  {selectedMember.age}
-                </p>
-                <p>
-                  <span className="font-semibold">Phone:</span>{" "}
-                  {selectedMember.phone_number}
-                </p>
-                <p>
-                  <span className="font-semibold">Email:</span>{" "}
-                  {selectedMember.email}
-                </p>
-                <p>
-                  <span className="font-semibold">Address:</span>{" "}
-                  {selectedMember.address}
-                </p>
-                <p>
-                  <span className="font-semibold">Status:</span>{" "}
-                  <span
-                    className={`inline-block ml-2 px-2 py-0.5 text-[9px] sm:text-xs font-semibold rounded-full ${
-                      selectedMember.status === "active"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {selectedMember.status}
-                  </span>
-                </p>
-                <p>
-                  <span className="font-semibold">Subscription:</span>{" "}
-                  {new Date(
-                    selectedMember.subscription_start
-                  ).toLocaleDateString()}{" "}
-                  →{" "}
-                  {new Date(
-                    selectedMember.subscription_expiry
-                  ).toLocaleDateString()}
-                </p>
-                <p>
-                  <span className="font-semibold">Joined:</span>{" "}
-                  {new Date(selectedMember.created_at).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
+ {selectedMember && (
+  <MemberCard
+    member={selectedMember}
+    onClose={() => setSelectedMember(null)}
+  />
+)}
   </div>
 );
 

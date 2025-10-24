@@ -5,7 +5,7 @@ const cookieParser = require("cookie-parser");
 const path = require("path");
 require('dotenv').config();
 require("./middleware/expiryHandler");
-
+process.env.TZ = process.env.TZ;
 const dbSuperAdmin = require('./db');
 
 const loginroute = require("./routes/login");
@@ -29,6 +29,7 @@ const EmployeeManagementRoutes = require("./routes/EmployeeManagement");
 const SuperAdminInventory = require ("./routes/SuperAdminInventory");
 const RfidVerification = require ("./routes/RfidVerification");
 const SubscriptionPackages = require ("./routes/SubscriptionPackages.js");
+const RfidReplacementRoutes = require ("./routes/RfidReplacement");
 
 const app = express();
 
@@ -98,5 +99,6 @@ app.use("/api", EmployeeManagementRoutes);
 app.use("/api", SuperAdminInventory);
 app.use("/api", RfidVerification);
 app.use("/api", SubscriptionPackages);
+app.use("/api", RfidReplacementRoutes);
 
 module.exports = app;

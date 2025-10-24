@@ -1,0 +1,454 @@
+import React, {
+  Suspense,
+  useState,
+  useEffect,
+  createContext,
+  useContext,
+  useRef,
+} from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+  useLocation,
+  Navigate,
+} from "react-router-dom";
+import { WebSocketProvider } from "./contexts/WebSocketContext.jsx";
+import Header from "./components/Header";
+import Navbar from "./components/Navbar"; 
+import Homepage from "./Frontend/Homepage";
+import { API_URL } from "./config";
+import { setAccessToken, clearAccessToken, getAccessToken } from "./tokenMemory";
+import { scheduleTokenRefresh } from "./api";
+
+// Lazy imports remain the same...
+const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));
+const ExerciseLibrary = React.lazy(() => import("./Frontend/SuperAdmin/ExerciseLibrary"));
+const SplitLibrary = React.lazy(() => import("./Frontend/SuperAdmin/SplitLibrary"));
+const RepRange = React.lazy(() => import("./Frontend/SuperAdmin/RepRange"));
+const FoodLibrary = React.lazy(() => import("./Frontend/SuperAdmin/FoodLibrary"));
+const Allergens = React.lazy(() => import("./Frontend/SuperAdmin/AllergensMasterList"));
+const ItemsInventory = React.lazy(() => import("./Frontend/SuperAdmin/ItemsInventory"));
+const PricingsManagement = React.lazy(() => import("./Frontend/SuperAdmin/PricingManagement"));
+
+const AdminAnalyticalDashboard = React.lazy(() => import("./Frontend/Admin/AdminAnalyticalDashboard"));
+const AdminViewMembers = React.lazy(() => import("./Frontend/Admin/AdminViewMembers"));
+const ActivityAnalytics = React.lazy(() => import("./Frontend/Admin/ActivityAnalytics"));
+const TransactionsReport = React.lazy(() => import("./Frontend/Admin/TransactionsReport"));
+const PricingManagement = React.lazy(() => import("./Frontend/Admin/PricingManagement"));
+const StaffManagement = React.lazy(() => import("./Frontend/Admin/StaffManagement"));
+
+
+const ViewMembers = React.lazy(() => import("./Frontend/Staff/ViewMembers"));
+const ScanRFID = React.lazy(() => import("./Frontend/Staff/ScanRFID"));
+const DayPass = React.lazy(() => import("./Frontend/Staff/DayPass"));
+const AddMember = React.lazy(() => import("./Frontend/Staff/AddMember"));
+const MemberEntry = React.lazy(() => import("./Frontend/Staff/member-entry"));
+const MembershipTransactions = React.lazy(() => import("./Frontend/Staff/MembershipTransactions"));
+const RfidReplacement = React.lazy(() => import("./Frontend/Staff/RfidReplacement"));
+
+const AuthContext = createContext();
+export const useAuth = () => useContext(AuthContext);
+
+const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+const performLogout = async () => {
+  console.log("🚨 [Frontend] Performing logout at:", new Date().toISOString());
+  console.log("👤 [Frontend] Current user:", JSON.stringify(user, null, 2));
+  
+  // ✅ IMPORTANT: Store user info BEFORE clearing anything
+  const userRole = user?.role;
+  const staffId = user?.staffId || user?.id || user?.userId || user?.staff_id;
+  
+  try {
+    // ✅ If user is staff, log their session out FIRST (before clearing tokens)
+    if (userRole === "staff" && staffId) {
+      console.log("👤 [Frontend] Staff logout detected");
+      console.log("👤 [Frontend] Staff ID to use:", staffId);
+      
+      try {
+        const response = await fetch(`${API_URL}/api/staff/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ staff_id: staffId }),
+        });
+        
+        const result = await response.json();
+        console.log("✅ [Frontend] Staff session logout response:", result);
+        
+        if (!response.ok) {
+          console.error("❌ [Frontend] Staff logout failed with status:", response.status);
+        }
+      } catch (staffLogoutError) {
+        console.error("❌ [Frontend] Staff session logout error:", staffLogoutError);
+        // Continue with general logout even if staff logout fails
+      }
+      
+      // ✅ WAIT a moment to ensure the request completed
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    // General logout (clear cookies, etc.)
+    await fetch(`${API_URL}/api/logout`, {
+      method: "POST",
+      credentials: "include", 
+    });
+    console.log("✅ [Frontend] Backend logout successful");
+  } catch (error) {
+    console.error("❌ [Frontend] Backend logout failed:", error);
+  }
+  
+  // ✅ NOW clear everything and redirect
+  clearAccessToken();
+  setUser(null);
+  sessionStorage.clear();
+  localStorage.clear();
+  console.log("🧹 [Frontend] All tokens and storage cleared");
+  window.location.href = "/";
+};
+  useEffect(() => {
+    const checkAuth = async () => {
+      console.log("🔍 [Frontend] Checking auth status at:", new Date().toISOString());
+      console.log("🎫 [Frontend] Current access token exists:", !!getAccessToken());
+      
+      try {
+        const res = await fetch(`${API_URL}/api/auth-status-auto`, {
+          method: "GET",
+          credentials: "include", 
+        });
+        
+        console.log("📡 [Frontend] Auth status response:", res.status, res.statusText);
+        
+        const data = await res.json();
+        console.log("📦 [Frontend] Auth status data:", {
+          ok: res.ok,
+          hasUser: !!data.user,
+          hasAccessToken: !!data.accessToken,
+          userRole: data.user?.role
+        });
+
+        if (res.ok && data.user) {
+          if (data.accessToken) {
+            console.log("🎫 [Frontend] Setting new access token from auth check");
+            setAccessToken(data.accessToken);
+		scheduleTokenRefresh(data.accessToken);
+          }
+          setUser(data.user);
+          console.log("✅ [Frontend] Auth check successful");
+        } else {
+          console.log("❌ [Frontend] Auth check failed, clearing tokens");
+          clearAccessToken();
+          setUser(null);
+          if (window.location.pathname !== "/" && (res.status === 401 || res.status === 403)) {
+            console.log("🔄 [Frontend] Redirecting to login page");
+            window.location.href = "/";
+          }
+        }
+      } catch (err) {
+        console.error("❌ [Frontend] Auth check error:", err.message);
+        clearAccessToken();
+        setUser(null);
+        if (window.location.pathname !== "/") {
+          console.log("🔄 [Frontend] Redirecting due to auth check error");
+          window.location.href = "/";
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+    
+    const handleAuthChanged = () => {
+      console.log("🔔 [Frontend] Auth change event received at:", new Date().toISOString());
+      checkAuth();
+    };
+    
+    window.addEventListener("auth-changed", handleAuthChanged);
+
+    return () => {
+      window.removeEventListener("auth-changed", handleAuthChanged);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const tokenCheckInterval = setInterval(() => {
+      const token = getAccessToken();
+      console.log("⏰ [Frontend] Periodic token check:", {
+        time: new Date().toISOString(),
+        hasToken: !!token,
+        userExists: !!user,
+        currentPath: window.location.pathname
+      });
+
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const expiresAt = new Date(payload.exp * 1000);
+          const timeUntilExpiry = (payload.exp * 1000 - Date.now()) / 1000 / 60;
+          
+          console.log("🎫 [Frontend] Token info:", {
+            expiresAt: expiresAt.toISOString(),
+            minutesUntilExpiry: Math.round(timeUntilExpiry * 100) / 100,
+            isExpired: timeUntilExpiry <= 0
+          });
+
+          if (timeUntilExpiry <= 0) {
+            console.log("⚠️ [Frontend] Token appears expired, triggering auth check");
+            window.dispatchEvent(new Event("auth-changed"));
+          }
+        } catch (e) {
+          console.error("❌ [Frontend] Error parsing token:", e);
+        }
+      }
+    }, 5 * 60 * 1000); 
+
+    return () => clearInterval(tokenCheckInterval);
+  }, [user]);
+
+  if (loading) return <p>Loading session...</p>;
+
+  return (
+    <AuthContext.Provider value={{ user, setUser, loading, getAccessToken, performLogout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+const WebSocketWrapper = ({ children }) => {
+  const navigate = useNavigate();
+
+  const customNavigate = (path, options, role) => {
+    const allowedPrefixes =
+      role === "superadmin"
+        ? ["/SuperAdmin/"]
+        : role === "admin"
+        ? ["/Admin/"]
+        : role === "staff"
+        ? ["/Staff/"]
+        : [];
+
+    if (allowedPrefixes.some((prefix) => path.startsWith(prefix))) {
+      navigate(path, options);
+    } else {
+      console.warn(`⛔ Navigation blocked for role=${role}:`, path);
+      if (role === "superadmin") navigate("/SuperAdmin/addClient");
+      if (role === "admin") navigate("/Admin/StaffManagement");
+      if (role === "staff") navigate("/Staff/member-entry");
+    }
+  };
+
+  return <WebSocketProvider navigate={customNavigate}>{children}</WebSocketProvider>;
+};
+const useAutoLogout = (timeout = 1 * 60 * 60 * 1000, enabled = true) => { 
+  const { performLogout } = useAuth();
+  const timerRef = useRef();
+  const countdownRef = useRef();
+
+  const performAutoLogout = async () => {
+    console.log("🚨 Auto-logout triggered!");
+    await performLogout();
+  };
+
+  const resetTimer = () => {
+    if (!enabled) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    let remaining = Math.floor(timeout / 1000);
+
+    countdownRef.current = setInterval(() => {
+      remaining--;
+      if (remaining <= 0) clearInterval(countdownRef.current);
+    }, 1000);
+
+    timerRef.current = setTimeout(performAutoLogout, timeout);
+  };
+
+  useEffect(() => {
+    if (!enabled) return;
+    const events = ["click", "keydown", "mousemove", "scroll", "touchstart"];
+    events.forEach((e) => window.addEventListener(e, resetTimer));
+
+    resetTimer();
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      events.forEach((e) => window.removeEventListener(e, resetTimer));
+    };
+  }, [enabled]);
+
+  return { resetTimer };
+};
+
+const AppRoutes = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  if (!user) {
+    return (
+      <Suspense fallback={<p>Loading page...</p>}>
+        <Routes>
+          <Route path="/" element={<Homepage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
+  return (
+    <Suspense fallback={<p>Loading page...</p>}>
+      <Routes>
+        <Route path="/" element={<Homepage />} />
+
+        {user?.role === "superadmin" && (
+          <>
+            <Route path="/SuperAdmin/addClient" element={<AddClient />} />
+            <Route path="/SuperAdmin/ExerciseLibrary" element={<ExerciseLibrary />} />
+            <Route path="/SuperAdmin/SplitLibrary" element={<SplitLibrary />} />
+            <Route path="/SuperAdmin/RepRange" element={<RepRange />} />
+            <Route path="/SuperAdmin/FoodLibrary" element={<FoodLibrary />} />
+            <Route path="/SuperAdmin/AllergensMasterList" element={<Allergens />} />
+            <Route path="/SuperAdmin/ItemsInventory" element={<ItemsInventory />} />
+	    <Route path="/SuperAdmin/PricingManagement" element={<PricingsManagement />} />
+          </>
+        )}
+
+        {user?.role === "admin" && (
+          <>
+            <Route path="/Admin/AdminAnalyticalDashboard" element={<AdminAnalyticalDashboard />} />
+            <Route path="/Admin/AdminViewMembers" element={<AdminViewMembers />} />
+            <Route path="/Admin/ActivityAnalytics" element={<ActivityAnalytics />} />
+            <Route path="/Admin/TransactionsReport" element={<TransactionsReport />} />
+            <Route path="/Admin/PricingManagement" element={<PricingManagement />} />
+            <Route path="/Admin/StaffManagement" element={<StaffManagement />} />
+          </>
+        )}
+
+        {user?.role === "staff" && (
+          <>
+            <Route path="/Staff/member-entry" element={<MemberEntry />} />
+            <Route path="/Staff/view-members" element={<ViewMembers />} />
+            <Route path="/Staff/DayPass" element={<DayPass />} />
+            <Route path="/Staff/AddMember" element={<AddMember />} />
+            <Route path="/Staff/scan-rfid" element={<ScanRFID />} />
+            <Route path="/Staff/MembershipTransactions" element={<MembershipTransactions />} />
+	    <Route path="/Staff/RfidReplacement" element={<RfidReplacement />} />
+          </>
+        )}
+
+        <Route
+          path="*"
+          element={
+            <div style={{ textAlign: "center", padding: "2rem" }}>
+              <h1>Access Denied</h1>
+              <p>You don't have permission to access this page.</p>
+              <button 
+                onClick={() => {
+                  if (user.role === "superadmin") navigate("/SuperAdmin/addClient");
+                  else if (user.role === "admin") navigate("/Admin/StaffManagement");  
+                  else if (user.role === "staff") navigate("/Staff/member-entry");
+                }}
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mt-4"
+              >
+                Go to Dashboard
+              </button>
+            </div>
+          }
+        />
+      </Routes>
+    </Suspense>
+  );
+};
+
+const ConditionalHeader = ({ onLogoutClick, loading }) => {
+  const location = useLocation();
+  return location.pathname !== "/" ? (
+    <Header onLogoutClick={onLogoutClick} loading={loading} />
+  ) : null;
+};
+
+const App = () => {
+  const { user, performLogout } = useAuth();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+const { resetTimer } = useAutoLogout(1 * 60 * 60 * 1000, !!user);
+
+  const handleLogout = async () => {
+    setLoading(true);
+    try {
+      await performLogout();
+      setShowLogoutConfirm(false);
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error("Logout error:", error);
+      alert("Network error during logout. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <Navbar /> 
+      <ConditionalHeader onLogoutClick={() => setShowLogoutConfirm(true)} loading={loading} />
+      <AppRoutes />
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-80 max-w-sm relative">
+            <button 
+              onClick={() => setShowLogoutConfirm(false)} 
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold"
+              disabled={loading}
+            >
+              ✕
+            </button>
+
+            <h2 className="text-lg text-black font-bold text-center mb-4">Confirm Logout</h2>
+            <p className="text-gray-700 text-center mb-6 text-sm">Are you sure you want to log out?</p>
+
+            <div className="flex gap-3 text-sm">
+              <button
+                className="flex-1 bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400 text-black font-medium disabled:opacity-50"
+                onClick={() => setShowLogoutConfirm(false)}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                className="flex-1 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 font-medium disabled:opacity-50"
+                onClick={handleLogout}
+                disabled={loading}
+              >
+                {loading ? "Logging out..." : "Logout"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+const AppWrapper = () => (
+  <Router>
+    <AuthProvider>
+      <WebSocketWrapper>
+        <App />
+      </WebSocketWrapper>
+    </AuthProvider>
+  </Router>
+);
+
+export default AppWrapper;

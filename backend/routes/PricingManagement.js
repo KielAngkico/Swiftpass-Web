@@ -14,7 +14,6 @@ router.post("/add-pricing", async (req, res) => {
     amount_to_pay,
     duration_in_days,
     amount_to_credit,
-    day_pass_fee,
   } = req.body;
 
   try {
@@ -22,23 +21,22 @@ router.post("/add-pricing", async (req, res) => {
 
     if (system_type === "subscription") {
       sql = `
-        INSERT INTO AdminPricingOptions 
-          (admin_id, system_type, plan_name, amount_to_pay, duration_in_days, day_pass_fee, is_deletable)
-        VALUES (?, ?, ?, ?, ?, ?, 1)
+        INSERT INTO AdminPricingOptions
+          (admin_id, system_type, plan_name, amount_to_pay, duration_in_days, is_deletable)
+        VALUES (?, ?, ?, ?, ?, 1)
       `;
       values = [
         admin_id,
         system_type,
         plan_name,
         amount_to_pay,
-        duration_in_days,
-        day_pass_fee || 0,
+        duration_in_days || null,
       ];
     } else if (system_type === "prepaid_entry") {
       sql = `
-        INSERT INTO AdminPricingOptions 
-          (admin_id, system_type, plan_name, amount_to_pay, amount_to_credit)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO AdminPricingOptions
+          (admin_id, system_type, plan_name, amount_to_pay, amount_to_credit, is_deletable)
+        VALUES (?, ?, ?, ?, ?, 1)
       `;
       values = [admin_id, system_type, plan_name, amount_to_pay, amount_to_credit];
     } else {
@@ -72,7 +70,7 @@ router.get("/get-pricing/:admin_id", async (req, res) => {
     const system_type = adminRows[0].system_type;
 
     const [plans] = await dbSuperAdmin.promise().query(
-      `SELECT * FROM AdminPricingOptions WHERE system_type = ? AND admin_id = ?`,
+      `SELECT * FROM AdminPricingOptions WHERE system_type = ? AND admin_id = ? ORDER BY is_deletable ASC, plan_name ASC`,
       [system_type, admin_id]
     );
 
@@ -94,7 +92,6 @@ router.put("/update-pricing/:id", async (req, res) => {
     amount_to_pay,
     duration_in_days,
     amount_to_credit,
-    day_pass_fee,
   } = req.body;
 
   try {
@@ -110,9 +107,10 @@ router.put("/update-pricing/:id", async (req, res) => {
     const isDeletable = rows[0].is_deletable;
     const currentPlanName = rows[0].plan_name;
 
+    // Prevent renaming system default plans
     if (isDeletable === 0 && plan_name !== currentPlanName) {
       return res.status(403).json({
-        message: "❌ Cannot change the name of a system default plan like 'Daily Session'.",
+        message: "❌ Cannot change the name of a system default plan.",
       });
     }
 
@@ -121,10 +119,10 @@ router.put("/update-pricing/:id", async (req, res) => {
     if (system_type === "subscription") {
       sql = `
         UPDATE AdminPricingOptions
-        SET plan_name = ?, amount_to_pay = ?, duration_in_days = ?, day_pass_fee = ?
+        SET plan_name = ?, amount_to_pay = ?, duration_in_days = ?
         WHERE id = ?
       `;
-      values = [plan_name, amount_to_pay, duration_in_days, day_pass_fee || 0, id];
+      values = [plan_name, amount_to_pay, duration_in_days || null, id];
     } else if (system_type === "prepaid_entry") {
       sql = `
         UPDATE AdminPricingOptions
@@ -162,7 +160,9 @@ router.delete("/delete-pricing/:id", async (req, res) => {
     }
 
     if (rows[0].is_deletable === 0) {
-      return res.status(403).json({ message: "❌ Cannot delete a system default plan." });
+      return res.status(403).json({ 
+        error: "Cannot delete system default plans (Daily Session, Key Fob, or Replacement Fee)." 
+      });
     }
 
     await dbSuperAdmin.promise().query(

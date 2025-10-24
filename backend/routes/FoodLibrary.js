@@ -5,7 +5,27 @@ const toNullable = (val) => {
   if (val === "" || val === undefined || val === null) return null;
   return val;
 };
+router.get('/food-groups/names', async (req, res) => {
+  try {
+    const sql = `SELECT DISTINCT name FROM FoodGroups ORDER BY name ASC`;
+    
+    db.query(sql, (err, results) => {
+      if (err) {
+        console.error('Error fetching food group names:', err);
+        return res.status(500).json({ error: 'Failed to fetch food group names' });
+      }
 
+      // Extract just the names from the results
+      const foodGroupNames = results.map(row => row.name);
+      
+      console.log('Food group names:', foodGroupNames);
+      res.json(foodGroupNames);
+    });
+  } catch (error) {
+    console.error('Error fetching food group names:', error);
+    res.status(500).json({ error: 'Failed to fetch food group names' });
+  }
+});
 router.post("/food-groups", (req, res) => {
   console.log("📦 Received from frontend:", req.body);
   const { name, category } = req.body;

@@ -1,18 +1,30 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import OwnerSidebar from "../../components/OwnerSidebar";
 import AddEmployeeModal from "../../components/Modals/AddEmployeeModal";
 import api from "../../api";
+import { useWebSocket } from "../../contexts/WebSocketContext";
 
 const StaffManagement = () => {
   const [user, setUser] = useState(null);
   const [employees, setEmployees] = useState([]);
+  const [archivedEmployees, setArchivedEmployees] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [modalMode, setModalMode] = useState("add");
   const [loading, setLoading] = useState(true);
+  const [archivedLoading, setArchivedLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [activeTab, setActiveTab] = useState("active");
+
+  const [sessionLogs, setSessionLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+  const [selectedStaffFilter, setSelectedStaffFilter] = useState("All");
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const { scannedRfidForStaff } = useWebSocket();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -46,20 +58,136 @@ const StaffManagement = () => {
     fetchEmployees();
   }, [user]);
 
-  const handleDelete = async (id, name) => {
-    if (!id || !window.confirm(`Delete ${name}?`)) return;
+  useEffect(() => {
+    if (!user?.id && !user?.adminId) return;
+
+    const fetchArchivedEmployees = async () => {
+      try {
+        setArchivedLoading(true);
+        const adminId = user.adminId || user.id;
+        const { data } = await api.get(`/api/get-archived-employees/${adminId}`);
+        setArchivedEmployees(data.employees || []);
+      } catch (error) {
+        console.error("Failed to load archived staff:", error);
+      } finally {
+        setArchivedLoading(false);
+      }
+    };
+    fetchArchivedEmployees();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user?.id && !user?.adminId) return;
+
+    const fetchSessionLogs = async () => {
+      try {
+        setLogsLoading(true);
+        const adminId = user.adminId || user.id;
+        const { data } = await api.get(`/api/staff-session-logs/${adminId}`);
+        setSessionLogs(data.logs || []);
+      } catch (error) {
+        console.error("Failed to load session logs:", error);
+      } finally {
+        setLogsLoading(false);
+      }
+    };
+    fetchSessionLogs();
+  }, [user]);
+
+  const showNotification = (msg, type = "error") => {
+    setMessage(msg);
+    setTimeout(() => setMessage(""), 4000);
+  };
+
+  const handleArchive = async (id, name) => {
+    if (!window.confirm(`Archive ${name}? They will not be able to access the system.`)) return;
+    
     try {
-      await api.delete(`/api/staff/${id}`);
+      await api.put(`/api/staff/${id}/archive`);
       setEmployees((prev) => prev.filter((emp) => emp.user_id !== id));
-      setMessage("Staff deleted successfully!");
-    } catch {
-      setMessage("Failed to delete staff.");
+      
+      const adminId = user.adminId || user.id;
+      const { data } = await api.get(`/api/get-archived-employees/${adminId}`);
+      setArchivedEmployees(data.employees || []);
+      
+      showNotification("✅ Staff archived successfully!", "success");
+    } catch (error) {
+      showNotification(error.response?.data?.message || "Failed to archive staff.");
+    }
+  };
+
+  const handleRestore = async (id, name) => {
+    if (!window.confirm(`Restore ${name}? They will be able to access the system again.`)) return;
+    
+    try {
+      await api.put(`/api/staff/${id}/restore`);
+      setArchivedEmployees((prev) => prev.filter((emp) => emp.user_id !== id));
+      
+      const adminId = user.adminId || user.id;
+      const { data } = await api.get(`/api/get-employees/${adminId}`);
+      setEmployees(data.employees || []);
+      
+      showNotification("✅ Staff restored successfully!", "success");
+    } catch (error) {
+      showNotification(error.response?.data?.message || "Failed to restore staff.");
+    }
+  };
+
+  const handlePermanentDelete = async (id, name) => {
+    if (!window.confirm(`⚠️ PERMANENTLY DELETE ${name}? This cannot be undone!`)) return;
+    if (!window.confirm(`Are you ABSOLUTELY SURE? This will delete all data for ${name}.`)) return;
+    
+    try {
+      await api.delete(`/api/staff/${id}/permanent`);
+      setArchivedEmployees((prev) => prev.filter((emp) => emp.user_id !== id));
+      showNotification("✅ Staff permanently deleted!", "success");
+    } catch (error) {
+      showNotification(error.response?.data?.message || "Failed to delete staff.");
     }
   };
 
   const handleEmployeeAdded = (newEmployee) => {
     setEmployees((prev) => [...prev, newEmployee]);
     setShowAddForm(false);
+    showNotification("✅ Employee added successfully!", "success");
+  };
+
+  const handleEmployeeUpdated = (updatedEmployee) => {
+    setEmployees((prev) =>
+      prev.map((emp) =>
+        emp.user_id === updatedEmployee.user_id ? updatedEmployee : emp
+      )
+    );
+    setShowAddForm(false);
+    setEditingEmployee(null);
+    setModalMode("add");
+    showNotification("✅ Employee updated successfully!", "success");
+  };
+
+  const handleEdit = (employee) => {
+    setEditingEmployee(employee);
+    setModalMode("edit");
+    setShowAddForm(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowAddForm(false);
+    setEditingEmployee(null);
+    setModalMode("add");
+  };
+
+  const filteredLogs = selectedStaffFilter === "All"
+    ? sessionLogs
+    : sessionLogs.filter(log => log.staff_name === selectedStaffFilter);
+
+  const calculateDuration = (loginTime, logoutTime) => {
+    if (!logoutTime) return "Active";
+    const login = new Date(loginTime);
+    const logout = new Date(logoutTime);
+    const diff = logout - login;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${minutes}m`;
   };
 
   const ProfilePicture = ({ employee }) => {
@@ -79,81 +207,284 @@ const StaffManagement = () => {
     );
   };
 
+  const NotificationMessage = ({ message }) => {
+    if (!message) return null;
+    const isSuccess = message.includes("success") || message.includes("✅");
+    const bgColor = isSuccess
+      ? "bg-green-50 border-green-200 text-green-700"
+      : "bg-red-50 border-red-200 text-red-700";
+
+    return (
+      <div className={`p-3 mb-4 rounded-md border ${bgColor} text-sm`}>
+        {message}
+      </div>
+    );
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <OwnerSidebar />
       <main className="flex-1 p-4">
         <div className="mb-3 p-2">
-        <h2 className="text-lg sm:text-xl font-semibold mb-1">Staff Management</h2>
+          <h2 className="text-lg sm:text-xl font-semibold mb-1">Staff Management</h2>
           <p className="text-gray-500 text-xs">Manage your team members</p>
         </div>
+
         <div className="mb-3">
           <button
             className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors text-xs font-medium"
-            onClick={() => setShowAddForm(true)}
+            onClick={() => {
+              setModalMode("add");
+              setEditingEmployee(null);
+              setShowAddForm(true);
+            }}
           >
             + Add New Staff
           </button>
         </div>
 
-        {message && (
-          <div className="p-2 mb-2 rounded border text-xs bg-red-50 border-red-200 text-red-700">{message}</div>
-        )}
-        <AddEmployeeModal
-          isOpen={showAddForm}
-          onClose={() => setShowAddForm(false)}
-          onEmployeeAdded={handleEmployeeAdded}
-          adminId={user?.adminId || user?.id}
-        />
+        <NotificationMessage message={message} />
 
-        {loading ? (
-          <div className="flex items-center justify-center py-6">
-            <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"></div>
-            <span className="ml-2 text-gray-500 text-xs">Loading staff...</span>
-          </div>
-        ) : employees.length === 0 ? (
-          <div className="text-center py-6 bg-white rounded border text-xs">
-            <p className="text-gray-400 mb-1">No staff members found</p>
-            <p className="text-gray-500 mb-2">Add your first staff to get started</p>
+        <div className="mb-4 border-b border-gray-200">
+          <div className="flex gap-4">
             <button
-              className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-xs"
-              onClick={() => setShowAddForm(true)}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === "active"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+              onClick={() => setActiveTab("active")}
             >
-              Add Staff
+              Active Staff ({employees.length})
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === "archived"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+              onClick={() => setActiveTab("archived")}
+            >
+              Archived Staff ({archivedEmployees.length})
             </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {employees.map((emp) => (
-              <div
-                key={emp.user_id}
-                className="rounded-lg border shadow-sm hover:shadow-md transition-all text-xs bg-white flex justify-between items-center p-3"
-              >
-                <div className="flex-1 pr-2">
-                  <h3 className="font-bold text-black text-sm truncate">{emp.name}</h3>
-                  <p className="text-black text-xs truncate">{emp.email || "No email"}</p>
-                  <p className="text-black text-xs">Age: {emp.age || "N/A"}</p>
-                  <p className="text-black text-xs">Contact: {emp.contact_number || "N/A"}</p>
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      className="flex-1 bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 text-xs font-medium"
-                      onClick={() => setSelectedEmployee(emp)}
-                    >
-                      View
-                    </button>
-                    <button
-                      className="flex-1 bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-xs font-medium"
-                      onClick={() => handleDelete(emp.user_id, emp.name)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-                <ProfilePicture employee={emp} />
+        </div>
+
+        <AddEmployeeModal
+          isOpen={showAddForm}
+          onClose={handleCloseModal}
+          onEmployeeAdded={handleEmployeeAdded}
+          onEmployeeUpdated={handleEmployeeUpdated}
+          adminId={user?.adminId || user?.id}
+          mode={modalMode}
+          editingEmployee={editingEmployee}
+        />
+
+        {activeTab === "active" && (
+          <>
+            {loading ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"></div>
+                <span className="ml-2 text-gray-500 text-xs">Loading staff...</span>
               </div>
-            ))}
+            ) : employees.length === 0 ? (
+              <div className="text-center py-6 bg-white rounded border text-xs">
+                <p className="text-gray-400 mb-1">No active staff members found</p>
+                <p className="text-gray-500 mb-2">Add your first staff to get started</p>
+                <button
+                  className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-xs"
+                  onClick={() => setShowAddForm(true)}
+                >
+                  Add Staff
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                {employees.map((emp) => (
+                  <div
+                    key={emp.user_id}
+                    className="rounded-lg border shadow-sm hover:shadow-md transition-all text-xs bg-white flex justify-between items-center p-3"
+                  >
+                    <div className="flex-1 pr-2">
+                      <h3 className="font-bold text-black text-sm truncate">{emp.name}</h3>
+                      <p className="text-black text-xs truncate">{emp.email || "No email"}</p>
+                      <p className="text-black text-xs">Age: {emp.age || "N/A"}</p>
+                      <p className="text-black text-xs">Contact: {emp.contact_number || "N/A"}</p>
+                      <p className="text-black text-xs truncate">
+                        <span className="font-semibold">RFID:</span> {emp.rfid_tag || "Not assigned"}
+                      </p>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          className="flex-1 bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 text-xs font-medium"
+                          onClick={() => setSelectedEmployee(emp)}
+                        >
+                          View
+                        </button>
+                        <button
+                          className="flex-1 bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 text-xs font-medium"
+                          onClick={() => handleEdit(emp)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="flex-1 bg-orange-500 text-white px-2 py-1 rounded hover:bg-orange-600 text-xs font-medium"
+                          onClick={() => handleArchive(emp.user_id, emp.name)}
+                        >
+                          Archive
+                        </button>
+                      </div>
+                    </div>
+                    <ProfilePicture employee={emp} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === "archived" && (
+          <>
+            {archivedLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"></div>
+                <span className="ml-2 text-gray-500 text-xs">Loading archived staff...</span>
+              </div>
+            ) : archivedEmployees.length === 0 ? (
+              <div className="text-center py-6 bg-white rounded border text-xs">
+                <p className="text-gray-400 mb-1">No archived staff members</p>
+                <p className="text-gray-500 text-xs">Archived staff will appear here</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                {archivedEmployees.map((emp) => (
+                  <div
+                    key={emp.user_id}
+                    className="rounded-lg border shadow-sm hover:shadow-md transition-all text-xs bg-gray-50 flex justify-between items-center p-3 opacity-75"
+                  >
+                    <div className="flex-1 pr-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-bold text-black text-sm truncate">{emp.name}</h3>
+                        <span className="px-2 py-0.5 bg-gray-200 text-gray-600 rounded text-[9px] font-medium">
+                          ARCHIVED
+                        </span>
+                      </div>
+                      <p className="text-black text-xs truncate">{emp.email || "No email"}</p>
+                      <p className="text-black text-xs">Age: {emp.age || "N/A"}</p>
+                      <p className="text-black text-xs">Contact: {emp.contact_number || "N/A"}</p>
+                      <p className="text-black text-xs truncate">
+                        <span className="font-semibold">RFID:</span> {emp.rfid_tag || "Not assigned"}
+                      </p>
+                      <p className="text-gray-500 text-[10px] mt-1">
+                        Archived: {new Date(emp.archived_at).toLocaleDateString()}
+                      </p>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          className="flex-1 bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 text-xs font-medium"
+                          onClick={() => handleRestore(emp.user_id, emp.name)}
+                        >
+                          Restore
+                        </button>
+                        <button
+                          className="flex-1 bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 text-xs font-medium"
+                          onClick={() => handlePermanentDelete(emp.user_id, emp.name)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    <ProfilePicture employee={emp} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === "active" && employees.length > 0 && (
+          <div className="mt-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">Staff Session Logs</h3>
+                <p className="text-xs text-gray-500">Track staff login and logout activities</p>
+              </div>
+
+              <select
+                className="px-3 py-2 border border-gray-300 rounded text-xs sm:text-sm bg-white"
+                value={selectedStaffFilter}
+                onChange={(e) => setSelectedStaffFilter(e.target.value)}
+              >
+                <option value="All">All Staff</option>
+                {employees.map((emp) => (
+                  <option key={emp.user_id} value={emp.name}>
+                    {emp.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-[10px] sm:text-xs text-left border-collapse">
+                <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-[10px]">
+                  <tr>
+                    <th className="px-3 py-2">#</th>
+                    <th className="px-3 py-2">Staff Name</th>
+                    <th className="px-3 py-2">Login Time</th>
+                    <th className="px-3 py-2">Logout Time</th>
+                    <th className="px-3 py-2">Duration</th>
+                    <th className="px-3 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logsLoading ? (
+                    <tr>
+                      <td colSpan="6" className="px-3 py-6 text-center bg-white">
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin h-6 w-6 border-b-2 border-blue-600 rounded-full"></div>
+                          <span className="ml-2 text-gray-500 text-xs">Loading logs...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="px-3 py-6 text-center bg-white text-xs text-gray-400">
+                        No session logs found
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredLogs.map((log, index) => (
+                      <tr key={log.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                        <td className="px-3 py-2">{index + 1}</td>
+                        <td className="px-3 py-2 font-medium text-gray-800">{log.staff_name}</td>
+                        <td className="px-3 py-2">
+                          {new Date(log.login_time).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2">
+                          {log.logout_time
+                            ? new Date(log.logout_time).toLocaleString()
+                            : <span className="text-blue-600 font-medium">-</span>
+                          }
+                        </td>
+                        <td className="px-3 py-2">
+                          {calculateDuration(log.login_time, log.logout_time)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`px-2 py-1 rounded-full text-[9px] font-medium ${
+                            log.status === 'online'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}>
+                            {log.status === 'online' ? '🟢 Online' : '⚫ Offline'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
+
         {selectedEmployee && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg p-4 w-full max-w-sm shadow-lg">
@@ -169,8 +500,20 @@ const StaffManagement = () => {
               <p className="text-sm text-gray-700">Age: {selectedEmployee.age}</p>
               <p className="text-sm text-gray-700">Contact: {selectedEmployee.contact_number}</p>
               <p className="text-sm text-gray-700">Address: {selectedEmployee.address}</p>
+              <p className="text-sm text-gray-700">
+                <strong>RFID Tag:</strong> {selectedEmployee.rfid_tag || "Not assigned"}
+              </p>
 
-              <div className="mt-3 flex justify-end">
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  className="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600"
+                  onClick={() => {
+                    setSelectedEmployee(null);
+                    handleEdit(selectedEmployee);
+                  }}
+                >
+                  Edit
+                </button>
                 <button
                   className="bg-gray-200 text-gray-700 px-3 py-1 rounded text-xs hover:bg-gray-300"
                   onClick={() => setSelectedEmployee(null)}

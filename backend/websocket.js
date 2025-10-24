@@ -1,3 +1,4 @@
+
 const WebSocket = require("ws");
 const dbSuperAdmin = require("./db");
 const jwt = require("jsonwebtoken");
@@ -59,12 +60,12 @@ function setupWebSocket(server) {
 
             if (authMsg.admin_id) {
               ws.admin_id = authMsg.admin_id;
-	     ws.location = authMsg.location || "UNKNOWN";
+              ws.location = authMsg.location || "UNKNOWN";
               ws.isSuperAdmin = false;
               console.log(`✅ Arduino authenticated for Admin ID: ${authMsg.admin_id}`);
             } else {
               ws.admin_id = null;
-	      ws.location = authMsg.location || "SUPERADMIN";
+              ws.location = authMsg.location || "SUPERADMIN";
               ws.isSuperAdmin = true;
               console.log("✅ Arduino authenticated as SUPERADMIN");
             }
@@ -90,6 +91,10 @@ function setupWebSocket(server) {
           connectedClients = connectedClients.filter((client) => client !== ws);
           if (ws.clientType === "dashboard" && ws.admin_id) {
             delete adminScanModes[ws.admin_id];
+            // Also clean up replacement mode
+            if (adminScanModes.replacement) {
+              delete adminScanModes.replacement[ws.admin_id];
+            }
           }
         });
 
@@ -106,7 +111,7 @@ function setupWebSocket(server) {
   });
 }
 
-// ✅ NEW: Check if RFID is registered
+// ✅ Check if RFID is registered
 async function isRfidRegistered(rfidTag) {
   try {
     const [rows] = await dbSuperAdmin.promise().query(
@@ -120,13 +125,20 @@ async function isRfidRegistered(rfidTag) {
   }
 }
 
-// ✅ NEW: Get staff by RFID + admin_id filter
-async function getStaffByRfid(rfidTag, adminId) {
+// ✅ Get staff by RFID + admin_id filter
+async function getStaffByRfid(rfidTag, adminId = null) {
   try {
-    const [rows] = await dbSuperAdmin.promise().query(
-      "SELECT id, staff_name, admin_id FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ? LIMIT 1",
-      [rfidTag, adminId]
-    );
+    let query = "SELECT id, staff_name, admin_id FROM StaffAccounts WHERE rfid_tag = ?";
+    let params = [rfidTag];
+
+    if (adminId !== null) {
+      query += " AND admin_id = ?";
+      params.push(adminId);
+    }
+
+    query += " LIMIT 1";
+
+    const [rows] = await dbSuperAdmin.promise().query(query, params);
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
     console.error("Error checking staff RFID:", error);
@@ -134,7 +146,7 @@ async function getStaffByRfid(rfidTag, adminId) {
   }
 }
 
-// ✅ NEW: Get admin by RFID
+// ✅ Get admin by RFID
 async function getAdminByRfid(rfidTag) {
   try {
     const [rows] = await dbSuperAdmin.promise().query(
@@ -148,7 +160,7 @@ async function getAdminByRfid(rfidTag) {
   }
 }
 
-// ✅ NEW: Get member by RFID
+// ✅ Get member by RFID
 async function getMemberByRfid(rfidTag) {
   try {
     const [rows] = await dbSuperAdmin.promise().query(
@@ -162,11 +174,11 @@ async function getMemberByRfid(rfidTag) {
   }
 }
 
-// ✅ NEW: Log staff activity (ENTRY/EXIT only)
+// ✅ Log staff activity (ENTRY/EXIT only)
 async function logStaffActivity(rfidTag, staffData, location, activityType) {
   try {
     await dbSuperAdmin.promise().query(
-      `INSERT INTO StaffActivityLogs 
+      `INSERT INTO StaffActivityLogs
        (rfid_tag, staff_id, staff_name, admin_id, location, activity_type, timestamp)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [rfidTag, staffData.id, staffData.staff_name, staffData.admin_id, location, activityType, new Date()]
@@ -180,6 +192,7 @@ async function logStaffActivity(rfidTag, staffData, location, activityType) {
 function broadcastToClients(data) {
   console.log("📤 Broadcasting message:", JSON.stringify(data, null, 2));
 
+  // ✅ Handle SUPERADMIN broadcasts
   if (data.type === "rfid-registration-check") {
     console.log("📡 SUPERADMIN broadcast - sending to ALL SuperAdmin dashboard clients");
 
@@ -198,14 +211,18 @@ function broadcastToClients(data) {
     return;
   }
 
-  if (data.type === "rfid-scanned-for-staff" || data.type === "scan-mode-updated") {
+  // ✅ Handle scan mode updates (staff registration and replacement)
+  if (data.type === "rfid-scanned-for-staff" ||
+      data.type === "scan-mode-updated" ||
+      data.type === "rfid-replacement-scanned" ||
+      data.type === "replacement-scan-mode-updated") {
     if (!data.data || !data.data.admin_id) {
       console.log("❌ Missing admin_id in scan mode broadcast");
       return;
     }
 
     const targetAdminId = data.data.admin_id;
-    console.log(`🎯 Broadcasting scan mode update to admin_id: ${targetAdminId}`);
+    console.log(`🎯 Broadcasting ${data.type} to admin_id: ${targetAdminId}`);
 
     let sentCount = 0;
     connectedClients.forEach((client) => {
@@ -234,56 +251,94 @@ function broadcastToClients(data) {
   let dashboardCount = 0;
   let arduinoCount = 0;
 
-connectedClients.forEach((client) => {
-  if (client.readyState === WebSocket.OPEN &&
-      client.admin_id === targetAdminId) {
+  connectedClients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN &&
+        client.admin_id === targetAdminId) {
 
-    // ✅ Send to dashboard clients (see everything)
-    if (client.clientType === "dashboard") {
-      client.send(JSON.stringify(data));
-      dashboardCount++;
-      console.log(`   ✅ Sent to dashboard client`);
-    } 
-    // ✅ Send to Arduino clients with location filtering
-    else if (client.clientType === "arduino") {
-      // LOCK controller receives ALL messages (no location filter)
-      if (client.location === "LOCK") {
+      // ✅ Send to dashboard clients (see everything)
+      if (client.clientType === "dashboard") {
         client.send(JSON.stringify(data));
-        arduinoCount++;
-        console.log(`   ✅ Sent to LOCK controller`);
+        dashboardCount++;
+        console.log(`   ✅ Sent to dashboard client`);
       }
-      // ENTRY/EXIT only receive messages for their own location
-      else if (client.location === data.data.location) {
-        client.send(JSON.stringify(data));
-        arduinoCount++;
-        console.log(`   ✅ Sent to ${client.location} ESP32`);
+      // ✅ Send to Arduino clients with location filtering
+      else if (client.clientType === "arduino") {
+        // LOCK controller receives ALL messages (no location filter)
+        if (client.location === "LOCK") {
+          client.send(JSON.stringify(data));
+          arduinoCount++;
+          console.log(`   ✅ Sent to LOCK controller`);
+        }
+        // ENTRY/EXIT only receive messages for their own location
+        else if (client.location === data.data.location) {
+          client.send(JSON.stringify(data));
+          arduinoCount++;
+          console.log(`   ✅ Sent to ${client.location} ESP32`);
+        }
       }
     }
-  }
-});
+  });
+
   console.log(`📊 Broadcast complete. Sent to ${dashboardCount} dashboard + ${arduinoCount} Arduino client(s)`);
 }
+
 async function handleMessage(ws, message) {
   try {
     const parsed = JSON.parse(message);
 
-    if (parsed.type === "toggle-scan-mode") {
+// ============================================================
+// HANDLE: Staff Registration Scan Mode Toggle
+// ============================================================
+if (parsed.type === "toggle-scan-mode") {
+  const admin_id = ws.admin_id;
+  if (!admin_id && !ws.isSuperAdmin) {
+    ws.send(JSON.stringify({ type: "error", message: "Not authenticated" }));
+    return;
+  }
+
+  adminScanModes[admin_id] = parsed.enabled;
+  console.log(`🔄 Admin ${admin_id} staff registration scan mode: ${parsed.enabled ? "ENABLED" : "DISABLED"}`);
+
+  // ✅ FIX: Use broadcastToClients instead of ws.send
+  broadcastToClients({
+    type: "scan-mode-updated",
+    data: {
+      enabled: parsed.enabled,
+      admin_id  // ✅ Add admin_id to data
+    }
+  });
+  return;
+}
+    // ============================================================
+    // ✅ HANDLE: Replacement Scan Mode Toggle
+    // ============================================================
+    if (parsed.type === "toggle-replacement-scan-mode") {
       const admin_id = ws.admin_id;
       if (!admin_id && !ws.isSuperAdmin) {
         ws.send(JSON.stringify({ type: "error", message: "Not authenticated" }));
         return;
       }
 
-      adminScanModes[admin_id] = parsed.enabled;
-      console.log(`🔄 Admin ${admin_id} scan mode: ${parsed.enabled ? "ENABLED" : "DISABLED"}`);
+      if (!adminScanModes.replacement) {
+        adminScanModes.replacement = {};
+      }
+      adminScanModes.replacement[admin_id] = parsed.enabled;
 
-      ws.send(JSON.stringify({
-        type: "scan-mode-updated",
-        enabled: parsed.enabled
-      }));
+      console.log(`🔄 Admin ${admin_id} replacement scan mode: ${parsed.enabled ? "ENABLED" : "DISABLED"}`);
+
+      broadcastToClients({
+        type: "replacement-scan-mode-updated",
+        data: {
+          enabled: parsed.enabled,
+          admin_id
+        }
+      });
       return;
     }
 
+    // ============================================================
+    // Extract rfid_tag and location
+    // ============================================================
     const { rfid_tag, location } = parsed;
     if (!rfid_tag || !location) {
       ws.send(JSON.stringify({ type: "error", message: "Missing rfid_tag or location" }));
@@ -299,151 +354,181 @@ async function handleMessage(ws, message) {
       return;
     }
 
-    // ✅ Check if admin is in RFID scan mode
-// ✅ Check if admin is in RFID scan mode
-if (adminScanModes[admin_id] === true) {
-  console.log(`📡 RFID Scan Mode Active - Validating tag: ${rfid_tag}`);
+    // ============================================================
+    // ✅ PRIORITY 1: CHECK REPLACEMENT SCAN MODE FIRST
+    // This MUST come before staff registration scan mode check
+    // ============================================================
+    if (adminScanModes.replacement && adminScanModes.replacement[admin_id] === true) {
+      console.log(`📡 REPLACEMENT Scan Mode Active - Capturing tag: ${rfid_tag}`);
 
-  // ✅ STEP 1: Check if RFID is registered in RegisteredRfid table
-  const isRegistered = await isRfidRegistered(rfid_tag);
-  if (!isRegistered) {
-    console.log(`❌ RFID ${rfid_tag} NOT registered with SwiftPass - DENY`);
-    
-    // Turn off scan mode
-    adminScanModes[admin_id] = false;
-    
-    broadcastToClients({
-      type: "rfid-scanned-for-staff",
-      data: {
-        rfid_tag,
-        admin_id,
-        status: "error",
-        reason: "RFID not registered with SwiftPass company",
-        timestamp: new Date().toISOString()
-      }
-    });
+      // Just send the RFID tag - no validation needed for replacement
+      broadcastToClients({
+        type: "rfid-replacement-scanned",
+        data: {
+          rfid_tag,
+          admin_id,
+          timestamp: new Date().toISOString()
+        }
+      });
 
-    broadcastToClients({
-      type: "scan-mode-updated",
-      data: {
-        enabled: false,
-        admin_id
-      }
-    });
-    return;
-  }
+      // Turn off replacement scan mode
+      adminScanModes.replacement[admin_id] = false;
 
-  // ✅ STEP 2: Check if RFID is already used by Staff in THIS admin
-  const staffMemberCheck = await getStaffByRfid(rfid_tag, admin_id);
-  if (staffMemberCheck) {
-    console.log(`❌ RFID already assigned to Staff - DUPLICATE`);
-    
-    adminScanModes[admin_id] = false;
-    
-    broadcastToClients({
-      type: "rfid-scanned-for-staff",
-      data: {
-        rfid_tag,
-        admin_id,
-        status: "error",
-        reason: `Duplicate RFID - already assigned to ${staffMemberCheck.staff_name}`,
-        timestamp: new Date().toISOString()
-      }
-    });
+      broadcastToClients({
+        type: "replacement-scan-mode-updated",
+        data: {
+          enabled: false,
+          admin_id
+        }
+      });
 
-    broadcastToClients({
-      type: "scan-mode-updated",
-      data: {
-        enabled: false,
-        admin_id
-      }
-    });
-    return;
-  }
-
-  // ✅ STEP 3: Check if RFID is already used by ANY Admin
-  const adminMemberCheck = await getAdminByRfid(rfid_tag);
-  if (adminMemberCheck) {
-    console.log(`❌ RFID already assigned to Admin - DUPLICATE`);
-    
-    adminScanModes[admin_id] = false;
-    
-    broadcastToClients({
-      type: "rfid-scanned-for-staff",
-      data: {
-        rfid_tag,
-        admin_id,
-        status: "error",
-        reason: `Duplicate RFID - already assigned to Admin ${adminMemberCheck.admin_name}`,
-        timestamp: new Date().toISOString()
-      }
-    });
-
-    broadcastToClients({
-      type: "scan-mode-updated",
-      data: {
-        enabled: false,
-        admin_id
-      }
-    });
-    return;
-  }
-
-  // ✅ STEP 4: Check if RFID is assigned to any Member
-  const memberCheckScan = await getMemberByRfid(rfid_tag);
-  if (memberCheckScan) {
-    console.log(`❌ RFID already assigned to Member - DUPLICATE`);
-    
-    adminScanModes[admin_id] = false;
-    
-    broadcastToClients({
-      type: "rfid-scanned-for-staff",
-      data: {
-        rfid_tag,
-        admin_id,
-        status: "error",
-        reason: `Duplicate RFID - already assigned to Member ${memberCheckScan.full_name}`,
-        timestamp: new Date().toISOString()
-      }
-    });
-
-    broadcastToClients({
-      type: "scan-mode-updated",
-      data: {
-        enabled: false,
-        admin_id
-      }
-    });
-    return;
-  }
-
-  // ✅ ALL CHECKS PASSED - RFID is valid and available
-  console.log(`✅ RFID ${rfid_tag} is valid and available for staff registration`);
-
-  broadcastToClients({
-    type: "rfid-scanned-for-staff",
-    data: {
-      rfid_tag,
-      admin_id,
-      status: "success",
-      reason: "RFID ready for registration",
-      timestamp: new Date().toISOString()
+      console.log(`✅ Replacement RFID captured: ${rfid_tag} - STOPPING HERE (no staff-scan)`);
+      return; // ⚠️ CRITICAL: STOP HERE - Don't continue to any other logic
     }
-  });
 
-  adminScanModes[admin_id] = false;
+    // ============================================================
+    // PRIORITY 2: Check if admin is in STAFF REGISTRATION scan mode
+    // ============================================================
+    if (adminScanModes[admin_id] === true) {
+      console.log(`📡 Staff Registration Scan Mode Active - Validating tag: ${rfid_tag}`);
 
-  broadcastToClients({
-    type: "scan-mode-updated",
-    data: {
-      enabled: false,
-      admin_id
+      // ✅ STEP 1: Check if RFID is registered in RegisteredRfid table
+      const isRegistered = await isRfidRegistered(rfid_tag);
+      if (!isRegistered) {
+        console.log(`❌ RFID ${rfid_tag} NOT registered with SwiftPass - DENY`);
+        adminScanModes[admin_id] = false;
+
+        broadcastToClients({
+          type: "rfid-scanned-for-staff",
+          data: {
+            rfid_tag,
+            admin_id,
+            status: "error",
+            reason: "RFID not registered with SwiftPass company",
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        broadcastToClients({
+          type: "scan-mode-updated",
+          data: {
+            enabled: false,
+            admin_id
+          }
+        });
+        return;
+      }
+
+      // ✅ STEP 2: Check if RFID is already used by Staff in THIS admin
+      const staffMemberCheck = await getStaffByRfid(rfid_tag, admin_id);
+      if (staffMemberCheck) {
+        console.log(`❌ RFID already assigned to Staff - DUPLICATE`);
+        adminScanModes[admin_id] = false;
+
+        broadcastToClients({
+          type: "rfid-scanned-for-staff",
+          data: {
+            rfid_tag,
+            admin_id,
+            status: "error",
+            reason: `Duplicate RFID - already assigned to ${staffMemberCheck.staff_name}`,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        broadcastToClients({
+          type: "scan-mode-updated",
+          data: {
+            enabled: false,
+            admin_id
+          }
+        });
+        return;
+      }
+
+      // ✅ STEP 3: Check if RFID is already used by ANY Admin
+      const adminMemberCheck = await getAdminByRfid(rfid_tag);
+      if (adminMemberCheck) {
+        console.log(`❌ RFID already assigned to Admin - DUPLICATE`);
+        adminScanModes[admin_id] = false;
+
+        broadcastToClients({
+          type: "rfid-scanned-for-staff",
+          data: {
+            rfid_tag,
+            admin_id,
+            status: "error",
+            reason: `Duplicate RFID - already assigned to Admin ${adminMemberCheck.admin_name}`,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        broadcastToClients({
+          type: "scan-mode-updated",
+          data: {
+            enabled: false,
+            admin_id
+          }
+        });
+        return;
+      }
+
+      // ✅ STEP 4: Check if RFID is assigned to any Member
+      const memberCheckScan = await getMemberByRfid(rfid_tag);
+      if (memberCheckScan) {
+        console.log(`❌ RFID already assigned to Member - DUPLICATE`);
+        adminScanModes[admin_id] = false;
+
+        broadcastToClients({
+          type: "rfid-scanned-for-staff",
+          data: {
+            rfid_tag,
+            admin_id,
+            status: "error",
+            reason: `Duplicate RFID - already assigned to Member ${memberCheckScan.full_name}`,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        broadcastToClients({
+          type: "scan-mode-updated",
+          data: {
+            enabled: false,
+            admin_id
+          }
+        });
+        return;
+      }
+
+      // ✅ ALL CHECKS PASSED - RFID is valid and available
+      console.log(`✅ RFID ${rfid_tag} is valid and available for staff registration`);
+
+      broadcastToClients({
+        type: "rfid-scanned-for-staff",
+        data: {
+          rfid_tag,
+          admin_id,
+          status: "success",
+          reason: "RFID ready for registration",
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      adminScanModes[admin_id] = false;
+
+      broadcastToClients({
+        type: "scan-mode-updated",
+        data: {
+          enabled: false,
+          admin_id
+        }
+      });
+      return;
     }
-  });
 
-  return;
-}
+    // ============================================================
     // ✅ SUPERADMIN RFID Registration Check
+    // ============================================================
     if (location.toUpperCase() === "SUPERADMIN") {
       console.log(`📡 SUPERADMIN RFID Scan: ${rfid_tag}`);
 
@@ -460,12 +545,12 @@ if (adminScanModes[admin_id] === true) {
       return;
     }
 
-    // ==================== LOCATION = STAFF ====================
+    // ============================================================
+    // LOCATION = STAFF
+    // ============================================================
     if (location.toUpperCase() === "STAFF") {
       console.log(`📍 STAFF Location - Checking RFID: ${rfid_tag}`);
 
-      // ✅ STEP 1: Check if RFID is registered in RegisteredRfid table
-      // If NOT registered → DENY immediately and STOP (don't check further steps)
       const isRegistered = await isRfidRegistered(rfid_tag);
       if (!isRegistered) {
         console.log(`❌ RFID ${rfid_tag} NOT registered with SwiftPass - DENY`);
@@ -480,12 +565,11 @@ if (adminScanModes[admin_id] === true) {
             timestamp: new Date().toISOString()
           }
         });
-        return; // STOP - No further checks
+        return;
       }
 
       console.log(`✅ RFID ${rfid_tag} is registered - checking accounts`);
 
-      // ✅ STEP 2: Check if RFID is already used by Staff in THIS admin (Duplicate check)
       const staffMember = await getStaffByRfid(rfid_tag, admin_id);
       if (staffMember) {
         console.log(`❌ RFID already assigned to Staff - DUPLICATE`);
@@ -503,7 +587,6 @@ if (adminScanModes[admin_id] === true) {
         return;
       }
 
-      // ✅ STEP 3: Check if RFID is already used by ANY Admin (Duplicate check)
       const adminMember = await getAdminByRfid(rfid_tag);
       if (adminMember) {
         console.log(`❌ RFID already assigned to Admin - DUPLICATE`);
@@ -521,7 +604,6 @@ if (adminScanModes[admin_id] === true) {
         return;
       }
 
-      // ✅ STEP 4: Check if RFID is assigned to StaffAccounts (any staff, any admin) - Duplicate check
       const staffCheckAny = await getStaffByRfid(rfid_tag);
       if (staffCheckAny) {
         console.log(`❌ RFID already assigned to Staff - DUPLICATE`);
@@ -539,7 +621,6 @@ if (adminScanModes[admin_id] === true) {
         return;
       }
 
-      // ✅ STEP 5: Check if RFID exists in MembersAccounts - Go to Renewal
       const memberCheck = await getMemberByRfid(rfid_tag);
       if (memberCheck) {
         console.log(`✅ Found in Members - Go to Renewal`);
@@ -557,7 +638,6 @@ if (adminScanModes[admin_id] === true) {
         return;
       }
 
-      // ✅ STEP 6: RFID is registered but NOT in any account - Go to AddMember
       console.log(`✅ RFID ${rfid_tag} is registered and empty - Go to AddMember`);
       broadcastToClients({
         type: "staff-scan",
@@ -573,11 +653,12 @@ if (adminScanModes[admin_id] === true) {
       return;
     }
 
-    // ==================== LOCATION = ENTRY / EXIT ====================
+    // ============================================================
+    // LOCATION = ENTRY / EXIT
+    // ============================================================
     if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
       console.log(`🚪 ${location.toUpperCase()} Location - Processing RFID: ${rfid_tag}`);
 
-      // Step 1: Is RFID registered?
       const isRegistered = await isRfidRegistered(rfid_tag);
       if (!isRegistered) {
         console.log(`❌ RFID ${rfid_tag} NOT registered`);
@@ -595,7 +676,6 @@ if (adminScanModes[admin_id] === true) {
         return;
       }
 
-      // Step 2: Is this a Staff member's RFID? (with admin_id filter)
       const staffMember = await getStaffByRfid(rfid_tag, admin_id);
       if (staffMember) {
         console.log(`👤 Staff member scanning: ${staffMember.staff_name}`);
@@ -616,11 +696,9 @@ if (adminScanModes[admin_id] === true) {
         return;
       }
 
-      // Step 3: Is this an Admin's RFID?
       const adminMember = await getAdminByRfid(rfid_tag);
       if (adminMember) {
         console.log(`👨‍💼 Admin scanning: ${adminMember.admin_name}`);
-        // Don't log admin activity, only staff
 
         broadcastToClients({
           type: "member-update",
@@ -637,7 +715,6 @@ if (adminScanModes[admin_id] === true) {
         return;
       }
 
-      // Step 4: Check if it's a Member
       const [memberRows] = await dbSuperAdmin.promise().query(
         `SELECT id, full_name, profile_image_url, system_type, current_balance, subscription_expiry, admin_id
          FROM MembersAccounts
@@ -652,7 +729,6 @@ if (adminScanModes[admin_id] === true) {
         return;
       }
 
-      // Step 5: Check if it's a Day Pass Guest
       console.log(`🎫 Checking for day pass guest: ${rfid_tag}`);
       await handleDayPassGuest(rfid_tag, location, admin_id);
       return;
@@ -684,7 +760,7 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
           location,
           entry_time: null,
           exit_time: null,
-          profile_image_url: null,
+          profile_image_url: null, // ✅ ADD THIS
           admin_id,
           timestamp: new Date().toISOString()
         }
@@ -701,6 +777,7 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
         data: {
           rfid_tag,
           full_name: guest.guest_name,
+          profile_image_url: null, // ✅ ADD THIS (guests don't have images)
           visitor_type: "Day Pass",
           system_type: guest.system_type,
           status: "denied",
@@ -763,6 +840,7 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
         data: {
           rfid_tag,
           full_name: guest.guest_name,
+          profile_image_url: null, // ✅ ADD THIS (guests don't have images)
           visitor_type: "Day Pass",
           system_type: guest.system_type,
           status: memberStatus,
@@ -784,6 +862,7 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
         rfid_tag,
         visitor_type: "Unknown",
         status: "error",
+        profile_image_url: null, // ✅ ADD THIS
         location,
         admin_id,
         timestamp: new Date().toISOString(),
@@ -894,6 +973,7 @@ async function handleMember(member, rfid_tag, location) {
     data: {
       rfid_tag,
       full_name: member.full_name,
+      profile_image_url: member.profile_image_url, // ✅ ADD THIS LINE
       visitor_type: "Member",
       system_type: admin.system_type,
       status,
@@ -910,3 +990,4 @@ async function handleMember(member, rfid_tag, location) {
 }
 
 module.exports = { setupWebSocket, broadcastToClients };
+

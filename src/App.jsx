@@ -38,6 +38,7 @@ const ActivityAnalytics = React.lazy(() => import("./Frontend/Admin/ActivityAnal
 const TransactionsReport = React.lazy(() => import("./Frontend/Admin/TransactionsReport"));
 const PricingManagement = React.lazy(() => import("./Frontend/Admin/PricingManagement"));
 const StaffManagement = React.lazy(() => import("./Frontend/Admin/StaffManagement"));
+const StaffActivityLogs = React.lazy(() => import("./Frontend/Admin/StaffActivityLogs"));
 
 const ViewMembers = React.lazy(() => import("./Frontend/Staff/ViewMembers"));
 const ScanRFID = React.lazy(() => import("./Frontend/Staff/ScanRFID"));
@@ -45,6 +46,7 @@ const DayPass = React.lazy(() => import("./Frontend/Staff/DayPass"));
 const AddMember = React.lazy(() => import("./Frontend/Staff/AddMember"));
 const MemberEntry = React.lazy(() => import("./Frontend/Staff/member-entry"));
 const MembershipTransactions = React.lazy(() => import("./Frontend/Staff/MembershipTransactions"));
+const RfidReplacement = React.lazy(() => import("./Frontend/Staff/RfidReplacement"));
 
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
@@ -52,27 +54,63 @@ export const useAuth = () => useContext(AuthContext);
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  const performLogout = async () => {
-    console.log("🚨 [Frontend] Performing logout at:", new Date().toISOString());
-    try {
-      await fetch(`${API_URL}/api/logout`, {
-        method: "POST",
-        credentials: "include", 
-      });
-      console.log("✅ [Frontend] Backend logout successful");
-    } catch (error) {
-      console.error("❌ [Frontend] Backend logout failed:", error);
+const performLogout = async () => {
+  console.log("🚨 [Frontend] Performing logout at:", new Date().toISOString());
+  console.log("👤 [Frontend] Current user:", JSON.stringify(user, null, 2));
+  
+  // ✅ IMPORTANT: Store user info BEFORE clearing anything
+  const userRole = user?.role;
+  const staffId = user?.staffId || user?.id || user?.userId || user?.staff_id;
+  
+  try {
+    // ✅ If user is staff, log their session out FIRST (before clearing tokens)
+    if (userRole === "staff" && staffId) {
+      console.log("👤 [Frontend] Staff logout detected");
+      console.log("👤 [Frontend] Staff ID to use:", staffId);
+      
+      try {
+        const response = await fetch(`${API_URL}/api/staff/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ staff_id: staffId }),
+        });
+        
+        const result = await response.json();
+        console.log("✅ [Frontend] Staff session logout response:", result);
+        
+        if (!response.ok) {
+          console.error("❌ [Frontend] Staff logout failed with status:", response.status);
+        }
+      } catch (staffLogoutError) {
+        console.error("❌ [Frontend] Staff session logout error:", staffLogoutError);
+        // Continue with general logout even if staff logout fails
+      }
+      
+      // ✅ WAIT a moment to ensure the request completed
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
-    
-    clearAccessToken();
-    setUser(null);
-    sessionStorage.clear();
-    localStorage.clear();
-    console.log("🧹 [Frontend] All tokens and storage cleared");
-    window.location.href = "/";
-  };
 
+    // General logout (clear cookies, etc.)
+    await fetch(`${API_URL}/api/logout`, {
+      method: "POST",
+      credentials: "include", 
+    });
+    console.log("✅ [Frontend] Backend logout successful");
+  } catch (error) {
+    console.error("❌ [Frontend] Backend logout failed:", error);
+  }
+  
+  // ✅ NOW clear everything and redirect
+  clearAccessToken();
+  setUser(null);
+  sessionStorage.clear();
+  localStorage.clear();
+  console.log("🧹 [Frontend] All tokens and storage cleared");
+  window.location.href = "/";
+};
   useEffect(() => {
     const checkAuth = async () => {
       console.log("🔍 [Frontend] Checking auth status at:", new Date().toISOString());
@@ -292,6 +330,7 @@ const AppRoutes = () => {
             <Route path="/Admin/TransactionsReport" element={<TransactionsReport />} />
             <Route path="/Admin/PricingManagement" element={<PricingManagement />} />
             <Route path="/Admin/StaffManagement" element={<StaffManagement />} />
+	    <Route path="/Admin/StaffActivityLogs" element={<StaffActivityLogs/>} />
           </>
         )}
 
@@ -303,6 +342,7 @@ const AppRoutes = () => {
             <Route path="/Staff/AddMember" element={<AddMember />} />
             <Route path="/Staff/scan-rfid" element={<ScanRFID />} />
             <Route path="/Staff/MembershipTransactions" element={<MembershipTransactions />} />
+	    <Route path="/Staff/RfidReplacement" element={<RfidReplacement />} />
           </>
         )}
 

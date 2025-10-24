@@ -5,9 +5,14 @@ const AddPartnerModal = ({
   onClose,
   formData,
   onFormChange,
-  onSubmit
+  onSubmit,
+  mode = "add",
+  onReplaceRfid,
+  isReplacingRfid = false,
 }) => {
   if (!isOpen) return null;
+
+  const isEditMode = mode === "edit";
 
   return (
     <div
@@ -19,7 +24,9 @@ const AddPartnerModal = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">Add New Partner</h2>
+          <h2 className="text-lg font-semibold text-gray-800">
+            {isEditMode ? "Edit Partner" : "Add New Partner"}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
@@ -29,6 +36,14 @@ const AddPartnerModal = ({
             </svg>
           </button>
         </div>
+
+        {isReplacingRfid && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-xs text-yellow-700">
+              <strong>RFID Replacement Mode:</strong> Please scan the new RFID tag now
+            </p>
+          </div>
+        )}
 
         <form onSubmit={onSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -45,7 +60,6 @@ const AddPartnerModal = ({
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Admin Name</label>
                 <input
@@ -61,14 +75,28 @@ const AddPartnerModal = ({
               {/* RFID Tag */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">RFID Tag</label>
-                <input
-                  type="text"
-                  name="rfid_tag"
-                  value={formData.rfid_tag}
-                  onChange={onFormChange}
-                  className="w-full p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Scan RFID tag or enter manually"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="rfid_tag"
+                    value={formData.rfid_tag}
+                    onChange={onFormChange}
+                    className={`flex-1 p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
+                      isEditMode && !isReplacingRfid ? 'bg-gray-100 cursor-not-allowed' : ''
+                    }`}
+                    placeholder={isReplacingRfid ? "Waiting for scan..." : isEditMode ? "Current RFID Tag" : "Scan RFID tag or enter manually"}
+                    readOnly={isEditMode && !isReplacingRfid}
+                  />
+                  {isEditMode && !isReplacingRfid && (
+                    <button
+                      type="button"
+                      onClick={onReplaceRfid}
+                      className="px-3 py-2 bg-orange-500 text-white text-xs rounded-md hover:bg-orange-600 transition-colors whitespace-nowrap"
+                    >
+                      Replace RFID
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -82,7 +110,6 @@ const AddPartnerModal = ({
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Age</label>
                 <input
@@ -94,16 +121,18 @@ const AddPartnerModal = ({
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Password</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Password {isEditMode && <span className="text-gray-500">(leave blank to keep current)</span>}
+                </label>
                 <input
                   type="password"
                   name="password"
                   value={formData.password}
                   onChange={onFormChange}
                   className="w-full p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  required
+                  required={!isEditMode}
+                  placeholder={isEditMode ? "Enter new password to change" : ""}
                 />
               </div>
             </div>
@@ -121,7 +150,6 @@ const AddPartnerModal = ({
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">System Type</label>
                 <select
@@ -136,8 +164,6 @@ const AddPartnerModal = ({
                   <option value="subscription">Subscription Membership</option>
                 </select>
               </div>
-
-              {/* Always visible Session Fee */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Session Fee (₱)</label>
                 <input
@@ -157,7 +183,11 @@ const AddPartnerModal = ({
               <div className="w-60 h-60 bg-gray-100 border rounded-md flex items-center justify-center overflow-hidden">
                 {formData.profile_image_url ? (
                   <img
-                    src={formData.profile_image_url}
+                    src={
+                      typeof formData.profile_image_url === 'string'
+                        ? formData.profile_image_url
+                        : URL.createObjectURL(formData.profile_image_url)
+                    }
                     alt="Profile"
                     className="w-full h-full object-cover"
                   />
@@ -191,7 +221,7 @@ const AddPartnerModal = ({
               type="submit"
               className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md text-xs"
             >
-              Add Partner
+              {isEditMode ? "Update Partner" : "Add Partner"}
             </button>
           </div>
         </form>
@@ -201,4 +231,3 @@ const AddPartnerModal = ({
 };
 
 export default AddPartnerModal;
-

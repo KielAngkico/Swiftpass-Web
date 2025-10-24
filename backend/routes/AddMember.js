@@ -25,6 +25,9 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
     reference,
     admin_id,
     initial_balance,
+    emergency_contact_person,
+    emergency_contact_number,
+    emergency_contact_relationship,
   } = req.body;
 
   const profileImage = req.file ? `uploads/members/${req.file.filename}` : null;
@@ -58,7 +61,7 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
   try {
     // Check for duplicate RFID
     const [existing] = await dbSuperAdmin.promise().query(
-      "SELECT 1 FROM MembersAccounts WHERE rfid_tag = ? LIMIT 1", 
+      "SELECT 1 FROM MembersAccounts WHERE rfid_tag = ? LIMIT 1",
       [rfid_tag]
     );
     if (existing.length > 0) {
@@ -69,19 +72,20 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
 
     // Insert member
     const insertMemberSql = `
-      INSERT INTO MembersAccounts 
-      (rfid_tag, full_name, gender, age, phone_number, address, email, password, profile_image_url, admin_id, staff_name, initial_balance, current_balance, subscription_type, payment, status) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+      INSERT INTO MembersAccounts
+      (rfid_tag, full_name, gender, age, phone_number, address, email, password, profile_image_url, admin_id, staff_name, initial_balance, current_balance, subscription_type, payment, status, emergency_contact_person, emergency_contact_number, emergency_contact_relationship)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
     `;
     const [insertResult] = await dbSuperAdmin.promise().query(insertMemberSql, [
       rfid_tag, full_name, gender, ageNumber, phone_number, address, email, hashedPassword,
-      profileImage, admin_id, staff_name, initialBalance, initialBalance, plan_name, paymentNumber
+      profileImage, admin_id, staff_name, initialBalance, initialBalance, plan_name, paymentNumber,
+      emergency_contact_person || null, emergency_contact_number || null, emergency_contact_relationship || null
     ]);
     const memberId = insertResult.insertId;
 
     // Insert transaction
     const insertTransactionSql = `
-      INSERT INTO AdminTransactions 
+      INSERT INTO AdminTransactions
       (admin_id, member_id, member_name, rfid_tag, amount, payment_method, reference, staff_name, transaction_type, plan_name)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new_membership', ?)
     `;
@@ -93,7 +97,7 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
 
     // Insert member transaction
     const insertMemberTxnSql = `
-      INSERT INTO AdminMembersTransactions 
+      INSERT INTO AdminMembersTransactions
       (admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance, payment_method, reference, tax, processed_by, subscription_type)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
@@ -122,7 +126,8 @@ router.post("/add-subscription-member", upload.single("member_image"), async (re
   const {
     full_name, gender, age, rfid_tag, phone_number, address, email, password,
     payment, staff_name, payment_method, reference, admin_id,
-    subscription_type, subscription_start, subscription_expiry, plan_name
+    subscription_type, subscription_start, subscription_expiry, plan_name,
+    emergency_contact_person, emergency_contact_number, emergency_contact_relationship
   } = req.body;
 
   const profileImage = req.file ? `uploads/members/${req.file.filename}` : null;
@@ -160,22 +165,24 @@ router.post("/add-subscription-member", upload.single("member_image"), async (re
 
     // Insert subscription member
     const insertSql = `
-      INSERT INTO MembersAccounts 
+      INSERT INTO MembersAccounts
       (rfid_tag, full_name, gender, age, phone_number, address, email, password, profile_image_url,
        admin_id, staff_name, payment, status,
-       subscription_type, subscription_fee, subscription_start, subscription_expiry, system_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 'subscription')
+       subscription_type, subscription_fee, subscription_start, subscription_expiry, system_type,
+       emergency_contact_person, emergency_contact_number, emergency_contact_relationship)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 'subscription', ?, ?, ?)
     `;
     const [memberInsertResult] = await dbSuperAdmin.promise().query(insertSql, [
       rfid_tag, full_name, gender, ageNumber, phone_number, address, email, hashedPassword,
       profileImage, admin_id, staff_name, paymentNumber, subscription_type, paymentNumber,
-      subscription_start, subscription_expiry
+      subscription_start, subscription_expiry,
+      emergency_contact_person || null, emergency_contact_number || null, emergency_contact_relationship || null
     ]);
     const memberId = memberInsertResult.insertId;
 
     // Insert transaction
     const insertTxnSql = `
-      INSERT INTO AdminTransactions 
+      INSERT INTO AdminTransactions
       (admin_id, member_id, member_name, rfid_tag, amount, payment_method, reference, staff_name,
        transaction_type, plan_name)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new_membership', ?)
@@ -188,8 +195,8 @@ router.post("/add-subscription-member", upload.single("member_image"), async (re
 
     // Insert member transaction
     const insertMemberTxnSql = `
-      INSERT INTO AdminMembersTransactions 
-      (admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance, 
+      INSERT INTO AdminMembersTransactions
+      (admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance,
        payment_method, reference, tax, processed_by, subscription_type, subscription_start, subscription_expiry)
       VALUES (?, ?, ?, ?, ?, 0.00, 0.00, ?, ?, 1.00, ?, ?, ?, ?)
     `;

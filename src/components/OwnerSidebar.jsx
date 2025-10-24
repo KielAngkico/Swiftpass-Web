@@ -27,7 +27,8 @@ const OwnerSidebar = () => {
       { path: "/Admin/ActivityAnalytics", label: "Activity Analytics", icon: <FiFileText /> },
       { path: "/Admin/AdminViewMembers", label: "Members Directory", icon: <FiUsers /> },
       { path: "/Admin/PricingManagement", label: "Pricing", icon: <IoPricetagOutline /> },
-      { path: "/Admin/staffManagement", label: "Staff", icon: <FiUsers /> },
+      { path: "/Admin/staffManagement", label:"Employees Management", icon: <FiUsers /> },
+      { path: "/Admin/StaffActivityLogs", label:"Employees Activity", icon: <FiUsers /> },
     ];
   }, [user]);
 

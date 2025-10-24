@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../../../api";
 
-const KEYFOB_FEE = 20;
-
 function formatDateToLocalString(date) {
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -20,6 +18,7 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
   const [mobileNumber, setMobileNumber] = useState("");
   const [email, setEmail] = useState("");
   const [sessionFee, setSessionFee] = useState(0);
+  const [keyFobFee, setKeyFobFee] = useState(0);
   const [loadingCheck, setLoadingCheck] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -54,25 +53,27 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
     fetchPaymentMethods();
   }, [adminId]);
 
-  // FIXED: Changed axios to api
+  // Fetch session fee and key fob fee
   useEffect(() => {
     if (!adminId) return;
 
-    const fetchSessionFee = async () => {
+    const fetchFees = async () => {
       setLoadingCheck(true);
       try {
         const res = await api.get(`/api/session-fee?admin_id=${adminId}`);
         setSessionFee(res.data.session_fee || 0);
+        setKeyFobFee(res.data.key_fob_fee || 0);
       } catch (err) {
-        console.error("❌ Failed to fetch session fee:", err);
+        console.error("❌ Failed to fetch fees:", err);
         setSessionFee(0);
+        setKeyFobFee(0);
       } finally {
         setLoadingCheck(false);
       }
     };
 
-    fetchSessionFee();
-  }, [adminId]); // Removed rfid from dependencies since it's not needed
+    fetchFees();
+  }, [adminId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -115,7 +116,7 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
         expires_at: formatDateToLocalString(expires_at),
         payment_method: paymentMethod,
         cashless_reference: paymentMethod === "Cashless" ? cashlessRef.trim() : "",
-        rfid_keyfob_fee: KEYFOB_FEE,
+        rfid_keyfob_fee: keyFobFee,
       };
 
       console.log("Submitting payload:", payload);
@@ -254,7 +255,7 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
                 <label className="block mb-1 text-xs text-gray-600">RFID Tag Fee (₱)</label>
                 <input
                   type="number"
-                  value={KEYFOB_FEE}
+                  value={keyFobFee}
                   readOnly
                   className="w-full border border-gray-200 bg-gray-50 px-2 py-1.5 rounded text-sm text-gray-700"
                 />

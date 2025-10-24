@@ -210,7 +210,7 @@ const Login = ({ closeModal }) => {
           navigate("/SuperAdmin/addClient", navigateOptions);
           break;
         case "admin":
-          navigate("/Admin/StaffManagement", navigateOptions);
+          navigate("/Admin/AdminAnalyticalDashboard", navigateOptions);
           break;
         case "staff":
           navigate("/Staff/member-entry", navigateOptions);

@@ -8,6 +8,11 @@ import { useLocation } from "react-router-dom";
 const AddClient = () => {
   const location = useLocation();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [modalMode, setModalMode] = useState("add");
+  const [editingAdmin, setEditingAdmin] = useState(null);
+  const [isReplacingRfid, setIsReplacingRfid] = useState(false);
+  const [originalRfid, setOriginalRfid] = useState(""); // Track original RFID
+
   const [formData, setFormData] = useState({
     admin_name: "",
     age: "",
@@ -24,6 +29,7 @@ const AddClient = () => {
   const [admins, setAdmins] = useState([]);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
 
+  // Fetch all admins
   useEffect(() => {
     const fetchAdmins = async () => {
       try {
@@ -36,14 +42,31 @@ const AddClient = () => {
     fetchAdmins();
   }, []);
 
+  // Handle RFID scan from navigation
   useEffect(() => {
     if (location.state?.rfid_tag && location.state?.is_registered === true) {
-      console.log("RFID from navigation:", location.state.rfid_tag);
+      console.log("📨 RFID scanned:", location.state.rfid_tag);
+
+      // ✅ ONLY UPDATE FORM FIELD - NO BACKEND CALL YET
       setFormData((prev) => ({
         ...prev,
         rfid_tag: location.state.rfid_tag,
       }));
-      setShowAddForm(true);
+
+      // If in replace mode, turn off the flag and show success
+      if (isReplacingRfid) {
+        setIsReplacingRfid(false);
+        showNotification("✅ RFID scanned! Click 'Update Partner' to save", "success");
+      }
+
+      // For add mode, open the modal
+      if (!editingAdmin) {
+        setShowAddForm(true);
+        setModalMode("add");
+      }
+
+      // Clear navigation state
+      window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
@@ -69,36 +92,125 @@ const AddClient = () => {
       return;
     }
 
-    const sessionFeeValue = formData.session_fee
-      ? Number(formData.session_fee)
-      : 0;
+    const sessionFeeValue = formData.session_fee ? Number(formData.session_fee) : 0;
 
     try {
-      const formPayload = new FormData();
-      formPayload.append("admin_name", formData.admin_name);
-      formPayload.append("rfid_tag", formData.rfid_tag);
-      formPayload.append("age", Number(formData.age));
-      formPayload.append("address", formData.address);
-      formPayload.append("email", formData.email);
-      formPayload.append("password", formData.password);
-      formPayload.append("gym_name", formData.gym_name);
-      formPayload.append("system_type", formData.system_type);
-      formPayload.append("session_fee", sessionFeeValue);
+      if (modalMode === "edit" && editingAdmin) {
+        // ✅ CHECK IF RFID CHANGED
+        const rfidChanged = formData.rfid_tag !== originalRfid;
 
-      if (formData.profile_image_url) {
-        formPayload.append("profile_image_url", formData.profile_image_url);
+        if (rfidChanged && originalRfid) {
+          console.log("🔄 RFID changed - calling replace API");
+          console.log("   Old:", originalRfid);
+          console.log("   New:", formData.rfid_tag);
+
+          // ⚡ Call replace-admin-rfid API
+          await axios.put(
+            `${API_URL}/api/replace-admin-rfid/${editingAdmin.id}`,
+            { new_rfid_tag: formData.rfid_tag }
+          );
+
+          console.log("✅ RFID replaced in database");
+        }
+
+        // ✅ UPDATE OTHER FIELDS
+        const formPayload = new FormData();
+        formPayload.append("admin_name", formData.admin_name);
+        formPayload.append("age", Number(formData.age));
+        formPayload.append("address", formData.address);
+        formPayload.append("email", formData.email);
+        formPayload.append("gym_name", formData.gym_name);
+        formPayload.append("system_type", formData.system_type);
+        formPayload.append("session_fee", sessionFeeValue);
+
+        if (formData.password && formData.password.trim() !== "") {
+          formPayload.append("password", formData.password);
+        }
+
+        if (
+          formData.profile_image_url &&
+          typeof formData.profile_image_url !== "string"
+        ) {
+          formPayload.append("profile_image_url", formData.profile_image_url);
+        }
+
+        const response = await axios.put(
+          `${API_URL}/api/update-admin/${editingAdmin.id}`,
+          formPayload,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
+
+        showNotification("✅ Partner updated successfully!", "success");
+
+        // Update admins list
+        setAdmins(
+          admins.map((admin) =>
+            admin.id === editingAdmin.id
+              ? {
+                  ...admin,
+                  admin_name: formData.admin_name,
+                  age: formData.age,
+                  address: formData.address,
+                  email: formData.email,
+                  gym_name: formData.gym_name,
+                  system_type: formData.system_type,
+                  session_fee: sessionFeeValue,
+                  profile_image_url:
+                    response.data.profile_image_url || admin.profile_image_url,
+                  rfid_tag: formData.rfid_tag,
+                }
+              : admin
+          )
+        );
+      } else {
+        // ✅ ADD NEW PARTNER
+        const formPayload = new FormData();
+        formPayload.append("admin_name", formData.admin_name);
+        formPayload.append("rfid_tag", formData.rfid_tag);
+        formPayload.append("age", Number(formData.age));
+        formPayload.append("address", formData.address);
+        formPayload.append("email", formData.email);
+        formPayload.append("password", formData.password);
+        formPayload.append("gym_name", formData.gym_name);
+        formPayload.append("system_type", formData.system_type);
+        formPayload.append("session_fee", sessionFeeValue);
+
+        if (formData.profile_image_url) {
+          formPayload.append("profile_image_url", formData.profile_image_url);
+        }
+
+        const response = await axios.post(
+          `${API_URL}/api/add-client`,
+          formPayload,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
+
+        showNotification("✅ Partner added successfully!", "success");
+
+        setAdmins([
+          ...admins,
+          {
+            id: response.data.id,
+            admin_name: formData.admin_name,
+            age: formData.age,
+            address: formData.address,
+            email: formData.email,
+            gym_name: formData.gym_name,
+            system_type: formData.system_type,
+            session_fee: sessionFeeValue,
+            profile_image_url: response.data.profile_image_url || null,
+            rfid_tag: formData.rfid_tag,
+            is_archived: 0,
+          },
+        ]);
       }
 
-      const response = await axios.post(`${API_URL}/api/add-client`, formPayload, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      showNotification("Partner added successfully!", "success");
+      // Reset form
       setShowAddForm(false);
-
-	    sessionStorage.removeItem("scanned_rfid_superadmin");
-    sessionStorage.removeItem("is_rfid_registered");
-
+      setEditingAdmin(null);
+      setModalMode("add");
+      setIsReplacingRfid(false);
+      setOriginalRfid("");
       setFormData({
         admin_name: "",
         age: "",
@@ -111,29 +223,42 @@ const AddClient = () => {
         profile_image_url: null,
         rfid_tag: "",
       });
-
-      setAdmins([
-        ...admins,
-        {
-          id: response.data.id,
-          admin_name: formData.admin_name,
-          age: formData.age,
-          address: formData.address,
-          email: formData.email,
-          gym_name: formData.gym_name,
-          system_type: formData.system_type,
-          session_fee: sessionFeeValue,
-          profile_image_url: response.data.profile_image_url || null,
-          is_archived: 0,
-        },
-      ]);
     } catch (error) {
-      console.error(
-        "Add partner error:",
-        error.response ? error.response.data : error
+      console.error("Partner operation error:", error.response?.data || error);
+      showNotification(
+        `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`
       );
-      showNotification("Failed to add partner. Please try again.");
     }
+  };
+
+  // Open edit modal
+  const handleEdit = (admin) => {
+    console.log("✏️ Editing admin:", admin);
+    setEditingAdmin(admin);
+    setModalMode("edit");
+    setOriginalRfid(admin.rfid_tag || ""); // ✅ Store original RFID
+    setFormData({
+      admin_name: admin.admin_name,
+      age: admin.age,
+      address: admin.address,
+      email: admin.email,
+      password: "",
+      gym_name: admin.gym_name,
+      system_type: admin.system_type,
+      session_fee: admin.session_fee,
+      profile_image_url: admin.profile_image_url
+        ? `${API_URL}${admin.profile_image_url}`
+        : null,
+      rfid_tag: admin.rfid_tag || "",
+    });
+    setShowAddForm(true);
+  };
+
+  // Set flag for RFID replacement mode
+  const handleReplaceRfid = () => {
+    console.log("🔄 Replace RFID button clicked");
+    setIsReplacingRfid(true);
+    showNotification("🏷️ Scan the new RFID tag now...", "success");
   };
 
   const handleArchive = async (id, isArchived) => {
@@ -160,26 +285,34 @@ const AddClient = () => {
   };
 
   const handleDelete = async (id, adminName) => {
-    const admin = admins.find(a => a.id === id);
+    const admin = admins.find((a) => a.id === id);
     if (!admin || admin.is_archived === 0) {
       showNotification("Only archived accounts can be deleted");
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to permanently delete "${adminName}"?\n\nThis action cannot be undone and will remove all associated data.`)) {
+    if (
+      !window.confirm(
+        `Are you sure you want to permanently delete "${adminName}"?\n\nThis action cannot be undone and will remove all associated data.`
+      )
+    ) {
       return;
     }
 
-    if (!window.confirm(`FINAL WARNING: Permanently delete "${adminName}"? This will delete all members, transactions, and logs associated with this account.`)) {
+    if (
+      !window.confirm(
+        `FINAL WARNING: Permanently delete "${adminName}"? This will delete all members, transactions, and logs associated with this account.`
+      )
+    ) {
       return;
     }
 
     try {
       await axios.delete(`${API_URL}/api/delete-admin/${id}`);
-      
-      setAdmins(admins.filter(admin => admin.id !== id));
+
+      setAdmins(admins.filter((admin) => admin.id !== id));
       setSelectedAdmin(null);
-      
+
       showNotification(`${adminName} deleted permanently!`, "success");
     } catch (error) {
       console.error("Delete admin error:", error);
@@ -189,6 +322,10 @@ const AddClient = () => {
 
   const handleCloseModal = () => {
     setShowAddForm(false);
+    setEditingAdmin(null);
+    setModalMode("add");
+    setIsReplacingRfid(false);
+    setOriginalRfid("");
     setFormData({
       admin_name: "",
       age: "",
@@ -206,7 +343,7 @@ const AddClient = () => {
   const NotificationMessage = ({ message }) => {
     if (!message) return null;
 
-    const isSuccess = message.includes("success");
+    const isSuccess = message.includes("success") || message.includes("✅");
     const bgColor = isSuccess
       ? "bg-green-50 border-green-200 text-green-700"
       : "bg-red-50 border-red-200 text-red-700";
@@ -235,19 +372,27 @@ const AddClient = () => {
         <div className="mb-3">
           <button
             className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors text-xs font-medium w-full sm:w-auto"
-            onClick={() => setShowAddForm(true)}
+            onClick={() => {
+              setModalMode("add");
+              setEditingAdmin(null);
+              setShowAddForm(true);
+            }}
           >
             + Add New Partner
           </button>
         </div>
 
         <NotificationMessage message={message} />
+
         <AddPartnerModal
           isOpen={showAddForm}
           onClose={handleCloseModal}
           formData={formData}
           onFormChange={handleChange}
           onSubmit={handleSubmit}
+          mode={modalMode}
+          onReplaceRfid={handleReplaceRfid}
+          isReplacingRfid={isReplacingRfid}
         />
 
         {admins.length === 0 ? (
@@ -281,12 +426,10 @@ const AddClient = () => {
                     {admin.gym_name}
                   </h3>
                   <p className="text-black text-xs truncate">
-                    <span className="font-bold">Owner:</span>{" "}
-                    {admin.admin_name}
+                    <span className="font-bold">Owner:</span> {admin.admin_name}
                   </p>
                   <p className="text-black text-xs line-clamp-2">
-                    <span className="font-bold">Address:</span>{" "}
-                    {admin.address}
+                    <span className="font-bold">Address:</span> {admin.address}
                   </p>
 
                   <div className="flex gap-2 mt-3">
@@ -301,7 +444,9 @@ const AddClient = () => {
                       <>
                         <button
                           className="flex-1 px-2 py-1 rounded-md text-white text-xs font-medium transition-colors bg-green-500 hover:bg-green-600"
-                          onClick={() => handleArchive(admin.id, admin.is_archived)}
+                          onClick={() =>
+                            handleArchive(admin.id, admin.is_archived)
+                          }
                         >
                           Restore
                         </button>
@@ -313,12 +458,22 @@ const AddClient = () => {
                         </button>
                       </>
                     ) : (
-                      <button
-                        className="flex-1 px-2 py-1 rounded-md text-white text-xs font-medium transition-colors bg-red-500 hover:bg-red-600"
-                        onClick={() => handleArchive(admin.id, admin.is_archived)}
-                      >
-                        Archive
-                      </button>
+                      <>
+                        <button
+                          className="flex-1 bg-blue-500 text-white px-2 py-1 rounded-md hover:bg-blue-600 transition-colors text-xs font-medium"
+                          onClick={() => handleEdit(admin)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="flex-1 px-2 py-1 rounded-md text-white text-xs font-medium transition-colors bg-red-500 hover:bg-red-600"
+                          onClick={() =>
+                            handleArchive(admin.id, admin.is_archived)
+                          }
+                        >
+                          Archive
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -356,9 +511,12 @@ const AddClient = () => {
                 <strong>System:</strong> {selectedAdmin.system_type}
               </p>
               <p className="text-sm text-gray-700">
-                <strong>Session Fee:</strong> {selectedAdmin.session_fee}
+                <strong>Session Fee:</strong> ₱{selectedAdmin.session_fee}
               </p>
-              <div className="mt-4 flex justify-end">
+              <p className="text-sm text-gray-700">
+                <strong>RFID Tag:</strong> {selectedAdmin.rfid_tag || "N/A"}
+              </p>
+              <div className="mt-4 flex justify:end">
                 <button
                   className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-xs hover:bg-gray-300"
                   onClick={() => setSelectedAdmin(null)}

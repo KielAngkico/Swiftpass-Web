@@ -14,6 +14,22 @@ const MemberEntryBranch = () => {
   const [loading, setLoading] = useState(true);
   const processedTimestamps = useRef(new Set());
 
+  // Helper function to get proper image URL - MOVED UP
+  const getImageUrl = (profileImageUrl) => {
+    if (!profileImageUrl) {
+      return `${IP}/uploads/members/default.jpg`;
+    }
+    // If it already includes the IP, return as is
+    if (profileImageUrl.startsWith('http')) {
+      return profileImageUrl;
+    }
+    // If it starts with uploads/, add IP
+    if (profileImageUrl.startsWith('uploads/')) {
+      return `${IP}/${profileImageUrl}`;
+    }
+    // Otherwise, construct the full path
+    return `${IP}/uploads/members/${profileImageUrl}`;
+  };
 
   const fetchLogs = useCallback(async () => {
     if (!user?.adminId) return;
@@ -52,14 +68,15 @@ useEffect(() => {
         id: `entry-${data.rfid_tag}-${Date.now()}`,
         rfid_tag: data.rfid_tag,
         full_name: data.full_name || "Unknown",
-        profile_image_url: data.profile_image_url,
+        profile_image_url: getImageUrl(data.profile_image_url),
         timestamp: data.timestamp || new Date().toISOString(),
         visitor_type: data.visitor_type,
         system_type: data.system_type,
         deducted_amount: data.deducted_amount,
       };
 
-      setRecentEntries([entryItem]); 
+      console.log("✅ Setting recent entry:", entryItem);
+      setRecentEntries([entryItem]);
       setRecentExits(prev => prev.filter(exit => exit.rfid_tag !== data.rfid_tag));
 
     } else if (isExit) {
@@ -67,13 +84,14 @@ useEffect(() => {
         id: `exit-${data.rfid_tag}-${Date.now()}`,
         rfid_tag: data.rfid_tag,
         full_name: data.full_name || "Unknown",
-        profile_image_url: data.profile_image_url,
+        profile_image_url: getImageUrl(data.profile_image_url),
         timestamp: data.timestamp || new Date().toISOString(),
         visitor_type: data.visitor_type,
         system_type: data.system_type,
       };
 
-      setRecentExits([exitItem]); 
+      console.log("✅ Setting recent exit:", exitItem);
+      setRecentExits([exitItem]);
       setRecentEntries(prev => prev.filter(entry => entry.rfid_tag !== data.rfid_tag));
     }
     setEntryLogs(prev => {
@@ -155,23 +173,24 @@ useEffect(() => {
       });
     });
   });
-}, [globalEntryLogs]);
+}, [globalEntryLogs, getImageUrl]);
+
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
       const thirtySecondsAgo = now - 30000;
       const oneHourAgo = now - 3600000;
-      
-      setRecentEntries(prev => 
+
+      setRecentEntries(prev =>
         prev.filter(item => new Date(item.timestamp).getTime() > thirtySecondsAgo)
       );
-      
-      setRecentExits(prev => 
+
+      setRecentExits(prev =>
         prev.filter(item => new Date(item.timestamp).getTime() > thirtySecondsAgo)
       );
       const currentTimestamps = Array.from(processedTimestamps.current);
       processedTimestamps.current.clear();
-      
+
       currentTimestamps.forEach(timestamp => {
         const timestampMatch = timestamp.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
         if (timestampMatch) {
@@ -232,44 +251,70 @@ return (
       </div>
 
       <div className="flex gap-4 mb-6">
+        {/* Recent Entry Card */}
         <div className="flex-1 bg-green-50 p-4 rounded-lg shadow flex items-center gap-4">
-          <img
-            src={`${IP}/${recentEntries[0]?.profile_image_url || "uploads/members/default.jpg"}`}
-            alt={recentEntries[0]?.full_name || "N/A"}
-            className="w-24 h-24 rounded-lg object-cover border border-green-200"
-            onError={(e) => { e.currentTarget.src = `${IP}/uploads/members/default.jpg`; }}
-          />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-gray-800">
-              {recentEntries[0]?.full_name || "N/A"}
-            </p>
-            <p className="text-xs text-gray-500">
-              Time: {recentEntries[0]?.timestamp ? new Date(recentEntries[0].timestamp).toLocaleTimeString() : "N/A"}
-            </p>
-            <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded mt-1 inline-block">
-              {recentEntries[0]?.visitor_type || "N/A"}
-            </span>
-          </div>
+          {recentEntries.length > 0 ? (
+            <>
+              <img
+                src={recentEntries[0]?.profile_image_url}
+                alt={recentEntries[0]?.full_name}
+                className="w-24 h-24 rounded-lg object-cover border border-green-200"
+                onError={(e) => { 
+                  console.log("❌ Image load error for entry:", recentEntries[0]?.profile_image_url);
+                  e.currentTarget.src = `${IP}/uploads/members/default.jpg`; 
+                }}
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-800">
+                  {recentEntries[0]?.full_name}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Time: {new Date(recentEntries[0].timestamp).toLocaleTimeString()}
+                </p>
+                <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded mt-1 inline-block">
+                  {recentEntries[0]?.visitor_type || "Member"}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 text-center text-gray-400 text-sm">
+              <div className="text-3xl mb-2">👤</div>
+              <p>No recent entry</p>
+            </div>
+          )}
         </div>
 
+        {/* Recent Exit Card */}
         <div className="flex-1 bg-red-50 p-4 rounded-lg shadow flex items-center gap-4">
-          <img
-            src={`${IP}/${recentExits[0]?.profile_image_url || "uploads/members/default.jpg"}`}
-            alt={recentExits[0]?.full_name || "N/A"}
-            className="w-24 h-24 rounded-lg object-cover border border-red-200"
-            onError={(e) => { e.currentTarget.src = `${IP}/uploads/members/default.jpg`; }}
-          />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-gray-800">
-              {recentExits[0]?.full_name || "N/A"}
-            </p>
-            <p className="text-xs text-gray-500">
-              Time: {recentExits[0]?.timestamp ? new Date(recentExits[0].timestamp).toLocaleTimeString() : "N/A"}
-            </p>
-            <span className="text-xs bg-red-200 text-red-800 px-2 py-1 rounded mt-1 inline-block">
-              {recentExits[0]?.visitor_type || "N/A"}
-            </span>
-          </div>
+          {recentExits.length > 0 ? (
+            <>
+              <img
+                src={recentExits[0]?.profile_image_url}
+                alt={recentExits[0]?.full_name}
+                className="w-24 h-24 rounded-lg object-cover border border-red-200"
+                onError={(e) => { 
+                  console.log("❌ Image load error for exit:", recentExits[0]?.profile_image_url);
+                  e.currentTarget.src = `${IP}/uploads/members/default.jpg`; 
+                }}
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-800">
+                  {recentExits[0]?.full_name}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Time: {new Date(recentExits[0].timestamp).toLocaleTimeString()}
+                </p>
+                <span className="text-xs bg-red-200 text-red-800 px-2 py-1 rounded mt-1 inline-block">
+                  {recentExits[0]?.visitor_type || "Member"}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 text-center text-gray-400 text-sm">
+              <div className="text-3xl mb-2">👤</div>
+              <p>No recent exit</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -317,7 +362,7 @@ return (
                     >
                       <td className="px-3 py-2 text-xs flex items-center">
                         <img
-                          src={`${IP}/${log.profile_image_url || "uploads/members/default.jpg"}`}
+                          src={getImageUrl(log.profile_image_url)}
                           alt={log.full_name || log.rfid_tag}
                           className="w-8 h-8 rounded-full object-cover mr-2 border border-gray-200"
                           onError={(e) => {

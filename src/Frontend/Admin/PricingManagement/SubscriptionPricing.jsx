@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../../../api";
+import { useToast } from "../../../components/ToastManager";
 
 
 const SubscriptionPricing = () => {
@@ -17,6 +18,7 @@ const SubscriptionPricing = () => {
   const [paymentForm, setPaymentForm] = useState({ name: "", reference_number: "" });
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const { showToast, showConfirm } = useToast();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -71,7 +73,7 @@ const SubscriptionPricing = () => {
         system_type: "subscription",
         admin_id: adminId,
       });
-      alert(data.message);
+showToast({ message: data.message, type: "success" });
       setForm({ plan_name: "", amount_to_pay: "", duration_in_days: "" });
       setEditingId(null);
       setShowForm(false);
@@ -91,7 +93,7 @@ const SubscriptionPricing = () => {
         admin_id: adminId,
         ...paymentForm,
       });
-      alert(data.message);
+showToast({ message: data.message, type: "success" });
       setPaymentForm({ name: "", reference_number: "" });
       setEditingPaymentId(null);
       setIsAddingPayment(false);
@@ -113,15 +115,19 @@ const SubscriptionPricing = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this plan?")) return;
+showConfirm(
+  "Are you sure you want to delete this plan?",
+  async () => {
     try {
       const { data } = await api.delete(`/api/delete-pricing/${id}`);
-      alert(data.message);
+      showToast({ message: data.message, type: "success" });
       fetchPlans();
     } catch (err) {
       console.error("❌ Failed to delete subscription plan:", err);
-      alert(err.response?.data?.error || "Failed to delete plan");
+      showToast({ message: err.response?.data?.error || "Failed to delete plan", type: "error" });
     }
+  }
+);
   };
 
   const handleEditPayment = (payment) => {
@@ -135,15 +141,19 @@ const SubscriptionPricing = () => {
   };
 
   const handleDeletePayment = async (id) => {
-    if (!confirm("Are you sure you want to delete this payment method?")) return;
+showConfirm(
+  "Are you sure you want to delete this payment method?",
+  async () => {
     try {
       const { data } = await api.delete(`/api/delete-payment-method/${id}`);
-      alert(data.message);
+      showToast({ message: data.message, type: "success" });
       fetchPaymentMethods();
     } catch (err) {
       console.error("❌ Failed to delete payment method:", err);
-      alert(err.response?.data?.error || "Failed to delete payment method");
+      showToast({ message: err.response?.data?.error || "Failed to delete payment method", type: "error" });
     }
+  }
+);
   };
 
   return (

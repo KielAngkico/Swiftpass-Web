@@ -7,13 +7,14 @@ import { useWebSocket } from "../../contexts/WebSocketContext";
 import { generateStaffSessionLogsPDF } from "../../utils/StaffSessionLogsReports";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { useToast } from "../../contexts/ToastContext"; // ✅ Import Toast
+import { useToast } from "../../components/ToastManager";
 
 const StaffManagement = () => {
   const [user, setUser] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [archivedEmployees, setArchivedEmployees] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null); // ✅ ADDED THIS LINE
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [modalMode, setModalMode] = useState("add");
   const [loading, setLoading] = useState(true);
@@ -30,7 +31,7 @@ const StaffManagement = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { scannedRfidForStaff } = useWebSocket();
-  const { showToast } = useToast(); // ✅ Use Toast
+  const { showToast, showConfirm } = useToast();
 
   // Fetch current user
   useEffect(() => {
@@ -58,7 +59,7 @@ const StaffManagement = () => {
         setEmployees(data.employees || []);
       } catch (error) {
         console.error(error);
-        showToast("Failed to load staff.", "error"); // ✅ Use Toast
+        showToast({ message: "Failed to load staff.", type: "error" });
       } finally {
         setLoading(false);
       }
@@ -78,7 +79,7 @@ const StaffManagement = () => {
         setArchivedEmployees(data.employees || []);
       } catch (error) {
         console.error("Failed to load archived staff:", error);
-        showToast("Failed to load archived staff.", "error"); // ✅ Use Toast
+        showToast({ message: "Failed to load archived staff.", type: "error" });
       } finally {
         setArchivedLoading(false);
       }
@@ -98,7 +99,7 @@ const StaffManagement = () => {
         setSessionLogs(data.logs || []);
       } catch (error) {
         console.error("Failed to load session logs:", error);
-        showToast("Failed to load session logs.", "error"); // ✅ Use Toast
+        showToast({ message: "Failed to load session logs.", type: "error" });
       } finally {
         setLogsLoading(false);
       }
@@ -115,51 +116,65 @@ const StaffManagement = () => {
     setFilteredSessionLogs(filtered);
   }, [selectedStaffFilter, startDate, endDate, sessionLogs]);
 
-  // ✅ Notification functions replaced by Toast
-  const handleArchive = async (id, name) => {
-    if (!window.confirm(`Archive ${name}? They will not be able to access the system.`)) return;
-    try {
-      await api.put(`/api/staff/${id}/archive`);
-      setEmployees(prev => prev.filter(emp => emp.user_id !== id));
-      const adminId = user.adminId || user.id;
-      const { data } = await api.get(`/api/get-archived-employees/${adminId}`);
-      setArchivedEmployees(data.employees || []);
-      showToast("Staff archived successfully!", "success");
-    } catch (error) {
-      showToast(error.response?.data?.message || "Failed to archive staff.", "error");
+const handleArchive = async (id, name) => {
+  showConfirm(
+    `Archive ${name}? They will not be able to access the system.`,
+    async () => {
+      try {
+        await api.put(`/api/staff/${id}/archive`);
+        setEmployees(prev => prev.filter(emp => emp.user_id !== id));
+        const adminId = user.adminId || user.id;
+        const { data } = await api.get(`/api/get-archived-employees/${adminId}`);
+        setArchivedEmployees(data.employees || []);
+        showToast({ message: "Staff archived successfully!", type: "success" });
+      } catch (error) {
+        showToast({ message: error.response?.data?.message || "Failed to archive staff.", type: "error" });
+      }
     }
-  };
+  );
+};
 
-  const handleRestore = async (id, name) => {
-    if (!window.confirm(`Restore ${name}? They will be able to access the system again.`)) return;
-    try {
-      await api.put(`/api/staff/${id}/restore`);
-      setArchivedEmployees(prev => prev.filter(emp => emp.user_id !== id));
-      const adminId = user.adminId || user.id;
-      const { data } = await api.get(`/api/get-employees/${adminId}`);
-      setEmployees(data.employees || []);
-      showToast("Staff restored successfully!", "success");
-    } catch (error) {
-      showToast(error.response?.data?.message || "Failed to restore staff.", "error");
+const handleRestore = async (id, name) => {
+  showConfirm(
+    `Restore ${name}? They will be able to access the system again.`,
+    async () => {
+      try {
+        await api.put(`/api/staff/${id}/restore`);
+        setArchivedEmployees(prev => prev.filter(emp => emp.user_id !== id));
+        const adminId = user.adminId || user.id;
+        const { data } = await api.get(`/api/get-employees/${adminId}`);
+        setEmployees(data.employees || []);
+        showToast({ message: "Staff restored successfully!", type: "success" });
+      } catch (error) {
+        showToast({ message: error.response?.data?.message || "Failed to restore staff.", type: "error" });
+      }
     }
-  };
-
-  const handlePermanentDelete = async (id, name) => {
-    if (!window.confirm(`⚠️ PERMANENTLY DELETE ${name}? This cannot be undone!`)) return;
-    if (!window.confirm(`Are you ABSOLUTELY SURE? This will delete all data for ${name}.`)) return;
-    try {
-      await api.delete(`/api/staff/${id}/permanent`);
-      setArchivedEmployees(prev => prev.filter(emp => emp.user_id !== id));
-      showToast("Staff permanently deleted!", "success");
-    } catch (error) {
-      showToast(error.response?.data?.message || "Failed to delete staff.", "error");
+  );
+};
+const handlePermanentDelete = async (id, name) => {
+  showConfirm(
+    `⚠️ PERMANENTLY DELETE ${name}? This cannot be undone!`,
+    () => {
+      showConfirm(
+        `Are you ABSOLUTELY SURE? This will delete all data for ${name}.`,
+        async () => {
+          try {
+            await api.delete(`/api/staff/${id}/permanent`);
+            setArchivedEmployees(prev => prev.filter(emp => emp.user_id !== id));
+            showToast({ message: "Staff permanently deleted!", type: "success" });
+          } catch (error) {
+            showToast({ message: error.response?.data?.message || "Failed to delete staff.", type: "error" });
+          }
+        }
+      );
     }
-  };
+  );
+};
 
   const handleEmployeeAdded = (newEmployee) => {
     setEmployees(prev => [...prev, newEmployee]);
     setShowAddForm(false);
-    showToast("Employee added successfully!", "success");
+    showToast({ message: "Employee added successfully!", type: "success" });
   };
 
   const handleEmployeeUpdated = (updatedEmployee) => {
@@ -167,7 +182,7 @@ const StaffManagement = () => {
     setShowAddForm(false);
     setEditingEmployee(null);
     setModalMode("add");
-    showToast("Employee updated successfully!", "success");
+    showToast({ message: "Employee updated successfully!", type: "success" });
   };
 
   const handleEdit = (employee) => {
@@ -194,13 +209,12 @@ const StaffManagement = () => {
 
   const handleDownloadSessionLogsPDF = async () => {
     if (filteredSessionLogs.length === 0) {
-      setNotification({ message: "No session log data to download", type: "error" });
-      setTimeout(() => setNotification(null), 3000);
+      showToast({ message: "No session log data to download", type: "error" });
       return;
     }
 
     try {
-      setNotification({ message: "Generating PDF...", type: "info" });
+      showToast({ message: "Generating PDF...", type: "info", duration: 0 });
 
       const { data: meData } = await api.get("/api/me");
       if (!meData.authenticated || !meData.user) {
@@ -212,7 +226,6 @@ const StaffManagement = () => {
 
       const { data: gymInfo } = await api.get(`/api/gym-info/${currentAdminId}`);
 
-      // Calculate total hours
       let totalHours = 0;
       filteredSessionLogs.forEach(log => {
         if (log.logout_time) {
@@ -241,25 +254,17 @@ const StaffManagement = () => {
 
       const filename = generateStaffSessionLogsPDF(logsData, filterData);
 
-      setNotification({
-        message: `PDF generated successfully: ${filename}`,
-        type: "success"
-      });
-      setTimeout(() => setNotification(null), 3000);
+      showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
     } catch (error) {
       console.error("❌ Error generating PDF:", error);
-      setNotification({
-        message: "Failed to generate PDF",
-        type: "error"
-      });
-      setTimeout(() => setNotification(null), 3000);
+      showToast({ message: "Failed to generate PDF", type: "error" });
     }
   };
 
   const ProfilePicture = ({ employee }) => {
     if (!employee?.profile_image_url) {
       return (
-        <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold flex items-center justify-center text-lg">
+        <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold flex items-center justify-center text-lg rounded">
           {employee?.name?.charAt(0).toUpperCase() || "N"}
         </div>
       );
@@ -268,22 +273,8 @@ const StaffManagement = () => {
       <img
         src={employee.profile_image_url}
         alt={employee.name || "Staff member"}
-        className="w-20 h-20 object-cover"
+        className="w-20 h-20 object-cover rounded"
       />
-    );
-  };
-
-  const NotificationMessage = ({ message }) => {
-    if (!message) return null;
-    const isSuccess = message.includes("success") || message.includes("✅");
-    const bgColor = isSuccess
-      ? "bg-green-50 border-green-200 text-green-700"
-      : "bg-red-50 border-red-200 text-red-700";
-
-    return (
-      <div className={`p-3 mb-4 rounded-md border ${bgColor} text-sm`}>
-        {message}
-      </div>
     );
   };
 
@@ -291,8 +282,6 @@ const StaffManagement = () => {
     <div className="flex min-h-screen bg-gray-50">
       <OwnerSidebar />
       <main className="flex-1 p-4">
-
-
         <div className="mb-3 p-2">
           <h2 className="text-lg sm:text-xl font-semibold mb-1">Staff Management</h2>
           <p className="text-gray-500 text-xs">Manage your team members</p>
@@ -310,7 +299,6 @@ const StaffManagement = () => {
             + Add New Staff
           </button>
         </div>
-
 
         <div className="mb-4 border-b border-gray-200">
           <div className="flex gap-4">
@@ -502,7 +490,6 @@ const StaffManagement = () => {
               </button>
             </div>
 
-            {/* Filters */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
               <select
                 className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm bg-white"

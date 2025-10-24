@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import api from "../../../api";
 import { generateSubscriptionActivityPDF } from "../../../utils/activityReport";
+import { useToast } from "../../../components/ToastManager";
+
 
 const KPI = ({ title, value }) => (
   <div className="bg-white p-2 rounded shadow text-center text-xs sm:text-sm">
@@ -19,7 +21,7 @@ const SubscriptionActAnalytics = () => {
   const [loginData, setLoginData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [notification, setNotification] = useState(null);
+    const { showToast } = useToast(); // ;
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -99,13 +101,12 @@ const SubscriptionActAnalytics = () => {
 
   const handleDownloadPDF = async () => {
     if (loginData.length === 0) {
-      setNotification({ message: "No activity data to download", type: "error" });
-      setTimeout(() => setNotification(null), 3000);
+showToast({ message: "No members to download", type: "error" });
       return;
     }
 
     try {
-      setNotification({ message: "Generating PDF...", type: "info" });
+showToast({ message: "Generating PDF...", type: "info" });
 
       const { data: meData } = await api.get("/api/me");
       if (!meData.authenticated || !meData.user) {
@@ -135,18 +136,12 @@ const SubscriptionActAnalytics = () => {
 
       const filename = generateSubscriptionActivityPDF(analyticsData, filterData);
 
-      setNotification({
-        message: `PDF generated successfully: ${filename}`,
-        type: "success"
-      });
-      setTimeout(() => setNotification(null), 3000);
+showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
+
     } catch (error) {
       console.error("❌ Error generating PDF:", error);
-      setNotification({
-        message: "Failed to generate PDF",
-        type: "error"
-      });
-      setTimeout(() => setNotification(null), 3000);
+showToast({ message: "Failed to generate PDF", type: "error" });
+
     }
   };
 
@@ -174,19 +169,7 @@ const SubscriptionActAnalytics = () => {
 
   return (
     <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">
-      {notification && (
-        <div
-          className={`p-3 rounded text-sm ${
-            notification.type === "success"
-              ? "bg-green-100 text-green-800 border border-green-300"
-              : notification.type === "info"
-              ? "bg-blue-100 text-blue-800 border border-blue-300"
-              : "bg-red-100 text-red-800 border border-red-300"
-          }`}
-        >
-          {notification.message}
-        </div>
-      )}
+
 
       <div className="flex justify-between items-start">
         <div>

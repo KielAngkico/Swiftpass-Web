@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from "react";
 import MemberCard from "../../../components/MemberCards/SubscriptionMemberID/MemberCard";
 import { generateSubscriptionMembersPDF } from "../../../utils/membersReport.js";
 import api from "../../../api";
+import { useToast } from "../../../components/ToastManager";
+
 
 const KpiCard = ({ title, value, color }) => (
   <div className="bg-white shadow p-2 sm:p-4 rounded text-center text-xs sm:text-sm">
@@ -14,18 +16,17 @@ const SubscriptionView = () => {
   const [members, setMembers] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
-  const [notification, setNotification] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
   const [filterStatus, setFilterStatus] = useState("All");
   const [user, setUser] = useState(null);
   const sidebarRef = useRef(null);
+    const { showToast } = useToast(); // ;
+  
 
   useEffect(() => {
     const fetchUserAndMembers = async () => {
       try {
         setLoading(true);
-        setNotification(null);
-
         const { data } = await api.get("/api/me");
         if (!data.authenticated || !data.user)
           throw new Error("Not authenticated");
@@ -38,7 +39,7 @@ const SubscriptionView = () => {
         setMembers(res.data.members || []);
       } catch (err) {
         console.error("❌ Error fetching members:", err);
-        setNotification({ message: "Failed to fetch members", type: "error" });
+showToast({ message: "Failed to fetch members", type: "error" });
         if (err.response?.status === 401) window.location.href = "/login";
       } finally {
         setLoading(false);
@@ -65,13 +66,13 @@ const SubscriptionView = () => {
 
   const handleDownloadPDF = async () => {
     if (filteredMembers.length === 0) {
-      setNotification({ message: "No members to download", type: "error" });
-      setTimeout(() => setNotification(null), 3000);
+showToast({ message: "No members to download", type: "error" });
+
       return;
     }
 
     try {
-      setNotification({ message: "Generating PDF...", type: "info" });
+showToast({ message: "Generating PDF...", type: "info" });
 
       const { data: meData } = await api.get("/api/me");
       if (!meData.authenticated || !meData.user)
@@ -95,37 +96,18 @@ const SubscriptionView = () => {
       console.log("📤 Sending filterData to PDF:", filterData);
 
       const filename = generateSubscriptionMembersPDF(filteredMembers, filterData);
+showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
 
-      setNotification({
-        message: `PDF generated successfully: ${filename}`,
-        type: "success",
-      });
-      setTimeout(() => setNotification(null), 3000);
     } catch (error) {
       console.error("❌ Error generating PDF:", error);
-      setNotification({
-        message: "Failed to generate PDF",
-        type: "error",
-      });
-      setTimeout(() => setNotification(null), 3000);
+showToast({ message: "Failed to generate PDF", type: "error" });
+
     }
   };
 
   return (
     <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">
-      {notification && (
-        <div
-          className={`p-3 rounded text-sm ${
-            notification.type === "success"
-              ? "bg-green-100 text-green-800 border border-green-300"
-              : notification.type === "info"
-              ? "bg-blue-100 text-blue-800 border border-blue-300"
-              : "bg-red-100 text-red-800 border border-red-300"
-          }`}
-        >
-          {notification.message}
-        </div>
-      )}
+
 
       <div className="flex justify-between items-start">
         <div>

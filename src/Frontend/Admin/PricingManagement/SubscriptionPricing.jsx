@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../../../api";
 
+
 const SubscriptionPricing = () => {
   const [adminId, setAdminId] = useState(null);
   const [plans, setPlans] = useState([]);

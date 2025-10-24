@@ -3,6 +3,7 @@ import api from "../../../api";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { generateSubscriptionTransactionsPDF } from "../../../utils/transactionsReport";
+import { useToast } from "../../../components/ToastManager";
 
 const KpiBox = ({ title, value, color }) => (
   <div className="bg-white shadow p-2 rounded text-center">
@@ -22,7 +23,8 @@ const SubscriptionTransactions = () => {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [notification, setNotification] = useState(null);
+  const { showToast } = useToast();
+
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -93,13 +95,12 @@ const SubscriptionTransactions = () => {
 
   const handleDownloadPDF = async () => {
     if (filtered.length === 0) {
-      setNotification({ message: "No transaction data to download", type: "error" });
-      setTimeout(() => setNotification(null), 3000);
+showToast({ message: "No transaction data to download", type: "error" });
       return;
     }
 
     try {
-      setNotification({ message: "Generating PDF...", type: "info" });
+showToast({ message: "Generating PDF...", type: "info" });
 
       const { data: meData } = await api.get("/api/me");
       if (!meData.authenticated || !meData.user) {
@@ -130,19 +131,12 @@ const SubscriptionTransactions = () => {
       };
 
       const filename = generateSubscriptionTransactionsPDF(transactionsData, filterData);
+showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
 
-      setNotification({
-        message: `PDF generated successfully: ${filename}`,
-        type: "success"
-      });
-      setTimeout(() => setNotification(null), 3000);
     } catch (error) {
       console.error("❌ Error generating PDF:", error);
-      setNotification({
-        message: "Failed to generate PDF",
-        type: "error"
-      });
-      setTimeout(() => setNotification(null), 3000);
+showToast({ message: "Failed to generate PDF", type: "error" });
+
     }
   };
 
@@ -157,19 +151,7 @@ const SubscriptionTransactions = () => {
 
   return (
     <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">
-      {notification && (
-        <div
-          className={`p-3 rounded text-sm ${
-            notification.type === "success"
-              ? "bg-green-100 text-green-800 border border-green-300"
-              : notification.type === "info"
-              ? "bg-blue-100 text-blue-800 border border-blue-300"
-              : "bg-red-100 text-red-800 border border-red-300"
-          }`}
-        >
-          {notification.message}
-        </div>
-      )}
+ 
 
       <div className="flex justify-between items-start">
       <div>

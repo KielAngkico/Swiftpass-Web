@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import SubscriptionMemberCard from "../../../components/MemberCards/SubscriptionMemberID";
+import MemberCard from "../../../components/MemberCards/SubscriptionMemberID/MemberCard";
 import { generateSubscriptionMembersPDF } from "../../../utils/membersReport.js";
 import api from "../../../api";
 
@@ -94,7 +94,7 @@ const SubscriptionView = () => {
 
       console.log("📤 Sending filterData to PDF:", filterData);
 
-      const filename =  generateSubscriptionMembersPDF(filteredMembers, filterData);
+      const filename = generateSubscriptionMembersPDF(filteredMembers, filterData);
 
       setNotification({
         message: `PDF generated successfully: ${filename}`,
@@ -217,62 +217,62 @@ const SubscriptionView = () => {
       ) : (
         <div className="overflow-x-auto rounded shadow">
           <table className="min-w-full text-left text-[10px] sm:text-xs">
-          <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-xs">
-            <tr>
-              <th className="px-2 py-1">#</th>
-              <th className="px-2 py-1">Profile</th>
-              <th className="px-2 py-1">Name</th>
-              <th className="px-2 py-1">Phone</th>
-              {/* <th className="px-2 py-1">Balance</th> */} {/* Remove this */}
-              <th className="px-2 py-1">Status</th>
-              <th className="px-2 py-1">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredMembers.map((member, index) => (
-              <tr
-                key={member.rfid_tag || index}
-                className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-              >
-                <td className="px-2 py-1">{index + 1}</td>
-                <td className="px-2 py-1">
-                  <img
-                    src={`http://localhost:5000/${
-                      member.profile_image_url || "default-profile.png"
-                    }`}
-                    alt={member.full_name}
-                    className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
-                  />
-                </td>
-                <td className="px-2 py-1 font-medium">{member.full_name}</td>
-                <td className="px-2 py-1">{member.phone_number}</td>
-                <td className="px-2 py-1">
-                  <span
-                    className={`inline-block px-2 py-0.5 text-[9px] sm:text-xs font-semibold rounded-full shadow-sm ${
-                      member.status === "active"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
-                    }`}>
-                    {member.status}
-                  </span>
-                </td>
-                <td className="px-2 py-1">
-                  <button
-                    onClick={() => setSelectedMember(member)}
-                    className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">
-                    View
-                  </button>
-                </td>
+            <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-xs">
+              <tr>
+                <th className="px-2 py-1">#</th>
+                <th className="px-2 py-1">Profile</th>
+                <th className="px-2 py-1">Name</th>
+                <th className="px-2 py-1">Phone</th>
+                <th className="px-2 py-1">Status</th>
+                <th className="px-2 py-1">Actions</th>
               </tr>
-            ))}
-          </tbody>
-
+            </thead>
+            <tbody>
+              {filteredMembers.map((member, index) => (
+                <tr
+                  key={member.rfid_tag || index}
+                  className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                >
+                  <td className="px-2 py-1">{index + 1}</td>
+                  <td className="px-2 py-1">
+                    <img
+                      src={`https://swiftpasstech.com/${
+                        member.profile_image_url || "default-profile.png"
+                      }`}
+                      alt={member.full_name}
+                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
+                    />
+                  </td>
+                  <td className="px-2 py-1 font-medium">{member.full_name}</td>
+                  <td className="px-2 py-1">{member.phone_number}</td>
+                  <td className="px-2 py-1">
+                    <span
+                      className={`inline-block px-2 py-0.5 text-[9px] sm:text-xs font-semibold rounded-full shadow-sm ${
+                        member.status === "active"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {member.status}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1">
+                    <button
+                      onClick={() => setSelectedMember(member)}
+                      className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       )}
 
       {selectedMember && (
-        <SubscriptionMemberCard
+        <MemberCard
           member={selectedMember}
           onClose={() => setSelectedMember(null)}
         />

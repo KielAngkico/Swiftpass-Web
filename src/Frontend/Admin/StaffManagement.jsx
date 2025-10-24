@@ -4,6 +4,9 @@ import OwnerSidebar from "../../components/OwnerSidebar";
 import AddEmployeeModal from "../../components/Modals/AddEmployeeModal";
 import api from "../../api";
 import { useWebSocket } from "../../contexts/WebSocketContext";
+import { generateStaffSessionLogsPDF } from "../../utils/StaffSessionLogsReports";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const StaffManagement = () => {
   const [user, setUser] = useState(null);
@@ -17,10 +20,14 @@ const StaffManagement = () => {
   const [archivedLoading, setArchivedLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState("active");
+  const [notification, setNotification] = useState(null);
 
   const [sessionLogs, setSessionLogs] = useState([]);
+  const [filteredSessionLogs, setFilteredSessionLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(true);
   const [selectedStaffFilter, setSelectedStaffFilter] = useState("All");
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -93,6 +100,31 @@ const StaffManagement = () => {
     };
     fetchSessionLogs();
   }, [user]);
+
+  // Apply filters to session logs
+  useEffect(() => {
+    let filtered = sessionLogs;
+
+    // Filter by staff name
+    if (selectedStaffFilter !== "All") {
+      filtered = filtered.filter(log => log.staff_name === selectedStaffFilter);
+    }
+
+    // Filter by date range
+    if (startDate) {
+      filtered = filtered.filter(
+        (log) => new Date(log.login_time) >= startDate
+      );
+    }
+
+    if (endDate) {
+      filtered = filtered.filter(
+        (log) => new Date(log.login_time) <= endDate
+      );
+    }
+
+    setFilteredSessionLogs(filtered);
+  }, [selectedStaffFilter, startDate, endDate, sessionLogs]);
 
   const showNotification = (msg, type = "error") => {
     setMessage(msg);
@@ -176,10 +208,6 @@ const StaffManagement = () => {
     setModalMode("add");
   };
 
-  const filteredLogs = selectedStaffFilter === "All"
-    ? sessionLogs
-    : sessionLogs.filter(log => log.staff_name === selectedStaffFilter);
-
   const calculateDuration = (loginTime, logoutTime) => {
     if (!logoutTime) return "Active";
     const login = new Date(loginTime);
@@ -188,6 +216,70 @@ const StaffManagement = () => {
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     return `${hours}h ${minutes}m`;
+  };
+
+  const handleDownloadSessionLogsPDF = async () => {
+    if (filteredSessionLogs.length === 0) {
+      setNotification({ message: "No session log data to download", type: "error" });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    try {
+      setNotification({ message: "Generating PDF...", type: "info" });
+
+      const { data: meData } = await api.get("/api/me");
+      if (!meData.authenticated || !meData.user) {
+        throw new Error("Not authenticated");
+      }
+
+      const currentAdminId = meData.user.adminId || meData.user.id;
+      if (!currentAdminId) throw new Error("Missing admin ID");
+
+      const { data: gymInfo } = await api.get(`/api/gym-info/${currentAdminId}`);
+
+      // Calculate total hours
+      let totalHours = 0;
+      filteredSessionLogs.forEach(log => {
+        if (log.logout_time) {
+          const login = new Date(log.login_time);
+          const logout = new Date(log.logout_time);
+          const hours = (logout - login) / (1000 * 60 * 60);
+          totalHours += hours;
+        }
+      });
+
+      const logsData = {
+        logs: filteredSessionLogs,
+        total_sessions: filteredSessionLogs.length,
+        online_sessions: filteredSessionLogs.filter(log => log.status === 'online').length,
+        offline_sessions: filteredSessionLogs.filter(log => log.status !== 'online').length,
+        total_hours: `${Math.floor(totalHours)}h ${Math.floor((totalHours % 1) * 60)}m`
+      };
+
+      const filterData = {
+        gym_name: gymInfo.gym_name,
+        owner_name: gymInfo.admin_name,
+        start_date: startDate ? startDate.toISOString().split("T")[0] : null,
+        end_date: endDate ? endDate.toISOString().split("T")[0] : null,
+        selected_staff: selectedStaffFilter !== "All" ? selectedStaffFilter : null
+      };
+
+      const filename = generateStaffSessionLogsPDF(logsData, filterData);
+
+      setNotification({
+        message: `PDF generated successfully: ${filename}`,
+        type: "success"
+      });
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error("❌ Error generating PDF:", error);
+      setNotification({
+        message: "Failed to generate PDF",
+        type: "error"
+      });
+      setTimeout(() => setNotification(null), 3000);
+    }
   };
 
   const ProfilePicture = ({ employee }) => {
@@ -225,6 +317,20 @@ const StaffManagement = () => {
     <div className="flex min-h-screen bg-gray-50">
       <OwnerSidebar />
       <main className="flex-1 p-4">
+        {notification && (
+          <div
+            className={`p-3 mb-4 rounded text-sm ${
+              notification.type === "success"
+                ? "bg-green-100 text-green-800 border border-green-300"
+                : notification.type === "info"
+                ? "bg-blue-100 text-blue-800 border border-blue-300"
+                : "bg-red-100 text-red-800 border border-red-300"
+            }`}
+          >
+            {notification.message}
+          </div>
+        )}
+
         <div className="mb-3 p-2">
           <h2 className="text-lg sm:text-xl font-semibold mb-1">Staff Management</h2>
           <p className="text-gray-500 text-xs">Manage your team members</p>
@@ -402,14 +508,43 @@ const StaffManagement = () => {
 
         {activeTab === "active" && employees.length > 0 && (
           <div className="mt-6">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-800">Staff Session Logs</h3>
                 <p className="text-xs text-gray-500">Track staff login and logout activities</p>
               </div>
 
+              <button
+                onClick={handleDownloadSessionLogsPDF}
+                disabled={filteredSessionLogs.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium shadow-sm"
+                title="Download PDF Report"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="12" y1="18" x2="12" y2="12"></line>
+                  <line x1="9" y1="15" x2="15" y2="15"></line>
+                </svg>
+                <span className="hidden sm:inline">Download PDF</span>
+                <span className="sm:hidden">PDF</span>
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
               <select
-                className="px-3 py-2 border border-gray-300 rounded text-xs sm:text-sm bg-white"
+                className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm bg-white"
                 value={selectedStaffFilter}
                 onChange={(e) => setSelectedStaffFilter(e.target.value)}
               >
@@ -420,6 +555,27 @@ const StaffManagement = () => {
                   </option>
                 ))}
               </select>
+
+              <DatePicker
+                selected={startDate}
+                onChange={(date) => setStartDate(date)}
+                maxDate={new Date()}
+                dateFormat="yyyy-MM-dd"
+                className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm bg-white"
+                placeholderText="Start Date"
+                isClearable
+              />
+
+              <DatePicker
+                selected={endDate}
+                onChange={(date) => setEndDate(date)}
+                minDate={startDate}
+                maxDate={new Date()}
+                dateFormat="yyyy-MM-dd"
+                className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm bg-white"
+                placeholderText="End Date"
+                isClearable
+              />
             </div>
 
             <div className="overflow-x-auto">
@@ -444,14 +600,14 @@ const StaffManagement = () => {
                         </div>
                       </td>
                     </tr>
-                  ) : filteredLogs.length === 0 ? (
+                  ) : filteredSessionLogs.length === 0 ? (
                     <tr>
                       <td colSpan="6" className="px-3 py-6 text-center bg-white text-xs text-gray-400">
                         No session logs found
                       </td>
                     </tr>
                   ) : (
-                    filteredLogs.map((log, index) => (
+                    filteredSessionLogs.map((log, index) => (
                       <tr key={log.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                         <td className="px-3 py-2">{index + 1}</td>
                         <td className="px-3 py-2 font-medium text-gray-800">{log.staff_name}</td>

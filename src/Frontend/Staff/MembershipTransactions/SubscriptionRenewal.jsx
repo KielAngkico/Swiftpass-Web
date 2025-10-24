@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../api";
@@ -30,31 +32,40 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
   }, [rfid_tag, full_name, subscription_expiry]);
 
 
-   useEffect(() => {
-    if (!adminId) return;
+ useEffect(() => {
+  if (!adminId) return;
 
-    const fetchPlans = async () => {
-      try {
-        const { data } = await api.get(`/api/get-pricing/${adminId}`);
-        const prepaidPlans = data.filter((plan) => plan.system_type === "subscription");
-        setPlans(prepaidPlans);
-      } catch (err) {
-        console.error("❌ Failed to fetch plans:", err);
-      }
-    };
+  const fetchPlans = async () => {
+    try {
+      const { data } = await api.get(`/api/get-pricing/${adminId}`);
+      
+      // Filter subscription plans and exclude system plans
+      const subscriptionPlans = data.filter((plan) => {
+        const isSubscription = plan.system_type === "subscription";
+        const isSystemPlan = ['Key Fob', 'Membership Fee', 'Replacement Fee', 'Daily Session'].includes(plan.plan_name);
+        
+        // Only include subscription plans that are NOT system plans
+        return isSubscription && !isSystemPlan;
+      });
+      
+      setPlans(subscriptionPlans);
+    } catch (err) {
+      console.error("❌ Failed to fetch plans:", err);
+    }
+  };
 
-    const fetchPaymentMethods = async () => {
-      try {
-        const { data } = await api.get(`/api/payment-methods/${adminId}`);
-        setPaymentMethods(data);
-      } catch (err) {
-        console.error("❌ Failed to fetch payment methods:", err);
-      }
-    };
+  const fetchPaymentMethods = async () => {
+    try {
+      const { data } = await api.get(`/api/payment-methods/${adminId}`);
+      setPaymentMethods(data);
+    } catch (err) {
+      console.error("❌ Failed to fetch payment methods:", err);
+    }
+  };
 
-    fetchPlans();
-    fetchPaymentMethods();
-  }, [adminId]);
+  fetchPlans();
+  fetchPaymentMethods();
+}, [adminId]);
 
   useEffect(() => {
     if (rfid && rfid.length >= 8) fetchMember();

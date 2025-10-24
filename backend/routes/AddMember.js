@@ -118,24 +118,22 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
   }
 });
 
-// Add Subscription Member
+
 router.post("/add-subscription-member", upload.single("member_image"), async (req, res) => {
   console.log("Received req.body:", req.body);
   console.log("Received req.file:", req.file);
 
   const {
     full_name, gender, age, rfid_tag, phone_number, address, email, password,
-    payment, staff_name, payment_method, reference, admin_id,
-    subscription_type, subscription_start, subscription_expiry, plan_name,
+    payment, staff_name, payment_method, reference, admin_id, plan_name,
     emergency_contact_person, emergency_contact_number, emergency_contact_relationship
   } = req.body;
 
   const profileImage = req.file ? `uploads/members/${req.file.filename}` : null;
 
-  // Validation
+  // Validation - REMOVED subscription_type, subscription_start, subscription_expiry from required fields
   if (!full_name || !gender || !age || !rfid_tag || !phone_number || !address || !email ||
-      !password || !payment || !staff_name || !payment_method || !admin_id ||
-      !subscription_type || !subscription_start || !subscription_expiry) {
+      !password || !payment || !staff_name || !payment_method || !admin_id) {
     return res.status(400).json({ message: "All fields are required." });
   }
 
@@ -163,58 +161,53 @@ router.post("/add-subscription-member", upload.single("member_image"), async (re
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert subscription member
     const insertSql = `
       INSERT INTO MembersAccounts
       (rfid_tag, full_name, gender, age, phone_number, address, email, password, profile_image_url,
        admin_id, staff_name, payment, status,
        subscription_type, subscription_fee, subscription_start, subscription_expiry, system_type,
        emergency_contact_person, emergency_contact_number, emergency_contact_relationship)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 'subscription', ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inactive', NULL, ?, NULL, NULL, 'subscription', ?, ?, ?)
     `;
     const [memberInsertResult] = await dbSuperAdmin.promise().query(insertSql, [
       rfid_tag, full_name, gender, ageNumber, phone_number, address, email, hashedPassword,
-      profileImage, admin_id, staff_name, paymentNumber, subscription_type, paymentNumber,
-      subscription_start, subscription_expiry,
+      profileImage, admin_id, staff_name, paymentNumber, paymentNumber,
       emergency_contact_person || null, emergency_contact_number || null, emergency_contact_relationship || null
     ]);
     const memberId = memberInsertResult.insertId;
 
-    // Insert transaction
     const insertTxnSql = `
       INSERT INTO AdminTransactions
       (admin_id, member_id, member_name, rfid_tag, amount, payment_method, reference, staff_name,
        transaction_type, plan_name)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new_membership', ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'membership_fee', ?)
     `;
     await dbSuperAdmin.promise().query(insertTxnSql, [
       admin_id, memberId, full_name, rfid_tag, paymentNumber,
       payment_method.charAt(0).toUpperCase() + payment_method.slice(1).toLowerCase(),
-      reference || null, staff_name, plan_name || null
+      reference || null, staff_name, plan_name || 'Membership Fee'
     ]);
 
-    // Insert member transaction
     const insertMemberTxnSql = `
       INSERT INTO AdminMembersTransactions
       (admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance,
        payment_method, reference, tax, processed_by, subscription_type, subscription_start, subscription_expiry)
-      VALUES (?, ?, ?, ?, ?, 0.00, 0.00, ?, ?, 1.00, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, 0.00, 0.00, ?, ?, 1.00, ?, ?, NULL, NULL)
     `;
     await dbSuperAdmin.promise().query(insertMemberTxnSql, [
-      admin_id, rfid_tag, full_name, "new_subscription", paymentNumber,
+      admin_id, rfid_tag, full_name, "membership_fee", paymentNumber,
       payment_method.charAt(0).toUpperCase() + payment_method.slice(1).toLowerCase(),
-      reference || null, staff_name, plan_name || subscription_type || null,
-      subscription_start, subscription_expiry
+      reference || null, staff_name, plan_name || 'Membership Fee'
     ]);
 
     return res.status(200).json({
-      message: "✅ Subscription member added successfully!",
-      rfid_tag, full_name, subscription_type, subscription_start, subscription_expiry, payment: paymentNumber
+      message: "✅ Member registered successfully! Please renew subscription to activate.",
+      rfid_tag, full_name, status: 'inactive', payment: paymentNumber,
+      note: "Member needs subscription renewal to become active"
     });
   } catch (err) {
     console.error("❌ Subscription add error:", err);
     return res.status(500).json({ message: "Server error while adding subscription member." });
   }
 });
-
 module.exports = router;

@@ -4,6 +4,7 @@ import OwnerSidebar from "../../components/OwnerSidebar";
 import api from "../../api";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { generateStaffActivityLogsPDF } from "../../utils/StaffActivityLogsReports";
 
 const StaffActivityLogs = () => {
   const [user, setUser] = useState(null);
@@ -15,6 +16,7 @@ const StaffActivityLogs = () => {
   const [filterActivity, setFilterActivity] = useState("All");
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
+  const [notification, setNotification] = useState(null);
 
   const navigate = useNavigate();
 
@@ -87,17 +89,113 @@ const StaffActivityLogs = () => {
     setFilteredLogs(filtered);
   }, [searchTerm, filterLocation, filterActivity, startDate, endDate, activityLogs]);
 
+  const handleDownloadPDF = async () => {
+    if (filteredLogs.length === 0) {
+      setNotification({ message: "No activity data to download", type: "error" });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    try {
+      setNotification({ message: "Generating PDF...", type: "info" });
+
+      const { data: meData } = await api.get("/api/me");
+      if (!meData.authenticated || !meData.user) {
+        throw new Error("Not authenticated");
+      }
+
+      const currentAdminId = meData.user.adminId || meData.user.id;
+      if (!currentAdminId) throw new Error("Missing admin ID");
+
+      const { data: gymInfo } = await api.get(`/api/gym-info/${currentAdminId}`);
+
+      const logsData = {
+        logs: filteredLogs,
+        total_activities: filteredLogs.length,
+        total_entries: filteredLogs.filter((log) => log.activity_type === "ENTRY").length,
+        total_exits: filteredLogs.filter((log) => log.activity_type === "EXIT").length
+      };
+
+      const filterData = {
+        gym_name: gymInfo.gym_name,
+        owner_name: gymInfo.admin_name,
+        start_date: startDate ? startDate.toISOString().split("T")[0] : null,
+        end_date: endDate ? endDate.toISOString().split("T")[0] : null,
+        filter_location: filterLocation !== "All" ? filterLocation : null,
+        filter_activity: filterActivity !== "All" ? filterActivity : null,
+        search_term: searchTerm || null
+      };
+
+      const filename = generateStaffActivityLogsPDF(logsData, filterData);
+
+      setNotification({
+        message: `PDF generated successfully: ${filename}`,
+        type: "success"
+      });
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error("❌ Error generating PDF:", error);
+      setNotification({
+        message: "Failed to generate PDF",
+        type: "error"
+      });
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <OwnerSidebar />
       <main className="flex-1 p-5">
-        <div className="mb-6">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
-            Staff Activity Logs
-          </h2>
-          <p className="text-xs text-gray-500">
-            Track staff entry and exit activities
-          </p>
+        {notification && (
+          <div
+            className={`p-3 mb-4 rounded text-sm ${
+              notification.type === "success"
+                ? "bg-green-100 text-green-800 border border-green-300"
+                : notification.type === "info"
+                ? "bg-blue-100 text-blue-800 border border-blue-300"
+                : "bg-red-100 text-red-800 border border-red-300"
+            }`}
+          >
+            {notification.message}
+          </div>
+        )}
+
+        <div className="mb-6 flex justify-between items-start">
+          <div>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
+              Staff Activity Logs
+            </h2>
+            <p className="text-xs text-gray-500">
+              Track staff entry and exit activities
+            </p>
+          </div>
+
+          <button
+            onClick={handleDownloadPDF}
+            disabled={filteredLogs.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium shadow-sm"
+            title="Download PDF Report"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+            <span className="hidden sm:inline">Download PDF</span>
+            <span className="sm:hidden">PDF</span>
+          </button>
         </div>
 
         {/* Summary Stats */}

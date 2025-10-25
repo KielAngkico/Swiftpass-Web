@@ -203,6 +203,15 @@ router.post("/tapup-member", async (req, res) => {
   }
 
   try {
+    // ✅ Get minimum session fee from AdminAccounts
+    const [adminData] = await dbSuperAdmin.promise().query(
+      "SELECT session_fee FROM AdminAccounts WHERE id = ? LIMIT 1",
+      [admin_id]
+    );
+    
+    const minimumSessionFee = adminData.length > 0 ? parseFloat(adminData[0].session_fee) : 0;
+
+    // Update balance
     const updateSql = `
       UPDATE MembersAccounts
       SET current_balance = current_balance + ?
@@ -212,16 +221,27 @@ router.post("/tapup-member", async (req, res) => {
       parseFloat(amount_to_credit),
       rfid_tag
     ]);
-    console.log("Update affected rows:", updateResult.affectedRows)
+    console.log("Update affected rows:", updateResult.affectedRows);
 
-if (updateResult.affectedRows === 0) {
-  console.warn("⚠️ Update succeeded but no rows changed. Possibly same values.");
-}
+    if (updateResult.affectedRows === 0) {
+      console.warn("⚠️ Update succeeded but no rows changed. Possibly same values.");
+    }
+
+    // ✅ Get the new balance after top-up
     const [memberRow] = await dbSuperAdmin.promise().query(
-      "SELECT id FROM MembersAccounts WHERE rfid_tag = ? LIMIT 1",
+      "SELECT id, current_balance FROM MembersAccounts WHERE rfid_tag = ? LIMIT 1",
       [rfid_tag]
     );
     const memberId = memberRow[0]?.id;
+    const newBalance = parseFloat(memberRow[0]?.current_balance || 0);
+
+    // ✅ Update status based on balance vs session fee
+    const newStatus = newBalance >= minimumSessionFee ? 'active' : 'inactive';
+    
+    await dbSuperAdmin.promise().query(
+      "UPDATE MembersAccounts SET status = ? WHERE rfid_tag = ?",
+      [newStatus, rfid_tag]
+    );
 
     await dbSuperAdmin.promise().query(
       `INSERT INTO AdminTransactions 
@@ -239,19 +259,19 @@ if (updateResult.affectedRows === 0) {
         plan_name
       ]
     );
+
     await dbSuperAdmin.promise().query(
       `INSERT INTO AdminMembersTransactions 
        (admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance, 
         payment_method, reference, tax, processed_by, subscription_type)
-       VALUES (?, ?, ?, 'top_up', ?, ?, 
-         (SELECT current_balance FROM MembersAccounts WHERE rfid_tag = ?), ?, ?, 1.00, ?, ?)`,
+       VALUES (?, ?, ?, 'top_up', ?, ?, ?, ?, ?, 1.00, ?, ?)`,
       [
         admin_id,
         rfid_tag,
         full_name,
         amount_to_pay,
         amount_to_credit,
-        rfid_tag,
+        newBalance,
         payment_method,
         payment_method.toLowerCase() === "gcash" ? reference : null,
         staff_name,
@@ -259,11 +279,17 @@ if (updateResult.affectedRows === 0) {
       ]
     );
 
-    return res.status(200).json({ message: "✅ Tap-up successful." });
+    return res.status(200).json({ 
+      message: newStatus === 'active' 
+        ? "✅ Tap-up successful. Member is now active!" 
+        : "✅ Tap-up successful. Balance still below session fee.",
+      status: newStatus,
+      new_balance: newBalance,
+      minimum_session_fee: minimumSessionFee
+    });
   } catch (err) {
     console.error("❌ Tap-up error:", err);
     return res.status(500).json({ message: "Server error during tap-up." });
   }
 });
-
 module.exports = router;

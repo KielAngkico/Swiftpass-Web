@@ -1,359 +1,490 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import api from "../../../api";
-import { generatePrepaidActivityPDF } from "../../../utils/activityReport";
+import { generatePrepaidAnalyticalPDF } from "../../../utils/analyticalReport";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Tooltip,
+  Legend,
+  Filler,
+} from "chart.js";
+import { Line, Pie, Bar, Doughnut } from "react-chartjs-2";
 import { useToast } from "../../../components/ToastManager";
 
-const KPI = ({ title, value }) => (
-  <div className="bg-white p-2 rounded shadow text-center text-xs sm:text-sm">
-    <p className="text-gray-500 truncate">{title}</p>
-    <p className="font-bold text-indigo-600 text-sm sm:text-base">{value}</p>
-  </div>
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Tooltip,
+  Legend,
+  Filler
 );
 
-const PrepaidActAnalytics = () => {
+const padDataArray = (labels, data) => {
+  const padded = Array(labels.length).fill(0);
+  data.forEach((value, idx) => {
+    if (idx < padded.length) padded[idx] = value;
+  });
+  return padded;
+};
+
+const PrepaidAnalytical = () => {
   const [adminId, setAdminId] = useState(null);
+  const [analyticsData, setAnalyticsData] = useState(null);
   const [filterType, setFilterType] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [totalLogins, setTotalLogins] = useState(0);
-  const [peakHour, setPeakHour] = useState("—");
-  const [loginData, setLoginData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { showToast } = useToast();
 
-  const today = new Date().toISOString().split("T")[0];
-
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchAdmin = async () => {
       try {
+        setLoading(true);
         const { data } = await api.get("/api/me");
-        if (!data.authenticated || !data.user) {
-          throw new Error("Not authenticated");
-        }
+        if (!data.authenticated || !data.user) throw new Error("Not authenticated");
         setAdminId(data.user.adminId || data.user.id);
       } catch (err) {
-        console.error("Error fetching user:", err);
+        console.error("Error fetching admin:", err);
         setError("Failed to authenticate");
-        if (err.response?.status === 401) {
-          window.location.href = "/login";
-        }
+        if (err.response?.status === 401) window.location.href = "/login";
       } finally {
         setLoading(false);
       }
     };
-    fetchUser();
+    fetchAdmin();
   }, []);
 
   useEffect(() => {
-    if (!adminId) {
-      return;
-    }
-    
+    if (!adminId) return;
+
     if (filterType === "custom" && (!startDate || !endDate)) {
+      setAnalyticsData(null);
       setLoading(false);
-      setLoginData([]);
-      setTotalLogins(0);
-      setPeakHour("—");
       return;
     }
 
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-        setError(null);
-        
-        const params = { 
-          admin_id: adminId, 
-          filter_type: filterType,
-          system_type: "prepaid_entry"
-        };
-        
-        if (filterType === "custom" && startDate && endDate) {
+        const params = { admin_id: adminId, filter_type: filterType };
+        if (filterType === "custom") {
           params.start_date = startDate;
           params.end_date = endDate;
         }
-        
-        const response = await api.get("/api/prepaid-activity-analytics", { params });
-        console.log("Full response:", response);
-        console.log("Response data:", response.data);
-        
-        const apiData = response.data;
-        
-        if (apiData) {
-          setTotalLogins(apiData.total_logins || 0);
-          setPeakHour(apiData.peak_hour || "—");
-          
-          // Map recent_events to match the structure we need
-          const events = apiData.recent_events || [];
-          const mappedData = events.map(event => ({
-            id: event.id,
-            full_name: event.name || event.full_name,
-            rfid_tag: event.rfid || event.rfid_tag,
-            visitor_type: event.visitor_type || "Member",
-            entry_time: event.entry_time || event.time,
-            exit_time: event.exit_time || null,
-            status: event.status || (event.action === "session_fee" ? "exited" : "inside"),
-            profile_image_url: event.profile_image_url
-          }));
-          
-          setLoginData(mappedData);
-        }
+
+        const { data } = await api.get("/api/analytics", { params });
+        console.log("Analytics data:", data); // Debug log
+        setAnalyticsData(data);
+        setError(null);
       } catch (err) {
         console.error("Failed to load analytics:", err);
         setError("Failed to load analytics");
-        setLoginData([]);
-        setTotalLogins(0);
-        setPeakHour("—");
+        setAnalyticsData(null);
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchAnalytics();
   }, [adminId, filterType, startDate, endDate]);
 
   const handleDownloadPDF = async () => {
-    if (loginData.length === 0) {
-      showToast({ message: "No members to download", type: "error" });
+    if (!analyticsData) {
+      showToast({ message: "No data to download", type: "error" });
       return;
     }
 
     try {
       showToast({ message: "Generating PDF...", type: "info" });
-
       const { data: meData } = await api.get("/api/me");
-      if (!meData.authenticated || !meData.user) {
-        throw new Error("Not authenticated");
-      }
+      if (!meData.authenticated || !meData.user) throw new Error("Not authenticated");
 
       const currentAdminId = meData.user.adminId || meData.user.id;
       if (!currentAdminId) throw new Error("Missing admin ID");
 
       const { data: gymInfo } = await api.get(`/api/gym-info/${currentAdminId}`);
 
-      const analyticsData = {
-        total_logins: totalLogins,
-        members_inside: loginData.filter(l => l.status === "inside").length,
-        peak_hour: peakHour,
-        most_active_members: [],
-        entry_logs: loginData
-      };
-
       const filterData = {
+        filter_type: filterType,
+        start_date: filterType === "custom" ? startDate : undefined,
+        end_date: filterType === "custom" ? endDate : undefined,
         gym_name: gymInfo.gym_name,
         owner_name: gymInfo.admin_name,
-        start_date: startDate || null,
-        end_date: endDate || null,
-        filter_type: filterType
       };
 
-      const filename = generatePrepaidActivityPDF(analyticsData, filterData);
-
+      const filename = await generatePrepaidAnalyticalPDF(analyticsData, filterData);
       showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
-
     } catch (error) {
       console.error("Error generating PDF:", error);
       showToast({ message: "Failed to generate PDF", type: "error" });
     }
   };
 
-  if (loading && !adminId) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-gray-600">Loading...</p>
-      </div>
-    );
-  }
+  const sampleData = useMemo(() => {
+    if (!analyticsData) {
+      return {
+        totalRevenue: 0,
+        membersInside: 0,
+        dayPassInside: 0,
+        totalTransactions: 0,
+        peakHour: "—",
+        revenueCard: { labels: [], values: [] },
+        transactionTypeBreakdown: { labels: [], values: [] },
+        peakHourAnalysis: { labels: [], values: [] },
+        revenueByMembershipType: { labels: [], values: [] },
+        currentlyInside: [],
+        topMembers: [],
+      };
+    }
 
-  if (!adminId) {
-    return <p className="text-xs text-gray-500">No admin user data available</p>;
-  }
+    const revenueCardLabels = analyticsData.revenueCard?.labels || [];
+    const transactionLabels = analyticsData.transactionTypeBreakdown?.labels || [];
+    const peakLabels = analyticsData.peakHourAnalysis?.labels || [];
+    const revenueByTypeLabels = analyticsData.revenueByMembershipType?.labels || [];
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-red-500">{error}</p>
-      </div>
-    );
-  }
+    return {
+      totalRevenue: analyticsData.summary?.totalRevenue || 0,
+      membersInside: analyticsData.summary?.membersInside || 0,
+      dayPassInside: analyticsData.summary?.dayPassInside || 0,
+      totalTransactions: analyticsData.summary?.totalTransactions || 0,
+      peakHour: analyticsData.summary?.peakHour || "—",
+      revenueCard: {
+        labels: revenueCardLabels,
+        values: padDataArray(revenueCardLabels, analyticsData.revenueCard?.values || []),
+      },
+      transactionTypeBreakdown: {
+        labels: transactionLabels,
+        values: padDataArray(transactionLabels, analyticsData.transactionTypeBreakdown?.amounts || []),
+      },
+      peakHourAnalysis: {
+        labels: peakLabels,
+        values: padDataArray(peakLabels, analyticsData.peakHourAnalysis?.values || []),
+      },
+      revenueByMembershipType: {
+        labels: revenueByTypeLabels,
+        values: padDataArray(revenueByTypeLabels, analyticsData.revenueByMembershipType?.values || []),
+      },
+      currentlyInside: analyticsData.currentlyInside || [],
+      topMembers: analyticsData.topMembers || [],
+    };
+  }, [analyticsData]);
 
-  const membersInside = loginData.filter((l) => l.status === "inside").length;
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: "bottom", labels: { boxWidth: 12, padding: 10, font: { size: 10 } } },
+    },
+  };
+
+  const pieOptions = {
+    ...chartOptions,
+    plugins: {
+      ...chartOptions.plugins,
+      tooltip: {
+        callbacks: {
+          label: (context) => {
+            const value = context.parsed;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+            return `${context.label}: ₱${value.toLocaleString()} (${percentage}%)`;
+          },
+        },
+      },
+    },
+  };
+
+  const revenueCardData = {
+    labels: sampleData.revenueCard.labels,
+    datasets: [{
+      data: sampleData.revenueCard.values,
+      backgroundColor: ["#10B981", "#6366F1"],
+      borderWidth: 0,
+    }],
+  };
+
+  const transactionBreakdownData = {
+    labels: sampleData.transactionTypeBreakdown.labels,
+    datasets: [{
+      data: sampleData.transactionTypeBreakdown.values,
+      backgroundColor: ["#10B981", "#6366F1", "#F59E0B", "#8B5CF6"],
+      borderWidth: 0,
+    }],
+  };
+
+  const peakHoursData = {
+    labels: sampleData.peakHourAnalysis.labels,
+    datasets: [{ label: "Check-ins", data: sampleData.peakHourAnalysis.values, backgroundColor: "#8B5CF6" }],
+  };
+
+  const revenueByTypeData = {
+    labels: sampleData.revenueByMembershipType.labels,
+    datasets: [{
+      label: "Revenue",
+      data: sampleData.revenueByMembershipType.values,
+      backgroundColor: ["#6366F1", "#8B5CF6", "#A78BFA", "#EC4899", "#F59E0B"],
+    }],
+  };
+
+  if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-600">Loading analytics...</div>;
+  if (error) return <div className="flex items-center justify-center min-h-screen text-red-600">Error: {error}</div>;
+
+  const today = new Date().toISOString().split("T")[0];
 
   return (
-    <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-lg sm:text-xl font-semibold">Prepaid Activity Analytics</h1>
-          <p className="text-xs text-gray-500">Overview of prepaid member activity</p>
-        </div>
-        <button
-          onClick={handleDownloadPDF}
-          disabled={loginData.length === 0}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium shadow-sm"
-          title="Download PDF Report"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+    <div className="p-3 flex flex-col space-y-3 w-full min-h-screen">
+      <div className="flex flex-col gap-3">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-lg sm:text-xl font-semibold">Prepaid Analytics Dashboard</h1>
+            <p className="text-xs text-gray-500">Summary of prepaid activity and trends</p>
+          </div>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={!analyticsData}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium shadow-sm"
+            title="Download PDF Report"
           >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-            <line x1="12" y1="18" x2="12" y2="12"></line>
-            <line x1="9" y1="15" x2="15" y2="15"></line>
-          </svg>
-          <span className="hidden sm:inline">Download PDF</span>
-          <span className="sm:hidden">PDF</span>
-        </button>
-      </div>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+            <span className="hidden sm:inline">Download PDF</span>
+            <span className="sm:hidden">PDF</span>
+          </button>
+        </div>
 
-      {/* Filter */}
-      <div className="flex items-center">
-        <div className="bg-white p-2 rounded-md shadow-sm inline-flex items-center gap-2">
-          <label className="text-xs text-gray-600">Filter:</label>
-          <select
-            value={filterType}
-            onChange={(e) => {
-              setFilterType(e.target.value);
-              if (e.target.value !== "custom") {
-                setStartDate("");
-                setEndDate("");
-              }
-            }}
-            className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="all">All</option>
-            <option value="today">Today</option>
-            <option value="custom">Custom</option>
-          </select>
+        <div className="flex items-center">
+          <div className="bg-white p-2 rounded-md shadow-sm inline-flex items-center gap-2">
+            <label className="text-xs text-gray-600">Filter:</label>
 
-          {filterType === "custom" && (
-            <>
-              <input
-                type="date"
-                value={startDate}
-                max={today}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-              <input
-                type="date"
-                value={endDate}
-                min={startDate || undefined}
-                max={today}
-                disabled={!startDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-              />
-            </>
-          )}
+            <select
+              value={filterType}
+              onChange={(e) => {
+                setFilterType(e.target.value);
+                if (e.target.value !== "custom") {
+                  setStartDate("");
+                  setEndDate("");
+                }
+              }}
+              className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="all">All</option>
+              <option value="today">Today</option>
+              <option value="custom">Custom</option>
+            </select>
+
+            {filterType === "custom" && (
+              <>
+                <input
+                  type="date"
+                  value={startDate}
+                  max={today}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  max={today}
+                  disabled={!startDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-        <KPI title="Members Inside" value={membersInside} />
-        <KPI title="Total Logins" value={totalLogins} />
-        <KPI title="Peak Hour" value={peakHour} />
+      {/* Row 1: KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+        <KpiCard title="Total Revenue" value={`₱${sampleData.totalRevenue.toLocaleString()}`} color="text-green-600" />
+        <KpiCard title="Members Inside" value={sampleData.membersInside} color="text-blue-600" />
+        <KpiCard title="Day Pass Guests Inside" value={sampleData.dayPassInside} color="text-amber-600" />
+        <KpiCard title="Total Transactions" value={sampleData.totalTransactions} color="text-purple-600" />
+        <KpiCard title="Peak Hour" value={sampleData.peakHour} color="text-gray-700" />
       </div>
 
-      {/* Activity Logs Table */}
-      <div className="bg-white rounded shadow overflow-hidden">
-        <h2 className="text-sm font-semibold px-2 py-2 border-b">🧾 Member Activity Logs</h2>
-        <div className="overflow-x-auto max-h-[350px] overflow-y-auto scroll-smooth text-[10px] sm:text-xs">
-          <table className="min-w-full text-left">
-            <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-xs sticky top-0">
-              <tr>
-                <th className="px-2 py-1">#</th>
-                <th className="px-2 py-1">Profile</th>
-                <th className="px-2 py-1">Name</th>
-                <th className="px-2 py-1">RFID</th>
-                <th className="px-2 py-1">Type</th>
-                <th className="px-2 py-1">Entry</th>
-                <th className="px-2 py-1">Exit</th>
-                <th className="px-2 py-1">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loginData.length > 0 ? (
-                loginData.map((log, i) => (
-                  <tr key={log.id || i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                    <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">
-                      {log.profile_image_url ? (
-                        <img
-                          src={`http://localhost:5000/${log.profile_image_url}`}
-                          alt={log.full_name}
-                          onError={(e) => {
-                            e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%236366F1' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='40' fill='white'%3E" + (log.full_name ? log.full_name.charAt(0).toUpperCase() : "?") + "%3C/text%3E%3C/svg%3E";
-                          }}
-                          className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-200 flex items-center justify-center text-[8px] sm:text-xs text-gray-500">
-                          {log.full_name ? log.full_name.charAt(0).toUpperCase() : "?"}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-2 py-1 font-medium">{log.full_name}</td>
-                    <td className="px-2 py-1 font-mono">{log.rfid_tag}</td>
-                    <td className="px-2 py-1">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[8px] sm:text-xs font-semibold ${
-                          log.visitor_type === "Day Pass" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"
-                        }`}
-                      >
-                        {log.visitor_type || "Member"}
-                      </span>
-                    </td>
-                    <td className="px-2 py-1">
-                      {log.entry_time ? new Date(log.entry_time).toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                      }) : "—"}
-                    </td>
-                    <td className="px-2 py-1">
-                      {log.exit_time ? new Date(log.exit_time).toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                      }) : "—"}
-                    </td>
-                    <td className="px-2 py-1">
-                      <span
-                        className={`px-1 py-0.5 rounded-full text-[8px] sm:text-xs font-semibold ${
-                          log.status === "inside" ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"
-                        }`}
-                      >
-                        {log.status}
-                      </span>
-                    </td>
+      {/* Row 2: Engagement & Activity Snapshot - 60/40 split */}
+      <div className="flex flex-col lg:flex-row gap-2">
+        <div className="lg:w-[60%] w-full">
+          <div className="bg-white p-3 rounded-md shadow-sm h-full">
+            <h2 className="text-sm font-semibold text-gray-800 mb-2">🏆 Top 3 Most Active Members</h2>
+            <div className="grid grid-cols-3 gap-3 text-center mt-2 text-[10px]">
+              {[1, 0, 2].map((i) => {
+                const member = sampleData.topMembers[i];
+                return member ? (
+                  <div
+                    key={member.rfidTag || i}
+                    className={`p-3 rounded shadow flex flex-col items-center gap-2 ${
+                      i === 0
+                        ? "bg-yellow-100 text-yellow-700 scale-105 z-10"
+                        : i === 1
+                        ? "bg-gray-200 text-gray-700"
+                        : "bg-orange-100 text-orange-700"
+                    }`}
+                  >
+                    <div className="text-2xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</div>
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-indigo-500 flex items-center justify-center text-white text-2xl font-bold border-2 border-white shadow">
+                      {member.name ? member.name.charAt(0).toUpperCase() : '?'}
+                    </div>
+                    <p className="font-semibold text-sm">{member.name}</p>
+                    <p className="text-[10px]">Visits: {member.visitCount}</p>
+                    <p className="text-[10px] italic text-gray-500">{member.rfidTag}</p>
+                  </div>
+                ) : (
+                  <div key={i} className="p-3 rounded shadow bg-gray-50 flex items-center justify-center text-gray-400 text-xs min-h-[160px]">
+                    No data
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <div id="transactionTypeChart" className="lg:w-[40%] w-full">
+          <ChartCard title="Transaction Type Breakdown">
+            <Doughnut data={transactionBreakdownData} options={pieOptions} />
+          </ChartCard>
+        </div>
+      </div>
+
+      {/* Row 3: Revenue Insights - 40/60 split */}
+      <div className="flex flex-col lg:flex-row gap-2">
+        <div id="revenueChart" className="lg:w-[40%] w-full">
+          <ChartCard title="Revenue Breakdown (Cash vs Cashless)">
+            <Pie data={revenueCardData} options={pieOptions} />
+          </ChartCard>
+        </div>
+        <div id="membershipTypeChart" className="lg:w-[60%] w-full">
+          <ChartCard title="Revenue by Membership Type">
+            <Bar data={revenueByTypeData} options={chartOptions} />
+          </ChartCard>
+        </div>
+      </div>
+
+      {/* Row 4: Temporal Patterns - 60/40 split */}
+      <div className="flex flex-col lg:flex-row gap-2">
+        <div id="peakHourChart" className="lg:w-[60%] w-full">
+          <ChartCard title="Peak Hour Analysis (24 Hours)">
+            <Line 
+              data={{
+                labels: sampleData.peakHourAnalysis.labels,
+                datasets: [
+                  {
+                    label: "Check-ins",
+                    data: sampleData.peakHourAnalysis.values,
+                    fill: true,
+                    backgroundColor: "rgba(139, 92, 246, 0.2)",
+                    borderColor: "#8B5CF6",
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: "#8B5CF6",
+                  },
+                ],
+              }}
+              options={{
+                ...chartOptions,
+                scales: {
+                  y: { beginAtZero: true },
+                },
+              }}
+            />
+          </ChartCard>
+        </div>
+
+        <div className="lg:w-[40%] w-full">
+          <div className="bg-white rounded-md shadow-sm p-3 h-full">
+            <h2 className="text-sm font-semibold text-gray-800 mb-2">
+              👥 Currently Inside ({sampleData.currentlyInside.length})
+            </h2>
+            <div className="overflow-y-auto max-h-[250px]">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Name</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">RFID</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Type</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Entry</th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="8" className="text-center py-4 text-gray-500">
-                    No activity logs found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {sampleData.currentlyInside.length > 0 ? (
+                    sampleData.currentlyInside.map((member, idx) => (
+                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                        <td className="py-2 px-3 text-xs text-gray-800">{member.name}</td>
+                        <td className="py-2 px-3 text-xs text-gray-600">{member.rfidTag}</td>
+                        <td className="py-2 px-3">
+                          <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-medium ${
+                            member.visitorType === "Member" 
+                              ? "bg-blue-100 text-blue-700" 
+                              : "bg-amber-100 text-amber-700"
+                          }`}>
+                            {member.visitorType}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-xs text-gray-600">
+                          {new Date(member.entryTime).toLocaleString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="py-4 text-center text-gray-500 text-xs">
+                        No one is currently inside
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default PrepaidActAnalytics;
+const KpiCard = ({ title, value, color }) => (
+  <div className="bg-white p-3 rounded-md shadow-sm">
+    <h2 className="text-xs text-gray-500">{title}</h2>
+    <p className={`text-lg font-bold ${color}`}>{value}</p>
+  </div>
+);
+
+const ChartCard = ({ title, children }) => (
+  <div className="bg-white p-3 rounded-md shadow-sm h-full">
+    <h2 className="text-sm font-semibold text-gray-800 mb-2">{title}</h2>
+    <div className="w-full h-52 sm:h-64">{children}</div>
+  </div>
+);
+
+export default PrepaidAnalytical;

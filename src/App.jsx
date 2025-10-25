@@ -56,107 +56,71 @@ export const useAuth = () => useContext(AuthContext);
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-const performLogout = async () => {
-  console.log(" [Frontend] Performing logout at:", new Date().toISOString());
-  console.log(" [Frontend] Current user:", JSON.stringify(user, null, 2));
-  
-  // ✅ IMPORTANT: Store user info BEFORE clearing anything
-  const userRole = user?.role;
-  const staffId = user?.staffId || user?.id || user?.userId || user?.staff_id;
-  
-  try {
-    // ✅ If user is staff, log their session out FIRST (before clearing tokens)
-    if (userRole === "staff" && staffId) {
-      console.log(" [Frontend] Staff logout detected");
-      console.log(" [Frontend] Staff ID to use:", staffId);
-      
-      try {
-        const response = await fetch(`${API_URL}/api/staff/logout`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({ staff_id: staffId }),
-        });
-        
-        const result = await response.json();
-        console.log(" [Frontend] Staff session logout response:", result);
-        
-        if (!response.ok) {
-          console.error("[Frontend] Staff logout failed with status:", response.status);
-        }
-      } catch (staffLogoutError) {
-        console.error("[Frontend] Staff session logout error:", staffLogoutError);
-        // Continue with general logout even if staff logout fails
-      }
-      
-      // ✅ WAIT a moment to ensure the request completed
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
 
-    // General logout (clear cookies, etc.)
-    await fetch(`${API_URL}/api/logout`, {
-      method: "POST",
-      credentials: "include", 
-    });
-    console.log(" [Frontend] Backend logout successful");
-  } catch (error) {
-    console.error(" [Frontend] Backend logout failed:", error);
-  }
-  
-  // ✅ NOW clear everything and redirect
-  clearAccessToken();
-  setUser(null);
-  sessionStorage.clear();
-  localStorage.clear();
-  console.log(" [Frontend] All tokens and storage cleared");
-  window.location.href = "/";
-};
+  const performLogout = async () => {
+    const userRole = user?.role;
+    const staffId = user?.staffId || user?.id || user?.userId || user?.staff_id;
+    
+    try {
+      if (userRole === "staff" && staffId) {
+        try {
+          await fetch(`${API_URL}/api/staff/logout`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({ staff_id: staffId }),
+          });
+        } catch (staffLogoutError) {
+          // Silent fail, continue with general logout
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      await fetch(`${API_URL}/api/logout`, {
+        method: "POST",
+        credentials: "include", 
+      });
+    } catch (error) {
+      // Silent fail
+    }
+    
+    clearAccessToken();
+    setUser(null);
+    sessionStorage.clear();
+    localStorage.clear();
+    window.location.href = "/";
+  };
+
   useEffect(() => {
     const checkAuth = async () => {
-      console.log(" [Frontend] Checking auth status at:", new Date().toISOString());
-      console.log(" [Frontend] Current access token exists:", !!getAccessToken());
-      
       try {
         const res = await fetch(`${API_URL}/api/auth-status-auto`, {
           method: "GET",
           credentials: "include", 
         });
         
-        console.log(" [Frontend] Auth status response:", res.status, res.statusText);
-        
         const data = await res.json();
-        console.log(" [Frontend] Auth status data:", {
-          ok: res.ok,
-          hasUser: !!data.user,
-          hasAccessToken: !!data.accessToken,
-          userRole: data.user?.role
-        });
 
         if (res.ok && data.user) {
           if (data.accessToken) {
-            console.log(" [Frontend] Setting new access token from auth check");
             setAccessToken(data.accessToken);
-		scheduleTokenRefresh(data.accessToken);
+            scheduleTokenRefresh(data.accessToken);
           }
           setUser(data.user);
-          console.log(" [Frontend] Auth check successful");
         } else {
-          console.log(" [Frontend] Auth check failed, clearing tokens");
           clearAccessToken();
           setUser(null);
           if (window.location.pathname !== "/" && (res.status === 401 || res.status === 403)) {
-            console.log(" [Frontend] Redirecting to login page");
             window.location.href = "/";
           }
         }
       } catch (err) {
-        console.error("[Frontend] Auth check error:", err.message);
         clearAccessToken();
         setUser(null);
         if (window.location.pathname !== "/") {
-          console.log(" [Frontend] Redirecting due to auth check error");
           window.location.href = "/";
         }
       } finally {
@@ -167,7 +131,6 @@ const performLogout = async () => {
     checkAuth();
     
     const handleAuthChanged = () => {
-      console.log(" [Frontend] Auth change event received at:", new Date().toISOString());
       checkAuth();
     };
     
@@ -183,31 +146,17 @@ const performLogout = async () => {
 
     const tokenCheckInterval = setInterval(() => {
       const token = getAccessToken();
-      console.log(" [Frontend] Periodic token check:", {
-        time: new Date().toISOString(),
-        hasToken: !!token,
-        userExists: !!user,
-        currentPath: window.location.pathname
-      });
 
       if (token) {
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
-          const expiresAt = new Date(payload.exp * 1000);
           const timeUntilExpiry = (payload.exp * 1000 - Date.now()) / 1000 / 60;
-          
-          console.log(" [Frontend] Token info:", {
-            expiresAt: expiresAt.toISOString(),
-            minutesUntilExpiry: Math.round(timeUntilExpiry * 100) / 100,
-            isExpired: timeUntilExpiry <= 0
-          });
 
           if (timeUntilExpiry <= 0) {
-            console.log(" [Frontend] Token appears expired, triggering auth check");
             window.dispatchEvent(new Event("auth-changed"));
           }
         } catch (e) {
-          console.error(" [Frontend] Error parsing token:", e);
+          // Silent fail
         }
       }
     }, 5 * 60 * 1000); 
@@ -240,7 +189,6 @@ const WebSocketWrapper = ({ children }) => {
     if (allowedPrefixes.some((prefix) => path.startsWith(prefix))) {
       navigate(path, options);
     } else {
-      console.warn(` Navigation blocked for role=${role}:`, path);
       if (role === "superadmin") navigate("/SuperAdmin/addClient");
       if (role === "admin") navigate("/Admin/StaffManagement");
       if (role === "staff") navigate("/Staff/member-entry");
@@ -249,13 +197,13 @@ const WebSocketWrapper = ({ children }) => {
 
   return <WebSocketProvider navigate={customNavigate}>{children}</WebSocketProvider>;
 };
+
 const useAutoLogout = (timeout = 1 * 60 * 60 * 1000, enabled = true) => { 
   const { performLogout } = useAuth();
   const timerRef = useRef();
   const countdownRef = useRef();
 
   const performAutoLogout = async () => {
-    console.log("🚨 Auto-logout triggered!");
     await performLogout();
   };
 
@@ -297,85 +245,81 @@ const AppRoutes = () => {
 
   if (!user) {
     return (
- <ToastProvider>
-  <Suspense fallback={<p>Loading page...</p>}>
-    {user && <Routes> ... </Routes>}
-    {!user && (
-      <Routes>
-        <Route path="/" element={<Homepage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    )}
-  </Suspense>
-</ToastProvider>
-
+      <ToastProvider>
+        <Suspense fallback={<p>Loading page...</p>}>
+          <Routes>
+            <Route path="/" element={<Homepage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </ToastProvider>
     );
   }
 
   return (
-      <ToastProvider>
-    <Suspense fallback={<p>Loading page...</p>}>
-      <Routes>
-        <Route path="/" element={<Homepage />} />
+    <ToastProvider>
+      <Suspense fallback={<p>Loading page...</p>}>
+        <Routes>
+          <Route path="/" element={<Homepage />} />
 
-        {user?.role === "superadmin" && (
-          <>
-            <Route path="/SuperAdmin/addClient" element={<AddClient />} />
-            <Route path="/SuperAdmin/ExerciseLibrary" element={<ExerciseLibrary />} />
-            <Route path="/SuperAdmin/SplitLibrary" element={<SplitLibrary />} />
-            <Route path="/SuperAdmin/RepRange" element={<RepRange />} />
-            <Route path="/SuperAdmin/FoodLibrary" element={<FoodLibrary />} />
-            <Route path="/SuperAdmin/AllergensMasterList" element={<Allergens />} />
-            <Route path="/SuperAdmin/ItemsInventory" element={<ItemsInventory />} />
-	    <Route path="/SuperAdmin/PricingManagement" element={<PricingsManagement />} />
-          </>
-        )}
+          {user?.role === "superadmin" && (
+            <>
+              <Route path="/SuperAdmin/addClient" element={<AddClient />} />
+              <Route path="/SuperAdmin/ExerciseLibrary" element={<ExerciseLibrary />} />
+              <Route path="/SuperAdmin/SplitLibrary" element={<SplitLibrary />} />
+              <Route path="/SuperAdmin/RepRange" element={<RepRange />} />
+              <Route path="/SuperAdmin/FoodLibrary" element={<FoodLibrary />} />
+              <Route path="/SuperAdmin/AllergensMasterList" element={<Allergens />} />
+              <Route path="/SuperAdmin/ItemsInventory" element={<ItemsInventory />} />
+              <Route path="/SuperAdmin/PricingManagement" element={<PricingsManagement />} />
+            </>
+          )}
 
-        {user?.role === "admin" && (
-          <>
-            <Route path="/Admin/AdminAnalyticalDashboard" element={<AdminAnalyticalDashboard />} />
-            <Route path="/Admin/AdminViewMembers" element={<AdminViewMembers />} />
-            <Route path="/Admin/ActivityAnalytics" element={<ActivityAnalytics />} />
-            <Route path="/Admin/TransactionsReport" element={<TransactionsReport />} />
-            <Route path="/Admin/PricingManagement" element={<PricingManagement />} />
-            <Route path="/Admin/StaffManagement" element={<StaffManagement />} />
-	    <Route path="/Admin/StaffActivityLogs" element={<StaffActivityLogs/>} />
-          </>
-        )}
+          {user?.role === "admin" && (
+            <>
+              <Route path="/Admin/AdminAnalyticalDashboard" element={<AdminAnalyticalDashboard />} />
+              <Route path="/Admin/AdminViewMembers" element={<AdminViewMembers />} />
+              <Route path="/Admin/ActivityAnalytics" element={<ActivityAnalytics />} />
+              <Route path="/Admin/TransactionsReport" element={<TransactionsReport />} />
+              <Route path="/Admin/PricingManagement" element={<PricingManagement />} />
+              <Route path="/Admin/StaffManagement" element={<StaffManagement />} />
+              <Route path="/Admin/StaffActivityLogs" element={<StaffActivityLogs/>} />
+            </>
+          )}
 
-        {user?.role === "staff" && (
-          <>
-            <Route path="/Staff/member-entry" element={<MemberEntry />} />
-            <Route path="/Staff/view-members" element={<ViewMembers />} />
-            <Route path="/Staff/DayPass" element={<DayPass />} />
-            <Route path="/Staff/AddMember" element={<AddMember />} />
-            <Route path="/Staff/scan-rfid" element={<ScanRFID />} />
-            <Route path="/Staff/MembershipTransactions" element={<MembershipTransactions />} />
-	    <Route path="/Staff/RfidReplacement" element={<RfidReplacement />} />
-          </>
-        )}
+          {user?.role === "staff" && (
+            <>
+              <Route path="/Staff/member-entry" element={<MemberEntry />} />
+              <Route path="/Staff/view-members" element={<ViewMembers />} />
+              <Route path="/Staff/DayPass" element={<DayPass />} />
+              <Route path="/Staff/AddMember" element={<AddMember />} />
+              <Route path="/Staff/scan-rfid" element={<ScanRFID />} />
+              <Route path="/Staff/MembershipTransactions" element={<MembershipTransactions />} />
+              <Route path="/Staff/RfidReplacement" element={<RfidReplacement />} />
+            </>
+          )}
 
-        <Route
-          path="*"
-          element={
-            <div style={{ textAlign: "center", padding: "2rem" }}>
-              <h1>Access Denied</h1>
-              <p>You don't have permission to access this page.</p>
-              <button 
-                onClick={() => {
-                  if (user.role === "superadmin") navigate("/SuperAdmin/addClient");
-                  else if (user.role === "admin") navigate("/Admin/StaffManagement");  
-                  else if (user.role === "staff") navigate("/Staff/member-entry");
-                }}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mt-4"
-              >
-                Go to Dashboard
-              </button>
-            </div>
-          }
-        />
-      </Routes>
-    </Suspense>
+          <Route
+            path="*"
+            element={
+              <div style={{ textAlign: "center", padding: "2rem" }}>
+                <h1>Access Denied</h1>
+                <p>You don't have permission to access this page.</p>
+                <button 
+                  onClick={() => {
+                    if (user.role === "superadmin") navigate("/SuperAdmin/addClient");
+                    else if (user.role === "admin") navigate("/Admin/StaffManagement");  
+                    else if (user.role === "staff") navigate("/Staff/member-entry");
+                  }}
+                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mt-4"
+                >
+                  Go to Dashboard
+                </button>
+              </div>
+            }
+          />
+        </Routes>
+      </Suspense>
     </ToastProvider>
   );
 };
@@ -393,7 +337,7 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-const { resetTimer } = useAutoLogout(1 * 60 * 60 * 1000, !!user);
+  const { resetTimer } = useAutoLogout(1 * 60 * 60 * 1000, !!user);
 
   const handleLogout = async () => {
     setLoading(true);
@@ -402,7 +346,6 @@ const { resetTimer } = useAutoLogout(1 * 60 * 60 * 1000, !!user);
       setShowLogoutConfirm(false);
       navigate("/", { replace: true });
     } catch (error) {
-      console.error("Logout error:", error);
       alert("Network error during logout. Please try again.");
     } finally {
       setLoading(false);

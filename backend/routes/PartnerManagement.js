@@ -21,6 +21,7 @@ router.post("/add-client", partnerUpload.single("profile_image_url"), async (req
       session_fee,
       package_id,
       rfid_tag,
+      rfid_tag_2,
     } = req.body;
 
     if (!password) {
@@ -49,8 +50,8 @@ router.post("/add-client", partnerUpload.single("profile_image_url"), async (req
 
     const insertAdminSql = `
       INSERT INTO AdminAccounts
-      (admin_name, age, email, password, address, gym_name, system_type, session_fee, profile_image_url, rfid_tag, package_id, subscription_start_date, subscription_end_date, is_archived)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+      (admin_name, age, email, password, address, gym_name, system_type, session_fee, profile_image_url, rfid_tag, rfid_tag_2 ,package_id, subscription_start_date, subscription_end_date, is_archived)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?, ?, ?, 0)
     `;
 
     const [result] = await dbSuperAdmin.promise().query(insertAdminSql, [
@@ -64,6 +65,7 @@ router.post("/add-client", partnerUpload.single("profile_image_url"), async (req
       session_fee,
       imagePath,
       rfid_tag || null,
+      rfid_tag_2 || null,
       pkgId,
       endDate,
       endDate,
@@ -147,6 +149,7 @@ router.put("/update-admin/:id", partnerUpload.single("profile_image_url"), async
       system_type,
       session_fee,
       password,
+      rfid_tag_2,
     } = req.body;
 
     // Get current admin data
@@ -172,7 +175,7 @@ router.put("/update-admin/:id", partnerUpload.single("profile_image_url"), async
     const updateSql = `
       UPDATE AdminAccounts 
       SET admin_name = ?, age = ?, email = ?, address = ?, gym_name = ?, 
-          system_type = ?, session_fee = ?, profile_image_url = ?, password = ?
+          system_type = ?, session_fee = ?, profile_image_url = ?, password = ?, rfid_tag_2 = ?
       WHERE id = ?
     `;
 
@@ -186,6 +189,7 @@ router.put("/update-admin/:id", partnerUpload.single("profile_image_url"), async
       session_fee,
       imagePath,
       hashedPassword,
+      rfid_tag_2 || null,
       adminId,
     ]);
 
@@ -200,16 +204,13 @@ router.put("/update-admin/:id", partnerUpload.single("profile_image_url"), async
   }
 });
 
-// 🔄 Replace admin RFID
-// 🔄 Replace admin RFID
 router.put("/replace-admin-rfid/:id", async (req, res) => {
   const adminId = req.params.id;
-  const { new_rfid_tag } = req.body;
+  const { new_rfid_tag, rfid_slot } = req.body; // ✅ ADD rfid_slot (1 or 2)
 
   try {
-    // Get current RFID
     const [currentAdmin] = await dbSuperAdmin.promise().query(
-      "SELECT rfid_tag FROM AdminAccounts WHERE id = ?",
+      "SELECT rfid_tag, rfid_tag_2 FROM AdminAccounts WHERE id = ?",
       [adminId]
     );
 
@@ -217,41 +218,41 @@ router.put("/replace-admin-rfid/:id", async (req, res) => {
       return res.status(404).json({ error: "Admin not found" });
     }
 
-    const oldRfid = currentAdmin[0].rfid_tag;
+    let updateSql, params;
+    const oldRfid = rfid_slot === 2 ? currentAdmin[0].rfid_tag_2 : currentAdmin[0].rfid_tag;
 
-    // Update RFID with tracking
-    const updateSql = `
-      UPDATE AdminAccounts 
-      SET 
-        previous_rfid = ?, 
-        rfid_tag = ?, 
-        replaced_by = ?, 
-        replaced_at = NOW() 
-      WHERE id = ?
-    `;
+    if (rfid_slot === 2) {
+      updateSql = `
+        UPDATE AdminAccounts 
+        SET previous_rfid_2 = ?, rfid_tag_2 = ?, replaced_by = ?, replaced_at = NOW() 
+        WHERE id = ?
+      `;
+      params = [oldRfid, new_rfid_tag, "SuperAdmin", adminId];
+    } else {
+      updateSql = `
+        UPDATE AdminAccounts 
+        SET previous_rfid = ?, rfid_tag = ?, replaced_by = ?, replaced_at = NOW() 
+        WHERE id = ?
+      `;
+      params = [oldRfid, new_rfid_tag, "SuperAdmin", adminId];
+    }
     
-    await dbSuperAdmin.promise().query(updateSql, [
-      oldRfid,           // Move current to previous_rfid
-      new_rfid_tag,      // New RFID
-      "SuperAdmin",      // replaced_by = "SuperAdmin"
-      adminId,
-    ]);
+    await dbSuperAdmin.promise().query(updateSql, params);
 
     res.json({
-      message: "RFID replaced successfully",
+      message: `RFID ${rfid_slot} replaced successfully`,
       old_rfid: oldRfid,
       new_rfid: new_rfid_tag,
       replaced_by: "SuperAdmin",
     });
   } catch (error) {
-    console.error("Replace RFID error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });
-// ➕ Get all admins
+
 router.get("/admins", (req, res) => {
   const sql = `
-    SELECT id, admin_name, age, email, address, gym_name, system_type, session_fee, profile_image_url, rfid_tag, is_archived 
+    SELECT id, admin_name, age, email, address, gym_name, system_type, session_fee, profile_image_url, rfid_tag, rfid_tag_2, is_archived 
     FROM AdminAccounts 
     ORDER BY is_archived ASC, admin_name ASC
   `;

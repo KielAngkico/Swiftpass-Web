@@ -9,6 +9,7 @@ const AddPartnerModal = ({
   mode = "add",
   onReplaceRfid,
   isReplacingRfid = false,
+  rfidSlotToReplace = 1, // ✅ ADD THIS PROP
 }) => {
   if (!isOpen) return null;
 
@@ -40,7 +41,7 @@ const AddPartnerModal = ({
         {isReplacingRfid && (
           <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
             <p className="text-xs text-yellow-700">
-              <strong>RFID Replacement Mode:</strong> Please scan the new RFID tag now
+              <strong>RFID Replacement Mode:</strong> Please scan the new RFID tag {rfidSlotToReplace} now
             </p>
           </div>
         )}
@@ -72,9 +73,9 @@ const AddPartnerModal = ({
                 />
               </div>
 
-              {/* RFID Tag */}
+              {/* ✅ RFID Tag 1 */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">RFID Tag</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">RFID Tag 1</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -82,18 +83,59 @@ const AddPartnerModal = ({
                     value={formData.rfid_tag}
                     onChange={onFormChange}
                     className={`flex-1 p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
-                      isEditMode && !isReplacingRfid ? 'bg-gray-100 cursor-not-allowed' : ''
+                      isEditMode && !(isReplacingRfid && rfidSlotToReplace === 1) ? 'bg-gray-100 cursor-not-allowed' : ''
                     }`}
-                    placeholder={isReplacingRfid ? "Waiting for scan..." : isEditMode ? "Current RFID Tag" : "Scan RFID tag or enter manually"}
-                    readOnly={isEditMode && !isReplacingRfid}
+                    placeholder={
+                      isReplacingRfid && rfidSlotToReplace === 1 
+                        ? "Waiting for scan..." 
+                        : isEditMode 
+                        ? "Current RFID Tag 1" 
+                        : "Scan RFID tag 1 or enter manually"
+                    }
+                    readOnly={isEditMode && !(isReplacingRfid && rfidSlotToReplace === 1)}
                   />
-                  {isEditMode && !isReplacingRfid && (
+                  {isEditMode && !(isReplacingRfid && rfidSlotToReplace === 1) && (
                     <button
                       type="button"
-                      onClick={onReplaceRfid}
+                      onClick={() => onReplaceRfid(1)} // ✅ Pass slot 1
                       className="px-3 py-2 bg-orange-500 text-white text-xs rounded-md hover:bg-orange-600 transition-colors whitespace-nowrap"
                     >
-                      Replace RFID
+                      Replace
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* ✅ RFID Tag 2 (NEW) */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  RFID Tag 2 <span className="text-gray-500">(Optional)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="rfid_tag_2"
+                    value={formData.rfid_tag_2 || ""}
+                    onChange={onFormChange}
+                    className={`flex-1 p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
+                      isEditMode && !(isReplacingRfid && rfidSlotToReplace === 2) ? 'bg-gray-100 cursor-not-allowed' : ''
+                    }`}
+                    placeholder={
+                      isReplacingRfid && rfidSlotToReplace === 2 
+                        ? "Waiting for scan..." 
+                        : isEditMode 
+                        ? "Current RFID Tag 2" 
+                        : "Scan RFID tag 2 or enter manually"
+                    }
+                    readOnly={isEditMode && !(isReplacingRfid && rfidSlotToReplace === 2)}
+                  />
+                  {isEditMode && !(isReplacingRfid && rfidSlotToReplace === 2) && (
+                    <button
+                      type="button"
+                      onClick={() => onReplaceRfid(2)} // ✅ Pass slot 2
+                      className="px-3 py-2 bg-orange-500 text-white text-xs rounded-md hover:bg-orange-600 transition-colors whitespace-nowrap"
+                    >
+                      Replace
                     </button>
                   )}
                 </div>

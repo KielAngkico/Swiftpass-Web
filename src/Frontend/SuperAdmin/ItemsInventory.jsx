@@ -374,50 +374,51 @@ const deleteItem = async (id, name) => {
         </div>
 
         {/* Registered RFIDs Table */}
-        <div className="bg-white rounded-md shadow-sm mt-5">
-          <div className="p-2 border-b font-semibold text-xs flex justify-between items-center">
-            <span>Registered RFIDs ({rfids.length})</span>
-            <button
-              onClick={fetchRfids}
-              className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs hover:bg-gray-300"
-            >
-              Refresh
-            </button>
-          </div>
+{/* Registered RFIDs Table */}
+<div className="bg-white rounded-md shadow-sm mt-5">
+  <div className="p-2 border-b font-semibold text-xs flex justify-between items-center">
+    <span>Registered RFIDs ({rfids.length})</span>
+    <button
+      onClick={fetchRfids}
+      className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs hover:bg-gray-300"
+    >
+      Refresh
+    </button>
+  </div>
 
-          {rfidError && (
-            <div className="p-2 bg-red-50 text-red-700 text-xs border-b border-red-200">
-              {rfidError}
-            </div>
-          )}
+  {rfidError && (
+    <div className="p-2 bg-red-50 text-red-700 text-xs border-b border-red-200">
+      {rfidError}
+    </div>
+  )}
 
-          <div className="p-2">
-            {rfids.length === 0 ? (
-              <p className="text-xs">No RFIDs registered</p>
-            ) : (
-              <table className="w-full border-collapse text-xs">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="p-2 border">#</th>
-                    <th className="p-2 border">RFID Tag</th>
-                    <th className="p-2 border">Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rfids.map((rfid, index) => (
-                    <tr key={rfid.id}>
-                      <td className="p-2 border">{index + 1}</td>
-                      <td className="p-2 border font-mono">{rfid.rfid_tag}</td>
-                      <td className="p-2 border">
-                        {new Date(rfid.created_at).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
+  <div className="overflow-auto max-h-[400px]">
+    {rfids.length === 0 ? (
+      <p className="text-xs p-2">No RFIDs registered</p>
+    ) : (
+      <table className="w-full border-collapse text-xs">
+        <thead className="bg-gray-900 text-white sticky top-0">
+          <tr>
+            <th className="p-2 border border-gray-700">#</th>
+            <th className="p-2 border border-gray-700">RFID Tag</th>
+            <th className="p-2 border border-gray-700">Created At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rfids.map((rfid, index) => (
+            <tr key={rfid.id} className="hover:bg-gray-50">
+              <td className="p-2 border text-center">{index + 1}</td>
+              <td className="p-2 border font-mono">{rfid.rfid_tag}</td>
+              <td className="p-2 border">
+                {new Date(rfid.created_at).toLocaleString()}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</div>
       </main>
     </div>
   );

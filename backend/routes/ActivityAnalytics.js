@@ -271,25 +271,25 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
       totalCommission = scanCount * 1;
     }
 
-    // Recent events with parameterized dates
-    const [recentEvents] = await dbSuperAdmin.promise().query(
-      `SELECT
-         t.member_name AS name,
-         t.rfid_tag AS rfid,
-         t.transaction_type AS action,
-         t.amount AS amount,
-         TIME(t.transaction_date) AS time,
-         t.reference AS balance
-       FROM AdminTransactions t
-       JOIN AdminAccounts a ON a.id = t.admin_id
-       WHERE a.system_type = ?
-         AND t.admin_id = ?
-         AND t.transaction_type IN (?)
-         AND ${txnDateCondition}
-       ORDER BY t.transaction_date DESC
-       LIMIT 10`,
-      [system_type, admin_id, transactionFilter, ...txnParams]
-    );
+ const [recentEvents] = await dbSuperAdmin.promise().query(
+  `SELECT
+     e.id,
+     e.full_name AS name,
+     e.rfid_tag AS rfid,
+     e.visitor_type,
+     e.entry_time AS time,
+     e.exit_time,
+     e.member_status AS status,
+     m.profile_image_url
+   FROM AdminEntryLogs e
+   LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
+   WHERE e.admin_id = ?
+     AND e.system_type = ?
+     AND ${entryDateCondition}
+   ORDER BY e.entry_time DESC
+   LIMIT 50`,
+  [admin_id, system_type, ...entryParams]
+);
 
     // Top members (no date filter needed based on your logic)
     const [topMembers] = await dbSuperAdmin.promise().query(

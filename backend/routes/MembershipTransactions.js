@@ -83,9 +83,9 @@ router.post("/renew-subscription", async (req, res) => {
       startDate = today;
     }
 
-    // Get duration from the plan (you need to fetch this from Pricing table)
+    // Get duration from the plan (fetch from AdminPricing table)
     const [planRows] = await dbSuperAdmin.promise().query(
-      "SELECT duration_in_days FROM Pricing WHERE admin_id = ? AND plan_name = ? LIMIT 1",
+      "SELECT duration_in_days FROM AdminPricing WHERE admin_id = ? AND plan_name = ? LIMIT 1",
       [admin_id, plan_name]
     );
 

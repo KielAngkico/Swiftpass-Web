@@ -147,8 +147,7 @@ const PrepaidAnalytical = ({ adminUser }) => {
         peakHour: "—",
         topupsVsDeductions: { topups: 0, deductions: 0 },
         scansByHour: { labels: [], values: [] },
-        commission: { scans: 0, rate: 0, total: 0 },
-        recentEvents: [],
+        currentlyInside: [],
         topMembers: [],
       };
     }
@@ -169,8 +168,7 @@ const PrepaidAnalytical = ({ adminUser }) => {
         labels: scanLabels,
         values: padDataArray(scanLabels, analyticsData.scans_by_hour?.map(s => s.count) || []),
       },
-      commission: analyticsData.swiftpass_commission || { scans: 0, rate: 0, total: 0 },
-      recentEvents: analyticsData.recent_events || [],
+      currentlyInside: analyticsData.currently_inside || [],
       topMembers: analyticsData.most_active_members || [],
     };
   }, [analyticsData]);
@@ -209,15 +207,6 @@ const PrepaidAnalytical = ({ adminUser }) => {
     }],
   };
 
-  const commissionData = {
-    labels: ["Commission Earned", "Remaining"],
-    datasets: [{
-      data: [sampleData.commission.total, Math.max(0, sampleData.commission.scans * 10 - sampleData.commission.total)],
-      backgroundColor: ["#6366F1", "#E5E7EB"],
-      borderWidth: 0,
-    }],
-  };
-
   const scansByHourData = {
     labels: sampleData.scansByHour.labels,
     datasets: [{
@@ -229,18 +218,6 @@ const PrepaidAnalytical = ({ adminUser }) => {
       tension: 0.4,
       pointRadius: 4,
       pointBackgroundColor: "#8B5CF6",
-    }],
-  };
-
-  const revenueByActionData = {
-    labels: ["Top-Ups", "Session Fees"],
-    datasets: [{
-      label: "Revenue",
-      data: [
-        sampleData.topupsVsDeductions.topups * 50, // Assuming avg top-up amount
-        sampleData.topupsVsDeductions.deductions * 10, // Assuming per-session fee
-      ],
-      backgroundColor: ["#10B981", "#F59E0B"],
     }],
   };
 
@@ -378,30 +355,16 @@ const PrepaidAnalytical = ({ adminUser }) => {
           </div>
         </div>
         <div id="topupsVsDeductionsChart" className="lg:w-[40%] w-full">
-          <ChartCard title="Top-Ups vs Session Deductions">
+          <ChartCard title="Transaction Type Breakdown">
             <Doughnut data={topupsVsDeductionsData} options={pieOptions} />
           </ChartCard>
         </div>
       </div>
 
-      {/* Row 3: Revenue Insights - 40/60 split */}
-      <div className="flex flex-col lg:flex-row gap-2">
-        <div id="commissionChart" className="lg:w-[40%] w-full">
-          <ChartCard title="SwiftPass Commission">
-            <Pie data={commissionData} options={pieOptions} />
-          </ChartCard>
-        </div>
-        <div id="revenueByActionChart" className="lg:w-[60%] w-full">
-          <ChartCard title="Revenue by Action Type">
-            <Bar data={revenueByActionData} options={chartOptions} />
-          </ChartCard>
-        </div>
-      </div>
-
-      {/* Row 4: Temporal Patterns - 60/40 split */}
+      {/* Row 3: Temporal Patterns - Full width */}
       <div className="flex flex-col lg:flex-row gap-2">
         <div id="scansByHourChart" className="lg:w-[60%] w-full">
-          <ChartCard title="Logins by Hour (24 Hours)">
+          <ChartCard title="Peak Hour Analysis (24 Hours)">
             <Line 
               data={scansByHourData}
               options={{
@@ -417,42 +380,37 @@ const PrepaidAnalytical = ({ adminUser }) => {
         <div className="lg:w-[40%] w-full">
           <div className="bg-white rounded-md shadow-sm p-3 h-full">
             <h2 className="text-sm font-semibold text-gray-800 mb-2">
-              💳 Recent Prepaid Events ({sampleData.recentEvents.length})
+              👥 Currently Inside ({sampleData.currentlyInside.length})
             </h2>
             <div className="overflow-y-auto max-h-[250px]">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-white">
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Member</th>
-                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Action</th>
-                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Amount</th>
-                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Balance</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Name</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">RFID</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Entry</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sampleData.recentEvents.length > 0 ? (
-                    sampleData.recentEvents.map((event, idx) => (
+                  {sampleData.currentlyInside.length > 0 ? (
+                    sampleData.currentlyInside.map((member, idx) => (
                       <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                        <td className="py-2 px-3 text-xs text-gray-800">{event.name}</td>
-                        <td className="py-2 px-3">
-                          <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-medium ${
-                            event.action === "Tapup" 
-                              ? "bg-green-100 text-green-700" 
-                              : event.action === "session_fee"
-                              ? "bg-orange-100 text-orange-700"
-                              : "bg-blue-100 text-blue-700"
-                          }`}>
-                            {event.action}
-                          </span>
+                        <td className="py-2 px-3 text-xs text-gray-800">{member.full_name}</td>
+                        <td className="py-2 px-3 text-xs text-gray-600">{member.rfid_tag}</td>
+                        <td className="py-2 px-3 text-xs text-gray-600">
+                          {new Date(member.entry_time).toLocaleString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </td>
-                        <td className="py-2 px-3 text-xs text-gray-600">₱{event.amount}</td>
-                        <td className="py-2 px-3 text-xs text-gray-600">₱{event.balance}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="4" className="py-4 text-center text-gray-500 text-xs">
-                        No recent events
+                      <td colSpan="3" className="py-4 text-center text-gray-500 text-xs">
+                        No one is currently inside
                       </td>
                     </tr>
                   )}

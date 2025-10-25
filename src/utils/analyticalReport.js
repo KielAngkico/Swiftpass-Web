@@ -546,4 +546,4 @@ async function captureChartAsImage(chartId) {
       resolve(null);
     }
   });
-}git 
+}

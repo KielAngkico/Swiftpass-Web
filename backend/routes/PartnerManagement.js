@@ -302,208 +302,277 @@ router.get("/admins/archived", (req, res) => {
     res.json(results);
   });
 });
-
 router.delete("/delete-admin/:id", async (req, res) => {
   const adminId = req.params.id;
+  const connection = await dbSuperAdmin.promise().getConnection();
 
   try {
+    await connection.beginTransaction();
+
     // Check if admin exists
-    const [checkRows] = await dbSuperAdmin.promise().query(
+    const [checkRows] = await connection.query(
       `SELECT id, is_archived, admin_name FROM AdminAccounts WHERE id = ?`,
       [adminId]
     );
 
     if (checkRows.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ error: "Admin not found" });
     }
 
     if (checkRows[0].is_archived === 0) {
+      await connection.rollback();
       return res.status(400).json({ 
         error: "Cannot delete active admin. Please archive first.",
         admin_name: checkRows[0].admin_name
       });
     }
 
-    console.log(`Deleting admin: ${checkRows[0].admin_name} (ID: ${adminId})`);
+    console.log(`🗑️ Deleting admin: ${checkRows[0].admin_name} (ID: ${adminId})`);
 
-    // Delete in correct order to handle foreign keys
+    const deletionLog = {};
+
+    // Get all member IDs for this admin first
+    const [memberIds] = await connection.query(
+      `SELECT id FROM MembersAccounts WHERE admin_id = ?`,
+      [adminId]
+    );
+    const memberIdList = memberIds.map(m => m.id);
+
+    // ====== DELETE MEMBER-RELATED RECORDS FIRST ======
     
-    // 1. Delete SuperAdmin transaction items first (child of transactions)
-    const txItemResult = await dbSuperAdmin.promise().query(
+    if (memberIdList.length > 0) {
+      // Delete workout split exercises
+      const [wsExercises] = await connection.query(
+        `DELETE FROM workoutsplitexercises WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.workout_split_exercises = wsExercises.affectedRows;
+
+      // Delete workout split days
+      const [wsDays] = await connection.query(
+        `DELETE FROM workoutsplitdays WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.workout_split_days = wsDays.affectedRows;
+
+      // Delete member workout session logs
+      const [wsLogs] = await connection.query(
+        `DELETE FROM membersworkoutsessionlogs WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.workout_session_logs = wsLogs.affectedRows;
+
+      // Delete member workout progress
+      const [wpProgress] = await connection.query(
+        `DELETE FROM membersworkoutprogress WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.workout_progress = wpProgress.affectedRows;
+
+      // Delete meal plans
+      const [mealPlans] = await connection.query(
+        `DELETE FROM mealplans WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.meal_plans = mealPlans.affectedRows;
+
+      // Delete member meal logs
+      const [mealLogs] = await connection.query(
+        `DELETE FROM membersmeallogs WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.meal_logs = mealLogs.affectedRows;
+
+      // Delete admin member meal assessment
+      const [mealAssess] = await connection.query(
+        `DELETE FROM adminmembermealassessment WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.meal_assessments = mealAssess.affectedRows;
+
+      // Delete nutrition assessments
+      const [nutritionAssess] = await connection.query(
+        `DELETE FROM NutritionAssessment WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.nutrition_assessments = nutritionAssess.affectedRows;
+
+      // Delete member nutrition results
+      const [nutritionResults] = await connection.query(
+        `DELETE FROM MemberNutritionResult WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.nutrition_results = nutritionResults.affectedRows;
+
+      // Delete macro nutrient breakdown
+      const [macroBreakdown] = await connection.query(
+        `DELETE FROM MacroNutrientBreakdown WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.macro_breakdown = macroBreakdown.affectedRows;
+
+      // Delete exercise assessments
+      const [exAssess] = await connection.query(
+        `DELETE FROM ExerciseAssessments WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.exercise_assessments = exAssess.affectedRows;
+
+      // Delete exercise day completions
+      const [exDayComp] = await connection.query(
+        `DELETE FROM ExerciseDayCompletions WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.exercise_day_completions = exDayComp.affectedRows;
+
+      // Delete split day exercises
+      const [splitDayEx] = await connection.query(
+        `DELETE FROM SplitDayExercises WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.split_day_exercises = splitDayEx.affectedRows;
+
+      // Delete split days
+      const [splitDays] = await connection.query(
+        `DELETE FROM SplitDays WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.split_days = splitDays.affectedRows;
+
+      // Delete initial assessments
+      const [initialAssess] = await connection.query(
+        `DELETE FROM InitialAssessment WHERE member_id IN (?)`,
+        [memberIdList]
+      );
+      deletionLog.initial_assessments = initialAssess.affectedRows;
+    }
+
+    // ====== DELETE ADMIN-RELATED RECORDS ======
+
+    // Delete SuperAdmin transaction items
+    const [txItems] = await connection.query(
       `DELETE FROM SuperAdminTransactionItems 
        WHERE transaction_id IN (SELECT id FROM SuperAdminTransactions WHERE admin_id = ?)`,
       [adminId]
     );
-    console.log(`Deleted ${txItemResult[0].affectedRows} SuperAdmin transaction items`);
+    deletionLog.superadmin_transaction_items = txItems.affectedRows;
 
-    // 2. Delete SuperAdmin transactions
-    const txResult = await dbSuperAdmin.promise().query(
+    // Delete SuperAdmin transactions
+    const [saTx] = await connection.query(
       `DELETE FROM SuperAdminTransactions WHERE admin_id = ?`,
       [adminId]
     );
-    console.log(`Deleted ${txResult[0].affectedRows} SuperAdmin transactions`);
+    deletionLog.superadmin_transactions = saTx.affectedRows;
 
-    // 3. Delete Admin transactions
-    const adminTxResult = await dbSuperAdmin.promise().query(
+    // Delete Admin transactions
+    const [adminTx] = await connection.query(
       `DELETE FROM AdminTransactions WHERE admin_id = ?`,
       [adminId]
     );
-    console.log(`Deleted ${adminTxResult[0].affectedRows} Admin transactions`);
+    deletionLog.admin_transactions = adminTx.affectedRows;
 
-    // 4. Delete Admin member transactions
-    const memberTxResult = await dbSuperAdmin.promise().query(
+    // Delete Admin member transactions
+    const [memberTx] = await connection.query(
       `DELETE FROM AdminMembersTransactions WHERE admin_id = ?`,
       [adminId]
     );
-    console.log(`Deleted ${memberTxResult[0].affectedRows} Admin member transactions`);
+    deletionLog.admin_member_transactions = memberTx.affectedRows;
 
-    // 5. Delete payment methods
-    const pmResult = await dbSuperAdmin.promise().query(
+    // Delete payment methods
+    const [payMethods] = await connection.query(
       `DELETE FROM AdminPaymentMethods WHERE admin_id = ?`,
       [adminId]
     );
-    console.log(`Deleted ${pmResult[0].affectedRows} payment methods`);
+    deletionLog.payment_methods = payMethods.affectedRows;
 
-    // 6. Delete pricing options
-    const priceResult = await dbSuperAdmin.promise().query(
+    // Delete pricing options
+    const [pricing] = await connection.query(
       `DELETE FROM AdminPricingOptions WHERE admin_id = ?`,
       [adminId]
     );
-    console.log(`Deleted ${priceResult[0].affectedRows} pricing options`);
+    deletionLog.pricing_options = pricing.affectedRows;
 
-    // 7. Delete RFID cards
-    const rfidResult = await dbSuperAdmin.promise().query(
+    // Delete RFID cards
+    const [rfidCards] = await connection.query(
       `DELETE FROM AdminRFIDCards WHERE admin_id = ?`,
       [adminId]
     );
-    console.log(`Deleted ${rfidResult[0].affectedRows} RFID cards`);
+    deletionLog.rfid_cards = rfidCards.affectedRows;
 
-    // 8. Delete staff session logs
-    const staffResult = await dbSuperAdmin.promise().query(
-      `DELETE FROM StaffSessionLogs WHERE admin_id = ?`,
+    // Delete registered RFIDs
+    const [regRfids] = await connection.query(
+      `DELETE FROM RegisteredRfid WHERE admin_id = ?`,
       [adminId]
     );
-    console.log(`Deleted ${staffResult[0].affectedRows} staff session logs`);
+    deletionLog.registered_rfids = regRfids.affectedRows;
 
-    // 9. Delete staff activity logs
-    const activityResult = await dbSuperAdmin.promise().query(
+    // Delete staff activity logs
+    const [staffActivity] = await connection.query(
       `DELETE FROM StaffActivityLogs WHERE admin_id = ?`,
       [adminId]
     );
-    console.log(`Deleted ${activityResult[0].affectedRows} staff activity logs`);
+    deletionLog.staff_activity_logs = staffActivity.affectedRows;
 
-    // 10. Delete staff accounts
-    const staffAccResult = await dbSuperAdmin.promise().query(
+    // Delete staff session logs
+    const [staffSessions] = await connection.query(
+      `DELETE FROM StaffSessionLogs WHERE admin_id = ?`,
+      [adminId]
+    );
+    deletionLog.staff_session_logs = staffSessions.affectedRows;
+
+    // Delete staff accounts
+    const [staffAccs] = await connection.query(
       `DELETE FROM StaffAccounts WHERE admin_id = ?`,
       [adminId]
     );
-    console.log(`Deleted ${staffAccResult[0].affectedRows} staff accounts`);
+    deletionLog.staff_accounts = staffAccs.affectedRows;
 
-    // 11. Delete entry logs
-    const entryResult = await dbSuperAdmin.promise().query(
+    // Delete admin entry logs
+    const [entryLogs] = await connection.query(
       `DELETE FROM AdminEntryLogs WHERE admin_id = ?`,
       [adminId]
     );
-    console.log(`Deleted ${entryResult[0].affectedRows} entry logs`);
+    deletionLog.entry_logs = entryLogs.affectedRows;
 
-    // 12. Delete member-related records (workout, meal, assessments)
-    const workoutProgressResult = await dbSuperAdmin.promise().query(
-      `DELETE FROM membersworkoutprogress WHERE member_id IN (SELECT id FROM MembersAccounts WHERE admin_id = ?)`,
-      [adminId]
-    );
-    console.log(`Deleted ${workoutProgressResult[0].affectedRows} workout progress records`);
-
-    const workoutSessionResult = await dbSuperAdmin.promise().query(
-      `DELETE FROM membersworkoutsessionlogs WHERE member_id IN (SELECT id FROM MembersAccounts WHERE admin_id = ?)`,
-      [adminId]
-    );
-    console.log(`Deleted ${workoutSessionResult[0].affectedRows} workout session logs`);
-
-    const mealLogsResult = await dbSuperAdmin.promise().query(
-      `DELETE FROM membersmeallogs WHERE member_id IN (SELECT id FROM MembersAccounts WHERE admin_id = ?)`,
-      [adminId]
-    );
-    console.log(`Deleted ${mealLogsResult[0].affectedRows} meal logs`);
-
-    const mealAssessResult = await dbSuperAdmin.promise().query(
-      `DELETE FROM adminmembermealassessment WHERE member_id IN (SELECT id FROM MembersAccounts WHERE admin_id = ?)`,
-      [adminId]
-    );
-    console.log(`Deleted ${mealAssessResult[0].affectedRows} meal assessments`);
-
-    const nutritionResult = await dbSuperAdmin.promise().query(
-      `DELETE FROM MemberNutritionResult WHERE member_id IN (SELECT id FROM MembersAccounts WHERE admin_id = ?)`,
-      [adminId]
-    );
-    console.log(`Deleted ${nutritionResult[0].affectedRows} nutrition results`);
-
-    const exerciseAssessResult = await dbSuperAdmin.promise().query(
-      `DELETE FROM ExerciseAssessments WHERE member_id IN (SELECT id FROM MembersAccounts WHERE admin_id = ?)`,
-      [adminId]
-    );
-    console.log(`Deleted ${exerciseAssessResult[0].affectedRows} exercise assessments`);
-
-    const initialAssessResult = await dbSuperAdmin.promise().query(
-      `DELETE FROM InitialAssessment WHERE member_id IN (SELECT id FROM MembersAccounts WHERE admin_id = ?)`,
-      [adminId]
-    );
-    console.log(`Deleted ${initialAssessResult[0].affectedRows} initial assessments`);
-
-    // 13. Delete members
-    const membersResult = await dbSuperAdmin.promise().query(
-      `DELETE FROM MembersAccounts WHERE admin_id = ?`,
-      [adminId]
-    );
-    console.log(`Deleted ${membersResult[0].affectedRows} members`);
-
-    // 14. Delete day pass guests
-    const guestsResult = await dbSuperAdmin.promise().query(
+    // Delete day pass guests
+    const [guests] = await connection.query(
       `DELETE FROM DayPassGuests WHERE admin_id = ?`,
       [adminId]
     );
-    console.log(`Deleted ${guestsResult[0].affectedRows} day pass guests`);
+    deletionLog.day_pass_guests = guests.affectedRows;
 
-    // 15. Finally delete the admin account
-    const adminResult = await dbSuperAdmin.promise().query(
+    // Delete members accounts (must be last among member-related)
+    const [members] = await connection.query(
+      `DELETE FROM MembersAccounts WHERE admin_id = ?`,
+      [adminId]
+    );
+    deletionLog.members = members.affectedRows;
+
+    // Finally delete the admin account
+    const [adminDel] = await connection.query(
       `DELETE FROM AdminAccounts WHERE id = ?`,
       [adminId]
     );
-    console.log(`Deleted admin account`);
+    deletionLog.admin_account = adminDel.affectedRows;
+
+    await connection.commit();
+    console.log("✅ Deletion successful:", deletionLog);
 
     res.json({ 
       message: "Admin and all related data deleted successfully",
       admin_name: checkRows[0].admin_name,
-      deleted_records: {
-        superadmin_transaction_items: txItemResult[0].affectedRows,
-        superadmin_transactions: txResult[0].affectedRows,
-        admin_transactions: adminTxResult[0].affectedRows,
-        admin_member_transactions: memberTxResult[0].affectedRows,
-        payment_methods: pmResult[0].affectedRows,
-        pricing_options: priceResult[0].affectedRows,
-        rfid_cards: rfidResult[0].affectedRows,
-        staff_session_logs: staffResult[0].affectedRows,
-        staff_activity_logs: activityResult[0].affectedRows,
-        staff_accounts: staffAccResult[0].affectedRows,
-        entry_logs: entryResult[0].affectedRows,
-        workout_progress: workoutProgressResult[0].affectedRows,
-        workout_sessions: workoutSessionResult[0].affectedRows,
-        meal_logs: mealLogsResult[0].affectedRows,
-        meal_assessments: mealAssessResult[0].affectedRows,
-        nutrition_results: nutritionResult[0].affectedRows,
-        exercise_assessments: exerciseAssessResult[0].affectedRows,
-        initial_assessments: initialAssessResult[0].affectedRows,
-        members: membersResult[0].affectedRows,
-        guests: guestsResult[0].affectedRows
-      }
+      deleted_records: deletionLog
     });
 
   } catch (error) {
-    console.error("Delete admin error:", error);
+    await connection.rollback();
+    console.error("❌ Delete admin error:", error);
     
-    // More detailed error message
     if (error.code === 'ER_ROW_IS_REFERENCED_2') {
       return res.status(400).json({ 
-        error: "Cannot delete: Admin has related records in other tables",
+        error: "Cannot delete: Admin has related records that cannot be removed",
+        sql_error: error.sqlMessage,
         details: error.message 
       });
     }
@@ -511,14 +580,18 @@ router.delete("/delete-admin/:id", async (req, res) => {
     if (error.code === 'ER_NO_SUCH_TABLE') {
       return res.status(500).json({ 
         error: "Database table not found",
+        sql_error: error.sqlMessage,
         details: error.message 
       });
     }
     
     res.status(500).json({ 
       error: "Server error", 
-      details: error.message 
+      sql_error: error.sqlMessage || error.message,
+      details: error.stack 
     });
+  } finally {
+    connection.release();
   }
 });
 

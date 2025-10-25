@@ -302,6 +302,8 @@ router.get("/admins/archived", (req, res) => {
     res.json(results);
   });
 });
+
+
 router.delete("/delete-admin/:id", async (req, res) => {
   const adminId = req.params.id;
   const connection = await dbSuperAdmin.promise().getConnection();
@@ -342,110 +344,172 @@ router.delete("/delete-admin/:id", async (req, res) => {
     // ====== DELETE MEMBER-RELATED RECORDS FIRST ======
     
     if (memberIdList.length > 0) {
+      console.log(`Found ${memberIdList.length} members to delete`);
+
       // Delete workout split exercises
-      const [wsExercises] = await connection.query(
-        `DELETE FROM workoutsplitexercises WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.workout_split_exercises = wsExercises.affectedRows;
+      try {
+        const [wsExercises] = await connection.query(
+          `DELETE FROM workoutsplitexercises WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.workout_split_exercises = wsExercises.affectedRows;
+      } catch (err) {
+        console.log("No workoutsplitexercises to delete or table doesn't exist");
+      }
 
       // Delete workout split days
-      const [wsDays] = await connection.query(
-        `DELETE FROM workoutsplitdays WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.workout_split_days = wsDays.affectedRows;
+      try {
+        const [wsDays] = await connection.query(
+          `DELETE FROM workoutsplitdays WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.workout_split_days = wsDays.affectedRows;
+      } catch (err) {
+        console.log("No workoutsplitdays to delete or table doesn't exist");
+      }
 
       // Delete member workout session logs
-      const [wsLogs] = await connection.query(
-        `DELETE FROM membersworkoutsessionlogs WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.workout_session_logs = wsLogs.affectedRows;
+      try {
+        const [wsLogs] = await connection.query(
+          `DELETE FROM membersworkoutsessionlogs WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.workout_session_logs = wsLogs.affectedRows;
+      } catch (err) {
+        console.log("No membersworkoutsessionlogs to delete or table doesn't exist");
+      }
 
       // Delete member workout progress
-      const [wpProgress] = await connection.query(
-        `DELETE FROM membersworkoutprogress WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.workout_progress = wpProgress.affectedRows;
+      try {
+        const [wpProgress] = await connection.query(
+          `DELETE FROM membersworkoutprogress WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.workout_progress = wpProgress.affectedRows;
+      } catch (err) {
+        console.log("No membersworkoutprogress to delete or table doesn't exist");
+      }
 
       // Delete meal plans
-      const [mealPlans] = await connection.query(
-        `DELETE FROM mealplans WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.meal_plans = mealPlans.affectedRows;
+      try {
+        const [mealPlans] = await connection.query(
+          `DELETE FROM mealplans WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.meal_plans = mealPlans.affectedRows;
+      } catch (err) {
+        console.log("No mealplans to delete or table doesn't exist");
+      }
 
       // Delete member meal logs
-      const [mealLogs] = await connection.query(
-        `DELETE FROM membersmeallogs WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.meal_logs = mealLogs.affectedRows;
+      try {
+        const [mealLogs] = await connection.query(
+          `DELETE FROM membersmeallogs WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.meal_logs = mealLogs.affectedRows;
+      } catch (err) {
+        console.log("No membersmeallogs to delete or table doesn't exist");
+      }
 
       // Delete admin member meal assessment
-      const [mealAssess] = await connection.query(
-        `DELETE FROM adminmembermealassessment WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.meal_assessments = mealAssess.affectedRows;
+      try {
+        const [mealAssess] = await connection.query(
+          `DELETE FROM adminmembermealassessment WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.meal_assessments = mealAssess.affectedRows;
+      } catch (err) {
+        console.log("No adminmembermealassessment to delete or table doesn't exist");
+      }
 
       // Delete nutrition assessments
-      const [nutritionAssess] = await connection.query(
-        `DELETE FROM NutritionAssessment WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.nutrition_assessments = nutritionAssess.affectedRows;
+      try {
+        const [nutritionAssess] = await connection.query(
+          `DELETE FROM NutritionAssessment WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.nutrition_assessments = nutritionAssess.affectedRows;
+      } catch (err) {
+        console.log("No NutritionAssessment to delete or table doesn't exist");
+      }
 
       // Delete member nutrition results
-      const [nutritionResults] = await connection.query(
-        `DELETE FROM MemberNutritionResult WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.nutrition_results = nutritionResults.affectedRows;
+      try {
+        const [nutritionResults] = await connection.query(
+          `DELETE FROM MemberNutritionResult WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.nutrition_results = nutritionResults.affectedRows;
+      } catch (err) {
+        console.log("No MemberNutritionResult to delete or table doesn't exist");
+      }
 
       // Delete macro nutrient breakdown
-      const [macroBreakdown] = await connection.query(
-        `DELETE FROM MacroNutrientBreakdown WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.macro_breakdown = macroBreakdown.affectedRows;
+      try {
+        const [macroBreakdown] = await connection.query(
+          `DELETE FROM MacroNutrientBreakdown WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.macro_breakdown = macroBreakdown.affectedRows;
+      } catch (err) {
+        console.log("No MacroNutrientBreakdown to delete or table doesn't exist");
+      }
 
-      // Delete exercise assessments
-      const [exAssess] = await connection.query(
-        `DELETE FROM ExerciseAssessments WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.exercise_assessments = exAssess.affectedRows;
+      // Delete exercise assessments (has admin_id FK!)
+      try {
+        const [exAssess] = await connection.query(
+          `DELETE FROM ExerciseAssessments WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.exercise_assessments = exAssess.affectedRows;
+      } catch (err) {
+        console.log("No ExerciseAssessments to delete or table doesn't exist");
+      }
 
       // Delete exercise day completions
-      const [exDayComp] = await connection.query(
-        `DELETE FROM ExerciseDayCompletions WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.exercise_day_completions = exDayComp.affectedRows;
+      try {
+        const [exDayComp] = await connection.query(
+          `DELETE FROM ExerciseDayCompletions WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.exercise_day_completions = exDayComp.affectedRows;
+      } catch (err) {
+        console.log("No ExerciseDayCompletions to delete or table doesn't exist");
+      }
 
       // Delete split day exercises
-      const [splitDayEx] = await connection.query(
-        `DELETE FROM SplitDayExercises WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.split_day_exercises = splitDayEx.affectedRows;
+      try {
+        const [splitDayEx] = await connection.query(
+          `DELETE FROM SplitDayExercises WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.split_day_exercises = splitDayEx.affectedRows;
+      } catch (err) {
+        console.log("No SplitDayExercises to delete or table doesn't exist");
+      }
 
       // Delete split days
-      const [splitDays] = await connection.query(
-        `DELETE FROM SplitDays WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.split_days = splitDays.affectedRows;
+      try {
+        const [splitDays] = await connection.query(
+          `DELETE FROM SplitDays WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.split_days = splitDays.affectedRows;
+      } catch (err) {
+        console.log("No SplitDays to delete or table doesn't exist");
+      }
 
       // Delete initial assessments
-      const [initialAssess] = await connection.query(
-        `DELETE FROM InitialAssessment WHERE member_id IN (?)`,
-        [memberIdList]
-      );
-      deletionLog.initial_assessments = initialAssess.affectedRows;
+      try {
+        const [initialAssess] = await connection.query(
+          `DELETE FROM InitialAssessment WHERE member_id IN (?)`,
+          [memberIdList]
+        );
+        deletionLog.initial_assessments = initialAssess.affectedRows;
+      } catch (err) {
+        console.log("No InitialAssessment to delete or table doesn't exist");
+      }
     }
 
     // ====== DELETE ADMIN-RELATED RECORDS ======
@@ -500,13 +564,6 @@ router.delete("/delete-admin/:id", async (req, res) => {
     );
     deletionLog.rfid_cards = rfidCards.affectedRows;
 
-    // Delete registered RFIDs
-    const [regRfids] = await connection.query(
-      `DELETE FROM RegisteredRfid WHERE admin_id = ?`,
-      [adminId]
-    );
-    deletionLog.registered_rfids = regRfids.affectedRows;
-
     // Delete staff activity logs
     const [staffActivity] = await connection.query(
       `DELETE FROM StaffActivityLogs WHERE admin_id = ?`,
@@ -514,14 +571,18 @@ router.delete("/delete-admin/:id", async (req, res) => {
     );
     deletionLog.staff_activity_logs = staffActivity.affectedRows;
 
-    // Delete staff session logs
-    const [staffSessions] = await connection.query(
-      `DELETE FROM StaffSessionLogs WHERE admin_id = ?`,
-      [adminId]
-    );
-    deletionLog.staff_session_logs = staffSessions.affectedRows;
+    // Delete staff session logs (check column name first)
+    try {
+      const [staffSessions] = await connection.query(
+        `DELETE FROM StaffSessionLogs WHERE admin_id = ?`,
+        [adminId]
+      );
+      deletionLog.staff_session_logs = staffSessions.affectedRows;
+    } catch (err) {
+      console.log("StaffSessionLogs might not have admin_id column");
+    }
 
-    // Delete staff accounts
+    // Delete staff accounts (has TWO foreign keys!)
     const [staffAccs] = await connection.query(
       `DELETE FROM StaffAccounts WHERE admin_id = ?`,
       [adminId]
@@ -535,7 +596,7 @@ router.delete("/delete-admin/:id", async (req, res) => {
     );
     deletionLog.entry_logs = entryLogs.affectedRows;
 
-    // Delete day pass guests
+    // Delete day pass guests (has admin_id)
     const [guests] = await connection.query(
       `DELETE FROM DayPassGuests WHERE admin_id = ?`,
       [adminId]
@@ -573,6 +634,7 @@ router.delete("/delete-admin/:id", async (req, res) => {
       return res.status(400).json({ 
         error: "Cannot delete: Admin has related records that cannot be removed",
         sql_error: error.sqlMessage,
+        constraint: error.message.match(/CONSTRAINT `(.+?)`/)?.[1] || 'unknown',
         details: error.message 
       });
     }

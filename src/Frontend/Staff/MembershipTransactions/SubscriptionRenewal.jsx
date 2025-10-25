@@ -70,31 +70,33 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
   fetchPaymentMethods();
 }, [adminId]);
 
-  useEffect(() => {
-    if (rfid && rfid.length >= 8) fetchMember();
-  }, [rfid]);
+useEffect(() => {
+  if (rfid && rfid.length >= 8 && adminId) {
+    fetchMember();
+  }
+}, [rfid, adminId]); // Add adminId dependency
 
-  const fetchMember = async () => {
-    if (!rfid) return;
-    setLoading(true);
-    try {
-      const { data } = await api.get(`/api/member-by-rfid/${rfid}`);
-      if (data && data.system_type === "subscription") {
-        data.admin_id = data.admin_id || adminId;
-        setMember(data);
-        setMessage("");
-      } else {
-        setMember(null);
-showToast({ message: "Member not found or not a subscription account.", type: "error" });
-      }
-    } catch (err) {
-      console.error(" Error fetching member:", err);
-showToast({ message: "Error fetching member data.", type: "error" });
+const fetchMember = async () => {
+  if (!rfid || !adminId) return; // Add adminId check
+  setLoading(true);
+  try {
+    const { data } = await api.get(`/api/member-by-rfid/${rfid}`);
+    if (data && data.system_type === "subscription") {
+      data.admin_id = data.admin_id || adminId;
+      setMember(data);
+      // ❌ Remove this line: setMessage("");
+    } else {
       setMember(null);
-    } finally {
-      setLoading(false);
+      showToast({ message: "Member not found or not a subscription account.", type: "error" });
     }
-  };
+  } catch (err) {
+    console.error("Error fetching member:", err);
+    showToast({ message: "Error fetching member data.", type: "error" });
+    setMember(null);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSubmit = async () => {
     if (!member || !selectedPlan || !paymentMethod || !staffName || !amountToPay) {

@@ -2,19 +2,6 @@ import React, { useEffect, useState } from "react";
 import api from "../../../api";
 import { generatePrepaidActivityPDF } from "../../../utils/activityReport";
 import { useToast } from "../../../components/ToastManager";
-import { Line } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
-
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 const KPI = ({ title, value }) => (
   <div className="bg-white p-2 rounded shadow text-center text-xs sm:text-sm">
@@ -29,9 +16,7 @@ const PrepaidActAnalytics = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [totalLogins, setTotalLogins] = useState(0);
-  const [hourlyStats, setHourlyStats] = useState([]);
   const [peakHour, setPeakHour] = useState("—");
-  const [mostActiveMembers, setMostActiveMembers] = useState([]);
   const [loginData, setLoginData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -69,9 +54,7 @@ const PrepaidActAnalytics = () => {
       setLoading(false);
       setLoginData([]);
       setTotalLogins(0);
-      setHourlyStats([]);
       setPeakHour("—");
-      setMostActiveMembers([]);
       return;
     }
 
@@ -99,19 +82,29 @@ const PrepaidActAnalytics = () => {
         
         if (apiData) {
           setTotalLogins(apiData.total_logins || 0);
-          setHourlyStats(apiData.scans_by_hour || []);
           setPeakHour(apiData.peak_hour || "—");
-          setMostActiveMembers(apiData.most_active_members || []);
-          setLoginData(apiData.entry_logs || []);
+          
+          // Map recent_events to match the structure we need
+          const events = apiData.recent_events || [];
+          const mappedData = events.map(event => ({
+            id: event.id,
+            full_name: event.name || event.full_name,
+            rfid_tag: event.rfid || event.rfid_tag,
+            visitor_type: event.visitor_type || "Member",
+            entry_time: event.entry_time || event.time,
+            exit_time: event.exit_time || null,
+            status: event.status || (event.action === "session_fee" ? "exited" : "inside"),
+            profile_image_url: event.profile_image_url
+          }));
+          
+          setLoginData(mappedData);
         }
       } catch (err) {
         console.error("Failed to load analytics:", err);
         setError("Failed to load analytics");
         setLoginData([]);
         setTotalLogins(0);
-        setHourlyStats([]);
         setPeakHour("—");
-        setMostActiveMembers([]);
       } finally {
         setLoading(false);
       }
@@ -143,7 +136,7 @@ const PrepaidActAnalytics = () => {
         total_logins: totalLogins,
         members_inside: loginData.filter(l => l.status === "inside").length,
         peak_hour: peakHour,
-        most_active_members: mostActiveMembers,
+        most_active_members: [],
         entry_logs: loginData
       };
 
@@ -163,29 +156,6 @@ const PrepaidActAnalytics = () => {
       console.error("Error generating PDF:", error);
       showToast({ message: "Failed to generate PDF", type: "error" });
     }
-  };
-
-  const chartData = {
-    labels: hourlyStats.map((d) => `${d.hour}:00`),
-    datasets: [
-      {
-        label: "Logins",
-        data: hourlyStats.map((d) => d.count),
-        borderColor: "#6366f1",
-        backgroundColor: "rgba(99, 102, 241, 0.2)",
-        tension: 0.4,
-        fill: true,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    plugins: { legend: { display: false } },
-    scales: {
-      x: { title: { display: true, text: "Hour" }, ticks: { font: { size: 10 } } },
-      y: { beginAtZero: true, title: { display: true, text: "Logins" }, ticks: { precision: 0, font: { size: 10 } } },
-    },
   };
 
   if (loading && !adminId) {
@@ -212,6 +182,7 @@ const PrepaidActAnalytics = () => {
 
   return (
     <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">
+      {/* Header */}
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-lg sm:text-xl font-semibold">Prepaid Activity Analytics</h1>
@@ -244,6 +215,7 @@ const PrepaidActAnalytics = () => {
         </button>
       </div>
 
+      {/* Filter */}
       <div className="flex items-center">
         <div className="bg-white p-2 rounded-md shadow-sm inline-flex items-center gap-2">
           <label className="text-xs text-gray-600">Filter:</label>
@@ -286,71 +258,14 @@ const PrepaidActAnalytics = () => {
         </div>
       </div>
 
+      {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
         <KPI title="Members Inside" value={membersInside} />
         <KPI title="Total Logins" value={totalLogins} />
         <KPI title="Peak Hour" value={peakHour} />
       </div>
 
-      <div className="bg-white p-2 sm:p-4 rounded shadow">
-        <h2 className="text-sm font-semibold mb-2">🟢 Members Inside</h2>
-        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 text-xs">
-          {loginData.filter((l) => l.status === "inside").map((member, i) => (
-            <li key={i} className="bg-green-50 px-2 py-1 rounded shadow flex justify-between items-center text-[10px]">
-              <span>{member.full_name}</span>
-              <span className="font-mono text-green-700">{member.rfid_tag}</span>
-            </li>
-          ))}
-        </ul>
-        {loginData.filter((l) => l.status === "inside").length === 0 && (
-          <p className="text-gray-400 italic text-xs">No members currently inside</p>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white p-2 sm:p-4 rounded shadow">
-          <h2 className="text-sm font-semibold mb-2">📈 Logins by Hour</h2>
-          {hourlyStats.length === 0 ? (
-            <p className="text-gray-400 italic text-xs">No login data available.</p>
-          ) : (
-            <Line data={chartData} options={chartOptions} />
-          )}
-        </div>
-
-        <div className="bg-white p-2 sm:p-4 rounded shadow">
-          <h2 className="text-sm font-semibold mb-2">🏆 Top 3 Most Active</h2>
-          <div className="grid grid-cols-3 gap-2 text-center mt-8 text-[10px]">
-            {[1, 0, 2].map((i) =>
-              mostActiveMembers[i] ? (
-                <div
-                  key={i}
-                  className={`p-2 rounded shadow flex flex-col items-center gap-1 ${
-                    i === 0 ? "bg-yellow-100 text-yellow-700 scale-105 z-10" : i === 1 ? "bg-gray-200 text-gray-700" : "bg-orange-100 text-orange-700"
-                  }`}
-                >
-                  <div className="text-xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</div>
-                  <img
-                    src={`http://localhost:5000/${mostActiveMembers[i].profile_image_url || "default-profile.png"}`}
-                    alt={mostActiveMembers[i].full_name}
-                    onError={(e) => {
-                      e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%236366F1' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='40' fill='white'%3E" + (mostActiveMembers[i].full_name ? mostActiveMembers[i].full_name.charAt(0).toUpperCase() : "?") + "%3C/text%3E%3C/svg%3E";
-                    }}
-                    className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border"
-                  />
-                  <p className="font-semibold">{mostActiveMembers[i].full_name}</p>
-                  <p className="text-[9px]">Visits: {mostActiveMembers[i].login_count}</p>
-                </div>
-              ) : (
-                <div key={i}></div>
-              )
-            )}
-          </div>
-          {mostActiveMembers.length === 0 && (
-            <p className="text-gray-400 italic text-xs text-center mt-4">No activity data available</p>
-          )}
-        </div>
-      </div>
-
+      {/* Activity Logs Table */}
       <div className="bg-white rounded shadow overflow-hidden">
         <h2 className="text-sm font-semibold px-2 py-2 border-b">🧾 Member Activity Logs</h2>
         <div className="overflow-x-auto max-h-[350px] overflow-y-auto scroll-smooth text-[10px] sm:text-xs">
@@ -361,6 +276,7 @@ const PrepaidActAnalytics = () => {
                 <th className="px-2 py-1">Profile</th>
                 <th className="px-2 py-1">Name</th>
                 <th className="px-2 py-1">RFID</th>
+                <th className="px-2 py-1">Type</th>
                 <th className="px-2 py-1">Entry</th>
                 <th className="px-2 py-1">Exit</th>
                 <th className="px-2 py-1">Status</th>
@@ -368,9 +284,9 @@ const PrepaidActAnalytics = () => {
             </thead>
             <tbody>
               {loginData.length > 0 ? (
-                loginData.map((log, index) => (
-                  <tr key={log.id || index} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                    <td className="px-2 py-1">{index + 1}</td>
+                loginData.map((log, i) => (
+                  <tr key={log.id || i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                    <td className="px-2 py-1">{i + 1}</td>
                     <td className="px-2 py-1">
                       {log.profile_image_url ? (
                         <img
@@ -389,6 +305,15 @@ const PrepaidActAnalytics = () => {
                     </td>
                     <td className="px-2 py-1 font-medium">{log.full_name}</td>
                     <td className="px-2 py-1 font-mono">{log.rfid_tag}</td>
+                    <td className="px-2 py-1">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[8px] sm:text-xs font-semibold ${
+                          log.visitor_type === "Day Pass" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"
+                        }`}
+                      >
+                        {log.visitor_type || "Member"}
+                      </span>
+                    </td>
                     <td className="px-2 py-1">
                       {log.entry_time ? new Date(log.entry_time).toLocaleString("en-US", {
                         month: "short",
@@ -418,7 +343,7 @@ const PrepaidActAnalytics = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="text-center py-4 text-gray-500">
+                  <td colSpan="8" className="text-center py-4 text-gray-500">
                     No activity logs found
                   </td>
                 </tr>

@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from "react";
 import api from "../../../api";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { generatePrepaidTransactionsPDF } from "../../../utils/transactionsReport";
+import { useToast } from "../../../components/ToastManager";
 
 const KpiBox = ({ title, value, color }) => (
   <div className="bg-white shadow p-2 rounded text-center">
@@ -13,11 +17,13 @@ const PrepaidTransactions = () => {
   const [transactions, setTransactions] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [members, setMembers] = useState([]);
-  const [selectedTxn, setSelectedTxn] = useState(null);
   const [search, setSearch] = useState("");
   const [filterMethod, setFilterMethod] = useState("All");
   const [filterType, setFilterType] = useState("All");
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -25,8 +31,7 @@ const PrepaidTransactions = () => {
         const { data } = await api.get("/api/me");
         if (!data.authenticated || !data.user) throw new Error("Not authenticated");
         setUser(data.user);
-      } catch (err) {
-        console.error(err);
+      } catch {
         window.location.href = "/login";
       }
     };
@@ -47,8 +52,6 @@ const PrepaidTransactions = () => {
         setTransactions(txnRes.data || []);
         setFiltered(txnRes.data || []);
         setMembers(memberRes.data?.members || []);
-      } catch (err) {
-        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -64,139 +67,226 @@ const PrepaidTransactions = () => {
     });
 
     let filteredData = merged;
-    if (search) filteredData = filteredData.filter((txn) => txn.member_name?.toLowerCase().includes(search.toLowerCase()));
-    if (filterMethod !== "All") filteredData = filteredData.filter((txn) => txn.payment_method === filterMethod);
-    if (filterType !== "All") filteredData = filteredData.filter((txn) => txn.transaction_type === filterType);
+
+    if (search)
+      filteredData = filteredData.filter((txn) =>
+        txn.member_name?.toLowerCase().includes(search.toLowerCase())
+      );
+
+    if (filterMethod !== "All")
+      filteredData = filteredData.filter((txn) => txn.payment_method === filterMethod);
+
+    if (filterType !== "All")
+      filteredData = filteredData.filter((txn) => txn.transaction_type === filterType);
+
+    if (startDate)
+      filteredData = filteredData.filter(
+        (txn) => new Date(txn.transaction_date) >= startDate
+      );
+
+    if (endDate)
+      filteredData = filteredData.filter(
+        (txn) => new Date(txn.transaction_date) <= endDate
+      );
 
     setFiltered(filteredData);
-  }, [search, filterMethod, filterType, transactions, members]);
+  }, [search, filterMethod, filterType, transactions, members, startDate, endDate]);
+
+  const handleDownloadPDF = async () => {
+    if (filtered.length === 0) {
+      showToast({ message: "No transaction data to download", type: "error" });
+      return;
+    }
+
+    try {
+      showToast({ message: "Generating PDF...", type: "info" });
+
+      const { data: meData } = await api.get("/api/me");
+      if (!meData.authenticated || !meData.user) {
+        throw new Error("Not authenticated");
+      }
+
+      const currentAdminId = meData.user.adminId || meData.user.id;
+      if (!currentAdminId) throw new Error("Missing admin ID");
+
+      const { data: gymInfo } = await api.get(`/api/gym-info/${currentAdminId}`);
+
+      const transactionsData = {
+        transactions: filtered,
+        total_revenue: totalRevenue,
+        total_transactions: filtered.length,
+        cash_revenue: cashRevenue,
+        cashless_revenue: gcashRevenue
+      };
+
+      const filterData = {
+        gym_name: gymInfo.gym_name,
+        owner_name: gymInfo.admin_name,
+        start_date: startDate ? startDate.toISOString().split("T")[0] : null,
+        end_date: endDate ? endDate.toISOString().split("T")[0] : null,
+        filter_type: filterType !== "All" ? filterType : null,
+        filter_method: filterMethod !== "All" ? filterMethod : null,
+        search_term: search || null
+      };
+
+      const filename = generatePrepaidTransactionsPDF(transactionsData, filterData);
+      showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
+
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      showToast({ message: "Failed to generate PDF", type: "error" });
+    }
+  };
 
   const totalRevenue = transactions.reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
   const totalTransactions = filtered.length;
-  const cashRevenue = filtered.filter((txn) => txn.payment_method === "Cash").reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
-  const gcashRevenue = filtered.filter((txn) => txn.payment_method === "GCash").reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
+  const cashRevenue = filtered
+    .filter((txn) => txn.payment_method === "Cash")
+    .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
+  const gcashRevenue = filtered
+    .filter((txn) => txn.payment_method === "GCash")
+    .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
 
-return (
-  <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">
-    
-    <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-1">
-      <div>
-        <h2 className="text-lg sm:text-xl font-semibold mb-1">
-          Prepaid Transactions
-        </h2>
-        <p className="text-[10px] sm:text-xs text-gray-500">
-          {filtered.length} transactions{search && ` matching "${search}"`}
-        </p>
-      </div>
-    </div>
-
-    <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto  space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-          <KpiBox title="💰 Total Revenue" value={`₱${totalRevenue.toFixed(2)}`} color="text-green-600" />
-          <KpiBox title="📄 Total Transactions" value={totalTransactions} color="text-blue-600" />
-          <KpiBox title="💵 Cash Revenue" value={`₱${cashRevenue.toFixed(2)}`} color="text-teal-600" />
-          <KpiBox title="📲 Cashless" value={`₱${gcashRevenue.toFixed(2)}`} color="text-purple-600" />
+  return (
+    <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-lg sm:text-xl font-semibold">Sales Report</h1>
+          <p className="text-xs text-gray-500">Overview of your transactions</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="text-[10px] sm:text-xs text-gray-500 mb-1 block">🔍 Search Member</label>
-            <input
-              type="text"
-              placeholder="e.g. John Doe"
-              className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-[10px] sm:text-xs text-gray-500 mb-1 block">📄 Filter Type</label>
-            <select
-              className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-            >
-              <option value="All">All Types</option>
-              <option value="new_membership">New Membership</option>
-              <option value="tapup">Tap-Up</option>
-              <option value="product_purchase">Others</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] sm:text-xs text-gray-500 mb-1 block">💳 Filter Method</label>
-            <select
-              className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
-              value={filterMethod}
-              onChange={(e) => setFilterMethod(e.target.value)}
-            >
-              <option value="All">All Methods</option>
-              <option value="Cash">Cash</option>
-              <option value="GCash">Cashless</option>
-            </select>
-          </div>
-        </div>
-        {filtered.length === 0 ? (
-          <p className="text-gray-500 italic text-xs sm:text-sm">No transactions found.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-[10px] sm:text-xs text-left border-collapse">
-              <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-[10px]">
-                <tr>
-                  <th className="px-3 py-2">#</th>
-                  <th className="px-3 py-2">Profile</th>
-                  <th className="px-3 py-2">Name</th>
-                  <th className="px-3 py-2">Type</th>
-                  <th className="px-3 py-2">Plan</th>
-                  <th className="px-3 py-2">Amount</th>
-                  <th className="px-3 py-2">Method</th>
-                  <th className="px-3 py-2">Staff</th>
-                  <th className="px-3 py-2">Date</th>
-                  <th className="px-3 py-2">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((txn, index) => (
-                  <tr key={txn.transaction_id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                    <td className="px-3 py-2">{index + 1}</td>
-                    <td className="px-3 py-2">
-                      {txn.profile_image_url ? (
-                        <img
-                          src={txn.profile_image_url}
-                          alt={txn.member_name}
-                          className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-500">
-                          N/A
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 font-medium text-gray-800">{txn.member_name}</td>
-                    <td className="px-3 py-2">{txn.transaction_type}</td>
-                    <td className="px-3 py-2">{txn.plan_name || "N/A"}</td>
-                    <td className="px-3 py-2">₱{parseFloat(txn.amount).toFixed(2)}</td>
-                    <td className="px-3 py-2">{txn.payment_method}</td>
-                    <td className="px-3 py-2">{txn.staff_name}</td>
-                    <td className="px-3 py-2">{new Date(txn.transaction_date).toLocaleString()}</td>
-                    <td className="px-3 py-2">
-                      <button
-                        onClick={() => setSelectedTxn(txn)}
-                        className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-[10px] sm:text-xs"
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <button
+          onClick={handleDownloadPDF}
+          disabled={filtered.length === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium shadow-sm"
+          title="Download PDF Report"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <line x1="9" y1="15" x2="15" y2="15"></line>
+          </svg>
+          <span className="hidden sm:inline">Download PDF</span>
+          <span className="sm:hidden">PDF</span>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <KpiBox title="💰 Total Revenue" value={`₱${totalRevenue.toFixed(2)}`} color="text-green-600" />
+        <KpiBox title="📄 Total Transactions" value={totalTransactions} color="text-blue-600" />
+        <KpiBox title="💵 Cash Revenue" value={`₱${cashRevenue.toFixed(2)}`} color="text-teal-600" />
+        <KpiBox title="📲 Cashless" value={`₱${gcashRevenue.toFixed(2)}`} color="text-purple-600" />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+        <input
+          type="text"
+          placeholder="🔍 Search Member"
+          className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm placeholder:text-gray-400"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
+        <select
+          className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+        >
+          <option value="All">All Types</option>
+          <option value="new_membership">New Membership</option>
+          <option value="Tapup">Tap-Up</option>
+          <option value="product_purchase">Others</option>
+        </select>
+
+        <select
+          className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+          value={filterMethod}
+          onChange={(e) => setFilterMethod(e.target.value)}
+        >
+          <option value="All">All Methods</option>
+          <option value="Cash">Cash</option>
+          <option value="GCash">Cashless</option>
+        </select>
+
+        <DatePicker
+          selected={startDate}
+          onChange={(date) => setStartDate(date)}
+          maxDate={new Date()}
+          dateFormat="yyyy-MM-dd"
+          className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+          placeholderText="Start Date"
+          isClearable
+        />
+
+        <DatePicker
+          selected={endDate}
+          onChange={(date) => setEndDate(date)}
+          minDate={startDate}
+          maxDate={new Date()}
+          dateFormat="yyyy-MM-dd"
+          className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+          placeholderText="End Date"
+          isClearable
+        />
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-[10px] sm:text-xs text-left border-collapse">
+          <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-[10px]">
+            <tr>
+              <th className="px-3 py-2">#</th>
+              <th className="px-3 py-2">Profile</th>
+              <th className="px-3 py-2">Name</th>
+              <th className="px-3 py-2">Type</th>
+              <th className="px-3 py-2">Plan</th>
+              <th className="px-3 py-2">Amount</th>
+              <th className="px-3 py-2">Method</th>
+              <th className="px-3 py-2">Staff</th>
+              <th className="px-3 py-2">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((txn, index) => (
+              <tr key={txn.transaction_id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                <td className="px-3 py-2">{index + 1}</td>
+                <td className="px-3 py-2">
+                  {txn.profile_image_url ? (
+                    <img
+                      src={txn.profile_image_url}
+                      alt={txn.member_name}
+                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
+                    />
+                  ) : (
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-200 flex items-center justify-center text-[8px] text-gray-500">
+                      N/A
+                    </div>
+                  )}
+                </td>
+                <td className="px-3 py-2 font-medium text-gray-800">{txn.member_name}</td>
+                <td className="px-3 py-2">{txn.transaction_type}</td>
+                <td className="px-3 py-2">{txn.plan_name || "N/A"}</td>
+                <td className="px-3 py-2">₱{parseFloat(txn.amount).toFixed(2)}</td>
+                <td className="px-3 py-2">{txn.payment_method}</td>
+                <td className="px-3 py-2">{txn.staff_name}</td>
+                <td className="px-3 py-2">{new Date(txn.transaction_date).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default PrepaidTransactions;

@@ -1,175 +1,481 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import api from "../../../api";
+import { generatePrepaidAnalyticalPDF } from "../../../utils/analyticalReport";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
+  ArcElement,
   Tooltip,
   Legend,
-  ArcElement,
+  Filler,
 } from "chart.js";
-import ChartDataLabels from "chartjs-plugin-datalabels";
-import { Line, Pie } from "react-chartjs-2";
+import { Line, Pie, Bar, Doughnut } from "react-chartjs-2";
+import { useToast } from "../../../components/ToastManager";
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   ArcElement,
   Tooltip,
   Legend,
-  ChartDataLabels
+  Filler
 );
 
-const PrepaidAnalytical = ({adminUser}) => {
-  const [analytics, setAnalytics] = useState(null);
-  const [range, setRange] = useState("all");
+const padDataArray = (labels, data) => {
+  const padded = Array(labels.length).fill(0);
+  data.forEach((value, idx) => {
+    if (idx < padded.length) padded[idx] = value;
+  });
+  return padded;
+};
+
+const PrepaidAnalytical = ({ adminUser }) => {
+  const [adminId, setAdminId] = useState(null);
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [filterType, setFilterType] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { showToast } = useToast();
 
-useEffect(() => {
-  if (!adminUser?.id) return;
-  
-  const fetchAnalytics = async () => {
-    try {
-      setLoading(true);
-      const admin_id = adminUser.role === "admin" ? adminUser.id : adminUser.adminId;
-      const { data } = await api.get("/api/prepaid-analytics", {
-        params: { admin_id, range },
-      });
-      setAnalytics(data);
-    } catch {
-      setError("Failed to load prepaid analytics");
-    } finally {
+  useEffect(() => {
+    const fetchAdmin = async () => {
+      try {
+        setLoading(true);
+        const { data } = await api.get("/api/me");
+        if (!data.authenticated || !data.user) throw new Error("Not authenticated");
+        setAdminId(data.user.adminId || data.user.id);
+      } catch (err) {
+        console.error("Error fetching admin:", err);
+        setError("Failed to authenticate");
+        if (err.response?.status === 401) window.location.href = "/login";
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAdmin();
+  }, []);
+
+  useEffect(() => {
+    if (!adminId) return;
+
+    if (filterType === "custom" && (!startDate || !endDate)) {
+      setAnalyticsData(null);
       setLoading(false);
+      return;
+    }
+
+    const fetchAnalytics = async () => {
+      try {
+        setLoading(true);
+        const params = { 
+          admin_id: adminId, 
+          system_type: "prepaid_entry"
+        };
+        
+        if (filterType === "custom") {
+          params.start_date = startDate;
+          params.end_date = endDate;
+        } else if (filterType === "today") {
+          params.range = "today";
+        } else {
+          params.range = "all";
+        }
+
+        const { data } = await api.get("/api/prepaid-activity-analytics", { params });
+        setAnalyticsData(data);
+        setError(null);
+      } catch (err) {
+        console.error("Failed to load analytics:", err);
+        setError("Failed to load analytics");
+        setAnalyticsData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalytics();
+  }, [adminId, filterType, startDate, endDate]);
+
+  const handleDownloadPDF = async () => {
+    if (!analyticsData) {
+      showToast({ message: "No data to download", type: "error" });
+      return;
+    }
+
+    try {
+      showToast({ message: "Generating PDF...", type: "info" });
+      const { data: meData } = await api.get("/api/me");
+      if (!meData.authenticated || !meData.user) throw new Error("Not authenticated");
+
+      const currentAdminId = meData.user.adminId || meData.user.id;
+      if (!currentAdminId) throw new Error("Missing admin ID");
+
+      const { data: gymInfo } = await api.get(`/api/gym-info/${currentAdminId}`);
+
+      const filterData = {
+        filter_type: filterType,
+        start_date: filterType === "custom" ? startDate : undefined,
+        end_date: filterType === "custom" ? endDate : undefined,
+        gym_name: gymInfo.gym_name,
+        owner_name: gymInfo.admin_name,
+      };
+
+      const filename = await generatePrepaidAnalyticalPDF(analyticsData, filterData);
+      showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      showToast({ message: "Failed to generate PDF", type: "error" });
     }
   };
-  fetchAnalytics();
-}, [adminUser, range]);
-  if (loading) return <div className="p-2 text-gray-600">Loading...</div>;
-  if (error) return <div className="p-2 text-red-600">{error}</div>;
-  if (!analytics) return <div className="p-2 text-gray-600">No data available.</div>;
 
-  const scanLineData = {
-    labels: analytics.scans_by_hour?.map((i) => `${i.hour}:00`) || [],
-    datasets: [
-      {
-        label: "Prepaid Logins",
-        data: analytics.scans_by_hour?.map((i) => i.count) || [],
-        borderColor: "#4F46E5",
-        backgroundColor: "rgba(79, 70, 229, 0.2)",
-        tension: 0.4,
-        fill: true,
+  const sampleData = useMemo(() => {
+    if (!analyticsData) {
+      return {
+        totalRevenue: 0,
+        membersInside: 0,
+        totalLogins: 0,
+        totalTransactions: 0,
+        peakHour: "—",
+        topupsVsDeductions: { topups: 0, deductions: 0 },
+        scansByHour: { labels: [], values: [] },
+        commission: { scans: 0, rate: 0, total: 0 },
+        recentEvents: [],
+        topMembers: [],
+      };
+    }
+
+    const scanLabels = analyticsData.scans_by_hour?.map(s => `${s.hour}:00`) || [];
+
+    return {
+      totalRevenue: analyticsData.prepaid_revenue || 0,
+      membersInside: analyticsData.active_members_inside || 0,
+      totalLogins: analyticsData.total_logins || 0,
+      totalTransactions: (analyticsData.topups_vs_deductions?.topups || 0) + (analyticsData.topups_vs_deductions?.deductions || 0),
+      peakHour: analyticsData.peak_hour || "—",
+      topupsVsDeductions: {
+        topups: analyticsData.topups_vs_deductions?.topups || 0,
+        deductions: analyticsData.topups_vs_deductions?.deductions || 0,
       },
-    ],
-  };
-
-  const actionsData = {
-    labels: ["Top-Ups", "Session Deductions"],
-    datasets: [
-      {
-        data: [
-          analytics.topups_vs_deductions?.topups || 0,
-          analytics.topups_vs_deductions?.deductions || 0,
-        ],
-        backgroundColor: ["#10B981", "#F59E0B"],
+      scansByHour: {
+        labels: scanLabels,
+        values: padDataArray(scanLabels, analyticsData.scans_by_hour?.map(s => s.count) || []),
       },
-    ],
-  };
+      commission: analyticsData.swiftpass_commission || { scans: 0, rate: 0, total: 0 },
+      recentEvents: analyticsData.recent_events || [],
+      topMembers: analyticsData.most_active_members || [],
+    };
+  }, [analyticsData]);
 
-  const pieOptions = {
+  const chartOptions = {
+    responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      datalabels: {
-        formatter: (value, context) => {
-          const total = context.chart.data.datasets[0].data.reduce((s, v) => s + v, 0);
-          return total > 0 ? `${((value / total) * 100).toFixed(1)}%` : "0.0%";
-        },
-        color: "#fff",
-        font: { weight: "bold", size: 12 },
-      },
-      legend: { position: "top" },
+      legend: { position: "bottom", labels: { boxWidth: 12, padding: 10, font: { size: 10 } } },
     },
   };
 
+  const pieOptions = {
+    ...chartOptions,
+    plugins: {
+      ...chartOptions.plugins,
+      tooltip: {
+        callbacks: {
+          label: (context) => {
+            const value = context.parsed;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+            return `${context.label}: ${value.toLocaleString()} (${percentage}%)`;
+          },
+        },
+      },
+    },
+  };
+
+  const topupsVsDeductionsData = {
+    labels: ["Top-Ups", "Session Deductions"],
+    datasets: [{
+      data: [sampleData.topupsVsDeductions.topups, sampleData.topupsVsDeductions.deductions],
+      backgroundColor: ["#10B981", "#F59E0B"],
+      borderWidth: 0,
+    }],
+  };
+
+  const commissionData = {
+    labels: ["Commission Earned", "Remaining"],
+    datasets: [{
+      data: [sampleData.commission.total, Math.max(0, sampleData.commission.scans * 10 - sampleData.commission.total)],
+      backgroundColor: ["#6366F1", "#E5E7EB"],
+      borderWidth: 0,
+    }],
+  };
+
+  const scansByHourData = {
+    labels: sampleData.scansByHour.labels,
+    datasets: [{
+      label: "Logins",
+      data: sampleData.scansByHour.values,
+      fill: true,
+      backgroundColor: "rgba(139, 92, 246, 0.2)",
+      borderColor: "#8B5CF6",
+      tension: 0.4,
+      pointRadius: 4,
+      pointBackgroundColor: "#8B5CF6",
+    }],
+  };
+
+  const revenueByActionData = {
+    labels: ["Top-Ups", "Session Fees"],
+    datasets: [{
+      label: "Revenue",
+      data: [
+        sampleData.topupsVsDeductions.topups * 50, // Assuming avg top-up amount
+        sampleData.topupsVsDeductions.deductions * 10, // Assuming per-session fee
+      ],
+      backgroundColor: ["#10B981", "#F59E0B"],
+    }],
+  };
+
+  if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-600">Loading analytics...</div>;
+  if (error) return <div className="flex items-center justify-center min-h-screen text-red-600">Error: {error}</div>;
+
+  const today = new Date().toISOString().split("T")[0];
+
   return (
-    <div className="p-2 flex flex-col space-y-3 w-full min-h-screen">
-      <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-1">
-        <h1 className="text-xl font-semibold text-gray-800">Prepaid Analytical Dashboard</h1>
-        <select
-          value={range}
-          onChange={(e) => setRange(e.target.value)}
-          className="px-2 py-1 w-full sm:w-32 border border-gray-300 rounded-md text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-        >
-          <option value="today">Today</option>
-          <option value="yesterday">Yesterday</option>
-          <option value="last-7-days">Last 7 Days</option>
-        </select>
-      </div>
-      <p className="text-gray-500 text-[11px]">Overview of prepaid logins, revenue, and activity trends</p>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        <KpiCard title="Active Members Inside" value={analytics.active_members_inside} color="text-blue-600" />
-        <KpiCard title="Prepaid Revenue Today" value={`₱${Number(analytics?.prepaid_revenue_today ?? 0).toLocaleString()}`} color="text-green-600" />
-        <KpiCard title="Total Prepaid Logins" value={Number(analytics?.total_logins_today ?? 0)} color="text-purple-600" />
-        <KpiCard title="Peak Hour" value={analytics.peak_hour} color="text-gray-700" />
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-2">
-        <div className="flex-1">
-          <ChartCard title="Login Trends by Hour"><Line data={scanLineData} options={{ maintainAspectRatio: false }} /></ChartCard>
+    <div className="p-3 flex flex-col space-y-3 w-full min-h-screen">
+      <div className="flex flex-col gap-3">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-lg sm:text-xl font-semibold">Prepaid Analytics Dashboard</h1>
+            <p className="text-xs text-gray-500">Summary of prepaid activity and trends</p>
+          </div>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={!analyticsData}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium shadow-sm"
+            title="Download PDF Report"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+            <span className="hidden sm:inline">Download PDF</span>
+            <span className="sm:hidden">PDF</span>
+          </button>
         </div>
-        <div className="lg:w-1/3 w-full">
-          <ChartCard title="Top-Up vs Session Breakdown"><Pie data={actionsData} options={pieOptions} /></ChartCard>
-        </div>
-      </div>
 
-      <div className="bg-white p-2 rounded-md shadow-sm max-h-[18rem] overflow-y-auto">
-        <h2 className="text-xs font-semibold text-gray-700 mb-1">Recent Prepaid Events</h2>
-        <table className="w-full text-[11px] border-collapse">
-          <thead className="bg-gray-700 text-white sticky top-0">
-            <tr>
-              <th className="p-1 w-6 text-center">#</th>
-              <th className="p-1 text-left">Member</th>
-              <th className="p-1">Action</th>
-              <th className="p-1">Amount</th>
-              <th className="p-1">Time</th>
-              <th className="p-1">Balance After</th>
-            </tr>
-          </thead>
-          <tbody>
-            {analytics?.recent_events?.length ? analytics.recent_events.map((e, i) => (
-              <tr key={i} className="border-b hover:bg-gray-50">
-                <td className="p-1 text-center text-gray-500">{i + 1}</td>
-                <td className="p-1">{e.name}</td>
-                <td className="p-1">{e.action}</td>
-                <td className="p-1">₱{e.amount}</td>
-                <td className="p-1">{e.time}</td>
-                <td className="p-1">₱{e.balance}</td>
-              </tr>
-            )) : (
-              <tr><td colSpan="7" className="p-2 text-center text-gray-500 text-xs">No recent prepaid events available.</td></tr>
+        <div className="flex items-center">
+          <div className="bg-white p-2 rounded-md shadow-sm inline-flex items-center gap-2">
+            <label className="text-xs text-gray-600">Filter:</label>
+            <select
+              value={filterType}
+              onChange={(e) => {
+                setFilterType(e.target.value);
+                if (e.target.value !== "custom") {
+                  setStartDate("");
+                  setEndDate("");
+                }
+              }}
+              className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="all">All</option>
+              <option value="today">Today</option>
+              <option value="custom">Custom</option>
+            </select>
+
+            {filterType === "custom" && (
+              <>
+                <input
+                  type="date"
+                  value={startDate}
+                  max={today}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  max={today}
+                  disabled={!startDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                />
+              </>
             )}
-          </tbody>
-        </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 1: KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+        <KpiCard title="Total Revenue" value={`₱${sampleData.totalRevenue.toLocaleString()}`} color="text-green-600" />
+        <KpiCard title="Members Inside" value={sampleData.membersInside} color="text-blue-600" />
+        <KpiCard title="Total Logins" value={sampleData.totalLogins} color="text-purple-600" />
+        <KpiCard title="Total Transactions" value={sampleData.totalTransactions} color="text-amber-600" />
+        <KpiCard title="Peak Hour" value={sampleData.peakHour} color="text-gray-700" />
+      </div>
+
+      {/* Row 2: Engagement & Activity Snapshot - 60/40 split */}
+      <div className="flex flex-col lg:flex-row gap-2">
+        <div className="lg:w-[60%] w-full">
+          <div className="bg-white p-3 rounded-md shadow-sm h-full">
+            <h2 className="text-sm font-semibold text-gray-800 mb-2">🏆 Top 3 Most Active Members</h2>
+            <div className="grid grid-cols-3 gap-3 text-center mt-2 text-[10px]">
+              {[1, 0, 2].map((i) => {
+                const member = sampleData.topMembers[i];
+                return member ? (
+                  <div
+                    key={member.rfid_tag || i}
+                    className={`p-3 rounded shadow flex flex-col items-center gap-2 ${
+                      i === 0
+                        ? "bg-yellow-100 text-yellow-700 scale-105 z-10"
+                        : i === 1
+                        ? "bg-gray-200 text-gray-700"
+                        : "bg-orange-100 text-orange-700"
+                    }`}
+                  >
+                    <div className="text-2xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</div>
+                    <img
+                      src={`http://localhost:5000/${member.profile_image_url || "default-profile.png"}`}
+                      alt={member.full_name}
+                      onError={(e) => {
+                        e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%236366F1' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='40' fill='white'%3E" + (member.full_name ? member.full_name.charAt(0).toUpperCase() : "?") + "%3C/text%3E%3C/svg%3E";
+                      }}
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-white shadow"
+                    />
+                    <p className="font-semibold text-sm">{member.full_name}</p>
+                    <p className="text-[10px]">Visits: {member.login_count}</p>
+                    <p className="text-[10px] italic text-gray-500">{member.rfid_tag}</p>
+                  </div>
+                ) : (
+                  <div key={i} className="p-3 rounded shadow bg-gray-50 flex items-center justify-center text-gray-400 text-xs min-h-[160px]">
+                    No data
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <div id="topupsVsDeductionsChart" className="lg:w-[40%] w-full">
+          <ChartCard title="Top-Ups vs Session Deductions">
+            <Doughnut data={topupsVsDeductionsData} options={pieOptions} />
+          </ChartCard>
+        </div>
+      </div>
+
+      {/* Row 3: Revenue Insights - 40/60 split */}
+      <div className="flex flex-col lg:flex-row gap-2">
+        <div id="commissionChart" className="lg:w-[40%] w-full">
+          <ChartCard title="SwiftPass Commission">
+            <Pie data={commissionData} options={pieOptions} />
+          </ChartCard>
+        </div>
+        <div id="revenueByActionChart" className="lg:w-[60%] w-full">
+          <ChartCard title="Revenue by Action Type">
+            <Bar data={revenueByActionData} options={chartOptions} />
+          </ChartCard>
+        </div>
+      </div>
+
+      {/* Row 4: Temporal Patterns - 60/40 split */}
+      <div className="flex flex-col lg:flex-row gap-2">
+        <div id="scansByHourChart" className="lg:w-[60%] w-full">
+          <ChartCard title="Logins by Hour (24 Hours)">
+            <Line 
+              data={scansByHourData}
+              options={{
+                ...chartOptions,
+                scales: {
+                  y: { beginAtZero: true },
+                },
+              }}
+            />
+          </ChartCard>
+        </div>
+
+        <div className="lg:w-[40%] w-full">
+          <div className="bg-white rounded-md shadow-sm p-3 h-full">
+            <h2 className="text-sm font-semibold text-gray-800 mb-2">
+              💳 Recent Prepaid Events ({sampleData.recentEvents.length})
+            </h2>
+            <div className="overflow-y-auto max-h-[250px]">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Member</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Action</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Amount</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sampleData.recentEvents.length > 0 ? (
+                    sampleData.recentEvents.map((event, idx) => (
+                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                        <td className="py-2 px-3 text-xs text-gray-800">{event.name}</td>
+                        <td className="py-2 px-3">
+                          <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-medium ${
+                            event.action === "Tapup" 
+                              ? "bg-green-100 text-green-700" 
+                              : event.action === "session_fee"
+                              ? "bg-orange-100 text-orange-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}>
+                            {event.action}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-xs text-gray-600">₱{event.amount}</td>
+                        <td className="py-2 px-3 text-xs text-gray-600">₱{event.balance}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="py-4 text-center text-gray-500 text-xs">
+                        No recent events
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
 const KpiCard = ({ title, value, color }) => (
-  <div className="bg-white p-2 rounded-md shadow-sm">
+  <div className="bg-white p-3 rounded-md shadow-sm">
     <h2 className="text-xs text-gray-500">{title}</h2>
     <p className={`text-lg font-bold ${color}`}>{value}</p>
   </div>
 );
 
 const ChartCard = ({ title, children }) => (
-  <div className="bg-white p-2 rounded-md shadow-sm">
-    <h2 className="text-sm font-semibold text-gray-800 mb-1">{title}</h2>
+  <div className="bg-white p-3 rounded-md shadow-sm h-full">
+    <h2 className="text-sm font-semibold text-gray-800 mb-2">{title}</h2>
     <div className="w-full h-52 sm:h-64">{children}</div>
   </div>
 );

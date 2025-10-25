@@ -27,7 +27,6 @@ router.get("/member-by-rfid/:rfid", async (req, res) => {
     return res.status(500).json({ message: "Server error." });
   }
 });
-
 router.post("/renew-subscription", async (req, res) => {
   const {
     rfid_tag,
@@ -58,6 +57,59 @@ router.post("/renew-subscription", async (req, res) => {
   }
 
   try {
+    // ✅ FIRST: Fetch the member to get current subscription_expiry
+    const [memberRows] = await dbSuperAdmin.promise().query(
+      "SELECT id, subscription_expiry FROM MembersAccounts WHERE rfid_tag = ? AND system_type = 'subscription' LIMIT 1",
+      [rfid_tag]
+    );
+
+    if (memberRows.length === 0) {
+      return res.status(404).json({ message: "Member not found or not a subscription account." });
+    }
+
+    const memberId = memberRows[0].id;
+    const currentExpiry = memberRows[0].subscription_expiry;
+
+    // ✅ Calculate new dates based on current expiry (if valid and future) or today
+    let startDate, expiryDate;
+    const today = new Date();
+    const currentExpiryDate = new Date(currentExpiry);
+
+    if (!isNaN(currentExpiryDate.getTime()) && currentExpiryDate > today) {
+      // Subscription is still valid - extend from current expiry
+      startDate = currentExpiryDate;
+    } else {
+      // Subscription expired or invalid - start from today
+      startDate = today;
+    }
+
+    // Get duration from the plan (you need to fetch this from Pricing table)
+    const [planRows] = await dbSuperAdmin.promise().query(
+      "SELECT duration_in_days FROM Pricing WHERE admin_id = ? AND plan_name = ? LIMIT 1",
+      [admin_id, plan_name]
+    );
+
+    if (planRows.length === 0) {
+      return res.status(404).json({ message: "Plan not found." });
+    }
+
+    const durationInDays = planRows[0].duration_in_days;
+
+    // Calculate expiry date
+    expiryDate = new Date(startDate);
+    expiryDate.setDate(expiryDate.getDate() + durationInDays);
+
+    // Format dates as YYYY-MM-DD
+    const formattedStart = startDate.toISOString().split('T')[0];
+    const formattedExpiry = expiryDate.toISOString().split('T')[0];
+
+    console.log("📅 Renewal Dates:", {
+      currentExpiry,
+      startDate: formattedStart,
+      expiryDate: formattedExpiry,
+      durationInDays
+    });
+
     // Update member with subscription details AND set status to 'active'
     const updateSql = `
       UPDATE MembersAccounts
@@ -72,22 +124,14 @@ router.post("/renew-subscription", async (req, res) => {
     const [updateResult] = await dbSuperAdmin.promise().query(updateSql, [
       subscription_type,
       paymentNumber,
-      subscription_start,
-      subscription_expiry,
+      formattedStart,
+      formattedExpiry,
       rfid_tag
     ]);
 
     if (updateResult.affectedRows === 0) {
-      return res.status(404).json({ message: "Member not found or not a subscription account." });
+      return res.status(404).json({ message: "Failed to update member." });
     }
-
-    // Get member ID for transaction records
-    const [memberRow] = await dbSuperAdmin.promise().query(
-      "SELECT id FROM MembersAccounts WHERE rfid_tag = ? LIMIT 1",
-      [rfid_tag]
-    );
-
-    const memberId = memberRow[0]?.id;
 
     // Insert into AdminTransactions
     const insertTxnSql = `
@@ -125,15 +169,15 @@ router.post("/renew-subscription", async (req, res) => {
       paymentMethodFormatted.toLowerCase() === "gcash" ? reference : null,
       staff_name,
       subscription_type,
-      subscription_start,
-      subscription_expiry
+      formattedStart,
+      formattedExpiry
     ]);
 
     return res.status(200).json({ 
       message: "✅ Subscription renewed successfully. Member is now active.",
       status: "active",
-      subscription_start,
-      subscription_expiry
+      subscription_start: formattedStart,
+      subscription_expiry: formattedExpiry
     });
 
   } catch (err) {

@@ -55,7 +55,7 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
 
     // ✅ Get minimum session fee (session_fee from PartnerAdmins table)
     const [adminData] = await dbSuperAdmin.promise().query(
-      "SELECT session_fee FROM AdminAccounts; WHERE id = ? LIMIT 1",
+      "SELECT session_fee FROM AdminAccounts WHERE id = ? LIMIT 1",
       [admin_id]
     );
     

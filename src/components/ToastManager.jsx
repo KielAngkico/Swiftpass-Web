@@ -26,15 +26,22 @@ export const ToastProvider = ({ children, currentUserRole, currentGymId }) => {
     setConfirm({ message, onYes, onNo });
   }, []);
 
-  const handleYes = () => {
-    confirm?.onYes?.();
-    setConfirm(null);
-  };
+const handleYes = () => {
+  const yes = confirm?.onYes;
+  setConfirm(null);
+  if (typeof yes === "function") {
+    setTimeout(() => yes(), 50);
+  }
+};
 
-  const handleNo = () => {
-    confirm?.onNo?.();
-    setConfirm(null);
-  };
+const handleNo = () => {
+  const no = confirm?.onNo;
+  setConfirm(null);
+  if (typeof no === "function") {
+    setTimeout(() => no(), 50);
+  }
+};
+
 
   const getBorderColor = (type) => {
     switch (type) {

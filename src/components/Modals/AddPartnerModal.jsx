@@ -7,8 +7,8 @@ const AddPartnerModal = ({
   onFormChange,
   onSubmit,
   mode = "add",
-  onScanSlot, // ✅ NEW PROP for RFID scan
-  waitingForSlot = null, // ✅ NEW PROP to show scanning status
+  onScanSlot,
+  waitingForSlot = null,
 }) => {
   if (!isOpen) return null;
 
@@ -45,12 +45,12 @@ const AddPartnerModal = ({
           </button>
         </div>
 
-        {/* ✅ Waiting indicator */}
+        {/* Waiting indicator */}
         {waitingForSlot && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md animate-pulse">
             <p className="text-xs text-blue-700">
               <strong>⏳ Waiting for RFID Slot {waitingForSlot}...</strong> Please scan
-              the card now
+              the card now.
             </p>
           </div>
         )}
@@ -58,7 +58,7 @@ const AddPartnerModal = ({
         <form onSubmit={onSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {/* ======================== COLUMN 1 ======================== */}
-            <div className="space-y-3">
+            <div className="space-y-3 md:col-span-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Gym Name
@@ -69,6 +69,20 @@ const AddPartnerModal = ({
                   value={formData.gym_name}
                   onChange={onFormChange}
                   className="w-full p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Gym Address
+                </label>
+                <textarea
+                  name="address"
+                  value={formData.address}
+                  onChange={onFormChange}
+                  className="w-full p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  rows="2"
                   required
                 />
               </div>
@@ -87,77 +101,19 @@ const AddPartnerModal = ({
                 />
               </div>
 
-              {/* ✅ RFID Tag 1 with Scan Now */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  RFID Tag 1 {!isEditMode && <span className="text-red-500">*</span>}
+                  Age
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    name="rfid_tag"
-                    value={formData.rfid_tag}
-                    onChange={onFormChange}
-                    className="flex-1 p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder={
-                      waitingForSlot === 1
-                        ? "Scanning..."
-                        : "Click 'Scan Now' or enter manually"
-                    }
-                    readOnly={waitingForSlot === 1}
-                    required={!isEditMode}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onScanSlot(1)}
-                    disabled={waitingForSlot !== null}
-                    className={`px-3 py-2 text-white text-xs rounded-md whitespace-nowrap transition-colors ${
-                      waitingForSlot === 1
-                        ? "bg-blue-400 cursor-wait"
-                        : waitingForSlot !== null
-                        ? "bg-gray-300 cursor-not-allowed"
-                        : "bg-blue-500 hover:bg-blue-600"
-                    }`}
-                  >
-                    {waitingForSlot === 1 ? "Scanning..." : "Scan Now"}
-                  </button>
-                </div>
-              </div>
-
-              {/* ✅ RFID Tag 2 with Scan Now */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  RFID Tag 2 <span className="text-gray-500">(Optional)</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    name="rfid_tag_2"
-                    value={formData.rfid_tag_2 || ""}
-                    onChange={onFormChange}
-                    className="flex-1 p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder={
-                      waitingForSlot === 2
-                        ? "Scanning..."
-                        : "Click 'Scan Now' or enter manually"
-                    }
-                    readOnly={waitingForSlot === 2}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onScanSlot(2)}
-                    disabled={waitingForSlot !== null}
-                    className={`px-3 py-2 text-white text-xs rounded-md whitespace-nowrap transition-colors ${
-                      waitingForSlot === 2
-                        ? "bg-blue-400 cursor-wait"
-                        : waitingForSlot !== null
-                        ? "bg-gray-300 cursor-not-allowed"
-                        : "bg-blue-500 hover:bg-blue-600"
-                    }`}
-                  >
-                    {waitingForSlot === 2 ? "Scanning..." : "Scan Now"}
-                  </button>
-                </div>
+                <input
+                  type="number"
+                  name="age"
+                  value={formData.age || ""}
+                  onChange={onFormChange}
+                  className="w-full p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter age"
+                  required
+                />
               </div>
 
               <div>
@@ -195,20 +151,80 @@ const AddPartnerModal = ({
 
             {/* ======================== COLUMN 2 ======================== */}
             <div className="space-y-3">
+              {/* RFID 1 */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Gym Address
+                  RFID Tag 1 {!isEditMode && <span className="text-red-500">*</span>}
                 </label>
-                <textarea
-                  name="address"
-                  value={formData.address}
-                  onChange={onFormChange}
-                  className="w-full p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  rows="2"
-                  required
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="rfid_tag"
+                    value={formData.rfid_tag}
+                    onChange={onFormChange}
+                    className="flex-1 p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder={
+                      waitingForSlot === 1
+                        ? "Scanning..."
+                        : "Click 'Scan Now' or enter manually"
+                    }
+                    readOnly={waitingForSlot === 1}
+                    required={!isEditMode}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onScanSlot(1)}
+                    disabled={waitingForSlot !== null}
+                    className={`px-3 py-2 text-white text-xs rounded-md whitespace-nowrap transition-colors ${
+                      waitingForSlot === 1
+                        ? "bg-blue-400 cursor-wait"
+                        : waitingForSlot !== null
+                        ? "bg-gray-300 cursor-not-allowed"
+                        : "bg-blue-500 hover:bg-blue-600"
+                    }`}
+                  >
+                    {waitingForSlot === 1 ? "Scanning..." : "Scan Now"}
+                  </button>
+                </div>
               </div>
 
+              {/* RFID 2 */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  RFID Tag 2 <span className="text-gray-500">(Optional)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="rfid_tag_2"
+                    value={formData.rfid_tag_2 || ""}
+                    onChange={onFormChange}
+                    className="flex-1 p-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder={
+                      waitingForSlot === 2
+                        ? "Scanning..."
+                        : "Click 'Scan Now' or enter manually"
+                    }
+                    readOnly={waitingForSlot === 2}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onScanSlot(2)}
+                    disabled={waitingForSlot !== null}
+                    className={`px-3 py-2 text-white text-xs rounded-md whitespace-nowrap transition-colors ${
+                      waitingForSlot === 2
+                        ? "bg-blue-400 cursor-wait"
+                        : waitingForSlot !== null
+                        ? "bg-gray-300 cursor-not-allowed"
+                        : "bg-blue-500 hover:bg-blue-600"
+                    }`}
+                  >
+                    {waitingForSlot === 2 ? "Scanning..." : "Scan Now"}
+                  </button>
+                </div>
+              </div>
+
+              {/* System Type */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   System Type
@@ -226,6 +242,7 @@ const AddPartnerModal = ({
                 </select>
               </div>
 
+              {/* Session Fee */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Session Fee (₱)
@@ -240,36 +257,6 @@ const AddPartnerModal = ({
                   required
                 />
               </div>
-            </div>
-
-            {/* ======================== COLUMN 3 ======================== */}
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-60 h-60 bg-gray-100 border rounded-md flex items-center justify-center overflow-hidden">
-                {formData.profile_image_url ? (
-                  <img
-                    src={
-                      typeof formData.profile_image_url === "string"
-                        ? formData.profile_image_url
-                        : URL.createObjectURL(formData.profile_image_url)
-                    }
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-xs text-gray-400">No Image</span>
-                )}
-              </div>
-
-              <label className="cursor-pointer bg-blue-500 text-white text-xs px-4 py-2 rounded-md hover:bg-blue-600">
-                Upload Picture
-                <input
-                  type="file"
-                  accept="image/*"
-                  name="profile_image_url"
-                  onChange={onFormChange}
-                  className="hidden"
-                />
-              </label>
             </div>
           </div>
 

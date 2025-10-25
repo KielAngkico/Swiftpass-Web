@@ -48,45 +48,51 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
         console.error("❌ WebSocket error:", msg.message);
         return;
 
-      case "rfid-registration-check":
-        if (msg.data?.rfid_tag) {
-          const { rfid_tag, is_registered } = msg.data;
+case "rfid-registration-check":
+  if (msg.data?.rfid_tag) {
+    const { rfid_tag, is_registered } = msg.data;
 
-          console.log(`📡 RFID Check Result: ${rfid_tag}`);
-          console.log(`   Is Registered: ${is_registered}`);
+    console.log(`📡 RFID Check Result: ${rfid_tag}`);
+    console.log(`   Is Registered: ${is_registered}`);
 
-          const currentPath = window.location.pathname;
-          const isSuperAdminPage = currentPath.startsWith("/SuperAdmin");
+    const currentPath = window.location.pathname;
+    const isSuperAdminPage = currentPath.startsWith("/SuperAdmin");
 
-          if (!isSuperAdminPage) {
-            console.log("Not on SuperAdmin page - no navigation");
-            return;
-          }
+    if (!isSuperAdminPage) {
+      console.log("Not on SuperAdmin page - no navigation");
+      return;
+    }
 
-          const isOnAddClientPage = currentPath === "/SuperAdmin/AddClient";
+    const isOnAddClientPage = currentPath === "/SuperAdmin/AddClient";
 
-          if (isOnAddClientPage) {
-            console.log("🔄 RFID scanned on AddClient page (replacement mode)");
-            customNavigate("/SuperAdmin/AddClient", {
-              state: { rfid_tag, is_registered: true, mode: "replace" }
-            }, "superadmin");
-            return;
-          }
+    // ✅ If already on AddClient and waiting for slot scan
+    if (isOnAddClientPage) {
+      console.log("🔄 On AddClient page - storing RFID for slot selection");
+      sessionStorage.setItem('pendingSlotRfid', rfid_tag);
+      sessionStorage.setItem('rfidScannedAt', Date.now().toString());
+      
+      // Trigger event for AddClient to pick up
+      window.dispatchEvent(new Event('rfid-slot-scanned'));
+      return;
+    }
 
-          if (is_registered) {
-            console.log("✅ Navigating to AddClient");
-            customNavigate("/SuperAdmin/AddClient", {
-              state: { rfid_tag, is_registered: true, mode: "add" }
-            }, "superadmin");
-          } else {
-            console.log("❌ Navigating to ItemsInventory for registration");
-            customNavigate("/SuperAdmin/ItemsInventory", {
-              state: { rfid_tag, is_registered: false }
-            }, "superadmin");
-          }
+    // ✅ If registered, navigate to AddClient (open modal, but don't fill RFID)
+    if (is_registered) {
+      console.log("✅ Navigating to AddClient - modal will open");
+      customNavigate("/SuperAdmin/AddClient", {
+        state: { 
+          openModal: true, // Just open modal, don't pass rfid_tag
+          timestamp: Date.now() 
         }
-        return;
-
+      }, "superadmin");
+    } else {
+      console.log("❌ Navigating to ItemsInventory for registration");
+      customNavigate("/SuperAdmin/ItemsInventory", {
+        state: { rfid_tag, is_registered: false }
+      }, "superadmin");
+    }
+  }
+  return;
       case "rfid-replacement-scanned":
         if (msg.data?.rfid_tag) {
           console.log("📡 Replacement RFID Scanned:", msg.data.rfid_tag);

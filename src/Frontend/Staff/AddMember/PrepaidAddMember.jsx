@@ -16,10 +16,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
     phone_number: "",
     address: "",
     email: "",
-    password: "123",
-    plan_name: "",
-    payment: "",
-    initial_balance: "",
+    password: "1234",
     payment_method: "",
     reference: "",
     emergency_contact_person: "",
@@ -30,7 +27,6 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [serverMessage, setServerMessage] = useState("");
-  const [availablePlans, setAvailablePlans] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [membershipFee, setMembershipFee] = useState(0);
 
@@ -59,23 +55,10 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
         const { data } = await api.get(`/api/payment-methods/${adminId}`);
         setPaymentMethods(data);
       } catch (err) {
-        console.error(" Failed to fetch payment methods:", err);
+        console.error("Failed to fetch payment methods:", err);
       }
     };
     fetchPaymentMethods();
-  }, [adminId]);
-
-  useEffect(() => {
-    if (!adminId) return; 
-    const fetchPlans = async () => {
-      try {
-        const { data } = await api.get(`/api/get-pricing/${adminId}`);
-        setAvailablePlans(data.filter((plan) => plan.system_type === "prepaid_entry"));
-      } catch (err) {
-        console.error("❌ Failed to fetch plans:", err);
-      }
-    };
-    fetchPlans();
   }, [adminId]);
 
   useEffect(() => {
@@ -108,29 +91,6 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
-    if (name === "plan_name") {
-      const selectedPlan = availablePlans.find((plan) => plan.plan_name === value);
-      if (selectedPlan) {
-        setFormData((prev) => ({
-          ...prev,
-          plan_name: value,
-          payment: selectedPlan.amount_to_pay,
-          initial_balance: selectedPlan.amount_to_credit,
-        }));
-      } else {
-        setFormData((prev) => ({ ...prev, plan_name: value, payment: "", initial_balance: "" }));
-      }
-      return;
-    }
-
-    if (name === "payment") {
-      const amount = parseFloat(value);
-      const computedBalance = isNaN(amount) ? "" : amount.toFixed(2);
-      setFormData((prev) => ({ ...prev, payment: value, initial_balance: computedBalance }));
-      return;
-    }
-
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -142,6 +102,11 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
       return;
     }
 
+    if (membershipFee <= 0) {
+      showToast({ message: "Membership fee not found. Please contact administrator.", type: "error" });
+      return;
+    }
+
     const requestBody = new FormData();
 
     Object.entries({ ...formData, staff_name: staffName, admin_id: adminId }).forEach(([key, value]) => {
@@ -149,6 +114,10 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
         requestBody.append(key, value);
       }
     });
+
+    requestBody.append("plan_name", "Membership Fee");
+    requestBody.append("payment", membershipFee);
+    requestBody.append("initial_balance", "0");
 
     if (selectedImage) requestBody.append("member_image", selectedImage);
 
@@ -175,10 +144,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
         phone_number: "",
         address: "",
         email: "",
-        password: "123",
-        plan_name: "",
-        payment: "",
-        initial_balance: "",
+        password: "1234",
         payment_method: "",
         reference: "",
         emergency_contact_person: "",
@@ -258,7 +224,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
                 <input
                   type="text"
                   name="password"
-                  value="123"
+                  value="1234"
                   readOnly
                   className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-gray-100 text-gray-700 cursor-not-allowed"
                 />
@@ -364,46 +330,8 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
             </section>
 
             <section>
-              <h2 className="text-sm font-semibold text-gray-700 mb-2">Plan Details</h2>
-              <select
-                name="plan_name"
-                value={formData.plan_name}
-                onChange={handleChange}
-                required
-                className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
-              >
-                <option value="">-- Choose a Plan --</option>
-                {availablePlans.map((plan) => (
-                  <option key={plan.id} value={plan.plan_name}>
-                    {plan.plan_name} — ₱{plan.amount_to_pay} → ₱{plan.amount_to_credit}
-                  </option>
-                ))}
-              </select>
-            </section>
-
-            <section>
               <h2 className="text-sm font-semibold text-gray-700 mb-2">Payment Information</h2>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Payment (₱)</label>
-                  <input
-                    type="text"
-                    name="payment"
-                    value={formData.payment}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Balance Added</label>
-                  <input
-                    type="text"
-                    name="initial_balance"
-                    value={formData.initial_balance}
-                    readOnly
-                    className="w-full border border-gray-200 bg-gray-50 px-3 py-2 rounded text-sm text-gray-700"
-                  />
-                </div>
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">Payment Method</label>
                   <select

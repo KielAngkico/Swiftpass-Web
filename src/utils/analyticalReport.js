@@ -272,34 +272,6 @@ export const generateAnalyticsPDF = async (analyticsData, filterInfo = {}) => {
   return filename;
 };
 
-/**
- * Helper function to capture a chart canvas as an image
- */
-async function captureChartAsImage(chartId) {
-  return new Promise((resolve) => {
-    try {
-      const chartElement = document.getElementById(chartId);
-      if (!chartElement) {
-        console.warn(`Chart with id "${chartId}" not found`);
-        resolve(null);
-        return;
-      }
-
-      const canvas = chartElement.querySelector('canvas');
-      if (!canvas) {
-        console.warn(`Canvas not found in chart "${chartId}"`);
-        resolve(null);
-        return;
-      }
-
-      const imageData = canvas.toDataURL('image/png');
-      resolve(imageData);
-    } catch (error) {
-      console.error(`Error capturing chart "${chartId}":`, error);
-      resolve(null);
-    }
-  });
-}
 export const generatePrepaidAnalyticalPDF = async (analyticsData, filterInfo = {}) => {
   console.log("🔍 generatePrepaidAnalyticalPDF received:", { analyticsData, filterInfo });
   
@@ -574,4 +546,4 @@ async function captureChartAsImage(chartId) {
       resolve(null);
     }
   });
-}
+}git 

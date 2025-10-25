@@ -4,7 +4,7 @@ const bcrypt = require("bcrypt");
 const dbSuperAdmin = require("../db");
 const upload = require("../middleware/upload");
 
-// Add Prepaid Member - CORRECTED
+// Add Prepaid Member - CORRECTED with inactive status and balance check
 router.post("/add-member", upload.single("member_image"), async (req, res) => {
   console.log("Received req.body:", req.body);
   console.log("Received req.file:", req.file);
@@ -53,19 +53,31 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
       return res.status(400).json({ message: "RFID tag already exists." });
     }
 
+    // ✅ Get minimum session fee (session_fee from PartnerAdmins table)
+    const [adminData] = await dbSuperAdmin.promise().query(
+      "SELECT session_fee FROM PartnerAdmins WHERE id = ? LIMIT 1",
+      [admin_id]
+    );
+    
+    const minimumSessionFee = adminData.length > 0 ? parseFloat(adminData[0].session_fee) : 0;
+    
+    // ✅ Determine status based on balance vs minimum session fee
+    const memberStatus = initialBalance >= minimumSessionFee ? 'active' : 'inactive';
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ ADDED system_type = 'prepaid_entry'
+    // ✅ Set status dynamically based on balance check
     const insertMemberSql = `
       INSERT INTO MembersAccounts
       (rfid_tag, full_name, gender, age, phone_number, address, email, password, profile_image_url, 
        admin_id, staff_name, initial_balance, current_balance, subscription_type, payment, status, 
        system_type, emergency_contact_person, emergency_contact_number, emergency_contact_relationship)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'prepaid_entry', ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'prepaid_entry', ?, ?, ?)
     `;
     const [insertResult] = await dbSuperAdmin.promise().query(insertMemberSql, [
       rfid_tag, full_name, gender, ageNumber, phone_number, address, email, hashedPassword,
       profileImage, admin_id, staff_name, initialBalance, initialBalance, plan_name, paymentNumber,
+      memberStatus, // ✅ Dynamic status
       emergency_contact_person || null, emergency_contact_number || null, emergency_contact_relationship || null
     ]);
     const memberId = insertResult.insertId;
@@ -95,9 +107,12 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
     ]);
 
     return res.status(200).json({
-      message: "✅ Member and transaction added successfully!",
+      message: memberStatus === 'inactive' 
+        ? "✅ Member added! Please top-up to activate (balance below minimum session fee)."
+        : "✅ Member added and activated successfully!",
       rfid_tag, full_name, age: ageNumber, phone_number, address, email, staff_name,
-      profile_image_url: profileImage, initial_balance: initialBalance, balance_after: initialBalance, payment: paymentNumber
+      profile_image_url: profileImage, initial_balance: initialBalance, balance_after: initialBalance, 
+      payment: paymentNumber, status: memberStatus, minimum_session_fee: minimumSessionFee
     });
   } catch (err) {
     console.error("❌ Error adding member:", err);

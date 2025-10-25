@@ -334,13 +334,12 @@ const PrepaidAnalytical = ({ adminUser }) => {
                   >
                     <div className="text-2xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</div>
                     <img
-                      src={`http://localhost:5000/${member.profile_image_url || "default-profile.png"}`}
+                      src={`${import.meta.env.VITE_IP}/${member.profile_image_url || "uploads/members/default.jpg"}`}
                       alt={member.full_name}
-                      onError={(e) => {
-                        e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%236366F1' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='40' fill='white'%3E" + (member.full_name ? member.full_name.charAt(0).toUpperCase() : "?") + "%3C/text%3E%3C/svg%3E";
-                      }}
-                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-white shadow"
+                      className="w-16 h-16 object-cover rounded-full border"
                     />
+
+
                     <p className="font-semibold text-sm">{member.full_name}</p>
                     <p className="text-[10px]">Visits: {member.login_count}</p>
                     <p className="text-[10px] italic text-gray-500">{member.rfid_tag}</p>

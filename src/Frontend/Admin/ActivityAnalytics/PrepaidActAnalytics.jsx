@@ -289,14 +289,16 @@ const PrepaidActAnalytics = () => {
                     <td className="px-2 py-1">{i + 1}</td>
                     <td className="px-2 py-1">
                       {log.profile_image_url ? (
-                        <img
-                          src={`http://localhost:5000/${log.profile_image_url}`}
-                          alt={log.full_name}
-                          onError={(e) => {
-                            e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%236366F1' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='40' fill='white'%3E" + (log.full_name ? log.full_name.charAt(0).toUpperCase() : "?") + "%3C/text%3E%3C/svg%3E";
-                          }}
-                          className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
-                        />
+                      <img
+                        src={`${import.meta.env.VITE_IP}/${log.profile_image_url || "uploads/members/default.jpg"}`}
+                        alt={log.full_name}
+                        onError={(e) => {
+                          e.target.src = `${import.meta.env.VITE_IP}/uploads/members/default.jpg`;
+                        }}
+                        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
+                      />
+
+
                       ) : (
                         <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-200 flex items-center justify-center text-[8px] sm:text-xs text-gray-500">
                           {log.full_name ? log.full_name.charAt(0).toUpperCase() : "?"}

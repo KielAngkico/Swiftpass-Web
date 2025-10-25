@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import SuperAdminSidebar from "../../components/SuperAdminSidebar";
 import AddPartnerModal from "../../components/Modals/AddPartnerModal";
+import ViewPartnerModal from "../../components/Modals/ViewPartnerModal";
 import { API_URL } from "../../config";
 import { useLocation } from "react-router-dom";
 import { useToast } from "../../components/ToastManager";
@@ -11,7 +12,7 @@ const AddClient = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [editingAdmin, setEditingAdmin] = useState(null);
-  const [waitingForSlot, setWaitingForSlot] = useState(null); // ✅ CHANGED from isReplacingRfid
+  const [waitingForSlot, setWaitingForSlot] = useState(null);
   const [originalRfid, setOriginalRfid] = useState("");
   const [originalRfid2, setOriginalRfid2] = useState("");
   
@@ -46,19 +47,18 @@ const AddClient = () => {
     fetchAdmins();
   }, []);
 
-  // ✅ Handle navigation from RFID scan (just open modal, don't fill RFID)
+  // Handle navigation from RFID scan
   useEffect(() => {
     if (location.state?.openModal) {
       console.log("📨 Opening Add Partner modal (from RFID scan)");
       setShowAddForm(true);
       setModalMode("add");
       
-      // Clear navigation state
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
-  // ✅ Listen for slot-specific RFID scans
+  // Listen for slot-specific RFID scans
   useEffect(() => {
     const handleSlotScan = () => {
       if (!waitingForSlot) return;
@@ -67,12 +67,10 @@ const AddClient = () => {
       const scannedAt = sessionStorage.getItem('rfidScannedAt');
       
       if (scannedRfid && scannedAt) {
-        // Check if scan is recent (within last 3 seconds)
         const scanAge = Date.now() - parseInt(scannedAt);
         if (scanAge < 3000) {
           console.log(`📨 RFID scanned for slot ${waitingForSlot}:`, scannedRfid);
           
-          // Put RFID in the correct slot
           if (waitingForSlot === 1) {
             setFormData((prev) => ({ ...prev, rfid_tag: scannedRfid }));
             showToast({ message: "✅ RFID Slot 1 scanned!", type: "success" });
@@ -81,10 +79,8 @@ const AddClient = () => {
             showToast({ message: "✅ RFID Slot 2 scanned!", type: "success" });
           }
           
-          // Clear waiting state
           setWaitingForSlot(null);
           
-          // Clear session storage
           sessionStorage.removeItem('pendingSlotRfid');
           sessionStorage.removeItem('rfidScannedAt');
         }
@@ -106,7 +102,6 @@ const AddClient = () => {
     }
   };
 
-  // ✅ Handle "Scan Now" button clicks
   const handleScanSlot = (slotNumber) => {
     setWaitingForSlot(slotNumber);
     showToast({ 
@@ -115,7 +110,6 @@ const AddClient = () => {
       duration: 5000
     });
     
-    // Auto-cancel after 10 seconds
     setTimeout(() => {
       setWaitingForSlot((current) => {
         if (current === slotNumber) {
@@ -139,9 +133,7 @@ const AddClient = () => {
 
     try {
       if (modalMode === "edit" && editingAdmin) {
-        // ✅ CHECK IF RFID 1 CHANGED
         const rfid1Changed = formData.rfid_tag !== originalRfid;
-        // ✅ CHECK IF RFID 2 CHANGED
         const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
 
         if (rfid1Changed && originalRfid) {
@@ -164,7 +156,6 @@ const AddClient = () => {
           );
         }
 
-        // ✅ UPDATE OTHER FIELDS
         const formPayload = new FormData();
         formPayload.append("admin_name", formData.admin_name);
         formPayload.append("age", Number(formData.age));
@@ -215,7 +206,6 @@ const AddClient = () => {
           )
         );
       } else {
-        // ✅ ADD NEW PARTNER
         const formPayload = new FormData();
         formPayload.append("admin_name", formData.admin_name);
         formPayload.append("rfid_tag", formData.rfid_tag);
@@ -263,11 +253,11 @@ const AddClient = () => {
       setShowAddForm(false);
       setEditingAdmin(null);
       setModalMode("add");
-      setWaitingForSlot(null); // ✅ CHANGED
+      setWaitingForSlot(null);
       setOriginalRfid("");
       setOriginalRfid2("");
-      sessionStorage.removeItem('pendingSlotRfid'); // ✅ ADDED
-      sessionStorage.removeItem('rfidScannedAt'); // ✅ ADDED
+      sessionStorage.removeItem('pendingSlotRfid');
+      sessionStorage.removeItem('rfidScannedAt');
       setFormData({
         admin_name: "",
         age: "",
@@ -356,11 +346,11 @@ const AddClient = () => {
     setShowAddForm(false);
     setEditingAdmin(null);
     setModalMode("add");
-    setWaitingForSlot(null); // ✅ CHANGED
+    setWaitingForSlot(null);
     setOriginalRfid("");
-    setOriginalRfid2(""); // ✅ ADDED
-    sessionStorage.removeItem('pendingSlotRfid'); // ✅ ADDED
-    sessionStorage.removeItem('rfidScannedAt'); // ✅ ADDED
+    setOriginalRfid2("");
+    sessionStorage.removeItem('pendingSlotRfid');
+    sessionStorage.removeItem('rfidScannedAt');
     setFormData({
       admin_name: "",
       age: "",
@@ -372,7 +362,7 @@ const AddClient = () => {
       session_fee: "",
       profile_image_url: null,
       rfid_tag: "",
-      rfid_tag_2: "", // ✅ ADDED
+      rfid_tag_2: "",
     });
   };
 
@@ -410,8 +400,15 @@ const AddClient = () => {
           onFormChange={handleChange}
           onSubmit={handleSubmit}
           mode={modalMode}
-          onScanSlot={handleScanSlot} // ✅ NEW PROP
-          waitingForSlot={waitingForSlot} // ✅ NEW PROP
+          onScanSlot={handleScanSlot}
+          waitingForSlot={waitingForSlot}
+        />
+
+        <ViewPartnerModal
+          isOpen={!!selectedAdmin}
+          onClose={() => setSelectedAdmin(null)}
+          admin={selectedAdmin}
+          onEdit={handleEdit}
         />
 
         {admins.length === 0 ? (
@@ -498,55 +495,6 @@ const AddClient = () => {
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {selectedAdmin && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-5 w-full max-w-sm shadow-lg">
-              {selectedAdmin.profile_image_url && (
-                <img
-                  src={`${API_URL}${selectedAdmin.profile_image_url}`}
-                  alt={selectedAdmin.gym_name}
-                  className="w-full h-36 object-cover rounded-md mb-3"
-                />
-              )}
-              <h2 className="text-lg font-semibold mb-2">
-                {selectedAdmin.gym_name}
-              </h2>
-              <p className="text-sm text-gray-700">
-                <strong>Owner:</strong> {selectedAdmin.admin_name}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Email:</strong> {selectedAdmin.email}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Age:</strong> {selectedAdmin.age}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Address:</strong> {selectedAdmin.address}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>System:</strong> {selectedAdmin.system_type}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Session Fee:</strong> ₱{selectedAdmin.session_fee}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>RFID Tag 1:</strong> {selectedAdmin.rfid_tag || "N/A"}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>RFID Tag 2:</strong> {selectedAdmin.rfid_tag_2 || "N/A"}
-              </p>
-              <div className="mt-4 flex justify-end">
-                <button
-                  className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-xs hover:bg-gray-300"
-                  onClick={() => setSelectedAdmin(null)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>

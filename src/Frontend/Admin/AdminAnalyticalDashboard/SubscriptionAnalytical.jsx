@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import api from "../../../api";
 import { generateAnalyticsPDF } from "../../../utils/analyticalReport";
 import {
-  Chart as ChartJS,
+Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,

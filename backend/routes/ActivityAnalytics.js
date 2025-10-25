@@ -2,18 +2,44 @@ const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
 
+// Helper function to validate date format
+function isValidDate(dateString) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return false;
+  const date = new Date(dateString);
+  return date instanceof Date && !isNaN(date);
+}
+
 router.get("/subscription-activity-analytics", async (req, res) => {
   console.log("Received query params:", req.query);
   const { admin_id, filter_type = "all", start_date, end_date } = req.query;
   
-  if (!admin_id) return res.status(400).json({ error: "Missing admin_id" });
+  // Validate admin_id
+  if (!admin_id || isNaN(admin_id)) {
+    return res.status(400).json({ error: "Invalid admin_id" });
+  }
+
+  // Validate dates if custom filter
+  if (filter_type === "custom") {
+    if (!start_date || !end_date) {
+      return res.status(400).json({ error: "start_date and end_date required for custom filter" });
+    }
+    if (!isValidDate(start_date) || !isValidDate(end_date)) {
+      return res.status(400).json({ error: "Invalid date format. Use YYYY-MM-DD" });
+    }
+    if (new Date(start_date) > new Date(end_date)) {
+      return res.status(400).json({ error: "start_date must be before end_date" });
+    }
+  }
 
   let entryDateCondition = "1=1";
+  let queryParams = [admin_id];
   
   if (filter_type === "today") {
     entryDateCondition = "DATE(entry_time) = CURDATE()";
   } else if (filter_type === "custom" && start_date && end_date) {
-    entryDateCondition = `DATE(entry_time) BETWEEN '${start_date}' AND '${end_date}'`;
+    // ✅ SECURE - Use parameterized query
+    entryDateCondition = "DATE(entry_time) BETWEEN ? AND ?";
+    queryParams.push(start_date, end_date);
   }
 
   try {
@@ -23,9 +49,10 @@ router.get("/subscription-activity-analytics", async (req, res) => {
        WHERE admin_id = ?
          AND system_type = 'subscription'
          AND ${entryDateCondition}`,
-      [admin_id]
+      queryParams
     );
 
+    // Update query params for peak result
     const [peakResult] = await dbSuperAdmin.promise().query(
       `SELECT HOUR(entry_time) AS hour, COUNT(*) AS count
        FROM AdminEntryLogs
@@ -35,7 +62,7 @@ router.get("/subscription-activity-analytics", async (req, res) => {
        GROUP BY hour
        ORDER BY count DESC
        LIMIT 1`,
-      [admin_id]
+      queryParams
     );
 
     const peakHourFormatted = peakResult.length
@@ -59,7 +86,7 @@ router.get("/subscription-activity-analytics", async (req, res) => {
          AND ${entryDateCondition}
        ORDER BY e.entry_time DESC
        LIMIT 50`,
-      [admin_id]
+      queryParams
     );
 
     const responseData = {
@@ -73,15 +100,37 @@ router.get("/subscription-activity-analytics", async (req, res) => {
 
   } catch (err) {
     console.error("Error fetching subscription activity analytics:", err);
-    res.status(500).json({ error: "Internal server error", details: err.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-
 router.get("/prepaid-activity-analytics", async (req, res) => {
   console.log("Received query params:", req.query);
-  const { admin_id, range, system_type = "prepaid_entry" } = req.query;
-  if (!admin_id) return res.status(400).json({ error: "Missing admin_id" });
+  const { admin_id, range, system_type = "prepaid_entry", start_date, end_date } = req.query;
+  
+  // Validate admin_id
+  if (!admin_id || isNaN(admin_id)) {
+    return res.status(400).json({ error: "Invalid admin_id" });
+  }
+
+  // Validate system_type
+  const validSystemTypes = ["prepaid_entry", "subscription"];
+  if (!validSystemTypes.includes(system_type)) {
+    return res.status(400).json({ error: "Invalid system_type" });
+  }
+
+  // Validate dates if provided
+  if ((start_date || end_date)) {
+    if (!start_date || !end_date) {
+      return res.status(400).json({ error: "Both start_date and end_date required" });
+    }
+    if (!isValidDate(start_date) || !isValidDate(end_date)) {
+      return res.status(400).json({ error: "Invalid date format. Use YYYY-MM-DD" });
+    }
+    if (new Date(start_date) > new Date(end_date)) {
+      return res.status(400).json({ error: "start_date must be before end_date" });
+    }
+  }
 
   const isPrepaid = system_type === "prepaid_entry";
 
@@ -97,16 +146,21 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
     "last-7-days": "DATE(t.transaction_date) BETWEEN CURDATE() - INTERVAL 7 DAY AND CURDATE()",
   };
 
-  let entryDateCondition = "1=1"; 
-  if (req.query.start_date && req.query.end_date) {
-    entryDateCondition = `DATE(e.entry_time) BETWEEN '${req.query.start_date}' AND '${req.query.end_date}'`;
+  // ✅ SECURE - Build parameterized conditions
+  let entryDateCondition = "1=1";
+  let entryParams = [];
+  if (start_date && end_date) {
+    entryDateCondition = "DATE(e.entry_time) BETWEEN ? AND ?";
+    entryParams = [start_date, end_date];
   } else if (range && dateConditions[range]) {
     entryDateCondition = dateConditions[range];
   }
 
   let txnDateCondition = "1=1";
-  if (req.query.start_date && req.query.end_date) {
-    txnDateCondition = `DATE(t.transaction_date) BETWEEN '${req.query.start_date}' AND '${req.query.end_date}'`;
+  let txnParams = [];
+  if (start_date && end_date) {
+    txnDateCondition = "DATE(t.transaction_date) BETWEEN ? AND ?";
+    txnParams = [start_date, end_date];
   } else if (range && txnDateConditions[range]) {
     txnDateCondition = txnDateConditions[range];
   }
@@ -116,7 +170,7 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
     : ["new_membership", "renewal"];
 
   try {
-  
+    // Active members inside
     const [activeResult] = await dbSuperAdmin.promise().query(
       `SELECT COUNT(*) AS count
        FROM AdminEntryLogs e
@@ -126,6 +180,7 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
       [system_type, admin_id]
     );
 
+    // Revenue with parameterized dates
     const [revenueResult] = await dbSuperAdmin.promise().query(
       `SELECT IFNULL(SUM(t.amount), 0) AS total
        FROM AdminTransactions t
@@ -134,18 +189,20 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
          AND t.admin_id = ?
          AND t.transaction_type IN (?)
          AND ${txnDateCondition}`,
-      [system_type, admin_id, transactionFilter]
+      [system_type, admin_id, transactionFilter, ...txnParams]
     );
 
+    // Login count with parameterized dates
     const [loginResult] = await dbSuperAdmin.promise().query(
       `SELECT COUNT(*) AS count
        FROM AdminEntryLogs e
        WHERE e.system_type = ?
          AND e.admin_id = ?
          AND ${entryDateCondition}`,
-      [system_type, admin_id]
+      [system_type, admin_id, ...entryParams]
     );
 
+    // Peak hour with parameterized dates
     const [peakResult] = await dbSuperAdmin.promise().query(
       `SELECT HOUR(e.entry_time) AS hour, COUNT(*) AS count
        FROM AdminEntryLogs e
@@ -155,12 +212,14 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
        GROUP BY hour
        ORDER BY count DESC
        LIMIT 1`,
-      [system_type, admin_id]
+      [system_type, admin_id, ...entryParams]
     );
+    
     const peakHourFormatted = peakResult.length
       ? `${peakResult[0].hour}:00–${peakResult[0].hour + 1}:00`
       : "—";
 
+    // Scan chart with parameterized dates
     const [scanChart] = await dbSuperAdmin.promise().query(
       `SELECT HOUR(e.entry_time) AS hour, COUNT(*) AS count
        FROM AdminEntryLogs e
@@ -169,9 +228,10 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
          AND ${entryDateCondition}
        GROUP BY hour
        ORDER BY hour ASC`,
-      [system_type, admin_id]
+      [system_type, admin_id, ...entryParams]
     );
 
+    // Action counts with parameterized dates
     const [actionCounts] = await dbSuperAdmin.promise().query(
       `SELECT t.transaction_type, COUNT(*) AS count
        FROM AdminTransactions t
@@ -181,7 +241,7 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
          AND t.transaction_type IN (?)
          AND ${txnDateCondition}
        GROUP BY t.transaction_type`,
-      [system_type, admin_id, transactionFilter]
+      [system_type, admin_id, transactionFilter, ...txnParams]
     );
 
     let topups = 0;
@@ -205,12 +265,13 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
            AND t.admin_id = ?
            AND t.transaction_type = 'session_fee'
            AND ${txnDateCondition}`,
-        [system_type, admin_id]
+        [system_type, admin_id, ...txnParams]
       );
       scanCount = sessionScanCount[0]?.scans || 0;
-      totalCommission = scanCount * 1; 
+      totalCommission = scanCount * 1;
     }
 
+    // Recent events with parameterized dates
     const [recentEvents] = await dbSuperAdmin.promise().query(
       `SELECT
          t.member_name AS name,
@@ -227,9 +288,10 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
          AND ${txnDateCondition}
        ORDER BY t.transaction_date DESC
        LIMIT 10`,
-      [system_type, admin_id, transactionFilter]
+      [system_type, admin_id, transactionFilter, ...txnParams]
     );
 
+    // Top members (no date filter needed based on your logic)
     const [topMembers] = await dbSuperAdmin.promise().query(
       `SELECT
          e.full_name,
@@ -264,7 +326,6 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
     };
 
     console.log("🚀 Final backend response:", responseData);
-
     res.json(responseData);
 
   } catch (err) {

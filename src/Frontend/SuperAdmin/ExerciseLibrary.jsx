@@ -109,6 +109,8 @@ const openEditModal = (exercise) => {
       });
 
       fetchLocalExercises();
+      showToast({ message: "Exercise added successfully!", type: "success" });
+
       setShowModal(false);
       setNewExercise({
         name: "",

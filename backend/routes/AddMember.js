@@ -4,30 +4,15 @@ const bcrypt = require("bcrypt");
 const dbSuperAdmin = require("../db");
 const upload = require("../middleware/upload");
 
-// Add Prepaid Member
+// Add Prepaid Member - CORRECTED
 router.post("/add-member", upload.single("member_image"), async (req, res) => {
   console.log("Received req.body:", req.body);
   console.log("Received req.file:", req.file);
 
   const {
-    full_name,
-    gender,
-    age,
-    rfid_tag,
-    phone_number,
-    address,
-    email,
-    password,
-    payment,
-    plan_name,
-    staff_name,
-    payment_method,
-    reference,
-    admin_id,
-    initial_balance,
-    emergency_contact_person,
-    emergency_contact_number,
-    emergency_contact_relationship,
+    full_name, gender, age, rfid_tag, phone_number, address, email, password,
+    payment, plan_name, staff_name, payment_method, reference, admin_id, initial_balance,
+    emergency_contact_person, emergency_contact_number, emergency_contact_relationship,
   } = req.body;
 
   const profileImage = req.file ? `uploads/members/${req.file.filename}` : null;
@@ -70,11 +55,13 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert member
+    // ✅ ADDED system_type = 'prepaid_entry'
     const insertMemberSql = `
       INSERT INTO MembersAccounts
-      (rfid_tag, full_name, gender, age, phone_number, address, email, password, profile_image_url, admin_id, staff_name, initial_balance, current_balance, subscription_type, payment, status, emergency_contact_person, emergency_contact_number, emergency_contact_relationship)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+      (rfid_tag, full_name, gender, age, phone_number, address, email, password, profile_image_url, 
+       admin_id, staff_name, initial_balance, current_balance, subscription_type, payment, status, 
+       system_type, emergency_contact_person, emergency_contact_number, emergency_contact_relationship)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'prepaid_entry', ?, ?, ?)
     `;
     const [insertResult] = await dbSuperAdmin.promise().query(insertMemberSql, [
       rfid_tag, full_name, gender, ageNumber, phone_number, address, email, hashedPassword,

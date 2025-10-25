@@ -3,9 +3,11 @@ import React from "react";
 const MemberCard = ({ member, onClose }) => {
   if (!member) return null;
 
+  const baseUrl = import.meta.env.VITE_IP;
+  
   const imageUrl = member.profile_image_url
-    ? `https://swiftpasstech.com/${member.profile_image_url}`
-    : `https://swiftpasstech.com/default-profile.png`;
+    ? `${baseUrl}/${member.profile_image_url}`
+    : `${baseUrl}/default-profile.png`;
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";

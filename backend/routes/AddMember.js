@@ -195,7 +195,7 @@ router.post("/add-subscription-member", upload.single("member_image"), async (re
       VALUES (?, ?, ?, ?, ?, 0.00, 0.00, ?, ?, 1.00, ?, ?, NULL, NULL)
     `;
     await dbSuperAdmin.promise().query(insertMemberTxnSql, [
-      admin_id, rfid_tag, full_name, "new_membership", paymentNumber,
+      admin_id, rfid_tag, full_name, "new_members", paymentNumber,
       payment_method.charAt(0).toUpperCase() + payment_method.slice(1).toLowerCase(),
       reference || null, staff_name, plan_name || 'Membership Fee'
     ]);

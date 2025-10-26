@@ -842,6 +842,8 @@ async function handleMember(member, rfid_tag, location) {
               deductedAmount = 0;
               reason = "Grace period - no charge";
               console.log("✅ Entry granted - grace period (no charge)");
+              // ✅ NO transaction logged during grace period
+              // ✅ NO balance update during grace period
             } else {
               deductedAmount = price;
               remainingBalance -= price;
@@ -867,7 +869,7 @@ async function handleMember(member, rfid_tag, location) {
                     -deductedAmount,
                     'balance',
                     staff_name || 'System',
-                    'Session Fee', // ✅ Changed from "Entry fee deducted at ENTRY"
+                    'Session Fee',
                     new Date()
                   ]
                 );
@@ -884,10 +886,21 @@ async function handleMember(member, rfid_tag, location) {
                 `INSERT INTO AdminEntryLogs
                  (rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, deducted_amount, member_status, entry_time, location)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [rfid_tag, member.full_name, member.admin_id, staff_name, "Member", admin.system_type, deductedAmount, "inside", new Date(), location]
+                [
+                  rfid_tag, 
+                  member.full_name, 
+                  member.admin_id, 
+                  isGracePeriod ? "Entry Grace Period" : staff_name,  // ✅ Special staff_name for grace period
+                  "Member", 
+                  admin.system_type, 
+                  deductedAmount,  // Will be 0 for grace period, price for normal
+                  "inside", 
+                  new Date(), 
+                  location
+                ]
               );
               logId = logResult.insertId;
-              console.log(`💾 Entry log created with ID: ${logId}`);
+              console.log(`💾 Entry log created with ID: ${logId}${isGracePeriod ? ' (Grace Period)' : ''}`);
             } catch (logError) {
               console.error("❌ Entry log creation failed:", logError.message);
             }

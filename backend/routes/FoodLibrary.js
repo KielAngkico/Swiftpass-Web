@@ -15,7 +15,6 @@ router.get('/food-groups/names', async (req, res) => {
         return res.status(500).json({ error: 'Failed to fetch food group names' });
       }
 
-      // Extract just the names from the results
       const foodGroupNames = results.map(row => row.name);
       
       console.log('Food group names:', foodGroupNames);

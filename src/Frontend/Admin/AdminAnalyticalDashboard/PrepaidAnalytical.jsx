@@ -304,7 +304,6 @@ const PrepaidAnalytical = ({ adminUser }) => {
         </div>
       </div>
 
-      {/* Row 1: KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
         <KpiCard title="Total Revenue" value={`₱${sampleData.totalRevenue.toLocaleString()}`} color="text-green-600" />
         <KpiCard title="Members Inside" value={sampleData.membersInside} color="text-blue-600" />
@@ -313,7 +312,6 @@ const PrepaidAnalytical = ({ adminUser }) => {
         <KpiCard title="Peak Hour" value={sampleData.peakHour} color="text-gray-700" />
       </div>
 
-      {/* Row 2: Engagement & Activity Snapshot - 60/40 split */}
       <div className="flex flex-col lg:flex-row gap-2">
         <div className="lg:w-[60%] w-full">
           <div className="bg-white p-3 rounded-md shadow-sm h-full">
@@ -360,7 +358,6 @@ const PrepaidAnalytical = ({ adminUser }) => {
         </div>
       </div>
 
-      {/* Row 3: Temporal Patterns - Full width */}
       <div className="flex flex-col lg:flex-row gap-2">
         <div id="scansByHourChart" className="lg:w-[60%] w-full">
           <ChartCard title="Peak Hour Analysis (24 Hours)">

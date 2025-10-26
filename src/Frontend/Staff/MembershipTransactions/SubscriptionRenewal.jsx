@@ -42,12 +42,10 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
     try {
       const { data } = await api.get(`/api/get-pricing/${adminId}`);
       
-      // Filter subscription plans and exclude system plans
       const subscriptionPlans = data.filter((plan) => {
         const isSubscription = plan.system_type === "subscription";
         const isSystemPlan = ['Key Fob', 'Membership Fee', 'Replacement Fee', 'Daily Session'].includes(plan.plan_name);
         
-        // Only include subscription plans that are NOT system plans
         return isSubscription && !isSystemPlan;
       });
       
@@ -74,17 +72,16 @@ useEffect(() => {
   if (rfid && rfid.length >= 8 && adminId) {
     fetchMember();
   }
-}, [rfid, adminId]); // Add adminId dependency
+}, [rfid, adminId]); 
 
 const fetchMember = async () => {
-  if (!rfid || !adminId) return; // Add adminId check
+  if (!rfid || !adminId) return; 
   setLoading(true);
   try {
     const { data } = await api.get(`/api/member-by-rfid/${rfid}`);
     if (data && data.system_type === "subscription") {
       data.admin_id = data.admin_id || adminId;
       setMember(data);
-      // ❌ Remove this line: setMessage("");
     } else {
       setMember(null);
       showToast({ message: "Member not found or not a subscription account.", type: "error" });

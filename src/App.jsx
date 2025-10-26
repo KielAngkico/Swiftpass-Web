@@ -24,7 +24,6 @@ import { scheduleTokenRefresh } from "./api";
 import { ToastProvider } from "./components/ToastManager";
 
 
-// Lazy imports remain the same...
 const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));
 const ExerciseLibrary = React.lazy(() => import("./Frontend/SuperAdmin/ExerciseLibrary"));
 const SplitLibrary = React.lazy(() => import("./Frontend/SuperAdmin/SplitLibrary"));
@@ -73,7 +72,6 @@ const AuthProvider = ({ children }) => {
             body: JSON.stringify({ staff_id: staffId }),
           });
         } catch (staffLogoutError) {
-          // Silent fail, continue with general logout
         }
         
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -84,7 +82,6 @@ const AuthProvider = ({ children }) => {
         credentials: "include", 
       });
     } catch (error) {
-      // Silent fail
     }
     
     clearAccessToken();
@@ -156,7 +153,6 @@ const AuthProvider = ({ children }) => {
             window.dispatchEvent(new Event("auth-changed"));
           }
         } catch (e) {
-          // Silent fail
         }
       }
     }, 5 * 60 * 1000); 

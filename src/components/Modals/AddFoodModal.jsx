@@ -152,7 +152,6 @@ const AddFoodModal = ({ isOpen, onClose, onFoodAdded }) => {
 
   if (!isOpen) return null;
 
-  // Convert food group names to react-select options
   const foodGroupOptions = foodGroupNames.map(name => ({
     value: name,
     label: name
@@ -176,7 +175,6 @@ const AddFoodModal = ({ isOpen, onClose, onFoodAdded }) => {
           </button>
         </div>
 
-        {/* USDA Search Section */}
         <div className="mb-4">
           <label className="block text-xs font-medium text-gray-700 mb-1">Search Food Database (USDA)</label>
           <div className="flex gap-2">
@@ -213,7 +211,6 @@ const AddFoodModal = ({ isOpen, onClose, onFoodAdded }) => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Row 1: Food Name - Full Width */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Food Name</label>
             <input
@@ -227,7 +224,6 @@ const AddFoodModal = ({ isOpen, onClose, onFoodAdded }) => {
             />
           </div>
 
-          {/* Row 2: General Group (1/2) + Allergens (1/2) */}
 		<div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -281,7 +277,6 @@ const AddFoodModal = ({ isOpen, onClose, onFoodAdded }) => {
             </div>
           </div>
 
-          {/* Row 3: Category (1/2) + Reference Weight + Meat Checkboxes (1/2) */}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
@@ -338,7 +333,6 @@ const AddFoodModal = ({ isOpen, onClose, onFoodAdded }) => {
             </div>
           </div>
 
-          {/* Row 4: All Macros - 4 Equal Columns */}
           <div className="grid grid-cols-4 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Calories</label>
@@ -386,7 +380,6 @@ const AddFoodModal = ({ isOpen, onClose, onFoodAdded }) => {
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex gap-2 pt-4">
             <button
               type="button"

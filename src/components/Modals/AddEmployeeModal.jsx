@@ -32,7 +32,6 @@ const AddEmployeeModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
 
-  // ✅ Populate form when editing
   useEffect(() => {
     if (mode === "edit" && editingEmployee && isOpen) {
       setFormData({
@@ -59,8 +58,7 @@ const AddEmployeeModal = ({
     }
   }, [mode, editingEmployee, isOpen]);
 
-  // ✅ Auto-fill RFID when scanned
-  useEffect(() => {
+   useEffect(() => {
     if (scannedRfidForStaff && isOpen) {
       setFormData(prev => ({ ...prev, rfid_tag: scannedRfidForStaff }));
       clearScannedRfid();
@@ -73,8 +71,7 @@ const AddEmployeeModal = ({
     }
   }, [scannedRfidForStaff, isOpen, clearScannedRfid]);
 
-  // ✅ Cleanup scan mode when modal closes
-  useEffect(() => {
+   useEffect(() => {
     if (!isOpen && scanModeEnabled) {
       toggleScanMode(false);
     }
@@ -116,7 +113,6 @@ const AddEmployeeModal = ({
     try {
       const formPayload = new FormData();
       for (const key in formData) {
-        // Skip password if empty in edit mode
         if (key === "password" && !formData[key] && mode === "edit") continue;
         formPayload.append(key, formData[key]);
       }
@@ -126,19 +122,14 @@ const AddEmployeeModal = ({
       let res, data;
       
       if (mode === "edit" && editingEmployee) {
-        console.log("🔄 Updating employee ID:", editingEmployee.user_id);
-        console.log("📋 Form data:", formData);
-        console.log("🏷️ Old RFID:", editingEmployee.rfid_tag);
-        console.log("🏷️ New RFID:", formData.rfid_tag);
+
         
-        // STEP 1: Update employee basic info (name, email, etc.)
-        res = await fetch(`${API_URL}/api/update-employee/${editingEmployee.user_id}`, {
+         res = await fetch(`${API_URL}/api/update-employee/${editingEmployee.user_id}`, {
           method: "PUT",
           body: formPayload
         });
         
-        // Check if response is JSON
-        const contentType = res.headers.get("content-type");
+         const contentType = res.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
           data = await res.json();
         } else {
@@ -151,8 +142,7 @@ const AddEmployeeModal = ({
         
         console.log("✅ Basic info updated successfully");
         
-        // STEP 2: If RFID changed, update it separately
-        if (formData.rfid_tag && formData.rfid_tag.trim() !== "" && formData.rfid_tag !== editingEmployee.rfid_tag) {
+         if (formData.rfid_tag && formData.rfid_tag.trim() !== "" && formData.rfid_tag !== editingEmployee.rfid_tag) {
           console.log("🔄 RFID changed - calling replace endpoint...");
           
           const rfidRes = await fetch(`${API_URL}/api/replace-employee-rfid/${editingEmployee.user_id}`, {
@@ -168,15 +158,14 @@ const AddEmployeeModal = ({
             rfidData = await rfidRes.json();
           } else {
             const text = await rfidRes.text();
-            console.error("❌ RFID endpoint non-JSON response:", text);
-            throw new Error("Failed to update RFID - server error");
+             throw new Error("Failed to update RFID - server error");
           }
           
           if (!rfidRes.ok) {
             throw new Error(rfidData.error || rfidData.message || "Failed to update RFID");
           }
           
-          console.log("✅ RFID updated successfully:", rfidData);
+          console.log(" RFID updated successfully:", rfidData);
         }
         
         onEmployeeUpdated({ 
@@ -187,17 +176,15 @@ const AddEmployeeModal = ({
         
         setNotification({
           type: "success",
-          message: "✅ Employee updated successfully!"
+          message: " Employee updated successfully!"
         });
       } else {
-        // Add new employee
-        res = await fetch(`${API_URL}/api/add-employee`, {
+         res = await fetch(`${API_URL}/api/add-employee`, {
           method: "POST",
           body: formPayload
         });
         
-        // Check if response is JSON
-        const contentType = res.headers.get("content-type");
+         const contentType = res.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
           data = await res.json();
         } else {
@@ -220,8 +207,7 @@ const AddEmployeeModal = ({
         });
       }
 
-      // Reset form
-      setTimeout(() => {
+       setTimeout(() => {
         setFormData({ 
           name: "", 
           age: "", 

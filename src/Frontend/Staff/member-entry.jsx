@@ -9,8 +9,8 @@ const MemberEntryBranch = () => {
   const { user } = useAuth();
   const { globalEntryLogs } = useWebSocket();
   const [entryLogs, setEntryLogs] = useState([]);
-  const [lastEntry, setLastEntry] = useState(null);  // ✅ Single last entry
-  const [lastExit, setLastExit] = useState(null);    // ✅ Single last exit
+  const [lastEntry, setLastEntry] = useState(null); 
+  const [lastExit, setLastExit] = useState(null);  
   const [loading, setLoading] = useState(true);
 
   const getImageUrl = (profileImageUrl) => {
@@ -47,7 +47,6 @@ const MemberEntryBranch = () => {
     fetchLogs();
   }, [fetchLogs]);
 
-  // ✅ FIXED: Handle real-time updates properly
   useEffect(() => {
     if (!globalEntryLogs?.length) return;
 
@@ -55,14 +54,12 @@ const MemberEntryBranch = () => {
       const data = incoming?.data ? incoming.data : incoming;
       if (!data?.rfid_tag) return;
 
-      console.log("🔄 Processing real-time update:", data);
+      console.log("Processing real-time update:", data);
 
-      // ✅ Determine if this is entry or exit based on status
       const isEntry = data.status === "inside";
       const isExit = data.status === "outside";
 
       if (isEntry) {
-        // ✅ Set as last entry (replaces any previous entry)
         const entryItem = {
           id: data.id || `entry-${data.rfid_tag}-${Date.now()}`,
           rfid_tag: data.rfid_tag,
@@ -74,10 +71,9 @@ const MemberEntryBranch = () => {
           deducted_amount: data.deducted_amount,
         };
 
-        console.log("✅ Setting last entry:", entryItem);
+        console.log("Setting last entry:", entryItem);
         setLastEntry(entryItem);
         
-        // ✅ If this person was in exit card, remove them
         setLastExit(prev => {
           if (prev?.rfid_tag === data.rfid_tag) {
             console.log("🔄 Removing from exit card (re-entered)");
@@ -87,8 +83,7 @@ const MemberEntryBranch = () => {
         });
 
       } else if (isExit) {
-        // ✅ Set as last exit (replaces any previous exit)
-        const exitItem = {
+         const exitItem = {
           id: data.id || `exit-${data.rfid_tag}-${Date.now()}`,
           rfid_tag: data.rfid_tag,
           full_name: data.full_name || "Unknown",
@@ -98,20 +93,18 @@ const MemberEntryBranch = () => {
           system_type: data.system_type,
         };
 
-        console.log("✅ Setting last exit:", exitItem);
+        console.log("Setting last exit:", exitItem);
         setLastExit(exitItem);
         
-        // ✅ If this person was in entry card, remove them
-        setLastEntry(prev => {
+         setLastEntry(prev => {
           if (prev?.rfid_tag === data.rfid_tag) {
-            console.log("🔄 Removing from entry card (exited)");
+            console.log("Removing from entry card (exited)");
             return null;
           }
           return prev;
         });
       }
 
-      // ✅ Update entry logs table
       setEntryLogs(prev => {
         const updated = [...prev];
 
@@ -161,7 +154,6 @@ const MemberEntryBranch = () => {
     });
   }, [globalEntryLogs, getImageUrl]);
 
-  // ✅ Auto-clear cards after 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();

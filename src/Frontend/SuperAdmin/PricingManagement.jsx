@@ -78,7 +78,6 @@ const handleSubmit = async (e) => {
       showToast({ message: "Promo created successfully!", type: "success" });
     }
 
-    // Reset form after submit
     setForm({ name: "", price: "", duration_days: "" });
     setPackageItems([]);
     setEditingPackage(null);

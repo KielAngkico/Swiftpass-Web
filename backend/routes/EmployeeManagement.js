@@ -5,7 +5,6 @@ const bcrypt = require("bcrypt");
 const staffUpload = require("../middleware/staffupload");
 const path = require("path");
 
-// ➕ ADD EMPLOYEE
 router.post("/add-employee", staffUpload.single("profile_image"), async (req, res) => {
   try {
     console.log("REQ.BODY:", req.body);
@@ -22,16 +21,14 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
       return res.status(400).json({ message: "Email must be a valid Gmail address." });
     }
 
-    // Check if email already exists
-    const [existing] = await dbSuperAdmin
+     const [existing] = await dbSuperAdmin
       .promise()
       .query("SELECT * FROM StaffAccounts WHERE email = ?", [email]);
     if (existing.length > 0) {
       return res.status(400).json({ message: "Email already exists. Use a different one." });
     }
 
-    // Check if RFID tag already exists (if provided)
-    if (rfid_tag && rfid_tag.trim() !== "") {
+     if (rfid_tag && rfid_tag.trim() !== "") {
       const [existingRfid] = await dbSuperAdmin
         .promise()
         .query("SELECT * FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ?", [rfid_tag, admin_id]);
@@ -79,8 +76,7 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
   }
 });
 
-// ✏️ UPDATE EMPLOYEE
-router.put("/update-employee/:id", staffUpload.single("profile_image"), async (req, res) => {
+ router.put("/update-employee/:id", staffUpload.single("profile_image"), async (req, res) => {
   const employeeId = req.params.id;
 
   try {
@@ -93,8 +89,7 @@ router.put("/update-employee/:id", staffUpload.single("profile_image"), async (r
       password
     } = req.body;
 
-    // Get current employee data
-    const [currentEmployee] = await dbSuperAdmin.promise().query(
+     const [currentEmployee] = await dbSuperAdmin.promise().query(
       `SELECT * FROM StaffAccounts WHERE id = ?`,
       [employeeId]
     );
@@ -103,8 +98,7 @@ router.put("/update-employee/:id", staffUpload.single("profile_image"), async (r
       return res.status(404).json({ error: "Employee not found" });
     }
 
-    // Check if email is being changed and already exists for another employee
-    if (email !== currentEmployee[0].email) {
+     if (email !== currentEmployee[0].email) {
       const [existingEmail] = await dbSuperAdmin.promise().query(
         "SELECT * FROM StaffAccounts WHERE email = ? AND id != ?",
         [email, employeeId]
@@ -114,20 +108,17 @@ router.put("/update-employee/:id", staffUpload.single("profile_image"), async (r
       }
     }
 
-    // Handle profile image
-    let imagePath = currentEmployee[0].profile_image_url;
+     let imagePath = currentEmployee[0].profile_image_url;
     if (req.file) {
       imagePath = req.file.filename;
     }
 
-    // Handle password
-    let hashedPassword = currentEmployee[0].password;
+     let hashedPassword = currentEmployee[0].password;
     if (password && password.trim() !== "") {
       hashedPassword = await bcrypt.hash(password, 10);
     }
 
-    // Update employee (RFID is NOT updated here - use replace-employee-rfid endpoint)
-    const updateSql = `
+     const updateSql = `
       UPDATE StaffAccounts
       SET staff_name = ?, age = ?, email = ?, address = ?, 
           contact_number = ?, profile_image_url = ?, password = ?
@@ -160,14 +151,12 @@ router.put("/update-employee/:id", staffUpload.single("profile_image"), async (r
   }
 });
 
-// 🔄 REPLACE EMPLOYEE RFID
-router.put("/replace-employee-rfid/:id", async (req, res) => {
+ router.put("/replace-employee-rfid/:id", async (req, res) => {
   const employeeId = req.params.id;
   const { new_rfid_tag } = req.body;
 
   try {
-    // Get current employee data
-    const [currentEmployee] = await dbSuperAdmin.promise().query(
+     const [currentEmployee] = await dbSuperAdmin.promise().query(
       "SELECT rfid_tag, admin_id FROM StaffAccounts WHERE id = ?",
       [employeeId]
     );
@@ -179,8 +168,7 @@ router.put("/replace-employee-rfid/:id", async (req, res) => {
     const oldRfid = currentEmployee[0].rfid_tag;
     const adminId = currentEmployee[0].admin_id;
 
-    // Check if new RFID is already in use by another employee under same admin
-    if (new_rfid_tag && new_rfid_tag.trim() !== "") {
+     if (new_rfid_tag && new_rfid_tag.trim() !== "") {
       const [existingRfid] = await dbSuperAdmin.promise().query(
         "SELECT * FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ? AND id != ?",
         [new_rfid_tag, adminId, employeeId]
@@ -192,8 +180,7 @@ router.put("/replace-employee-rfid/:id", async (req, res) => {
       }
     }
 
-    // Update RFID with tracking
-    const updateSql = `
+     const updateSql = `
       UPDATE StaffAccounts
       SET
         previous_rfid = ?,
@@ -204,9 +191,9 @@ router.put("/replace-employee-rfid/:id", async (req, res) => {
     `;
 
     await dbSuperAdmin.promise().query(updateSql, [
-      oldRfid,           // Move current to previous_rfid
-      new_rfid_tag || null,  // New RFID (can be null if removing)
-      "Admin",           // replaced_by = "Admin"
+      oldRfid,           
+      new_rfid_tag || null,  
+      "Admin",           
       employeeId
     ]);
 
@@ -223,7 +210,6 @@ router.put("/replace-employee-rfid/:id", async (req, res) => {
   }
 });
 
-// 📋 GET EMPLOYEES
 router.get("/get-employees/:admin_id", (req, res) => {
   const adminId = req.params.admin_id;
 
@@ -258,7 +244,6 @@ router.get("/get-employees/:admin_id", (req, res) => {
   });
 });
 
-// 🗑️ DELETE EMPLOYEE (Archive)
 router.delete('/staff/:id', (req, res) => {
   const { id } = req.params;
 
@@ -376,8 +361,7 @@ router.put('/staff/:id/archive', async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Get staff data
-    const [staff] = await dbSuperAdmin.promise().query(
+     const [staff] = await dbSuperAdmin.promise().query(
       "SELECT * FROM StaffAccounts WHERE id = ?",
       [id]
     );
@@ -388,8 +372,7 @@ router.put('/staff/:id/archive', async (req, res) => {
 
     const staffData = staff[0];
 
-    // Insert into archive table
-    await dbSuperAdmin.promise().query(
+     await dbSuperAdmin.promise().query(
       `INSERT INTO StaffAccounts_Archived
         (id, admin_id, staff_name, age, contact_number, address, email, password, profile_image_url, rfid_tag, status, created_at, archived_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'archived', ?, NOW())`,
@@ -408,8 +391,7 @@ router.put('/staff/:id/archive', async (req, res) => {
       ]
     );
 
-    // Delete from active table
-    await dbSuperAdmin.promise().query(
+     await dbSuperAdmin.promise().query(
       "DELETE FROM StaffAccounts WHERE id = ?",
       [id]
     );
@@ -423,13 +405,11 @@ router.put('/staff/:id/archive', async (req, res) => {
   }
 });
 
-// 🔄 RESTORE EMPLOYEE (move from archive back to active)
-router.put('/staff/:id/restore', async (req, res) => {
+ router.put('/staff/:id/restore', async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Get archived staff data
-    const [staff] = await dbSuperAdmin.promise().query(
+     const [staff] = await dbSuperAdmin.promise().query(
       "SELECT * FROM StaffAccounts_Archived WHERE id = ?",
       [id]
     );
@@ -440,8 +420,7 @@ router.put('/staff/:id/restore', async (req, res) => {
 
     const staffData = staff[0];
 
-    // Check if email already exists in active table
-    const [existingEmail] = await dbSuperAdmin.promise().query(
+     const [existingEmail] = await dbSuperAdmin.promise().query(
       "SELECT * FROM StaffAccounts WHERE email = ?",
       [staffData.email]
     );
@@ -452,8 +431,7 @@ router.put('/staff/:id/restore', async (req, res) => {
       });
     }
 
-    // Check if RFID already exists in active table
-    if (staffData.rfid_tag) {
+     if (staffData.rfid_tag) {
       const [existingRfid] = await dbSuperAdmin.promise().query(
         "SELECT * FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ?",
         [staffData.rfid_tag, staffData.admin_id]
@@ -466,8 +444,7 @@ router.put('/staff/:id/restore', async (req, res) => {
       }
     }
 
-    // Restore to active table
-    await dbSuperAdmin.promise().query(
+     await dbSuperAdmin.promise().query(
       `INSERT INTO StaffAccounts
         (id, admin_id, staff_name, age, contact_number, address, email, password, profile_image_url, rfid_tag, status, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
@@ -486,8 +463,7 @@ router.put('/staff/:id/restore', async (req, res) => {
       ]
     );
 
-    // Remove from archive
-    await dbSuperAdmin.promise().query(
+     await dbSuperAdmin.promise().query(
       "DELETE FROM StaffAccounts_Archived WHERE id = ?",
       [id]
     );
@@ -501,8 +477,7 @@ router.put('/staff/:id/restore', async (req, res) => {
   }
 });
 
-// 🗑️ PERMANENT DELETE (delete from archive)
-router.delete('/staff/:id/permanent', async (req, res) => {
+ router.delete('/staff/:id/permanent', async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -524,8 +499,7 @@ router.delete('/staff/:id/permanent', async (req, res) => {
   }
 });
 
-// 📋 GET ARCHIVED EMPLOYEES
-router.get("/get-archived-employees/:admin_id", async (req, res) => {
+ router.get("/get-archived-employees/:admin_id", async (req, res) => {
   const adminId = req.params.admin_id;
 
   try {
@@ -565,8 +539,7 @@ router.get("/get-archived-employees/:admin_id", async (req, res) => {
   }
 });
 
-// ✏️ UPDATE the existing DELETE route to use ARCHIVE instead
-router.delete('/staff/:id', async (req, res) => {
+ router.delete('/staff/:id', async (req, res) => {
   const { id } = req.params;
 
   if (!id || isNaN(id)) {
@@ -577,8 +550,7 @@ router.delete('/staff/:id', async (req, res) => {
   console.log(`⚠️ Note: DELETE /staff/${id} now archives instead of deleting. Use /staff/${id}/permanent for permanent deletion.`);
 
   try {
-    // Get staff data
-    const [staff] = await dbSuperAdmin.promise().query(
+     const [staff] = await dbSuperAdmin.promise().query(
       "SELECT * FROM StaffAccounts WHERE id = ?",
       [id]
     );
@@ -589,8 +561,7 @@ router.delete('/staff/:id', async (req, res) => {
 
     const staffData = staff[0];
 
-    // Archive the staff
-    await dbSuperAdmin.promise().query(
+     await dbSuperAdmin.promise().query(
       `INSERT INTO StaffAccounts_Archived
         (id, admin_id, staff_name, age, contact_number, address, email, password, profile_image_url, rfid_tag, status, created_at, archived_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'archived', ?, NOW())`,
@@ -609,8 +580,7 @@ router.delete('/staff/:id', async (req, res) => {
       ]
     );
 
-    // Delete from active table
-    await dbSuperAdmin.promise().query(
+     await dbSuperAdmin.promise().query(
       "DELETE FROM StaffAccounts WHERE id = ?",
       [id]
     );

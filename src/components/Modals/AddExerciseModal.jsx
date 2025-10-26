@@ -10,7 +10,7 @@ const AddExerciseModal = ({ isOpen, onClose, onSave, newExercise, setNewExercise
   useEffect(() => {
     if (isOpen) {
       fetchExercises();
-      setSelectedAlts([]); // Reset on open
+      setSelectedAlts([]); 
     }
   }, [isOpen]);
 

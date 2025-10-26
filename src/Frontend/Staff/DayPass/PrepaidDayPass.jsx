@@ -55,7 +55,6 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
     fetchPaymentMethods();
   }, [adminId]);
 
-  // Fetch session fee and key fob fee
   useEffect(() => {
     if (!adminId) return;
 

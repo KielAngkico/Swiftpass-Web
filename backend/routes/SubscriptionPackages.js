@@ -2,8 +2,7 @@ const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
 
-// ➕ Create subscription package
-router.post("/packages", async (req, res) => {
+ router.post("/packages", async (req, res) => {
   try {
     const { name, price, duration_days, items } = req.body;
     if (!name || !price || !duration_days) {
@@ -35,8 +34,7 @@ router.post("/packages", async (req, res) => {
   }
 });
 
-// 📋 Get all packages
-router.get("/packages", async (req, res) => {
+ router.get("/packages", async (req, res) => {
   try {
     const [packages] = await dbSuperAdmin.promise().query("SELECT * FROM SubscriptionPackages ORDER BY created_at DESC");
     for (let pkg of packages) {
@@ -49,8 +47,7 @@ router.get("/packages", async (req, res) => {
   }
 });
 
-// ✏️ Update package
-// In SubscriptionPackages.js - Update this route
+
 router.put("/packages/:id", async (req, res) => {
   const conn = await dbSuperAdmin.promise().getConnection();
   try {
@@ -59,17 +56,14 @@ router.put("/packages/:id", async (req, res) => {
 
     await conn.beginTransaction();
 
-    // Update package details
-    await conn.query(
+     await conn.query(
       "UPDATE SubscriptionPackages SET name=?, price=?, duration_days=? WHERE id=?",
       [name, price, duration_days, id]
     );
 
-    // Delete old items
-    await conn.query("DELETE FROM PackageItems WHERE package_id=?", [id]);
+     await conn.query("DELETE FROM PackageItems WHERE package_id=?", [id]);
 
-    // Insert new items
-    if (items && items.length > 0) {
+     if (items && items.length > 0) {
       for (const item of items) {
         await conn.query(
           "INSERT INTO PackageItems (package_id, item_name, quantity) VALUES (?, ?, ?)",
@@ -88,8 +82,7 @@ router.put("/packages/:id", async (req, res) => {
     conn.release();
   }
 });
-// ❌ Delete package
-router.delete("/packages/:id", async (req, res) => {
+ router.delete("/packages/:id", async (req, res) => {
   try {
     const { id } = req.params;
     await dbSuperAdmin.promise().query("DELETE FROM SubscriptionPackages WHERE id=?", [id]);
@@ -99,8 +92,7 @@ router.delete("/packages/:id", async (req, res) => {
   }
 });
 
-// 🛒 Purchase package for admin
-router.post("/purchase-package", async (req, res) => {
+ router.post("/purchase-package", async (req, res) => {
   const conn = await dbSuperAdmin.promise().getConnection();
   try {
     const { admin_id, package_id } = req.body;

@@ -37,12 +37,10 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
       try {
         const { data } = await api.get(`/api/get-pricing/${adminId}`);
         
-        // Filter prepaid plans and exclude system plans
         const prepaidPlans = data.filter((plan) => {
           const isPrepaid = plan.system_type === "prepaid_entry";
           const isSystemPlan = ['Key Fob', 'Membership Fee', 'Replacement Fee', 'Daily Session'].includes(plan.plan_name);
           
-          // Only include prepaid plans that are NOT system plans
           return isPrepaid && !isSystemPlan;
         });
         

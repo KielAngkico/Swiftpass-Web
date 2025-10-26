@@ -29,8 +29,7 @@ const ItemsInventory = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [addQty, setAddQty] = useState("");
 
-  // ✅ Fetch items from backend
-  const fetchItems = async () => {
+   const fetchItems = async () => {
     try {
       const { data } = await api.get("/api/inventory");
       setItems(data);
@@ -42,8 +41,7 @@ showToast({ message: "Failed to fetch inventory", type: "error" });
     }
   };
 
-  // ✅ Fetch RFIDs from backend database
-  const fetchRfids = async () => {
+   const fetchRfids = async () => {
     try {
       setRfidError(null);
       const { data } = await api.get("/api/rfid");
@@ -56,7 +54,6 @@ showToast({ message: "Failed to fetch inventory", type: "error" });
     }
   };
 
-  // ✅ Add scanned RFID to database
   const addScannedItem = async (rfidTag) => {
     const tag = rfidTag || scanValue.trim();
     if (!tag) {
@@ -64,8 +61,7 @@ showToast({ message: "Please scan an RFID tag or enter one manually", type: "err
       return;
     }
 
-    // Check if already registered
-    if (rfids.some((r) => r.rfid_tag === tag)) {
+     if (rfids.some((r) => r.rfid_tag === tag)) {
 showToast({ message: `RFID ${tag} is already registered.`, type: "error" });
       return;
     }
@@ -74,8 +70,7 @@ showToast({ message: `RFID ${tag} is already registered.`, type: "error" });
       const response = await api.post("/api/rfid", { rfid_tag: tag });
       console.log("RFID registered successfully:", response.data);
 
-      // Refresh the RFID list
-      await fetchRfids();
+       await fetchRfids();
 
       if (!rfidTag) setScanValue("");
 showToast({ message: "RFID registered successfully!", type: "success" });
@@ -85,8 +80,7 @@ showToast({ message: error.response?.data?.message || "Failed to add RFID", type
     }
   };
 
-  // Add manual item
-  const addManualItem = async (e) => {
+   const addManualItem = async (e) => {
     e.preventDefault();
     if (!form.name.trim() || form.quantity < 1) {
 showToast({ message: "Please fill in all required fields", type: "error" });
@@ -111,8 +105,7 @@ showToast({ message: "Failed to add item", type: "error" });
     }
   };
 
-  // Update item quantity
-  const updateQuantity = async (id, newQty) => {
+   const updateQuantity = async (id, newQty) => {
     if (!newQty || newQty < 0) {
 showToast({ message: "Invalid quantity", type: "error" });
       return;
@@ -130,8 +123,7 @@ showToast({ message: "Failed to update quantity", type: "error" });
     }
   };
 
-  // Delete item
-const deleteItem = async (id, name) => {
+ const deleteItem = async (id, name) => {
   showConfirm(
     `Delete "${name}"?`,
     async () => {
@@ -147,7 +139,6 @@ const deleteItem = async (id, name) => {
   );
 };
 
-  // ✅ Initialize on component mount
   useEffect(() => {
     if (user) {
       fetchItems();
@@ -155,17 +146,14 @@ const deleteItem = async (id, name) => {
     }
   }, [user]);
 
-  // ✅ Check both WebSocket data AND navigation state for RFID
-  useEffect(() => {
+   useEffect(() => {
     let rfidTagToUse = null;
 
-    // First priority: Check if RFID came from navigation state
-    if (location.state?.rfid_tag) {
+     if (location.state?.rfid_tag) {
       console.log("📍 RFID from navigation state:", location.state.rfid_tag);
       rfidTagToUse = location.state.rfid_tag;
     }
-    // Second priority: Check WebSocket data
-    else if (rfidData?.rfid_tag && rfidData?.type === "rfid-registration-check") {
+     else if (rfidData?.rfid_tag && rfidData?.type === "rfid-registration-check") {
       console.log("📡 RFID from WebSocket:", rfidData.rfid_tag);
       rfidTagToUse = rfidData.rfid_tag;
     }
@@ -373,8 +361,7 @@ const deleteItem = async (id, name) => {
           </div>
         </div>
 
-        {/* Registered RFIDs Table */}
-{/* Registered RFIDs Table */}
+
 <div className="bg-white rounded-md shadow-sm mt-5">
   <div className="p-2 border-b font-semibold text-xs flex justify-between items-center">
     <span>Registered RFIDs ({rfids.length})</span>

@@ -2,7 +2,6 @@ const jwt = require("jsonwebtoken");
 const dbSuperAdmin = require("../db");
 
 const authenticateJWT = (req, res, next) => {
-  console.log(`🔐 [${new Date().toISOString()}] Auth middleware called for ${req.method} ${req.path}`);
 
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -12,25 +11,15 @@ const authenticateJWT = (req, res, next) => {
     return res.status(401).json({ message: "Access token missing" });
   }
 
-  console.log("🎫 Token found, length:", token.length);
-  console.log("🎫 Token preview:", token.substring(0, 20) + "...");
+  
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) {
       console.log("❌ Token verification failed:", err.name, err.message);
-      if (err.name === "TokenExpiredError") {
-        console.log("⏰ Token expired at:", err.expiredAt);
-        console.log("⏰ Current time:", new Date());
-      }
+ 
       return res.status(403).json({ message: "Invalid or expired access token" });
     }
 
-    console.log("✅ Token verified successfully for user:", {
-      id: user.id,
-      role: user.role,
-      exp: new Date(user.exp * 1000),
-      timeUntilExpiry: (user.exp * 1000 - Date.now()) / 1000 / 60,
-    });
 
     req.user = user;
     next();
@@ -44,36 +33,25 @@ const requireRole = (allowedRoles) => {
       console.log("❌ Insufficient permissions for user:", req.user?.id, "role:", req.user?.role);
       return res.status(403).json({ message: "Insufficient permissions" });
     }
-    console.log("✅ Role authorization passed");
     next();
   };
 };
 
 const refreshTokenHandler = async (req, res) => {
-  console.log(`🔄 [${new Date().toISOString()}] Refresh token request received`);
 
   const cookieToken = req.cookies?.refreshToken;
   const bodyToken = req.body?.refreshToken;
   const refreshToken = cookieToken || bodyToken;
 
-  console.log("🍪 Cookie token exists:", !!cookieToken);
-  console.log("📝 Body token exists:", !!bodyToken);
 
   if (!refreshToken) {
-    console.log("❌ No refresh token found in cookies or body");
     return res.status(401).json({ message: "Refresh token missing" });
   }
 
-  console.log("🎫 Refresh token found, length:", refreshToken.length);
-  console.log("🎫 Refresh token preview:", refreshToken.substring(0, 20) + "...");
 
   jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, async (err, decoded) => {
     if (err) {
-      console.log("❌ Refresh token verification failed:", err.name, err.message);
-      if (err.name === "TokenExpiredError") {
-        console.log("⏰ Refresh token expired at:", err.expiredAt);
-        console.log("⏰ Current time:", new Date());
-      }
+
       return res.status(403).json({ message: "Invalid or expired refresh token" });
     }
 
@@ -107,7 +85,6 @@ const refreshTokenHandler = async (req, res) => {
       }
 
       if (!user) {
-        console.log("❌ User not found in database for ID:", decoded.id, "Role:", decoded.role);
         return res.status(404).json({ message: "User not found" });
       }
 
@@ -123,7 +100,6 @@ const refreshTokenHandler = async (req, res) => {
         { expiresIn: "3m" }
       );
 
-      console.log("✅ New access token generated successfully");
 
       res.json({
         isAuthenticated: true,

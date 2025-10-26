@@ -27,7 +27,6 @@ const SubscriptionReplacement = ({ staffUser }) => {
       const { showToast } = useToast();
   
 
-  // Fetch user/admin ID
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -46,7 +45,6 @@ const SubscriptionReplacement = ({ staffUser }) => {
     fetchUser();
   }, []);
 
-  // If staffUser prop is provided, use it
   useEffect(() => {
     if (staffUser) {
       const id = staffUser.adminId || staffUser.admin_id || staffUser.userId;
@@ -56,7 +54,6 @@ const SubscriptionReplacement = ({ staffUser }) => {
     }
   }, [staffUser]);
 
-  // Fetch replacement fee
   useEffect(() => {
     if (!adminId) return;
     const fetchReplacementFee = async () => {
@@ -73,7 +70,6 @@ const SubscriptionReplacement = ({ staffUser }) => {
     fetchReplacementFee();
   }, [adminId]);
 
-  // Fetch payment methods
   useEffect(() => {
     if (!adminId) return;
     const fetchPaymentMethods = async () => {
@@ -87,10 +83,9 @@ const SubscriptionReplacement = ({ staffUser }) => {
     fetchPaymentMethods();
   }, [adminId]);
 
-  // Listen for scanned RFID from WebSocket
   useEffect(() => {
     if (replacementScannedRfid && scanActive) {
-      console.log("📡 RFID scanned from WebSocket:", replacementScannedRfid);
+      console.log(" RFID scanned from WebSocket:", replacementScannedRfid);
       setNewRfidTag(replacementScannedRfid);
       setScanActive(false);
 showToast({ message: " RFID captured: " + replacementScannedRfid, type: "success" });
@@ -131,17 +126,14 @@ showToast({ message: "Error fetching member data.", type: "error" });
     }
   };
 
-  // ✅ FIXED: Now calls toggleReplacementScanMode
-  const startScan = () => {
+   const startScan = () => {
     console.log(" Scan button clicked - activating replacement scan mode");
     
-    // ✅ Activate replacement scan mode via WebSocket
-    toggleReplacementScanMode(true);
+     toggleReplacementScanMode(true);
     
-    // Update local state
-    setScanActive(true);
+     setScanActive(true);
     setNewRfidTag("");
-showToast({ message: "📡 Scanning active - tap RFID tag now", type: "info" });
+showToast({ message: "scanning active - tap RFID tag now", type: "info" });
     
     console.log("Replacement scan mode activation sent to backend");
   };
@@ -152,7 +144,6 @@ showToast({ message: "📡 Scanning active - tap RFID tag now", type: "info" });
     if (value.length > 0 && scanActive) {
       setScanActive(false);
 showToast({ message: "RFID captured: " + value, type: "success" });
-      // ✅ Turn off scan mode when manually entering
       toggleReplacementScanMode(false);
     }
   };
@@ -202,7 +193,6 @@ showToast({ message: "RFID replaced successfully!", type: "success" });
       setMembers([]);
       setScanActive(false);
       
-      // ✅ Make sure scan mode is off
       toggleReplacementScanMode(false);
     } catch (err) {
       console.error("Failed to replace RFID:", err);

@@ -34,7 +34,6 @@ const AddClient = () => {
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const { showToast, showConfirm } = useToast();
 
-  // Fetch all admins
   useEffect(() => {
     const fetchAdmins = async () => {
       try {
@@ -47,7 +46,6 @@ const AddClient = () => {
     fetchAdmins();
   }, []);
 
-  // Handle navigation from RFID scan
   useEffect(() => {
     if (location.state?.openModal) {
       console.log("📨 Opening Add Partner modal (from RFID scan)");
@@ -58,7 +56,6 @@ const AddClient = () => {
     }
   }, [location.state]);
 
-  // Listen for slot-specific RFID scans
   useEffect(() => {
     const handleSlotScan = () => {
       if (!waitingForSlot) return;
@@ -249,7 +246,6 @@ const AddClient = () => {
         ]);
       }
 
-      // Reset form
       setShowAddForm(false);
       setEditingAdmin(null);
       setModalMode("add");

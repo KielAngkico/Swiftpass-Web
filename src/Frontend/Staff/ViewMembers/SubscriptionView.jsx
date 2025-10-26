@@ -42,7 +42,6 @@ const SubscriptionView = () => {
         console.log(`🔍 Fetching members for admin ID: ${extractedAdminId}`);
         const membersRes = await api.get(`/api/get-members?admin_id=${extractedAdminId}`);
         
-        // ✅ FILTER FOR SUBSCRIPTION MEMBERS ONLY
         const allMembers = membersRes.data.members || [];
         const subscriptionMembers = allMembers.filter(m => m.system_type === "subscription");
         

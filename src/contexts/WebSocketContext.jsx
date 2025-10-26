@@ -65,23 +65,20 @@ case "rfid-registration-check":
 
     const isOnAddClientPage = currentPath === "/SuperAdmin/AddClient";
 
-    // ✅ If already on AddClient and waiting for slot scan
     if (isOnAddClientPage) {
       console.log("🔄 On AddClient page - storing RFID for slot selection");
       sessionStorage.setItem('pendingSlotRfid', rfid_tag);
       sessionStorage.setItem('rfidScannedAt', Date.now().toString());
       
-      // Trigger event for AddClient to pick up
-      window.dispatchEvent(new Event('rfid-slot-scanned'));
+       window.dispatchEvent(new Event('rfid-slot-scanned'));
       return;
     }
 
-    // ✅ If registered, navigate to AddClient (open modal, but don't fill RFID)
-    if (is_registered) {
+     if (is_registered) {
       console.log("✅ Navigating to AddClient - modal will open");
       customNavigate("/SuperAdmin/AddClient", {
         state: { 
-          openModal: true, // Just open modal, don't pass rfid_tag
+          openModal: true, 
           timestamp: Date.now() 
         }
       }, "superadmin");
@@ -127,15 +124,14 @@ case "rfid-registration-check":
         setScanModeEnabled(msg.data?.enabled || false);
         console.log("🔄 Staff registration scan mode:", msg.data?.enabled ? "ENABLED" : "DISABLED");
         return;
-// ✅ FIXED: Replace the member-update case in WebSocketContext.jsx
-
+ 
 case "member-update":
   if (!msg.data || msg.data.status === "unregistered") return;
   
   console.log("📥 Received member-update:", msg.data);
   
   addOrUpdateStatusLog({
-    id: msg.data.id, // ✅ Add the log ID
+    id: msg.data.id, 
     rfid_tag: msg.data.rfid_tag,
     full_name: msg.data.full_name || "Unknown",
     profile_image_url: msg.data.profile_image_url,
@@ -145,9 +141,9 @@ case "member-update":
     status: msg.data.status || msg.data.member_status || "outside",
     visitor_type: msg.data.visitor_type || "Member",
     system_type: msg.data.system_type || "gate",
-    deducted_amount: msg.data.deducted_amount, // ✅ Include deduction
-    current_balance: msg.data.current_balance, // ✅ Include balance
-    remaining_balance: msg.data.remaining_balance || msg.data.current_balance, // ✅ Both
+    deducted_amount: msg.data.deducted_amount, 
+    current_balance: msg.data.current_balance, 
+    remaining_balance: msg.data.remaining_balance || msg.data.current_balance,
     subscription_expiry: msg.data.subscription_expiry,
     staff_name: msg.data.staff_name,
     action: msg.data.exit_time ? "exit" : "entry",
@@ -160,8 +156,7 @@ case "member-update":
 
         const { rfid_tag, status, location, full_name, system_type, reason } = msg.data;
         
-        // Log the incoming staff-scan message
-        console.log("📥 Received staff-scan message:", {
+         console.log("📥 Received staff-scan message:", {
           rfid_tag,
           status,
           location,
@@ -173,21 +168,18 @@ case "member-update":
           return;
         }
 
-        // Check if this RFID was already processed recently (debounce)
-        if (rfid_tag === lastProcessedRfid.current) {
+         if (rfid_tag === lastProcessedRfid.current) {
           console.log("⏭️ Skipping duplicate RFID scan");
           return;
         }
         lastProcessedRfid.current = rfid_tag;
         setTimeout(() => (lastProcessedRfid.current = null), 2000);
 
-        // Store RFID data
-        setRfidData({ ...msg.data, timestamp: new Date().toLocaleString() });
+         setRfidData({ ...msg.data, timestamp: new Date().toLocaleString() });
         sessionStorage.setItem("rfid_tag", rfid_tag);
         sessionStorage.setItem("system_type", system_type || "");
 
-        // Check if we're on a staff page
-        const currentPath = window.location.pathname;
+         const currentPath = window.location.pathname;
         const isStaffPage = currentPath.startsWith("/Staff");
         
         if (!isStaffPage) {
@@ -195,8 +187,7 @@ case "member-update":
           return;
         }
 
-        // Handle errors
-        if (reason && reason.includes("not registered with SwiftPass")) {
+         if (reason && reason.includes("not registered with SwiftPass")) {
           console.log("❌ Unauthorized RFID - not registered with SwiftPass");
           alert("This RFID is not registered with SwiftPass company. Please use an authorized RFID.");
           return;
@@ -208,8 +199,7 @@ case "member-update":
           return;
         }
 
-        // Navigate based on status
-        if (status === "member_found") {
+         if (status === "member_found") {
           console.log("✅ Member found - navigating to MembershipTransactions");
           customNavigate("/Staff/MembershipTransactions", {
             state: { rfid_tag, full_name, ...msg.data, system_type },
@@ -229,7 +219,7 @@ case "member-update":
         return;
 
       default:
-        console.log("⚠️ Unknown WebSocket message type:", msg.type);
+        console.log("Unknown WebSocket message type:", msg.type);
         break;
     }
   };
@@ -238,12 +228,12 @@ case "member-update":
     const connectWebSocket = () => {
       const token = getAccessToken();
       if (!token) {
-        console.log("⚠️ No access token available for WebSocket connection");
+        console.log("No access token available for WebSocket connection");
         return;
       }
 
       if (ws.current?.readyState === WebSocket.OPEN) {
-        console.log("✅ WebSocket already connected");
+        console.log(" WebSocket already connected");
         return;
       }
 
@@ -251,7 +241,7 @@ case "member-update":
       ws.current = new WebSocket(socketUrl);
 
       ws.current.onopen = () => {
-        console.log("✅ WebSocket connected, sending authentication");
+        console.log("WebSocket connected, sending authentication");
         ws.current.send(JSON.stringify({ type: "auth-dashboard", token }));
         retryAttempts.current = 0;
       };

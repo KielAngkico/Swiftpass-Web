@@ -58,13 +58,13 @@ router.get("/me", (req, res) => {
 
   if (!token) {
     console.log("❌ /me - No access token cookie found");
-    return refreshTokenHandler(req, res); // Try to refresh automatically
+    return refreshTokenHandler(req, res); 
   }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) {
       console.log("❌ /me - Access token invalid/expired", err.message);
-      return refreshTokenHandler(req, res); // Refresh if expired
+      return refreshTokenHandler(req, res); 
     }
 
     console.log("✅ /me - Access token valid for user:", user.id);

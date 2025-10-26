@@ -25,7 +25,6 @@ const PrepaidReplacement = ({ staffUser }) => {
   const [scanActive, setScanActive] = useState(false);
   const { showToast } = useToast();
 
-  // Fetch user/admin ID
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -44,7 +43,6 @@ const PrepaidReplacement = ({ staffUser }) => {
     fetchUser();
   }, []);
 
-  // If staffUser prop is provided, use it
   useEffect(() => {
     if (staffUser) {
       const id = staffUser.adminId || staffUser.admin_id || staffUser.userId;
@@ -54,7 +52,6 @@ const PrepaidReplacement = ({ staffUser }) => {
     }
   }, [staffUser]);
 
-  // Fetch replacement fee
   useEffect(() => {
     if (!adminId) return;
     const fetchReplacementFee = async () => {
@@ -71,7 +68,6 @@ const PrepaidReplacement = ({ staffUser }) => {
     fetchReplacementFee();
   }, [adminId]);
 
-  // Fetch payment methods
   useEffect(() => {
     if (!adminId) return;
     const fetchPaymentMethods = async () => {
@@ -85,7 +81,6 @@ const PrepaidReplacement = ({ staffUser }) => {
     fetchPaymentMethods();
   }, [adminId]);
 
-  // Listen for scanned RFID from WebSocket
   useEffect(() => {
     if (replacementScannedRfid && scanActive) {
       console.log("📡 RFID scanned from WebSocket:", replacementScannedRfid);
@@ -132,13 +127,11 @@ const PrepaidReplacement = ({ staffUser }) => {
   const startScan = () => {
     console.log("🔍 Scan button clicked - activating replacement scan mode");
     
-    // Activate replacement scan mode via WebSocket
     toggleReplacementScanMode(true);
     
-    // Update local state
     setScanActive(true);
     setNewRfidTag("");
-    showToast({ message: "📡 Scanning active - tap RFID tag now", type: "info" });
+    showToast({ message: " Scanning active - tap RFID tag now", type: "info" });
     
     console.log("Replacement scan mode activation sent to backend");
   };
@@ -148,8 +141,7 @@ const PrepaidReplacement = ({ staffUser }) => {
     setNewRfidTag(value);
     if (value.length > 0 && scanActive) {
       setScanActive(false);
-      showToast({ message: "✅ RFID captured: " + value, type: "success" });
-      // Turn off scan mode when manually entering
+      showToast({ message: "RFID captured: " + value, type: "success" });
       toggleReplacementScanMode(false);
     }
   };
@@ -199,7 +191,6 @@ const PrepaidReplacement = ({ staffUser }) => {
       setMembers([]);
       setScanActive(false);
       
-      // Make sure scan mode is off
       toggleReplacementScanMode(false);
     } catch (err) {
       console.error("Failed to replace RFID:", err);

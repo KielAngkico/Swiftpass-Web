@@ -4,8 +4,7 @@ const bcrypt = require("bcrypt");
 const dbSuperAdmin = require("../db");
 const upload = require("../middleware/upload");
 
-// Add Prepaid Member - CORRECTED with inactive status and balance check
-router.post("/add-member", upload.single("member_image"), async (req, res) => {
+ router.post("/add-member", upload.single("member_image"), async (req, res) => {
   console.log("Received req.body:", req.body);
   console.log("Received req.file:", req.file);
 
@@ -17,8 +16,7 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
 
   const profileImage = req.file ? `uploads/members/${req.file.filename}` : null;
 
-  // Basic validation
-  if (!full_name || !gender || !age || !rfid_tag || !phone_number || !address || !email ||
+   if (!full_name || !gender || !age || !rfid_tag || !phone_number || !address || !email ||
       !password || !payment || !staff_name || !payment_method || !admin_id) {
     return res.status(400).json({ message: "All fields are required." });
   }
@@ -44,7 +42,6 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
   }
 
   try {
-    // Check for duplicate RFID
     const [existing] = await dbSuperAdmin.promise().query(
       "SELECT 1 FROM MembersAccounts WHERE rfid_tag = ? LIMIT 1",
       [rfid_tag]
@@ -53,21 +50,18 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
       return res.status(400).json({ message: "RFID tag already exists." });
     }
 
-    // ✅ Get minimum session fee (session_fee from PartnerAdmins table)
-    const [adminData] = await dbSuperAdmin.promise().query(
+     const [adminData] = await dbSuperAdmin.promise().query(
       "SELECT session_fee FROM AdminAccounts WHERE id = ? LIMIT 1",
       [admin_id]
     );
     
     const minimumSessionFee = adminData.length > 0 ? parseFloat(adminData[0].session_fee) : 0;
     
-    // ✅ Determine status based on balance vs minimum session fee
-    const memberStatus = initialBalance >= minimumSessionFee ? 'active' : 'inactive';
+     const memberStatus = initialBalance >= minimumSessionFee ? 'active' : 'inactive';
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ Set status dynamically based on balance check
-    const insertMemberSql = `
+     const insertMemberSql = `
       INSERT INTO MembersAccounts
       (rfid_tag, full_name, gender, age, phone_number, address, email, password, profile_image_url, 
        admin_id, staff_name, initial_balance, current_balance, subscription_type, payment, status, 
@@ -77,13 +71,12 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
     const [insertResult] = await dbSuperAdmin.promise().query(insertMemberSql, [
       rfid_tag, full_name, gender, ageNumber, phone_number, address, email, hashedPassword,
       profileImage, admin_id, staff_name, initialBalance, initialBalance, plan_name, paymentNumber,
-      memberStatus, // ✅ Dynamic status
+      memberStatus, 
       emergency_contact_person || null, emergency_contact_number || null, emergency_contact_relationship || null
     ]);
     const memberId = insertResult.insertId;
 
-    // Insert transaction
-    const insertTransactionSql = `
+     const insertTransactionSql = `
       INSERT INTO AdminTransactions
       (admin_id, member_id, member_name, rfid_tag, amount, payment_method, reference, staff_name, transaction_type, plan_name)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new_membership', ?)
@@ -94,8 +87,7 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
       reference || null, staff_name, plan_name || null
     ]);
 
-    // Insert member transaction
-    const insertMemberTxnSql = `
+     const insertMemberTxnSql = `
       INSERT INTO AdminMembersTransactions
       (admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance, payment_method, reference, tax, processed_by, subscription_type)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -133,8 +125,7 @@ router.post("/add-subscription-member", upload.single("member_image"), async (re
 
   const profileImage = req.file ? `uploads/members/${req.file.filename}` : null;
 
-  // Validation - REMOVED subscription_type, subscription_start, subscription_expiry from required fields
-  if (!full_name || !gender || !age || !rfid_tag || !phone_number || !address || !email ||
+   if (!full_name || !gender || !age || !rfid_tag || !phone_number || !address || !email ||
       !password || !payment || !staff_name || !payment_method || !admin_id) {
     return res.status(400).json({ message: "All fields are required." });
   }

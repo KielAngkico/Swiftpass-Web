@@ -36,7 +36,6 @@ const sendOTPEmail = async (email, otp, name) => {
   return transporter.sendMail(mailOptions);
 };
 
-// ============ LOGIN =============
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -117,7 +116,6 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// ============ VERIFY LOGIN OTP =============
 router.post("/verify-login-otp", async (req, res) => {
   const { email, otp } = req.body;
 
@@ -201,7 +199,6 @@ router.post("/verify-login-otp", async (req, res) => {
 	accessToken,
   });
 });
-// ============ REFRESH TOKEN =============
 router.post("/refresh-token", async (req, res) => {
   const refreshToken = req.cookies?.refreshToken;
   if (!refreshToken) return res.status(401).json({ success: false, message: "No refresh token" });
@@ -212,7 +209,6 @@ router.post("/refresh-token", async (req, res) => {
     try {
       let user = null;
 
-      // ✅ FIX: Check role from decoded token first, then query the correct table
       if (decoded.role === "superadmin") {
         const [superadmin] = await dbSuperAdmin
           .promise()
@@ -318,7 +314,6 @@ router.post("/resend-login-otp", async (req, res) => {
   }
 });
 
-// ============ STAFF LOGOUT =============
 router.post("/staff/logout", async (req, res) => {
   const { staff_id } = req.body;
 

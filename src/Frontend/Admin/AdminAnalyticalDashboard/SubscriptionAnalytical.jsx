@@ -330,7 +330,6 @@ showToast({ message: "Failed to generate PDF", type: "error" });
         </div>
       </div>
 
-      {/* Row 1: KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
         <KpiCard title="Total Revenue" value={`₱${sampleData.totalRevenue.toLocaleString()}`} color="text-green-600" />
         <KpiCard title="Members Inside" value={sampleData.membersInside} color="text-blue-600" />
@@ -338,8 +337,6 @@ showToast({ message: "Failed to generate PDF", type: "error" });
         <KpiCard title="Total Transactions" value={sampleData.totalTransactions} color="text-purple-600" />
         <KpiCard title="Peak Hour" value={sampleData.peakHour} color="text-gray-700" />
       </div>
-
-      {/* Row 2: Engagement & Activity Snapshot - 60/40 split */}
       <div className="flex flex-col lg:flex-row gap-2">
         <div className="lg:w-[60%] w-full">
           <div className="bg-white p-3 rounded-md shadow-sm h-full">
@@ -384,8 +381,6 @@ showToast({ message: "Failed to generate PDF", type: "error" });
           </ChartCard>
         </div>
       </div>
-
-      {/* Row 3: Revenue Insights - 40/60 split */}
       <div className="flex flex-col lg:flex-row gap-2">
         <div id="revenueChart" className="lg:w-[40%] w-full">
           <ChartCard title="Revenue Breakdown (Cash vs Cashless)">
@@ -398,8 +393,6 @@ showToast({ message: "Failed to generate PDF", type: "error" });
           </ChartCard>
         </div>
       </div>
-
-      {/* Row 4: Temporal Patterns - 60/40 split */}
       <div className="flex flex-col lg:flex-row gap-2">
         <div id="peakHourChart" className="lg:w-[60%] w-full">
           <ChartCard title="Peak Hour Analysis (24 Hours)">

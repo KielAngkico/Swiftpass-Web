@@ -2,12 +2,10 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// Fetch session fee and key fob fee
 router.get("/session-fee", async (req, res) => {
   const { admin_id } = req.query;
 
   try {
-    // Get session fee from AdminAccounts
     const [adminRows] = await db.promise().query(
       "SELECT session_fee FROM AdminAccounts WHERE id = ?",
       [admin_id]
@@ -17,7 +15,6 @@ router.get("/session-fee", async (req, res) => {
       return res.status(404).json({ error: "Admin not found" });
     }
 
-    // Get key fob fee from AdminPricingOptions
     const [keyFobRows] = await db.promise().query(
       "SELECT amount_to_pay FROM AdminPricingOptions WHERE admin_id = ? AND plan_name = 'Key Fob' LIMIT 1",
       [admin_id]
@@ -91,7 +88,6 @@ router.post("/register-session", async (req, res) => {
       );
     }
 
-    // Insert transaction with reference if cashless
     await db.promise().query(
       `INSERT INTO AdminTransactions
       (admin_id, member_name, rfid_tag, amount, payment_method, staff_name, transaction_type, transaction_date, cashless_reference)

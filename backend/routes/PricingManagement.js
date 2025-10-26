@@ -107,7 +107,6 @@ router.put("/update-pricing/:id", async (req, res) => {
     const isDeletable = rows[0].is_deletable;
     const currentPlanName = rows[0].plan_name;
 
-    // Prevent renaming system default plans
     if (isDeletable === 0 && plan_name !== currentPlanName) {
       return res.status(403).json({
         message: "❌ Cannot change the name of a system default plan.",

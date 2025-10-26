@@ -84,7 +84,6 @@ const PrepaidActAnalytics = () => {
           setTotalLogins(apiData.total_logins || 0);
           setPeakHour(apiData.peak_hour || "—");
           
-          // Map recent_events to match the structure we need
           const events = apiData.recent_events || [];
           const mappedData = events.map(event => ({
             id: event.id,
@@ -182,7 +181,6 @@ const PrepaidActAnalytics = () => {
 
   return (
     <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">
-      {/* Header */}
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-lg sm:text-xl font-semibold">Prepaid Activity Analytics</h1>
@@ -215,7 +213,6 @@ const PrepaidActAnalytics = () => {
         </button>
       </div>
 
-      {/* Filter */}
       <div className="flex items-center">
         <div className="bg-white p-2 rounded-md shadow-sm inline-flex items-center gap-2">
           <label className="text-xs text-gray-600">Filter:</label>
@@ -258,14 +255,12 @@ const PrepaidActAnalytics = () => {
         </div>
       </div>
 
-      {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
         <KPI title="Members Inside" value={membersInside} />
         <KPI title="Total Logins" value={totalLogins} />
         <KPI title="Peak Hour" value={peakHour} />
       </div>
 
-      {/* Activity Logs Table */}
       <div className="bg-white rounded shadow overflow-hidden">
         <h2 className="text-sm font-semibold px-2 py-2 border-b">🧾 Member Activity Logs</h2>
         <div className="overflow-x-auto max-h-[350px] overflow-y-auto scroll-smooth text-[10px] sm:text-xs">

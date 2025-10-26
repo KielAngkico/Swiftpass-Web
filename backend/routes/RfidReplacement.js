@@ -2,9 +2,6 @@ const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
 
-/**
- * Replace Member RFID
- */
 router.put("/replace-member-rfid/:id", async (req, res) => {
   const memberId = req.params.id;
   const {
@@ -16,7 +13,6 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
     staff_name,
   } = req.body;
 
-  // Validation
   if (!new_rfid_tag || !admin_id || !staff_name) {
     return res.status(400).json({ 
       message: "Missing required fields: new_rfid_tag, admin_id, or staff_name" 
@@ -24,7 +20,6 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
   }
 
   try {
-    // 🔹 Fetch member data FIRST to get the OLD RFID
     const [memberRows] = await dbSuperAdmin.promise().query(
       "SELECT * FROM MembersAccounts WHERE id = ? LIMIT 1",
       [memberId]
@@ -35,7 +30,7 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
     }
 
     const member = memberRows[0];
-    const oldRfid = member.rfid_tag; // ✅ Store the OLD RFID before updating
+    const oldRfid = member.rfid_tag; 
 
     console.log("🔍 Member found:", {
       id: member.id,
@@ -44,14 +39,12 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
       newRfid: new_rfid_tag
     });
 
-    // Validate that new RFID is different
     if (oldRfid === new_rfid_tag) {
       return res.status(400).json({
         message: "New RFID must be different from current RFID"
       });
     }
 
-    // 🔹 Check if new RFID already exists on another member
     const [existingRfid] = await dbSuperAdmin.promise().query(
       "SELECT id, full_name FROM MembersAccounts WHERE rfid_tag = ? AND id != ?",
       [new_rfid_tag, memberId]
@@ -63,8 +56,7 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
       });
     }
 
-    // 🔹 Update RFID fields - OLD RFID goes to previous_rfid, NEW RFID goes to rfid_tag
-    const updateSql = `
+     const updateSql = `
       UPDATE MembersAccounts
       SET previous_rfid = ?, 
           rfid_tag = ?, 
@@ -81,13 +73,12 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
     });
 
     await dbSuperAdmin.promise().query(updateSql, [
-      oldRfid,        // ✅ OLD RFID → previous_rfid
-      new_rfid_tag,   // ✅ NEW RFID → rfid_tag
+      oldRfid,        
+      new_rfid_tag,   
       staff_name,
       memberId,
     ]);
 
-    // 🔹 Record the replacement fee in AdminTransactions
     const txnSql = `
       INSERT INTO AdminTransactions
       (admin_id, member_id, member_name, rfid_tag, amount, payment_method, reference, staff_name, transaction_type, plan_name)
@@ -97,14 +88,13 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
       admin_id,
       member.id,
       member.full_name,
-      new_rfid_tag,  // ✅ Record the NEW RFID in transaction
+      new_rfid_tag,  
       replacement_fee || 0,
       payment_method || "Cash",
       payment_method?.toLowerCase() === "gcash" ? reference : null,
       staff_name,
     ]);
 
-    // 🔹 Record also in AdminMembersTransactions
     const memberTxnSql = `
       INSERT INTO AdminMembersTransactions
       (admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance,
@@ -113,7 +103,7 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
     `;
     await dbSuperAdmin.promise().query(memberTxnSql, [
       admin_id,
-      new_rfid_tag,  // ✅ Record the NEW RFID in transaction
+      new_rfid_tag,  
       member.full_name,
       replacement_fee || 0,
       payment_method || "Cash",
@@ -123,14 +113,14 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
     ]);
 
     res.status(200).json({
-      message: "✅ RFID replaced successfully.",
+      message: " RFID replaced successfully.",
       old_rfid: oldRfid,
       new_rfid: new_rfid_tag,
       member_name: member.full_name,
       processed_by: staff_name,
     });
   } catch (err) {
-    console.error("❌ Error replacing RFID:", err);
+    console.error("Error replacing RFID:", err);
     res.status(500).json({ 
       message: "Server error while replacing RFID.",
       error: err.message 

@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
 
-// Helper function to validate date format
+
 function isValidDate(dateString) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return false;
   const date = new Date(dateString);
@@ -13,12 +13,10 @@ router.get("/subscription-activity-analytics", async (req, res) => {
   console.log("Received query params:", req.query);
   const { admin_id, filter_type = "all", start_date, end_date } = req.query;
   
-  // Validate admin_id
   if (!admin_id || isNaN(admin_id)) {
     return res.status(400).json({ error: "Invalid admin_id" });
   }
 
-  // Validate dates if custom filter
   if (filter_type === "custom") {
     if (!start_date || !end_date) {
       return res.status(400).json({ error: "start_date and end_date required for custom filter" });
@@ -37,7 +35,6 @@ router.get("/subscription-activity-analytics", async (req, res) => {
   if (filter_type === "today") {
     entryDateCondition = "DATE(entry_time) = CURDATE()";
   } else if (filter_type === "custom" && start_date && end_date) {
-    // ✅ SECURE - Use parameterized query
     entryDateCondition = "DATE(entry_time) BETWEEN ? AND ?";
     queryParams.push(start_date, end_date);
   }
@@ -52,7 +49,6 @@ router.get("/subscription-activity-analytics", async (req, res) => {
       queryParams
     );
 
-    // Update query params for peak result
     const [peakResult] = await dbSuperAdmin.promise().query(
       `SELECT HOUR(entry_time) AS hour, COUNT(*) AS count
        FROM AdminEntryLogs
@@ -108,18 +104,15 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
   console.log("Received query params:", req.query);
   const { admin_id, range, system_type = "prepaid_entry", start_date, end_date } = req.query;
   
-  // Validate admin_id
   if (!admin_id || isNaN(admin_id)) {
     return res.status(400).json({ error: "Invalid admin_id" });
   }
 
-  // Validate system_type
   const validSystemTypes = ["prepaid_entry", "subscription"];
   if (!validSystemTypes.includes(system_type)) {
     return res.status(400).json({ error: "Invalid system_type" });
   }
 
-  // Validate dates if provided
   if ((start_date || end_date)) {
     if (!start_date || !end_date) {
       return res.status(400).json({ error: "Both start_date and end_date required" });
@@ -146,7 +139,6 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
     "last-7-days": "DATE(t.transaction_date) BETWEEN CURDATE() - INTERVAL 7 DAY AND CURDATE()",
   };
 
-  // ✅ SECURE - Build parameterized conditions
   let entryDateCondition = "1=1";
   let entryParams = [];
   if (start_date && end_date) {
@@ -170,7 +162,6 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
     : ["new_membership", "renewal"];
 
   try {
-    // Active members inside
     const [activeResult] = await dbSuperAdmin.promise().query(
       `SELECT COUNT(*) AS count
        FROM AdminEntryLogs e
@@ -180,7 +171,6 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
       [system_type, admin_id]
     );
 
-    // Revenue with parameterized dates
     const [revenueResult] = await dbSuperAdmin.promise().query(
       `SELECT IFNULL(SUM(t.amount), 0) AS total
        FROM AdminTransactions t
@@ -192,7 +182,6 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
       [system_type, admin_id, transactionFilter, ...txnParams]
     );
 
-    // Login count with parameterized dates
     const [loginResult] = await dbSuperAdmin.promise().query(
       `SELECT COUNT(*) AS count
        FROM AdminEntryLogs e
@@ -202,7 +191,6 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
       [system_type, admin_id, ...entryParams]
     );
 
-    // Peak hour with parameterized dates
     const [peakResult] = await dbSuperAdmin.promise().query(
       `SELECT HOUR(e.entry_time) AS hour, COUNT(*) AS count
        FROM AdminEntryLogs e
@@ -219,7 +207,6 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
       ? `${peakResult[0].hour}:00–${peakResult[0].hour + 1}:00`
       : "—";
 
-    // Scan chart with parameterized dates
     const [scanChart] = await dbSuperAdmin.promise().query(
       `SELECT HOUR(e.entry_time) AS hour, COUNT(*) AS count
        FROM AdminEntryLogs e
@@ -231,7 +218,6 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
       [system_type, admin_id, ...entryParams]
     );
 
-    // Action counts with parameterized dates
     const [actionCounts] = await dbSuperAdmin.promise().query(
       `SELECT t.transaction_type, COUNT(*) AS count
        FROM AdminTransactions t
@@ -291,7 +277,6 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
   [admin_id, system_type, ...entryParams]
 );
 
-    // Top members (no date filter needed based on your logic)
     const [topMembers] = await dbSuperAdmin.promise().query(
       `SELECT
          e.full_name,

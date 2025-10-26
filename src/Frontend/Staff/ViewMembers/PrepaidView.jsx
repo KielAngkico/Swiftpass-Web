@@ -41,7 +41,6 @@ const PrepaidView = () => {
         console.log(`🔍 Fetching members for admin ID: ${extractedAdminId}`);
         const membersRes = await api.get(`/api/get-members?admin_id=${extractedAdminId}`);
         
-        // ✅ FILTER FOR PREPAID MEMBERS ONLY
         const allMembers = membersRes.data.members || [];
         const prepaidMembers = allMembers.filter(m => m.system_type === "prepaid_entry");
         

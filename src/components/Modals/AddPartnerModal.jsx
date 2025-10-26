@@ -7,8 +7,8 @@ const AddPartnerModal = ({
   onFormChange,
   onSubmit,
   mode = "add",
-  onScanSlot, // ✅ NEW PROP for RFID scan
-  waitingForSlot = null, // ✅ NEW PROP to show scanning status
+  onScanSlot, 
+  waitingForSlot = null, 
 }) => {
   if (!isOpen) return null;
 
@@ -23,7 +23,6 @@ const AddPartnerModal = ({
         className="bg-white p-5 rounded-md shadow-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold text-gray-800">
             {isEditMode ? "Edit Partner" : "Add New Partner"}
@@ -45,7 +44,6 @@ const AddPartnerModal = ({
           </button>
         </div>
 
-        {/* ✅ Waiting indicator */}
         {waitingForSlot && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md animate-pulse">
             <p className="text-xs text-blue-700">
@@ -57,7 +55,6 @@ const AddPartnerModal = ({
 
         <form onSubmit={onSubmit}>
 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* ======================== COLUMN 1 ======================== */}
             <div className="space-y-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -148,9 +145,7 @@ const AddPartnerModal = ({
               </div>
             </div>
 
-            {/* ======================== COLUMN 2 ======================== */}
             <div className="space-y-2">
-              {/* ✅ RFID Tag 1 with Scan Now */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   RFID Tag 1 {!isEditMode && <span className="text-red-500">*</span>}
@@ -187,7 +182,6 @@ const AddPartnerModal = ({
                 </div>
               </div>
 
-              {/* ✅ RFID Tag 2 with Scan Now */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   RFID Tag 2 <span className="text-gray-500">(Optional)</span>
@@ -256,7 +250,6 @@ const AddPartnerModal = ({
               </div>
             </div>
 
-            {/* ======================== COLUMN 3 ======================== */}
             <div className="flex flex-col items-center gap-2">
               <div className="w-48 h-48 bg-gray-100 border rounded-md flex items-center justify-center overflow-hidden">
                 {formData.profile_image_url ? (
@@ -287,7 +280,6 @@ const AddPartnerModal = ({
             </div>
           </div>
 
-          {/* ======================== BUTTONS ======================== */}
           <div className="flex gap-2 pt-4">
             <button
               type="button"

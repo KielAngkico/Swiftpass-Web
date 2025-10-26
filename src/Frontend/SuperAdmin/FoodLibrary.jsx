@@ -51,7 +51,6 @@ showToast({ message: "Failed to fetch allergens", type: "error" });
     fetchAllergens();
   }, []);
 
-  // ===== FOOD LOGIC =====
   const handleSearch = (query) => {
     setSearchQuery(query);
     setCurrentPage(1);
@@ -188,7 +187,6 @@ const FoodCard = ({ food }) => (
     );
   };
 
-  // ===== ALLERGEN LOGIC =====
   const handleAddAllergen = async () => {
     if (!newAllergen.trim()) {
 showToast({ message: "Please enter an allergen name", type: "error" });

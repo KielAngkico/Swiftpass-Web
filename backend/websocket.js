@@ -110,7 +110,6 @@
     }
   }
 
-  // ✅ Only checks ACTIVE staff (in StaffAccounts, not archived)
   async function getStaffByRfid(rfidTag, adminId = null) {
     try {
       let query = "SELECT id, staff_name, admin_id FROM StaffAccounts WHERE rfid_tag = ?";
@@ -131,7 +130,6 @@
     }
   }
 
-  // ✅ Checks both rfid_tag and rfid_tag_2 for admins
   async function getAdminByRfid(rfidTag) {
     try {
       const [rows] = await dbSuperAdmin.promise().query(
@@ -145,7 +143,6 @@
     }
   }
 
-  // ✅ Gets member with status
   async function getMemberByRfid(rfidTag) {
     try {
       const [rows] = await dbSuperAdmin.promise().query(
@@ -278,7 +275,6 @@
         return;
       }
 
-      // ✅ PRIORITY 1: REPLACEMENT SCAN MODE
       if (adminScanModes.replacement && adminScanModes.replacement[admin_id] === true) {
         broadcastToClients({
           type: "rfid-replacement-scanned",
@@ -301,7 +297,6 @@
         return;
       }
 
-      // ✅ PRIORITY 2: STAFF REGISTRATION SCAN MODE
       if (adminScanModes[admin_id] === true) {
         const isRegistered = await isRfidRegistered(rfid_tag);
         if (!isRegistered) {
@@ -402,7 +397,6 @@
         return;
       }
 
-      // ✅ SUPERADMIN RFID REGISTRATION CHECK
       if (location.toUpperCase() === "SUPERADMIN") {
         const isRegistered = await isRfidRegistered(rfid_tag);
         broadcastToClients({
@@ -416,7 +410,6 @@
         return;
       }
 
-      // ✅ LOCATION = STAFF
       if (location.toUpperCase() === "STAFF") {
         const isRegistered = await isRfidRegistered(rfid_tag);
         if (!isRegistered) {
@@ -512,7 +505,6 @@
         return;
       }
 
-      // ✅ LOCATION = ENTRY / EXIT
       if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
         const isRegistered = await isRfidRegistered(rfid_tag);
         if (!isRegistered) {
@@ -530,7 +522,6 @@
           return;
         }
 
-        // ✅ Check if ACTIVE staff (only in StaffAccounts)
         const staffMember = await getStaffByRfid(rfid_tag, admin_id);
         if (staffMember) {
           await logStaffActivity(rfid_tag, staffMember, location, location.toUpperCase());
@@ -550,7 +541,6 @@
           return;
         }
 
-        // ✅ Check if admin (both RFID tags)
         const adminMember = await getAdminByRfid(rfid_tag);
         if (adminMember) {
           broadcastToClients({
@@ -568,7 +558,6 @@
           return;
         }
 
-        // ✅ Check member with status
         const [memberRows] = await dbSuperAdmin.promise().query(
           `SELECT id, full_name, profile_image_url, system_type, current_balance, subscription_expiry, admin_id, status
           FROM MembersAccounts
@@ -580,7 +569,6 @@
         if (memberRows.length > 0) {
           const member = memberRows[0];
           
-          // ✅ Check if member is inactive
           if (member.status === 'inactive') {
             broadcastToClients({
               type: "member-update",
@@ -744,10 +732,8 @@
     }
   }
 
-// ✅ COMPLETE FIX: Correct pricing query + transaction logging
 async function handleMember(member, rfid_tag, location) {
   try {
-    // Get admin info
     const [adminRows] = await dbSuperAdmin.promise().query(
       `SELECT id, admin_name, system_type FROM AdminAccounts WHERE id = ? LIMIT 1`,
       [member.admin_id]
@@ -760,7 +746,6 @@ async function handleMember(member, rfid_tag, location) {
     
     const admin = adminRows[0];
 
-    // Get online staff
     const [staffRows] = await dbSuperAdmin.promise().query(
       `SELECT staff_name FROM StaffSessionLogs
        WHERE admin_id = ? AND status = 'online'
@@ -771,8 +756,7 @@ async function handleMember(member, rfid_tag, location) {
 
     const isEntry = location.toUpperCase() === "ENTRY";
     
-    // ✅ Get the most recent log entry for this member
-    const [lastLogRows] = await dbSuperAdmin.promise().query(
+     const [lastLogRows] = await dbSuperAdmin.promise().query(
       `SELECT * FROM AdminEntryLogs
        WHERE rfid_tag = ? AND admin_id = ?
        ORDER BY id DESC LIMIT 1`,
@@ -780,8 +764,7 @@ async function handleMember(member, rfid_tag, location) {
     );
     const lastLog = lastLogRows[0];
     
-    // ✅ Check current status based on last log
-    const isCurrentlyInside = lastLog && lastLog.member_status === 'inside';
+     const isCurrentlyInside = lastLog && lastLog.member_status === 'inside';
 
     let accessGranted = false;
     let reason = "";
@@ -789,20 +772,14 @@ async function handleMember(member, rfid_tag, location) {
     let remainingBalance = member.current_balance ?? 0;
     let logId = null;
 
-    console.log(`\n📍 Processing ${isEntry ? 'ENTRY' : 'EXIT'} for ${member.full_name}`);
-    console.log(`   Current Status: ${isCurrentlyInside ? 'INSIDE' : 'OUTSIDE'}`);
-    console.log(`   System Type: ${admin.system_type}`);
-    console.log(`   Current Balance: ₱${remainingBalance}`);
+   
 
-    // ✅ ENTRY Logic
-    if (isEntry) {
+     if (isEntry) {
       if (isCurrentlyInside) {
         reason = "Already inside";
         accessGranted = false;
-        console.log(`❌ Entry denied - member already inside`);
-      } else if (admin.system_type === "prepaid_entry") {
-        // ✅ FIX: Get "Daily Session" price specifically, not last inserted row
-        const [pricingRows] = await dbSuperAdmin.promise().query(
+       } else if (admin.system_type === "prepaid_entry") {
+         const [pricingRows] = await dbSuperAdmin.promise().query(
           `SELECT amount_to_pay FROM AdminPricingOptions
            WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1
            LIMIT 1`,
@@ -810,19 +787,17 @@ async function handleMember(member, rfid_tag, location) {
         );
 
         if (pricingRows.length === 0) {
-          console.error("❌ No Daily Session pricing found for admin:", admin.id);
-          reason = "Daily Session price not configured";
+           reason = "Daily Session price not configured";
           accessGranted = false;
         } else {
           const price = parseFloat(pricingRows[0].amount_to_pay);
           console.log(`💰 Daily Session Price: ₱${price}`);
 
-          // ✅ Check grace period (if exited within last 1 minute)
-          let isGracePeriod = false;
+           let isGracePeriod = false;
           if (lastLog && lastLog.exit_time) {
             const exitTime = new Date(lastLog.exit_time);
             const now = new Date();
-            const timeDiff = (now - exitTime) / 1000; // seconds
+            const timeDiff = (now - exitTime) / 1000; 
 
             if (timeDiff <= 60) {
               isGracePeriod = true;
@@ -830,7 +805,6 @@ async function handleMember(member, rfid_tag, location) {
             }
           }
 
-          // ✅ Check balance
           if (!isGracePeriod && remainingBalance < price) {
             reason = "Insufficient balance";
             accessGranted = false;
@@ -841,22 +815,17 @@ async function handleMember(member, rfid_tag, location) {
             if (isGracePeriod) {
               deductedAmount = 0;
               reason = "Grace period - no charge";
-              console.log("✅ Entry granted - grace period (no charge)");
-              // ✅ NO transaction logged during grace period
-              // ✅ NO balance update during grace period
+
             } else {
               deductedAmount = price;
               remainingBalance -= price;
-              console.log(`✅ Deducting ₱${price}. New balance: ₱${remainingBalance}`);
 
-              // ✅ Update member balance
               await dbSuperAdmin.promise().query(
                 `UPDATE MembersAccounts SET current_balance = ? WHERE id = ?`,
                 [remainingBalance, member.id]
               );
               console.log(`💾 Balance updated in database`);
 
-              // ✅ Log transaction with "Session Fee" description
               try {
                 const [transResult] = await dbSuperAdmin.promise().query(
                   `INSERT INTO AdminMembersTransactions
@@ -876,11 +845,9 @@ async function handleMember(member, rfid_tag, location) {
                 console.log(`💾 Transaction logged with ID: ${transResult.insertId} (Session Fee: -₱${deductedAmount})`);
               } catch (transError) {
                 console.error("❌ Transaction logging failed:", transError.message);
-                // Continue anyway - balance was already deducted
               }
             }
 
-            // ✅ Create new entry log
             try {
               const [logResult] = await dbSuperAdmin.promise().query(
                 `INSERT INTO AdminEntryLogs
@@ -890,10 +857,10 @@ async function handleMember(member, rfid_tag, location) {
                   rfid_tag, 
                   member.full_name, 
                   member.admin_id, 
-                  isGracePeriod ? "Entry Grace Period" : staff_name,  // ✅ Special staff_name for grace period
+                  isGracePeriod ? "Entry Grace Period" : staff_name, 
                   "Member", 
                   admin.system_type, 
-                  deductedAmount,  // Will be 0 for grace period, price for normal
+                  deductedAmount,  
                   "inside", 
                   new Date(), 
                   location
@@ -907,7 +874,7 @@ async function handleMember(member, rfid_tag, location) {
           }
         }
       } else {
-        // ✅ Subscription system
+       
         accessGranted = true;
         try {
           const [logResult] = await dbSuperAdmin.promise().query(
@@ -923,7 +890,6 @@ async function handleMember(member, rfid_tag, location) {
         }
       }
     } 
-    // ✅ EXIT Logic
     else {
       if (!isCurrentlyInside) {
         reason = "Not inside - cannot exit";
@@ -932,7 +898,6 @@ async function handleMember(member, rfid_tag, location) {
       } else {
         accessGranted = true;
         
-        // ✅ Update existing log
         try {
           await dbSuperAdmin.promise().query(
             `UPDATE AdminEntryLogs 
@@ -941,18 +906,14 @@ async function handleMember(member, rfid_tag, location) {
             ["outside", new Date(), location, lastLog.id]
           );
           logId = lastLog.id;
-          console.log(`💾 Exit logged - updated ID: ${logId}`);
         } catch (logError) {
-          console.error("❌ Exit log update failed:", logError.message);
         }
       }
     }
 
-    // ✅ Determine final status
-    const finalStatus = accessGranted ? (isEntry ? "inside" : "outside") : "denied";
+     const finalStatus = accessGranted ? (isEntry ? "inside" : "outside") : "denied";
 
-    // ✅ Build broadcast data
-    const broadcastData = {
+     const broadcastData = {
       type: "member-update",
       data: {
         id: logId,
@@ -975,24 +936,15 @@ async function handleMember(member, rfid_tag, location) {
       }
     };
 
-    console.log(`\n📡 Broadcasting to Arduino:`);
-    console.log(`   Status: "${finalStatus}"`);
-    console.log(`   Access: ${accessGranted ? '✅ GRANTED (Door should UNLOCK)' : '❌ DENIED'}`);
-    console.log(`   Deducted: ${deductedAmount ? `₱${deductedAmount}` : 'N/A'}`);
-    console.log(`   Remaining Balance: ₱${remainingBalance}`);
-    console.log(`   Location: ${location}`);
-    console.log(`   Admin ID: ${member.admin_id}`);
+   
     
-    // ✅ Send to clients
     broadcastToClients(broadcastData);
     
     console.log(`✅ Broadcast complete\n`);
 
   } catch (error) {
-    console.error(`❌ handleMember error:`, error);
-    console.error(`   Stack trace:`, error.stack);
+
     
-    // ✅ Send error response
     broadcastToClients({
       type: "member-update",
       data: {

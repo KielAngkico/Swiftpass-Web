@@ -94,84 +94,99 @@ useEffect(() => {
       setRecentExits([exitItem]);
       setRecentEntries(prev => prev.filter(entry => entry.rfid_tag !== data.rfid_tag));
     }
-    setEntryLogs(prev => {
-      const updated = [...prev];
+// ✅ FIXED: Replace the setEntryLogs update logic in MemberEntryBranch.jsx
 
-      if (data.id) {
-        const existingIndex = updated.findIndex(log => log.id === data.id);
-        if (existingIndex !== -1) {
-          updated[existingIndex] = {
-            ...updated[existingIndex],
-            ...data,
-            entry_time: data.entry_time || updated[existingIndex].entry_time,
-            exit_time: data.exit_time || updated[existingIndex].exit_time,
-            status: data.status || updated[existingIndex].status,
-            member_status: data.status || updated[existingIndex].member_status,
-            deducted_amount: data.deducted_amount ?? updated[existingIndex].deducted_amount,
-            remaining_balance: data.remaining_balance ?? updated[existingIndex].remaining_balance,
-            last_activity: data.timestamp || new Date().toISOString(),
-          };
-        } else {
-          updated.unshift({
-            id: data.id,
-            rfid_tag: data.rfid_tag,
-            full_name: data.full_name,
-            profile_image_url: data.profile_image_url,
-            entry_time: data.entry_time || null,
-            exit_time: data.exit_time || null,
-            status: data.status || "outside",
-            member_status: data.status || "outside",
-            visitor_type: data.visitor_type,
-            system_type: data.system_type,
-            deducted_amount: data.deducted_amount,
-            remaining_balance: data.remaining_balance,
-            subscription_expiry: data.subscription_expiry,
-            staff_name: data.staff_name,
-            last_activity: data.timestamp || new Date().toISOString(),
-          });
-        }
-      } else {
-        if (isEntry) {
-          const activeIndex = updated.findIndex(log => log.rfid_tag === data.rfid_tag && (log.member_status === "inside" || log.status === "inside"));
-          if (activeIndex === -1) {
-            updated.unshift({
-              id: `temp-${data.rfid_tag}-${Date.now()}`,
-              rfid_tag: data.rfid_tag,
-              full_name: data.full_name,
-              profile_image_url: data.profile_image_url,
-              entry_time: data.entry_time,
-              exit_time: null,
-              status: "inside",
-              member_status: "inside",
-              visitor_type: data.visitor_type,
-              system_type: data.system_type,
-              deducted_amount: data.deducted_amount,
-              remaining_balance: data.remaining_balance,
-              subscription_expiry: data.subscription_expiry,
-              staff_name: data.staff_name,
-              last_activity: data.timestamp || new Date().toISOString(),
-            });
-          }
-        } else if (isExit) {
-          const activeIndex = updated.findIndex(log => log.rfid_tag === data.rfid_tag && (log.member_status === "inside" || log.status === "inside"));
-          if (activeIndex !== -1) {
-            updated[activeIndex] = {
-              ...updated[activeIndex],
-              exit_time: data.exit_time,
-              status: "outside",
-              member_status: "outside",
-              last_activity: data.timestamp || new Date().toISOString(),
-            };
-          }
-        }
-      }
+setEntryLogs(prev => {
+  const updated = [...prev];
 
-      return updated.sort((a, b) => {
-        const timeA = new Date(a.last_activity || a.entry_time || a.exit_time || 0);
-        const timeB = new Date(b.last_activity || b.entry_time || b.exit_time || 0);
-        return timeB - timeA;
+  // ✅ If we have a log ID, update existing or add new
+  if (data.id) {
+    const existingIndex = updated.findIndex(log => log.id === data.id);
+    if (existingIndex !== -1) {
+      // Update existing log
+      updated[existingIndex] = {
+        ...updated[existingIndex],
+        ...data,
+        entry_time: data.entry_time || updated[existingIndex].entry_time,
+        exit_time: data.exit_time || updated[existingIndex].exit_time,
+        status: data.status || updated[existingIndex].status,
+        member_status: data.status || updated[existingIndex].member_status,
+        deducted_amount: data.deducted_amount ?? updated[existingIndex].deducted_amount,
+        current_balance: data.current_balance ?? updated[existingIndex].current_balance,
+        remaining_balance: data.remaining_balance ?? data.current_balance ?? updated[existingIndex].remaining_balance,
+        last_activity: data.timestamp || new Date().toISOString(),
+      };
+    } else {
+      // Add new log with ID
+      updated.unshift({
+        id: data.id,
+        rfid_tag: data.rfid_tag,
+        full_name: data.full_name,
+        profile_image_url: data.profile_image_url,
+        entry_time: data.entry_time || null,
+        exit_time: data.exit_time || null,
+        status: data.status || "outside",
+        member_status: data.status || "outside",
+        visitor_type: data.visitor_type,
+        system_type: data.system_type,
+        deducted_amount: data.deducted_amount,
+        current_balance: data.current_balance,
+        remaining_balance: data.remaining_balance || data.current_balance,
+        subscription_expiry: data.subscription_expiry,
+        staff_name: data.staff_name,
+        last_activity: data.timestamp || new Date().toISOString(),
       });
-    });
+    }
+  } else {
+    // No ID - handle by RFID (legacy support)
+    if (isEntry) {
+      const activeIndex = updated.findIndex(log => 
+        log.rfid_tag === data.rfid_tag && 
+        (log.member_status === "inside" || log.status === "inside")
+      );
+      if (activeIndex === -1) {
+        updated.unshift({
+          id: `temp-${data.rfid_tag}-${Date.now()}`,
+          rfid_tag: data.rfid_tag,
+          full_name: data.full_name,
+          profile_image_url: data.profile_image_url,
+          entry_time: data.entry_time,
+          exit_time: null,
+          status: "inside",
+          member_status: "inside",
+          visitor_type: data.visitor_type,
+          system_type: data.system_type,
+          deducted_amount: data.deducted_amount,
+          current_balance: data.current_balance,
+          remaining_balance: data.remaining_balance || data.current_balance,
+          subscription_expiry: data.subscription_expiry,
+          staff_name: data.staff_name,
+          last_activity: data.timestamp || new Date().toISOString(),
+        });
+      }
+    } else if (isExit) {
+      const activeIndex = updated.findIndex(log => 
+        log.rfid_tag === data.rfid_tag && 
+        (log.member_status === "inside" || log.status === "inside")
+      );
+      if (activeIndex !== -1) {
+        updated[activeIndex] = {
+          ...updated[activeIndex],
+          exit_time: data.exit_time,
+          status: "outside",
+          member_status: "outside",
+          last_activity: data.timestamp || new Date().toISOString(),
+        };
+      }
+    }
+  }
+
+  return updated.sort((a, b) => {
+    const timeA = new Date(a.last_activity || a.entry_time || a.exit_time || 0);
+    const timeB = new Date(b.last_activity || b.entry_time || b.exit_time || 0);
+    return timeB - timeA;
+  });
+});
   });
 }, [globalEntryLogs, getImageUrl]);
 

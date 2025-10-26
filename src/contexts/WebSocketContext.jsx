@@ -127,22 +127,33 @@ case "rfid-registration-check":
         setScanModeEnabled(msg.data?.enabled || false);
         console.log("🔄 Staff registration scan mode:", msg.data?.enabled ? "ENABLED" : "DISABLED");
         return;
+// ✅ FIXED: Replace the member-update case in WebSocketContext.jsx
 
-      case "member-update":
-        if (!msg.data || msg.data.status === "unregistered") return;
-        addOrUpdateStatusLog({
-          rfid_tag: msg.data.rfid_tag,
-          full_name: msg.data.full_name || "Unknown",
-          profile_image_url: msg.data.profile_image_url,
-          entry_time: msg.data.entry_time || null,
-          exit_time: msg.data.exit_time || null,
-          member_status: msg.data.status || msg.data.member_status || "outside",
-          visitor_type: msg.data.visitor_type || "Member",
-          system_type: msg.data.system_type || "gate",
-          action: msg.data.exit_time ? "exit" : "entry",
-          last_activity: msg.data.exit_time || msg.data.entry_time || new Date().toISOString(),
-        });
-        return;
+case "member-update":
+  if (!msg.data || msg.data.status === "unregistered") return;
+  
+  console.log("📥 Received member-update:", msg.data);
+  
+  addOrUpdateStatusLog({
+    id: msg.data.id, // ✅ Add the log ID
+    rfid_tag: msg.data.rfid_tag,
+    full_name: msg.data.full_name || "Unknown",
+    profile_image_url: msg.data.profile_image_url,
+    entry_time: msg.data.entry_time || null,
+    exit_time: msg.data.exit_time || null,
+    member_status: msg.data.status || msg.data.member_status || "outside",
+    status: msg.data.status || msg.data.member_status || "outside",
+    visitor_type: msg.data.visitor_type || "Member",
+    system_type: msg.data.system_type || "gate",
+    deducted_amount: msg.data.deducted_amount, // ✅ Include deduction
+    current_balance: msg.data.current_balance, // ✅ Include balance
+    remaining_balance: msg.data.remaining_balance || msg.data.current_balance, // ✅ Both
+    subscription_expiry: msg.data.subscription_expiry,
+    staff_name: msg.data.staff_name,
+    action: msg.data.exit_time ? "exit" : "entry",
+    last_activity: msg.data.exit_time || msg.data.entry_time || new Date().toISOString(),
+  });
+  return;
 
       case "staff-scan":
         if (!msg.data) return;

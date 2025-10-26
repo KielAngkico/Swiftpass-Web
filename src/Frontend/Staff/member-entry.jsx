@@ -341,7 +341,7 @@ const MemberEntryBranch = () => {
               <table className="w-full">
                 <thead className="bg-gray-100 sticky top-0">
                   <tr>
-                    {["Member", "RFID", "Entry", "Exit", "Status", "Type", "Balance"].map((h) => (
+                    {["Member", "RFID", "Entry", "Exit", "Status", "Type"].map((h) => (
                       <th
                         key={h}
                         className="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase"
@@ -412,11 +412,6 @@ const MemberEntryBranch = () => {
                               {log.deducted_amount && (
                                 <div className="text-red-600 font-medium">
                                   -₱{log.deducted_amount}
-                                </div>
-                              )}
-                              {log.remaining_balance !== undefined && (
-                                <div className="text-gray-600">
-                                  ₱{log.remaining_balance}
                                 </div>
                               )}
                             </div>

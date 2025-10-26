@@ -825,6 +825,23 @@ async function handleMember(member, rfid_tag, location) {
             `UPDATE MembersAccounts SET current_balance = ? WHERE id = ?`,
             [remainingBalance, member.id]
           );
+
+          // ✅ Log transaction in AdminMembersTransactions
+          await dbSuperAdmin.promise().query(
+            `INSERT INTO AdminMembersTransactions
+             (member_id, admin_id, transaction_type, amount, payment_method, staff_name, description, transaction_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              member.id,
+              member.admin_id,
+              'session_deduction',
+              -deductedAmount, // Negative for deduction
+              'balance',
+              staff_name || 'System',
+              `Entry fee deducted at ${location}`,
+              new Date()
+            ]
+          );
         }
 
         // ✅ Create new entry log

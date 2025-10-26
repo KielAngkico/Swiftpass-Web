@@ -744,8 +744,6 @@
     }
   }
 
-// ✅ COMPLETE FIX: Replace the entire handleMember function
-// This ensures door opens on successful entry/exit
 
 async function handleMember(member, rfid_tag, location) {
   const [adminRows] = await dbSuperAdmin.promise().query(
@@ -763,18 +761,14 @@ async function handleMember(member, rfid_tag, location) {
   const staff_name = staffRows.length ? staffRows[0].staff_name : null;
 
   const isEntry = location.toUpperCase() === "ENTRY";
-  
-  // ✅ Get the most recent log entry for this member
   const [lastLogRows] = await dbSuperAdmin.promise().query(
     `SELECT * FROM AdminEntryLogs
-     WHERE rfid_tag = ? AND system_type = ? AND admin_id = ?
+     WHERE rfid_tag = ? AND system_type = ? AND member_status = 'inside'
      ORDER BY id DESC LIMIT 1`,
-    [rfid_tag, admin.system_type, member.admin_id]
+    [rfid_tag, admin.system_type]
   );
   const lastLog = lastLogRows[0];
-  
-  // ✅ Check current status based on last log
-  const isCurrentlyInside = lastLog && lastLog.member_status === 'inside';
+  const isCurrentlyInside = !!lastLog;
 
   let accessGranted = false;
   let reason = "";
@@ -782,154 +776,92 @@ async function handleMember(member, rfid_tag, location) {
   let remainingBalance = member.current_balance ?? 0;
   let logId = null;
 
-  // ✅ ENTRY Logic: Only allow if currently OUTSIDE
-  if (isEntry) {
-    if (isCurrentlyInside) {
-      reason = "Already inside";
-      accessGranted = false;
-      console.log(`❌ Entry denied - member already inside`);
-    } else if (admin.system_type === "prepaid_entry") {
-      // ✅ Get DAILY SESSION price specifically
+  if (isEntry && isCurrentlyInside) reason = "Already inside";
+  else if (!isEntry && !isCurrentlyInside) reason = "Already outside";
+  else {
+    if (admin.system_type === "prepaid_entry") {
       const [pricingRows] = await dbSuperAdmin.promise().query(
         `SELECT amount_to_pay FROM AdminPricingOptions
-         WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1
-         LIMIT 1`,
+         WHERE admin_id = ? AND is_active = 1 ORDER BY id DESC LIMIT 1`,
         [admin.id]
       );
-      const price = pricingRows.length ? parseFloat(pricingRows[0].amount_to_pay) : 0;
 
-      console.log(`💰 Daily Session Price for admin ${admin.id}: ₱${price}`);
+      const price = pricingRows.length ? pricingRows[0].amount_to_pay : 0;
 
-      // ✅ Check grace period (if exited within last 1 minute)
-      let isGracePeriod = false;
-      if (lastLog && lastLog.exit_time) {
-        const exitTime = new Date(lastLog.exit_time);
-        const now = new Date();
-        const timeDiff = (now - exitTime) / 1000; // seconds
-
-        if (timeDiff <= 60) {
-          isGracePeriod = true;
-          console.log(`⏱️ Grace period active - ${timeDiff.toFixed(1)}s since last exit`);
-        }
-      }
-
-      // ✅ Check balance (skip if grace period)
-      if (!isGracePeriod && remainingBalance < price) {
-        reason = "Insufficient balance";
-        accessGranted = false;
-        console.log(`❌ Insufficient balance: ₱${remainingBalance} < ₱${price}`);
-      } else {
-        accessGranted = true;
-        
-        // ✅ Only deduct if NOT grace period
-        if (isGracePeriod) {
-          deductedAmount = 0;
-          reason = "Grace period - no charge";
-          console.log("✅ Entry granted - grace period");
-        } else {
+      if (isEntry) {
+        if (remainingBalance < price) reason = "Insufficient balance";
+        else {
+          accessGranted = true;
           deductedAmount = price;
           remainingBalance -= price;
-
-          console.log(`✅ Deducting ₱${price}. New balance: ₱${remainingBalance}`);
 
           await dbSuperAdmin.promise().query(
             `UPDATE MembersAccounts SET current_balance = ? WHERE id = ?`,
             [remainingBalance, member.id]
           );
 
-          // ✅ Log transaction
-          await dbSuperAdmin.promise().query(
-            `INSERT INTO AdminMembersTransactions
-             (member_id, admin_id, transaction_type, amount, payment_method, staff_name, description, transaction_date)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              member.id,
-              member.admin_id,
-              'session_deduction',
-              -deductedAmount,
-              'balance',
-              staff_name || 'System',
-              `Entry fee deducted at ${location}`,
-              new Date()
-            ]
+          const [logResult] = await dbSuperAdmin.promise().query(
+            `INSERT INTO AdminEntryLogs
+             (rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, deducted_amount, member_status, entry_time, location)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [rfid_tag, member.full_name, member.admin_id, staff_name, "Member", admin.system_type, deductedAmount, "inside", new Date(), location]
           );
+          logId = logResult.insertId;
         }
-
-        // ✅ Create new entry log
-        const [logResult] = await dbSuperAdmin.promise().query(
-          `INSERT INTO AdminEntryLogs
-           (rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, deducted_amount, member_status, entry_time, location)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [rfid_tag, member.full_name, member.admin_id, staff_name, "Member", admin.system_type, deductedAmount, "inside", new Date(), location]
-        );
-        logId = logResult.insertId;
-        console.log(`✅ Entry logged with ID: ${logId}`);
+      } else {
+        if (!isCurrentlyInside) reason = "Not inside";
+        else {
+          accessGranted = true;
+          await dbSuperAdmin.promise().query(
+            `UPDATE AdminEntryLogs SET member_status = ?, exit_time = ?, location = ? WHERE id = ?`,
+            ["outside", new Date(), location, lastLog.id]
+          );
+          logId = lastLog.id;
+        }
       }
     } else {
-      // ✅ Subscription system - just grant entry
       accessGranted = true;
-      const [logResult] = await dbSuperAdmin.promise().query(
-        `INSERT INTO AdminEntryLogs
-         (rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, member_status, entry_time, location)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [rfid_tag, member.full_name, member.admin_id, staff_name, "Member", admin.system_type, "inside", new Date(), location]
-      );
-      logId = logResult.insertId;
-      console.log(`✅ Subscription entry logged with ID: ${logId}`);
-    }
-  } 
-  // ✅ EXIT Logic: Only allow if currently INSIDE
-  else {
-    if (!isCurrentlyInside) {
-      reason = "Not inside - cannot exit";
-      accessGranted = false;
-      console.log(`❌ Exit denied - member not inside`);
-    } else {
-      accessGranted = true;
-      
-      // ✅ Update the existing entry log to mark as outside
-      await dbSuperAdmin.promise().query(
-        `UPDATE AdminEntryLogs 
-         SET member_status = ?, exit_time = ?, location = ? 
-         WHERE id = ?`,
-        ["outside", new Date(), location, lastLog.id]
-      );
-      logId = lastLog.id;
-      console.log(`✅ Exit logged - updated ID: ${logId}`);
+      if (isEntry) {
+        const [logResult] = await dbSuperAdmin.promise().query(
+          `INSERT INTO AdminEntryLogs
+           (rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, member_status, entry_time, location)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [rfid_tag, member.full_name, member.admin_id, staff_name, "Member", admin.system_type, "inside", new Date(), location]
+        );
+        logId = logResult.insertId;
+      } else {
+        await dbSuperAdmin.promise().query(
+          `UPDATE AdminEntryLogs SET member_status = ?, exit_time = ?, location = ? WHERE id = ?`,
+          ["outside", new Date(), location, lastLog.id]
+        );
+        logId = lastLog.id;
+      }
     }
   }
 
-  // ✅ Determine final status for response
   const status = accessGranted ? (isEntry ? "inside" : "outside") : "denied";
 
-  // ✅ CRITICAL: Build the broadcast data
-  const broadcastData = {
+  broadcastToClients({
     type: "member-update",
     data: {
-      id: logId,
       rfid_tag,
       full_name: member.full_name,
-      profile_image_url: member.profile_image_url,
+      profile_image_url: member.profile_image_url, // ✅ ADD THIS LINE
       visitor_type: "Member",
       system_type: admin.system_type,
-      status, // ✅ This tells Arduino if door should open
-      member_status: status, // ✅ For compatibility
+      status,
       reason,
       deducted_amount: deductedAmount,
       current_balance: remainingBalance,
-      remaining_balance: remainingBalance,
       entry_time: isEntry && accessGranted ? new Date().toISOString() : lastLog?.entry_time ? new Date(lastLog.entry_time).toISOString() : null,
       exit_time: !isEntry && accessGranted ? new Date().toISOString() : lastLog?.exit_time ? new Date(lastLog.exit_time).toISOString() : null,
       location,
       admin_id: member.admin_id,
       timestamp: new Date().toISOString()
     }
-  };
-
-  console.log(`📡 Broadcasting: status="${status}", accessGranted=${accessGranted}, door should ${accessGranted ? 'OPEN' : 'STAY CLOSED'}`);
-  console.log("📡 Full broadcast data:", JSON.stringify(broadcastData, null, 2));
-  
-  broadcastToClients(broadcastData);
+  });
 }
+
+
 
   module.exports = { setupWebSocket, broadcastToClients };

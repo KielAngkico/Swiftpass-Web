@@ -332,7 +332,7 @@ const PrepaidAnalytical = ({ adminUser }) => {
                   >
                     <div className="text-2xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</div>
                     <img
-                      src={`${import.meta.env.VITE_IP}/${member.profile_image_url || "uploads/members/default.jpg"}`}
+                      src={`https://swiftpasstech.com/${member.profile_image_url || "uploads/members/default.jpg"}`}
                       alt={member.full_name}
                       className="w-16 h-16 object-cover rounded-full border"
                     />

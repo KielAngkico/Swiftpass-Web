@@ -7,15 +7,22 @@ router.get("/get-admin-transactions/:admin_id", async (req, res) => {
   const { start_date, end_date } = req.query;
 
   try {
-    let query = `SELECT * FROM AdminTransactions WHERE admin_id = ?`;
+    let query = `
+      SELECT 
+        t.*,
+        m.profile_image_url
+      FROM AdminTransactions t
+      LEFT JOIN MembersAccounts m ON m.id = t.member_id
+      WHERE t.admin_id = ?
+    `;
     const params = [admin_id];
 
     if (start_date && end_date) {
-      query += ` AND DATE(transaction_date) BETWEEN ? AND ?`;
+      query += ` AND DATE(t.transaction_date) BETWEEN ? AND ?`;
       params.push(start_date, end_date);
     }
 
-    query += ` ORDER BY transaction_date DESC`;
+    query += ` ORDER BY t.transaction_date DESC`;
 
     const [rows] = await dbSuperAdmin.promise().query(query, params);
 

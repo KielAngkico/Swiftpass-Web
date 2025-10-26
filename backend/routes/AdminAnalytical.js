@@ -151,20 +151,22 @@ router.get("/analytics", async (req, res) => {
       [admin_id]
     );
 
-    const [topMembers] = await dbSuperAdmin.promise().query(
-      `SELECT 
-         full_name,
-         rfid_tag,
-         COUNT(*) AS visit_count
-       FROM AdminEntryLogs 
-       WHERE admin_id = ? 
-         AND visitor_type = 'Member'
-         AND ${entryDateCondition}
-       GROUP BY full_name, rfid_tag
-       ORDER BY visit_count DESC
-       LIMIT 3`,
-      [admin_id]
-    );
+const [topMembers] = await dbSuperAdmin.promise().query(
+  `SELECT 
+     e.full_name,
+     e.rfid_tag,
+     m.profile_image_url,
+     COUNT(*) AS visit_count
+   FROM AdminEntryLogs e
+   LEFT JOIN MembersAccounts m ON m.rfid_tag = e.rfid_tag AND m.admin_id = e.admin_id
+   WHERE e.admin_id = ? 
+     AND e.visitor_type = 'Member'
+     AND ${entryDateCondition}
+   GROUP BY e.full_name, e.rfid_tag, m.profile_image_url
+   ORDER BY visit_count DESC
+   LIMIT 3`,
+  [admin_id]
+);
 
     res.json({
       summary: {
@@ -200,12 +202,13 @@ router.get("/analytics", async (req, res) => {
         visitorType: member.visitor_type,
         rfidTag: member.rfid_tag
       })),
-      topMembers: topMembers.map((member, index) => ({
-        rank: index + 1,
-        name: member.full_name,
-        rfidTag: member.rfid_tag,
-        visitCount: Number(member.visit_count)
-      }))
+topMembers: topMembers.map((member, index) => ({
+  rank: index + 1,
+  name: member.full_name,
+  rfidTag: member.rfid_tag,
+  profileImageUrl: member.profile_image_url,
+  visitCount: Number(member.visit_count)
+}))
     });
   } catch (err) {
     console.error("Error in /analytics:", err);

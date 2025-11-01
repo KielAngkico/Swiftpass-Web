@@ -23,9 +23,18 @@ import { setAccessToken, clearAccessToken, getAccessToken } from "./tokenMemory"
 import { scheduleTokenRefresh } from "./api";
 import { ToastProvider } from "./components/ToastManager";
 
-const PartnerRegistration = React.lazy(() => import("./Frontend/PartnerRegistrationForm"));
+// OPTION 1: Try direct import instead of lazy (for testing)
+import PartnerRegistration from "./Frontend/PartnerRegistrationForm";
 
+// OPTION 2: If you want to keep lazy loading, use this format with error handling
+// const PartnerRegistration = React.lazy(() => 
+//   import("./Frontend/PartnerRegistrationForm").catch(err => {
+//     console.error("Failed to load PartnerRegistration:", err);
+//     return { default: () => <div>Error loading registration form</div> };
+//   })
+// );
 
+// Other lazy imports...
 const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));
 const ExerciseLibrary = React.lazy(() => import("./Frontend/SuperAdmin/ExerciseLibrary"));
 const SplitLibrary = React.lazy(() => import("./Frontend/SuperAdmin/SplitLibrary"));
@@ -54,6 +63,48 @@ const RfidReplacement = React.lazy(() => import("./Frontend/Staff/RfidReplacemen
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
+// Error Boundary Component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Error caught by boundary:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: "2rem", textAlign: "center" }}>
+          <h1>Something went wrong</h1>
+          <p>{this.state.error?.message}</p>
+          <button 
+            onClick={() => window.location.href = '/'}
+            style={{ 
+              padding: "0.5rem 1rem", 
+              background: "#3b82f6", 
+              color: "white", 
+              border: "none", 
+              borderRadius: "0.375rem",
+              cursor: "pointer"
+            }}
+          >
+            Go to Homepage
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,6 +125,7 @@ const AuthProvider = ({ children }) => {
             body: JSON.stringify({ staff_id: staffId }),
           });
         } catch (staffLogoutError) {
+          console.error("Staff logout error:", staffLogoutError);
         }
         
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -84,6 +136,7 @@ const AuthProvider = ({ children }) => {
         credentials: "include", 
       });
     } catch (error) {
+      console.error("Logout error:", error);
     }
     
     clearAccessToken();
@@ -112,14 +165,19 @@ const AuthProvider = ({ children }) => {
         } else {
           clearAccessToken();
           setUser(null);
-          if (window.location.pathname !== "/" && (res.status === 401 || res.status === 403)) {
+          // DON'T redirect from public pages
+          const publicPaths = ['/', '/partner-registration'];
+          if (!publicPaths.includes(window.location.pathname) && (res.status === 401 || res.status === 403)) {
             window.location.href = "/";
           }
         }
       } catch (err) {
+        console.error("Auth check error:", err);
         clearAccessToken();
         setUser(null);
-        if (window.location.pathname !== "/") {
+        // DON'T redirect from public pages
+        const publicPaths = ['/', '/partner-registration'];
+        if (!publicPaths.includes(window.location.pathname)) {
           window.location.href = "/";
         }
       } finally {
@@ -155,6 +213,7 @@ const AuthProvider = ({ children }) => {
             window.dispatchEvent(new Event("auth-changed"));
           }
         } catch (e) {
+          console.error("Token check error:", e);
         }
       }
     }, 5 * 60 * 1000); 
@@ -237,92 +296,102 @@ const useAutoLogout = (timeout = 1 * 60 * 60 * 1000, enabled = true) => {
   return { resetTimer };
 };
 
-// In your App.jsx, update the AppRoutes component:
-
 const AppRoutes = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Always show public routes first, regardless of auth status
+  // Add debug logging
+  useEffect(() => {
+    console.log("Current route:", location.pathname);
+    console.log("User:", user);
+  }, [location, user]);
+
   return (
     <ToastProvider>
-      <Suspense fallback={<p>Loading page...</p>}>
-        <Routes>
-          {/* Public routes - accessible to everyone */}
-          <Route path="/" element={<Homepage />} />
-          <Route path="/partner-registration" element={<PartnerRegistration />} />
+      <ErrorBoundary>
+        <Suspense fallback={
+          <div style={{ padding: "2rem", textAlign: "center" }}>
+            <p>Loading page...</p>
+          </div>
+        }>
+          <Routes>
+            {/* Public routes - accessible to everyone */}
+            <Route path="/" element={<Homepage />} />
+            <Route path="/partner-registration" element={<PartnerRegistration />} />
 
-          {/* Protected routes - only when user is logged in */}
-          {user?.role === "superadmin" && (
-            <>
-              <Route path="/SuperAdmin/addClient" element={<AddClient />} />
-              <Route path="/SuperAdmin/ExerciseLibrary" element={<ExerciseLibrary />} />
-              <Route path="/SuperAdmin/SplitLibrary" element={<SplitLibrary />} />
-              <Route path="/SuperAdmin/RepRange" element={<RepRange />} />
-              <Route path="/SuperAdmin/FoodLibrary" element={<FoodLibrary />} />
-              <Route path="/SuperAdmin/AllergensMasterList" element={<Allergens />} />
-              <Route path="/SuperAdmin/ItemsInventory" element={<ItemsInventory />} />
-              <Route path="/SuperAdmin/PricingManagement" element={<PricingsManagement />} />
-            </>
-          )}
+            {/* Protected routes - only when user is logged in */}
+            {user?.role === "superadmin" && (
+              <>
+                <Route path="/SuperAdmin/addClient" element={<AddClient />} />
+                <Route path="/SuperAdmin/ExerciseLibrary" element={<ExerciseLibrary />} />
+                <Route path="/SuperAdmin/SplitLibrary" element={<SplitLibrary />} />
+                <Route path="/SuperAdmin/RepRange" element={<RepRange />} />
+                <Route path="/SuperAdmin/FoodLibrary" element={<FoodLibrary />} />
+                <Route path="/SuperAdmin/AllergensMasterList" element={<Allergens />} />
+                <Route path="/SuperAdmin/ItemsInventory" element={<ItemsInventory />} />
+                <Route path="/SuperAdmin/PricingManagement" element={<PricingsManagement />} />
+              </>
+            )}
 
-          {user?.role === "admin" && (
-            <>
-              <Route path="/Admin/AdminAnalyticalDashboard" element={<AdminAnalyticalDashboard />} />
-              <Route path="/Admin/AdminViewMembers" element={<AdminViewMembers />} />
-              <Route path="/Admin/ActivityAnalytics" element={<ActivityAnalytics />} />
-              <Route path="/Admin/TransactionsReport" element={<TransactionsReport />} />
-              <Route path="/Admin/PricingManagement" element={<PricingManagement />} />
-              <Route path="/Admin/StaffManagement" element={<StaffManagement />} />
-              <Route path="/Admin/StaffActivityLogs" element={<StaffActivityLogs/>} />
-            </>
-          )}
+            {user?.role === "admin" && (
+              <>
+                <Route path="/Admin/AdminAnalyticalDashboard" element={<AdminAnalyticalDashboard />} />
+                <Route path="/Admin/AdminViewMembers" element={<AdminViewMembers />} />
+                <Route path="/Admin/ActivityAnalytics" element={<ActivityAnalytics />} />
+                <Route path="/Admin/TransactionsReport" element={<TransactionsReport />} />
+                <Route path="/Admin/PricingManagement" element={<PricingManagement />} />
+                <Route path="/Admin/StaffManagement" element={<StaffManagement />} />
+                <Route path="/Admin/StaffActivityLogs" element={<StaffActivityLogs/>} />
+              </>
+            )}
 
-          {user?.role === "staff" && (
-            <>
-              <Route path="/Staff/member-entry" element={<MemberEntry />} />
-              <Route path="/Staff/view-members" element={<ViewMembers />} />
-              <Route path="/Staff/DayPass" element={<DayPass />} />
-              <Route path="/Staff/AddMember" element={<AddMember />} />
-              <Route path="/Staff/scan-rfid" element={<ScanRFID />} />
-              <Route path="/Staff/MembershipTransactions" element={<MembershipTransactions />} />
-              <Route path="/Staff/RfidReplacement" element={<RfidReplacement />} />
-            </>
-          )}
+            {user?.role === "staff" && (
+              <>
+                <Route path="/Staff/member-entry" element={<MemberEntry />} />
+                <Route path="/Staff/view-members" element={<ViewMembers />} />
+                <Route path="/Staff/DayPass" element={<DayPass />} />
+                <Route path="/Staff/AddMember" element={<AddMember />} />
+                <Route path="/Staff/scan-rfid" element={<ScanRFID />} />
+                <Route path="/Staff/MembershipTransactions" element={<MembershipTransactions />} />
+                <Route path="/Staff/RfidReplacement" element={<RfidReplacement />} />
+              </>
+            )}
 
-          {/* Catch-all route */}
-          <Route
-            path="*"
-            element={
-              user ? (
-                <div style={{ textAlign: "center", padding: "2rem" }}>
-                  <h1>Access Denied</h1>
-                  <p>You don't have permission to access this page.</p>
-                  <button 
-                    onClick={() => {
-                      if (user.role === "superadmin") navigate("/SuperAdmin/addClient");
-                      else if (user.role === "admin") navigate("/Admin/StaffManagement");  
-                      else if (user.role === "staff") navigate("/Staff/member-entry");
-                    }}
-                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mt-4"
-                  >
-                    Go to Dashboard
-                  </button>
-                </div>
-              ) : (
-                <Navigate to="/" replace />
-              )
-            }
-          />
-        </Routes>
-      </Suspense>
+            {/* Catch-all route */}
+            <Route
+              path="*"
+              element={
+                user ? (
+                  <div style={{ textAlign: "center", padding: "2rem" }}>
+                    <h1>Access Denied</h1>
+                    <p>You don't have permission to access this page.</p>
+                    <button 
+                      onClick={() => {
+                        if (user.role === "superadmin") navigate("/SuperAdmin/addClient");
+                        else if (user.role === "admin") navigate("/Admin/StaffManagement");  
+                        else if (user.role === "staff") navigate("/Staff/member-entry");
+                      }}
+                      className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mt-4"
+                    >
+                      Go to Dashboard
+                    </button>
+                  </div>
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </ToastProvider>
   );
 };
 
 const ConditionalHeader = ({ onLogoutClick, loading }) => {
   const location = useLocation();
-  return location.pathname !== "/" ? (
+  return location.pathname !== "/" && location.pathname !== "/partner-registration" ? (
     <Header onLogoutClick={onLogoutClick} loading={loading} />
   ) : null;
 };

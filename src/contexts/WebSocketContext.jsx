@@ -48,14 +48,13 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
         console.error("❌ WebSocket error:", msg.message);
         return;
 
-
 case "rfid-registration-check":
   if (msg.data?.rfid_tag) {
     const { rfid_tag, is_registered, role } = msg.data;
 
     console.log(`📡 RFID Check Result: ${rfid_tag}`);
     console.log(`   Is Registered: ${is_registered}`);
-    console.log(`   Role: ${role || 'N/A'}`);
+    console.log(`   Role: ${role}`);
 
     const currentPath = window.location.pathname;
     const isSuperAdminPage = currentPath.startsWith("/SuperAdmin");
@@ -76,33 +75,25 @@ case "rfid-registration-check":
       return;
     }
 
-    if (is_registered) {
-      // Check role and route accordingly
-      if (role === 'Partner') {
-        console.log("✅ Partner RFID - navigating to AddPartner");
-        customNavigate("/SuperAdmin/AddPartner", {
-          state: { 
-            rfid_tag: rfid_tag,
-            timestamp: Date.now() 
-          }
-        }, "superadmin");
-      } else if (role === 'Member') {
-        console.log("ℹ️ Member RFID scanned");
-        // Store in rfidData so ItemsInventory can show toast
-        setRfidData({ ...msg.data, type: "rfid-registration-check" });
-      } else if (role === 'DayPass') {
-        console.log("ℹ️ Day Pass RFID scanned");
-        // Store in rfidData so ItemsInventory can show toast
-        setRfidData({ ...msg.data, type: "rfid-registration-check" });
-      } else {
-        console.log("✅ Navigating to AddClient - modal will open");
-        customNavigate("/SuperAdmin/AddClient", {
-          state: { 
-            openModal: true, 
-            timestamp: Date.now() 
-          }
-        }, "superadmin");
-      }
+    // Check if registered and role is Partner
+    if (is_registered && role === 'Partner') {
+      console.log("✅ Partner RFID - Navigating to AddClient");
+      customNavigate("/SuperAdmin/AddClient", {
+        state: { 
+          openModal: true, 
+          timestamp: Date.now() 
+        }
+      }, "superadmin");
+    } else if (is_registered && role !== 'Partner') {
+      // Show toast notification for non-Partner roles
+      console.log(`ℹ️ Non-Partner RFID scanned (Role: ${role})`);
+      window.dispatchEvent(new CustomEvent('show-rfid-toast', {
+        detail: {
+          rfid_tag,
+          role,
+          message: `RFID ${rfid_tag} is registered as ${role}. Only Partner RFIDs can be used here.`
+        }
+      }));
     } else {
       console.log("❌ Navigating to ItemsInventory for registration");
       customNavigate("/SuperAdmin/ItemsInventory", {

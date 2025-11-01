@@ -160,31 +160,39 @@ const ItemsInventory = () => {
   }, [user]);
 
   useEffect(() => {
-    let rfidTagToUse = null;
+  const handleRfidToast = (event) => {
+    const { rfid_tag, role, message } = event.detail;
+    showToast({ 
+      message: message || `RFID: ${rfid_tag} | Role: ${role}`,
+      type: "warning" 
+    });
+  };
 
-    if (location.state?.rfid_tag) {
-      console.log("📍 RFID from navigation state:", location.state.rfid_tag);
-      rfidTagToUse = location.state.rfid_tag;
-    }
-    else if (rfidData?.rfid_tag && rfidData?.type === "rfid-registration-check") {
-      console.log("📡 RFID from WebSocket:", rfidData.rfid_tag);
-      rfidTagToUse = rfidData.rfid_tag;
-      
-      // Show toast based on role
-      if (rfidData.role) {
-        if (rfidData.role === 'Member') {
-          showToast({ message: `Member RFID scanned: ${rfidTagToUse}`, type: "info" });
-        } else if (rfidData.role === 'DayPass') {
-          showToast({ message: `Day Pass RFID scanned: ${rfidTagToUse}`, type: "info" });
-        }
-      }
-    }
+  window.addEventListener('show-rfid-toast', handleRfidToast);
 
-    if (rfidTagToUse) {
-      setScanValue(rfidTagToUse);
-      console.log("✅ Auto-populated scan input with:", rfidTagToUse);
-    }
-  }, [location.state, rfidData]);
+  return () => {
+    window.removeEventListener('show-rfid-toast', handleRfidToast);
+  };
+}, []);
+
+useEffect(() => {
+  let rfidTagToUse = null;
+
+  // Only populate if coming from navigation state with is_registered: false
+  if (location.state?.rfid_tag && location.state?.is_registered === false) {
+    console.log("📍 RFID from navigation state (unregistered):", location.state.rfid_tag);
+    rfidTagToUse = location.state.rfid_tag;
+  }
+  else if (rfidData?.rfid_tag && rfidData?.type === "rfid-registration-check") {
+    console.log("📡 RFID from WebSocket:", rfidData.rfid_tag);
+    rfidTagToUse = rfidData.rfid_tag;
+  }
+
+  if (rfidTagToUse) {
+    setScanValue(rfidTagToUse);
+    console.log("✅ Auto-populated scan input with:", rfidTagToUse);
+  }
+}, [location.state, rfidData]);
 
   const filteredItems = items.filter((it) =>
     it.name.toLowerCase().includes(searchQuery.toLowerCase())

@@ -247,7 +247,7 @@ const AppRoutes = () => {
         <Suspense fallback={<p>Loading page...</p>}>
           <Routes>
             <Route path="/" element={<Homepage />} />
-            <Route path="/partnerregistration" element={<PartnerRegistration />} />
+            <Route path="/partner-registration" element={<PartnerRegistration />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

@@ -203,22 +203,50 @@ const AddPartnerModal = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  System Type
-                </label>
-                <select
-                  name="system_type"
-                  value={formData.system_type}
-                  onChange={onFormChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                >
-                  <option value="">-- Select System Type --</option>
-                  <option value="prepaid_entry">Prepaid Entry</option>
-                  <option value="subscription">Subscription Membership</option>
-                </select>
-              </div>
+<div>
+  <label className="block text-xs font-medium text-gray-700 mb-1">
+    System Type
+  </label>
+  <select
+    name="system_type"
+    value={formData.system_type}
+    onChange={onFormChange}
+    className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+    required
+  >
+    <option value="">-- Select System Type --</option>
+    <option value="prepaid_entry">Prepaid Entry</option>
+    <option value="subscription">Subscription Membership</option>
+  </select>
+</div>
+
+{/* ALWAYS SHOW PACKAGE - NOT CONDITIONAL */}
+<div>
+  <label className="block text-xs font-medium text-gray-700 mb-1">
+    Package/Promo {!isEditMode && <span className="text-red-500">*</span>}
+  </label>
+  <select
+    name="package_id"
+    value={formData.package_id || ''}
+    onChange={onFormChange}
+    className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+    required={!isEditMode}
+  >
+    <option value="">-- Select Package --</option>
+    {formData.packages?.map((pkg) => (
+      <option key={pkg.id} value={pkg.id}>
+        {pkg.name} - ₱{parseFloat(pkg.price).toLocaleString('en-PH', {minimumFractionDigits: 2})} ({pkg.duration_days} days)
+      </option>
+    ))}
+  </select>
+  {formData.package_id && formData.packages?.length > 0 && (
+    <div className="mt-1 text-[10px] text-gray-600 bg-blue-50 p-1.5 rounded">
+      <strong>Included:</strong> {
+        formData.packages.find(p => p.id == formData.package_id)?.description || 'See package details'
+      }
+    </div>
+  )}
+</div>
             </div>
 
             <div className="flex flex-col items-center gap-2">

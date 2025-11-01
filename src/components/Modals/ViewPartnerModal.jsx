@@ -133,18 +133,73 @@ const ViewPartnerModal = ({ isOpen, onClose, admin, onEdit }) => {
                 className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
               />
             </div>
+<div>
+  <label className="block text-xs font-medium text-gray-700 mb-1">
+    System Type
+  </label>
+  <input
+    type="text"
+    value={admin.system_type}
+    readOnly
+    className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
+  />
+</div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                System Type
-              </label>
-              <input
-                type="text"
-                value={admin.system_type}
-                readOnly
-                className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
-              />
-            </div>
+{/* ALWAYS SHOW PACKAGE INFO */}
+<div>
+  <label className="block text-xs font-medium text-gray-700 mb-1">
+    Package/Promo
+  </label>
+  <input
+    type="text"
+    value={admin.package_name || 'No package selected'}
+    readOnly
+    className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
+  />
+  {admin.package_price && (
+    <div className="mt-1 text-[10px] text-gray-600">
+      ₱{parseFloat(admin.package_price).toLocaleString('en-PH', {minimumFractionDigits: 2})} • {admin.package_duration} days
+    </div>
+  )}
+</div>
+
+<div>
+  <label className="block text-xs font-medium text-gray-700 mb-1">
+    Package Period
+  </label>
+  <input
+    type="text"
+    value={
+      admin.subscription_start_date && admin.subscription_end_date
+        ? `${new Date(admin.subscription_start_date).toLocaleDateString()} - ${new Date(admin.subscription_end_date).toLocaleDateString()}`
+        : 'Not activated'
+    }
+    readOnly
+    className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
+  />
+</div>
+
+{admin.subscription_end_date && (
+  <div>
+    <label className="block text-xs font-medium text-gray-700 mb-1">
+      Days Remaining
+    </label>
+    <input
+      type="text"
+      value={
+        admin.days_remaining !== null && admin.days_remaining !== undefined
+          ? admin.days_remaining > 0 
+            ? `${admin.days_remaining} days` 
+            : 'Expired'
+          : 'N/A'
+      }
+      readOnly
+      className={`w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 cursor-not-allowed ${
+        admin.days_remaining <= 0 ? 'text-red-700 font-semibold' : 'text-gray-700'
+      }`}
+    />
+  </div>
+)}
 
           </div>
 

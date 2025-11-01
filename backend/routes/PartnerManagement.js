@@ -39,8 +39,8 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
 
     let pkgId = null, pkgPrice = 0, startDate = null, endDate = null;
 
-    // Calculate subscription dates if package selected
-    if (system_type === "subscription" && package_id) {
+    // Calculate package dates if package selected (FOR ALL SYSTEM TYPES)
+    if (package_id) {  // ← REMOVED the system_type === "subscription" condition
       const [[pkg]] = await query(`SELECT * FROM SubscriptionPackages WHERE id = ?`, [package_id]);
       if (pkg) {
         pkgId = pkg.id;
@@ -67,12 +67,12 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
 
     await insertDefaultPricing(admin_id, system_type);
 
-    // Record subscription purchase transaction
+    // Record package purchase transaction (FOR ALL SYSTEM TYPES)
     if (pkgId && pkgPrice > 0) {
       const [[pkg]] = await query(`SELECT name FROM SubscriptionPackages WHERE id = ?`, [pkgId]);
       const [txn] = await query(`
         INSERT INTO SuperAdminTransactions (admin_id, transaction_type, total_amount)
-        VALUES (?, 'Subscription Purchase', ?)`, [admin_id, pkgPrice]);
+        VALUES (?, 'Package Purchase', ?)`, [admin_id, pkgPrice]); // ← Changed label
       await query(`
         INSERT INTO SuperAdminTransactionItems (transaction_id, item_name, quantity, price)
         VALUES (?, ?, 1, ?)`, [txn.insertId, pkg.name, pkgPrice]);
@@ -90,7 +90,6 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
     res.status(500).json({ error: "Server error", details: err.message });
   }
 });
-
 // --- Update Admin ---
 router.put("/update-admin/:id", upload.single("profile_image_url"), async (req, res) => {
   try {
@@ -147,12 +146,19 @@ router.put("/replace-admin-rfid/:id", async (req, res) => {
 router.get("/admins", async (_, res) => {
   try {
     const [rows] = await query(`
-      SELECT id, admin_name, email, address, gym_name, system_type,
-             profile_image_url, rfid_tag, rfid_tag_2, is_archived,
-             subscription_start_date, subscription_end_date, package_id,
-             DATEDIFF(subscription_end_date, NOW()) as days_remaining
-      FROM AdminAccounts 
-      ORDER BY is_archived ASC, admin_name ASC`);
+      SELECT 
+        a.id, a.admin_name, a.email, a.address, a.gym_name, a.system_type,
+        a.profile_image_url, a.rfid_tag, a.rfid_tag_2, a.is_archived,
+        a.subscription_start_date, a.subscription_end_date, a.package_id,
+        DATEDIFF(a.subscription_end_date, NOW()) as days_remaining,
+        sp.name as package_name,
+        sp.description as package_description,
+        sp.price as package_price,
+        sp.duration_days as package_duration
+      FROM AdminAccounts a
+      LEFT JOIN SubscriptionPackages sp ON a.package_id = sp.id
+      ORDER BY a.is_archived ASC, a.admin_name ASC
+    `);
     res.json(rows);
   } catch (err) {
     console.error("Get admins error:", err);
@@ -177,53 +183,61 @@ router.get("/admins", async (_, res) => {
 router.get("/admins/:status(active|archived)", async (req, res) => {
   const isArchived = req.params.status === "archived" ? 1 : 0;
   const [rows] = await query(`
-    SELECT *, DATEDIFF(subscription_end_date, NOW()) as days_remaining
-    FROM AdminAccounts 
-    WHERE is_archived=? 
-    ORDER BY admin_name ASC`, [isArchived]);
+    SELECT 
+      a.*,
+      DATEDIFF(a.subscription_end_date, NOW()) as days_remaining,
+      sp.name as package_name,
+      sp.description as package_description,
+      sp.price as package_price,
+      sp.duration_days as package_duration
+    FROM AdminAccounts a
+    LEFT JOIN SubscriptionPackages sp ON a.package_id = sp.id
+    WHERE a.is_archived = ? 
+    ORDER BY a.admin_name ASC
+  `, [isArchived]);
   res.json(rows);
 });
 
-// --- Check Expired Subscriptions (Cron Job / Scheduled Task) ---
+// --- Check Expired Packages (Cron Job / Scheduled Task) ---
 router.post("/check-expired-subscriptions", async (req, res) => {
   try {
-    // Find all subscription partners whose subscription has expired
+    // Find all partners whose package has expired (BOTH system types)
     const [expiredPartners] = await query(`
-      SELECT id, admin_name, gym_name, email, subscription_end_date
+      SELECT id, admin_name, gym_name, email, system_type, subscription_end_date
       FROM AdminAccounts
-      WHERE system_type = 'subscription'
-        AND subscription_end_date IS NOT NULL
+      WHERE subscription_end_date IS NOT NULL
         AND subscription_end_date < NOW()
         AND is_archived = 0
     `);
 
     if (expiredPartners.length === 0) {
-      return res.json({ message: "No expired subscriptions found", expired_count: 0 });
+      return res.json({ message: "No expired packages found", expired_count: 0 });
     }
 
     // Archive expired partners
     for (const partner of expiredPartners) {
       await query(`UPDATE AdminAccounts SET is_archived = 1 WHERE id = ?`, [partner.id]);
-      console.log(`⚠️ Archived expired subscription: ${partner.gym_name} (${partner.email})`);
+      console.log(`⚠️ Archived expired package: ${partner.gym_name} (${partner.email}) - System: ${partner.system_type}`);
     }
 
     res.json({ 
-      message: "Expired subscriptions processed", 
+      message: "Expired packages processed", 
       expired_count: expiredPartners.length,
       expired_partners: expiredPartners.map(p => ({
         id: p.id,
         gym_name: p.gym_name,
         email: p.email,
+        system_type: p.system_type,
         expired_date: p.subscription_end_date
       }))
     });
   } catch (err) {
-    console.error("Check expired subscriptions error:", err);
+    console.error("Check expired packages error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// --- Renew Subscription ---
+// --- Renew Package ---
 router.post("/renew-subscription/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -250,19 +264,19 @@ router.post("/renew-subscription/:id", async (req, res) => {
     // Record renewal transaction
     const [txn] = await query(`
       INSERT INTO SuperAdminTransactions (admin_id, transaction_type, total_amount)
-      VALUES (?, 'Subscription Renewal', ?)`, [id, pkg.price]);
+      VALUES (?, 'Package Renewal', ?)`, [id, pkg.price]); // ← Changed label
     await query(`
       INSERT INTO SuperAdminTransactionItems (transaction_id, item_name, quantity, price)
       VALUES (?, ?, 1, ?)`, [txn.insertId, pkg.name, pkg.price]);
 
     res.json({ 
-      message: "Subscription renewed successfully",
+      message: "Package renewed successfully",
       subscription_start_date: startDate,
       subscription_end_date: endDate,
       days_added: pkg.duration_days
     });
   } catch (err) {
-    console.error("Renew subscription error:", err);
+    console.error("Renew package error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -307,6 +321,19 @@ router.delete("/delete-admin/:id", async (req, res) => {
     res.status(500).json({ error: "Server error", details: err.message });
   } finally {
     conn.release();
+  }
+});
+router.get("/subscription-packages", async (req, res) => {
+  try {
+    const [packages] = await query(`
+      SELECT id, name, description, price, duration_days, created_at
+      FROM SubscriptionPackages
+      ORDER BY price ASC, duration_days ASC
+    `);
+    res.json(packages);
+  } catch (err) {
+    console.error("Get packages error:", err);
+    res.status(500).json({ error: "Failed to fetch subscription packages" });
   }
 });
 

@@ -25,14 +25,27 @@ const AddClient = () => {
     password: "",
     gym_name: "",
     system_type: "",
+    package_id: "",
     profile_image_url: null,
     rfid_tag: "",
     rfid_tag_2: "",
   });
   
   const [admins, setAdmins] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const { showToast, showConfirm } = useToast();
+
+  const fetchPackages = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/subscription-packages`);
+      console.log("📦 Fetched packages:", response.data);
+      setPackages(response.data);
+    } catch (error) {
+      console.error("Failed to fetch packages:", error);
+      showToast({ message: "Failed to load packages", type: "error" });
+    }
+  };
 
   useEffect(() => {
     const fetchAdmins = async () => {
@@ -44,12 +57,12 @@ const AddClient = () => {
       }
     };
     fetchAdmins();
+    fetchPackages();
   }, []);
 
-  // Fetch pending registrations
   useEffect(() => {
     fetchPendingRegistrations();
-    const interval = setInterval(fetchPendingRegistrations, 30000); // Refresh every 30s
+    const interval = setInterval(fetchPendingRegistrations, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -63,7 +76,6 @@ const AddClient = () => {
   };
 
   const handleRegistrationClick = (registration) => {
-    // Pre-fill form with registration data
     setFormData({
       admin_name: registration.admin_name || "",
       address: registration.address || "",
@@ -71,6 +83,7 @@ const AddClient = () => {
       password: registration.password || "",
       gym_name: registration.gym_name || "",
       system_type: registration.system_type || "",
+      package_id: "",
       profile_image_url: registration.profile_image_url ? `${API_URL}${registration.profile_image_url}` : null,
       rfid_tag: "",
       rfid_tag_2: "",
@@ -204,6 +217,7 @@ const AddClient = () => {
         formPayload.append("gym_name", formData.gym_name);
         formPayload.append("system_type", formData.system_type);
         formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
+        formPayload.append("package_id", formData.package_id || "");
 
         if (formData.password && formData.password.trim() !== "") {
           formPayload.append("password", formData.password);
@@ -234,6 +248,7 @@ const AddClient = () => {
                   email: formData.email,
                   gym_name: formData.gym_name,
                   system_type: formData.system_type,
+                  package_id: formData.package_id,
                   profile_image_url:
                     response.data.profile_image_url || admin.profile_image_url,
                   rfid_tag: formData.rfid_tag,
@@ -243,7 +258,6 @@ const AddClient = () => {
           )
         );
       } else {
-        // Add new partner or from registration
         const formPayload = new FormData();
         formPayload.append("admin_name", formData.admin_name);
         formPayload.append("rfid_tag", formData.rfid_tag);
@@ -253,6 +267,7 @@ const AddClient = () => {
         formPayload.append("password", formData.password);
         formPayload.append("gym_name", formData.gym_name);
         formPayload.append("system_type", formData.system_type);
+        formPayload.append("package_id", formData.package_id || "");
 
         if (formData.profile_image_url) {
           formPayload.append("profile_image_url", formData.profile_image_url);
@@ -266,7 +281,6 @@ const AddClient = () => {
 
         showToast({ message: "Partner added successfully!", type: "success" });
 
-        // If this was from a registration, delete the registration
         if (modalMode === "registration" && editingAdmin?.registrationNumber) {
           await axios.delete(`${API_URL}/api/pending-registrations/${editingAdmin.registrationNumber}`);
           fetchPendingRegistrations();
@@ -281,6 +295,7 @@ const AddClient = () => {
             email: formData.email,
             gym_name: formData.gym_name,
             system_type: formData.system_type,
+            package_id: formData.package_id,
             profile_image_url: response.data.profile_image_url || null,
             rfid_tag: formData.rfid_tag,
             rfid_tag_2: formData.rfid_tag_2,
@@ -304,6 +319,7 @@ const AddClient = () => {
         password: "",
         gym_name: "",
         system_type: "",
+        package_id: "",
         profile_image_url: null,
         rfid_tag: "",
         rfid_tag_2: "",
@@ -325,6 +341,7 @@ const AddClient = () => {
       password: "",
       gym_name: admin.gym_name,
       system_type: admin.system_type,
+      package_id: admin.package_id || "",
       profile_image_url: admin.profile_image_url ? `${API_URL}${admin.profile_image_url}` : null,
       rfid_tag: admin.rfid_tag || "",
       rfid_tag_2: admin.rfid_tag_2 || "",
@@ -393,6 +410,7 @@ const AddClient = () => {
       password: "",
       gym_name: "",
       system_type: "",
+      package_id: "",
       profile_image_url: null,
       rfid_tag: "",
       rfid_tag_2: "",
@@ -401,7 +419,7 @@ const AddClient = () => {
 
   const getTimeRemaining = (createdAt) => {
     const created = new Date(createdAt);
-    const expiresAt = new Date(created.getTime() + 60 * 60 * 1000); // 1 hour
+    const expiresAt = new Date(created.getTime() + 60 * 60 * 1000);
     const now = new Date();
     const diff = expiresAt - now;
     
@@ -425,7 +443,6 @@ const AddClient = () => {
           </p>
         </div>
 
-{/* Pending Registrations Section */}
         {pendingRegistrations.length > 0 && (
           <div className="mb-6 bg-gray-50 border border-gray-300 rounded-lg p-4">
             <div className="flex justify-between items-center mb-3">
@@ -495,7 +512,7 @@ const AddClient = () => {
         <AddPartnerModal
           isOpen={showAddForm}
           onClose={handleCloseModal}
-          formData={formData}
+          formData={{ ...formData, packages }}
           onFormChange={handleChange}
           onSubmit={handleSubmit}
           mode={modalMode}

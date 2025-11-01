@@ -20,13 +20,11 @@ const AddClient = () => {
   
   const [formData, setFormData] = useState({
     admin_name: "",
-    age: "",
     address: "",
     email: "",
     password: "",
     gym_name: "",
     system_type: "",
-    session_fee: "",
     profile_image_url: null,
     rfid_tag: "",
     rfid_tag_2: "",
@@ -68,13 +66,11 @@ const AddClient = () => {
     // Pre-fill form with registration data
     setFormData({
       admin_name: registration.admin_name || "",
-      age: "",
       address: registration.address || "",
       email: registration.email || "",
       password: registration.password || "",
       gym_name: registration.gym_name || "",
       system_type: registration.system_type || "",
-      session_fee: "",
       profile_image_url: registration.profile_image ? `${API_URL}${registration.profile_image}` : null,
       rfid_tag: "",
       rfid_tag_2: "",
@@ -176,13 +172,6 @@ const AddClient = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (isNaN(formData.age) || String(formData.age).trim() === "") {
-      showToast({ message: "Age must be a valid number.", type: "error" });
-      return;
-    }
-
-    const sessionFeeValue = formData.session_fee ? Number(formData.session_fee) : 0;
-
     try {
       if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
         const rfid1Changed = formData.rfid_tag !== originalRfid;
@@ -210,12 +199,10 @@ const AddClient = () => {
 
         const formPayload = new FormData();
         formPayload.append("admin_name", formData.admin_name);
-        formPayload.append("age", Number(formData.age));
         formPayload.append("address", formData.address);
         formPayload.append("email", formData.email);
         formPayload.append("gym_name", formData.gym_name);
         formPayload.append("system_type", formData.system_type);
-        formPayload.append("session_fee", sessionFeeValue);
         formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
 
         if (formData.password && formData.password.trim() !== "") {
@@ -243,12 +230,10 @@ const AddClient = () => {
               ? {
                   ...admin,
                   admin_name: formData.admin_name,
-                  age: formData.age,
                   address: formData.address,
                   email: formData.email,
                   gym_name: formData.gym_name,
                   system_type: formData.system_type,
-                  session_fee: sessionFeeValue,
                   profile_image_url:
                     response.data.profile_image_url || admin.profile_image_url,
                   rfid_tag: formData.rfid_tag,
@@ -263,13 +248,11 @@ const AddClient = () => {
         formPayload.append("admin_name", formData.admin_name);
         formPayload.append("rfid_tag", formData.rfid_tag);
         formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
-        formPayload.append("age", Number(formData.age));
         formPayload.append("address", formData.address);
         formPayload.append("email", formData.email);
         formPayload.append("password", formData.password);
         formPayload.append("gym_name", formData.gym_name);
         formPayload.append("system_type", formData.system_type);
-        formPayload.append("session_fee", sessionFeeValue);
 
         if (formData.profile_image_url) {
           formPayload.append("profile_image_url", formData.profile_image_url);
@@ -294,12 +277,10 @@ const AddClient = () => {
           {
             id: response.data.id,
             admin_name: formData.admin_name,
-            age: formData.age,
             address: formData.address,
             email: formData.email,
             gym_name: formData.gym_name,
             system_type: formData.system_type,
-            session_fee: sessionFeeValue,
             profile_image_url: response.data.profile_image_url || null,
             rfid_tag: formData.rfid_tag,
             rfid_tag_2: formData.rfid_tag_2,
@@ -318,13 +299,11 @@ const AddClient = () => {
       sessionStorage.removeItem('rfidScannedAt');
       setFormData({
         admin_name: "",
-        age: "",
         address: "",
         email: "",
         password: "",
         gym_name: "",
         system_type: "",
-        session_fee: "",
         profile_image_url: null,
         rfid_tag: "",
         rfid_tag_2: "",
@@ -341,13 +320,11 @@ const AddClient = () => {
     setOriginalRfid2(admin.rfid_tag_2 || "");
     setFormData({
       admin_name: admin.admin_name,
-      age: admin.age,
       address: admin.address,
       email: admin.email,
       password: "",
       gym_name: admin.gym_name,
       system_type: admin.system_type,
-      session_fee: admin.session_fee,
       profile_image_url: admin.profile_image_url ? `${API_URL}${admin.profile_image_url}` : null,
       rfid_tag: admin.rfid_tag || "",
       rfid_tag_2: admin.rfid_tag_2 || "",
@@ -411,13 +388,11 @@ const AddClient = () => {
     sessionStorage.removeItem('rfidScannedAt');
     setFormData({
       admin_name: "",
-      age: "",
       address: "",
       email: "",
       password: "",
       gym_name: "",
       system_type: "",
-      session_fee: "",
       profile_image_url: null,
       rfid_tag: "",
       rfid_tag_2: "",

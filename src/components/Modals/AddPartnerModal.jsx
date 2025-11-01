@@ -100,20 +100,6 @@ const AddPartnerModal = ({
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Age
-                </label>
-                <input
-                  type="number"
-                  name="age"
-                  value={formData.age}
-                  onChange={onFormChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
                   Email Address
                 </label>
                 <input
@@ -232,21 +218,6 @@ const AddPartnerModal = ({
                   <option value="prepaid_entry">Prepaid Entry</option>
                   <option value="subscription">Subscription Membership</option>
                 </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Session Fee (₱)
-                </label>
-                <input
-                  type="number"
-                  name="session_fee"
-                  value={formData.session_fee}
-                  onChange={onFormChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter session fee amount"
-                  required
-                />
               </div>
             </div>
 

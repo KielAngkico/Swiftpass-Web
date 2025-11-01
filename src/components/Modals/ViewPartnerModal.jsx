@@ -83,19 +83,6 @@ const ViewPartnerModal = ({ isOpen, onClose, admin, onEdit }) => {
                 className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
               />
             </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Age
-              </label>
-              <input
-                type="text"
-                value={admin.age}
-                readOnly
-                className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
-              />
-            </div>
-
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Email Address
@@ -159,17 +146,6 @@ const ViewPartnerModal = ({ isOpen, onClose, admin, onEdit }) => {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Session Fee (₱)
-              </label>
-              <input
-                type="text"
-                value={admin.session_fee}
-                readOnly
-                className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
-              />
-            </div>
           </div>
 
           {/* ======================== COLUMN 3 ======================== */}

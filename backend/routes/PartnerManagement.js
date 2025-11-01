@@ -4,11 +4,12 @@ const router = express.Router();
 const db = require("../db");
 const upload = require("../middleware/partnersUpload");
 
-// --- Utility Helpers ---
 const query = (sql, params = []) => db.promise().query(sql, params);
-const insertDefaultPricing = async (admin_id, system_type, session_fee) => {
+
+// --- Insert Default Pricing ---
+const insertDefaultPricing = async (admin_id, system_type) => {
   const defaults = [
-    ["Daily Session", session_fee],
+    ["Daily Session", 0],
     ["Key Fob", 0],
     ["Replacement Fee", 0],
     ["Membership Fee", 0],
@@ -27,8 +28,8 @@ const insertDefaultPricing = async (admin_id, system_type, session_fee) => {
 router.post("/add-client", upload.single("profile_image_url"), async (req, res) => {
   try {
     const {
-      admin_name, age, email, password, address, gym_name,
-      system_type, session_fee, package_id, rfid_tag, rfid_tag_2,
+      admin_name, email, password, address, gym_name,
+      system_type, package_id, rfid_tag, rfid_tag_2,
     } = req.body;
 
     if (!password) return res.status(400).json({ error: "Password is required" });
@@ -36,35 +37,39 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
     const hashedPassword = await bcrypt.hash(password, 10);
     const imagePath = req.file ? `/uploads/partners/${req.file.filename}` : null;
 
-    let pkgId = null, pkgPrice = 0, endDate = null;
+    let pkgId = null, pkgPrice = 0, startDate = null, endDate = null;
 
+    // Calculate subscription dates if package selected
     if (system_type === "subscription" && package_id) {
       const [[pkg]] = await query(`SELECT * FROM SubscriptionPackages WHERE id = ?`, [package_id]);
       if (pkg) {
         pkgId = pkg.id;
         pkgPrice = pkg.price;
+        startDate = new Date();
         endDate = new Date(Date.now() + pkg.duration_days * 86400000);
       }
     }
 
     const [result] = await query(`
       INSERT INTO AdminAccounts
-      (admin_name, age, email, password, address, gym_name, system_type,
-       session_fee, profile_image_url, rfid_tag, rfid_tag_2, package_id,
+      (admin_name, email, password, address, gym_name, system_type,
+       profile_image_url, rfid_tag, rfid_tag_2, package_id,
        subscription_start_date, subscription_end_date, is_archived)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `, [admin_name, age, email, hashedPassword, address, gym_name,
-      system_type, session_fee, imagePath, rfid_tag || null, rfid_tag_2 || null,
-      pkgId, endDate, endDate]);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+    `, [admin_name, email, hashedPassword, address, gym_name,
+      system_type, imagePath, rfid_tag || null, rfid_tag_2 || null,
+      pkgId, startDate, endDate]);
 
     const admin_id = result.insertId;
 
     await query(`INSERT INTO AdminPaymentMethods (admin_id, name, is_default, is_enabled)
                  VALUES (?, 'Cash', 1, 1)`, [admin_id]);
 
-    await insertDefaultPricing(admin_id, system_type, session_fee);
+    await insertDefaultPricing(admin_id, system_type);
 
-    if (pkgId) {
+    // Record subscription purchase transaction
+    if (pkgId && pkgPrice > 0) {
+      const [[pkg]] = await query(`SELECT name FROM SubscriptionPackages WHERE id = ?`, [pkgId]);
       const [txn] = await query(`
         INSERT INTO SuperAdminTransactions (admin_id, transaction_type, total_amount)
         VALUES (?, 'Subscription Purchase', ?)`, [admin_id, pkgPrice]);
@@ -73,10 +78,16 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
         VALUES (?, ?, 1, ?)`, [txn.insertId, pkg.name, pkgPrice]);
     }
 
-    res.status(201).json({ message: "Client added successfully", id: admin_id });
+    res.status(201).json({ 
+      message: "Client added successfully", 
+      id: admin_id,
+      profile_image_url: imagePath,
+      subscription_start_date: startDate,
+      subscription_end_date: endDate
+    });
   } catch (err) {
     console.error("Add client error:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error", details: err.message });
   }
 });
 
@@ -84,7 +95,7 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
 router.put("/update-admin/:id", upload.single("profile_image_url"), async (req, res) => {
   try {
     const { id } = req.params;
-    const { admin_name, age, email, address, gym_name, system_type, session_fee, password, rfid_tag_2 } = req.body;
+    const { admin_name, email, address, gym_name, system_type, password, rfid_tag_2 } = req.body;
 
     const [[admin]] = await query(`SELECT * FROM AdminAccounts WHERE id = ?`, [id]);
     if (!admin) return res.status(404).json({ error: "Admin not found" });
@@ -94,10 +105,10 @@ router.put("/update-admin/:id", upload.single("profile_image_url"), async (req, 
 
     await query(`
       UPDATE AdminAccounts 
-      SET admin_name=?, age=?, email=?, address=?, gym_name=?, system_type=?,
-          session_fee=?, profile_image_url=?, password=?, rfid_tag_2=?
+      SET admin_name=?, email=?, address=?, gym_name=?, system_type=?,
+          profile_image_url=?, password=?, rfid_tag_2=?
       WHERE id=?`,
-      [admin_name, age, email, address, gym_name, system_type, session_fee,
+      [admin_name, email, address, gym_name, system_type,
         imagePath, hashedPassword, rfid_tag_2 || null, id]
     );
 
@@ -132,19 +143,24 @@ router.put("/replace-admin-rfid/:id", async (req, res) => {
   }
 });
 
-// --- Archive / Restore / Get ---
+// --- Get Admins ---
 router.get("/admins", async (_, res) => {
   try {
     const [rows] = await query(`
-      SELECT id, admin_name, age, email, address, gym_name, system_type,
-             session_fee, profile_image_url, rfid_tag, rfid_tag_2, is_archived
-      FROM AdminAccounts ORDER BY is_archived ASC, admin_name ASC`);
+      SELECT id, admin_name, email, address, gym_name, system_type,
+             profile_image_url, rfid_tag, rfid_tag_2, is_archived,
+             subscription_start_date, subscription_end_date, package_id,
+             DATEDIFF(subscription_end_date, NOW()) as days_remaining
+      FROM AdminAccounts 
+      ORDER BY is_archived ASC, admin_name ASC`);
     res.json(rows);
-  } catch {
+  } catch (err) {
+    console.error("Get admins error:", err);
     res.status(500).json({ error: "Database error" });
   }
 });
 
+// --- Archive / Restore ---
 ["archive", "restore"].forEach(action => {
   const archived = action === "archive" ? 1 : 0;
   router.put(`/${action}-admin/:id`, async (req, res) => {
@@ -160,11 +176,98 @@ router.get("/admins", async (_, res) => {
 
 router.get("/admins/:status(active|archived)", async (req, res) => {
   const isArchived = req.params.status === "archived" ? 1 : 0;
-  const [rows] = await query("SELECT * FROM AdminAccounts WHERE is_archived=? ORDER BY admin_name ASC", [isArchived]);
+  const [rows] = await query(`
+    SELECT *, DATEDIFF(subscription_end_date, NOW()) as days_remaining
+    FROM AdminAccounts 
+    WHERE is_archived=? 
+    ORDER BY admin_name ASC`, [isArchived]);
   res.json(rows);
 });
 
-// --- Delete Admin (shortened logic) ---
+// --- Check Expired Subscriptions (Cron Job / Scheduled Task) ---
+router.post("/check-expired-subscriptions", async (req, res) => {
+  try {
+    // Find all subscription partners whose subscription has expired
+    const [expiredPartners] = await query(`
+      SELECT id, admin_name, gym_name, email, subscription_end_date
+      FROM AdminAccounts
+      WHERE system_type = 'subscription'
+        AND subscription_end_date IS NOT NULL
+        AND subscription_end_date < NOW()
+        AND is_archived = 0
+    `);
+
+    if (expiredPartners.length === 0) {
+      return res.json({ message: "No expired subscriptions found", expired_count: 0 });
+    }
+
+    // Archive expired partners
+    for (const partner of expiredPartners) {
+      await query(`UPDATE AdminAccounts SET is_archived = 1 WHERE id = ?`, [partner.id]);
+      console.log(`⚠️ Archived expired subscription: ${partner.gym_name} (${partner.email})`);
+    }
+
+    res.json({ 
+      message: "Expired subscriptions processed", 
+      expired_count: expiredPartners.length,
+      expired_partners: expiredPartners.map(p => ({
+        id: p.id,
+        gym_name: p.gym_name,
+        email: p.email,
+        expired_date: p.subscription_end_date
+      }))
+    });
+  } catch (err) {
+    console.error("Check expired subscriptions error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// --- Renew Subscription ---
+router.post("/renew-subscription/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { package_id } = req.body;
+
+    const [[admin]] = await query(`SELECT * FROM AdminAccounts WHERE id = ?`, [id]);
+    if (!admin) return res.status(404).json({ error: "Admin not found" });
+
+    const [[pkg]] = await query(`SELECT * FROM SubscriptionPackages WHERE id = ?`, [package_id]);
+    if (!pkg) return res.status(404).json({ error: "Package not found" });
+
+    const startDate = new Date();
+    const endDate = new Date(Date.now() + pkg.duration_days * 86400000);
+
+    await query(`
+      UPDATE AdminAccounts
+      SET package_id = ?,
+          subscription_start_date = ?,
+          subscription_end_date = ?,
+          is_archived = 0
+      WHERE id = ?
+    `, [package_id, startDate, endDate, id]);
+
+    // Record renewal transaction
+    const [txn] = await query(`
+      INSERT INTO SuperAdminTransactions (admin_id, transaction_type, total_amount)
+      VALUES (?, 'Subscription Renewal', ?)`, [id, pkg.price]);
+    await query(`
+      INSERT INTO SuperAdminTransactionItems (transaction_id, item_name, quantity, price)
+      VALUES (?, ?, 1, ?)`, [txn.insertId, pkg.name, pkg.price]);
+
+    res.json({ 
+      message: "Subscription renewed successfully",
+      subscription_start_date: startDate,
+      subscription_end_date: endDate,
+      days_added: pkg.duration_days
+    });
+  } catch (err) {
+    console.error("Renew subscription error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// --- Delete Admin ---
 router.delete("/delete-admin/:id", async (req, res) => {
   const conn = await db.promise().getConnection();
   try {

@@ -109,9 +109,60 @@ const expireDayPassGuests = async () => {
   }
 };
 
+const expirePartnerSubscriptions = async () => {
+  let connection;
+  try {
+    connection = await db.promise().getConnection();
+
+    const [shouldExpire] = await connection.query(`
+      SELECT id, admin_name, gym_name, subscription_end_date, is_archived
+      FROM AdminAccounts
+      WHERE subscription_end_date IS NOT NULL
+        AND subscription_end_date < CURDATE()
+        AND is_archived = 0
+    `);
+    console.log(`🔍 Found ${shouldExpire.length} partner(s) with expired subscriptions:`, shouldExpire);
+
+    if (shouldExpire.length === 0) {
+      return;
+    }
+
+    await connection.beginTransaction();
+    
+    const query = `
+      UPDATE AdminAccounts
+      SET is_archived = 1
+      WHERE subscription_end_date < CURDATE()
+        AND is_archived = 0
+    `;
+    const [result] = await connection.query(query);
+    
+    await connection.commit();
+    
+    const [verifyExpired] = await connection.query(`
+      SELECT id, admin_name, gym_name, subscription_end_date, is_archived
+      FROM AdminAccounts
+      WHERE id IN (${shouldExpire.map(p => p.id).join(',')})
+    `);
+    console.log('✅ Verification - Archived partner accounts:', verifyExpired);
+    
+  } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
+    console.error('❌ Error expiring partner subscriptions:', error);
+    console.error('Stack trace:', error.stack);
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+};
+
 const runExpiryChecks = async () => {
   await expireSubscriptionMembers();
   await expireDayPassGuests();
+  await expirePartnerSubscriptions();
 };
 
 // Run immediately on server start (2 seconds delay)
@@ -124,10 +175,9 @@ cron.schedule('59 23 * * *', () => {
   runExpiryChecks();
 });
 
-
-
 module.exports = {
   runExpiryChecks,
   expireSubscriptionMembers,
-  expireDayPassGuests
+  expireDayPassGuests,
+  expirePartnerSubscriptions
 };

@@ -63,12 +63,22 @@ const PartnerRegistration = () => {
       if (formData[key]) payload.append(key, formData[key]);
     });
 
+    // Debug logging
+    console.log('API_URL:', API_URL);
+    console.log('Full URL:', `${API_URL}/partner-registration`);
+    console.log('Form data:', formData);
+
     try {
       const response = await fetch(`${API_URL}/partner-registration`, {
         method: 'POST',
         body: payload
       });
+      
+      console.log('Response status:', response.status);
+      console.log('Response OK:', response.ok);
+      
       const data = await response.json();
+      console.log('Response data:', data);
 
       if (response.ok) {
         setRegistrationNumber(data.registration_number);
@@ -77,7 +87,8 @@ const PartnerRegistration = () => {
         alert(data.error || 'Registration failed');
       }
     } catch (error) {
-      alert('Network error. Please try again.');
+      console.error('Fetch error:', error);
+      alert(`Network error: ${error.message}. Please check console for details.`);
     }
   };
 

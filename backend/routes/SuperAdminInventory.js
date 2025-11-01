@@ -56,13 +56,17 @@ router.get("/rfid", (req, res) => {
 });
 
 router.post("/rfid", (req, res) => {
-  const { rfid_tag } = req.body;
+  const { rfid_tag, rfid_type, role } = req.body;
   if (!rfid_tag) return res.status(400).json({ message: "Missing RFID tag" });
 
-  db.query("INSERT INTO RegisteredRfid (rfid_tag) VALUES (?)", [rfid_tag], (err, result) => {
-    if (err) return res.status(500).json({ error: err });
-    res.json({ id: result.insertId });
-  });
+  db.query(
+    "INSERT INTO RegisteredRfid (rfid_tag, rfid_type, role) VALUES (?, ?, ?)", 
+    [rfid_tag, rfid_type || null, role || null], 
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err });
+      res.json({ id: result.insertId });
+    }
+  );
 });
 
 router.get("/rfid/check/:rfid_tag", (req, res) => {

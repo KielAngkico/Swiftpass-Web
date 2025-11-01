@@ -10,6 +10,8 @@ const dbSuperAdmin = require('./db');
 
 const loginroute = require("./routes/login");
 const authRoute = require("./routes/auth");
+const PartnerRegistration = require("./routes/PartnerRegistration");
+
 const getExerciseLibrary = require("./routes/ExerciseLibrary");
 const getSplitLibrary = require("./routes/WorkoutSplitRoutes");
 const getRepRange = require("./routes/RepRangeRoutes");
@@ -80,6 +82,7 @@ app.use("/uploads", express.static(path.join(__dirname, "..","public" ,"uploads"
 
 app.use("/api", loginroute);
 app.use("/api", authRoute);
+app.use("/api", PartnerRegistration);
 app.use("/api", getExerciseLibrary);
 app.use("/api", getSplitLibrary);
 app.use("/api", getRepRange);

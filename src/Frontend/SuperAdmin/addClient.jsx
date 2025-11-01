@@ -15,6 +15,8 @@ const AddClient = () => {
   const [waitingForSlot, setWaitingForSlot] = useState(null);
   const [originalRfid, setOriginalRfid] = useState("");
   const [originalRfid2, setOriginalRfid2] = useState("");
+  const [pendingRegistrations, setPendingRegistrations] = useState([]);
+  const [showRegistrations, setShowRegistrations] = useState(true);
   
   const [formData, setFormData] = useState({
     admin_name: "",
@@ -45,6 +47,59 @@ const AddClient = () => {
     };
     fetchAdmins();
   }, []);
+
+  // Fetch pending registrations
+  useEffect(() => {
+    fetchPendingRegistrations();
+    const interval = setInterval(fetchPendingRegistrations, 30000); // Refresh every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchPendingRegistrations = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/pending-registrations`);
+      setPendingRegistrations(response.data);
+    } catch (error) {
+      console.error("Error fetching pending registrations:", error);
+    }
+  };
+
+  const handleRegistrationClick = (registration) => {
+    // Pre-fill form with registration data
+    setFormData({
+      admin_name: registration.admin_name || "",
+      age: "",
+      address: registration.address || "",
+      email: registration.email || "",
+      password: registration.password || "",
+      gym_name: registration.gym_name || "",
+      system_type: registration.system_type || "",
+      session_fee: "",
+      profile_image_url: registration.profile_image ? `${API_URL}${registration.profile_image}` : null,
+      rfid_tag: "",
+      rfid_tag_2: "",
+    });
+    
+    setModalMode("registration");
+    setEditingAdmin({ registrationNumber: registration.registration_number });
+    setShowAddForm(true);
+  };
+
+  const handleDeleteRegistration = async (registrationNumber, e) => {
+    e.stopPropagation();
+    showConfirm(
+      "Delete this registration request?",
+      async () => {
+        try {
+          await axios.delete(`${API_URL}/api/pending-registrations/${registrationNumber}`);
+          fetchPendingRegistrations();
+          showToast({ message: "Registration deleted successfully!", type: "success" });
+        } catch (error) {
+          showToast({ message: "Failed to delete registration", type: "error" });
+        }
+      }
+    );
+  };
 
   useEffect(() => {
     if (location.state?.openModal) {
@@ -129,7 +184,7 @@ const AddClient = () => {
     const sessionFeeValue = formData.session_fee ? Number(formData.session_fee) : 0;
 
     try {
-      if (modalMode === "edit" && editingAdmin) {
+      if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
         const rfid1Changed = formData.rfid_tag !== originalRfid;
         const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
 
@@ -203,6 +258,7 @@ const AddClient = () => {
           )
         );
       } else {
+        // Add new partner or from registration
         const formPayload = new FormData();
         formPayload.append("admin_name", formData.admin_name);
         formPayload.append("rfid_tag", formData.rfid_tag);
@@ -226,6 +282,12 @@ const AddClient = () => {
         );
 
         showToast({ message: "Partner added successfully!", type: "success" });
+
+        // If this was from a registration, delete the registration
+        if (modalMode === "registration" && editingAdmin?.registrationNumber) {
+          await axios.delete(`${API_URL}/api/pending-registrations/${editingAdmin.registrationNumber}`);
+          fetchPendingRegistrations();
+        }
 
         setAdmins([
           ...admins,
@@ -362,6 +424,18 @@ const AddClient = () => {
     });
   };
 
+  const getTimeRemaining = (createdAt) => {
+    const created = new Date(createdAt);
+    const expiresAt = new Date(created.getTime() + 60 * 60 * 1000); // 1 hour
+    const now = new Date();
+    const diff = expiresAt - now;
+    
+    if (diff <= 0) return "Expired";
+    
+    const minutes = Math.floor(diff / 60000);
+    return `${minutes} min left`;
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <SuperAdminSidebar />
@@ -375,6 +449,77 @@ const AddClient = () => {
             Manage your gym partners and their information
           </p>
         </div>
+
+        {/* Pending Registrations Section */}
+        {pendingRegistrations.length > 0 && (
+          <div className="mb-6 bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h2 className="text-sm font-semibold text-blue-800 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  Pending Registrations ({pendingRegistrations.length})
+                </h2>
+                <p className="text-xs text-blue-600">Click a registration to review and approve</p>
+              </div>
+              <button
+                onClick={() => setShowRegistrations(!showRegistrations)}
+                className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+              >
+                {showRegistrations ? "Hide" : "Show"}
+              </button>
+            </div>
+
+            {showRegistrations && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {pendingRegistrations.map((registration) => (
+                  <div
+                    key={registration.registration_number}
+                    onClick={() => handleRegistrationClick(registration)}
+                    className="bg-white border-2 border-blue-300 rounded-lg p-3 cursor-pointer hover:shadow-lg hover:border-blue-500 transition-all"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-bold">
+                        #{registration.registration_number}
+                      </div>
+                      <button
+                        onClick={(e) => handleDeleteRegistration(registration.registration_number, e)}
+                        className="text-red-500 hover:text-red-700 text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    
+                    {registration.profile_image && (
+                      <img
+                        src={`${API_URL}${registration.profile_image}`}
+                        alt={registration.gym_name}
+                        className="w-full h-20 object-cover rounded mb-2"
+                      />
+                    )}
+                    
+                    <h3 className="font-bold text-sm text-gray-800 truncate">
+                      {registration.gym_name}
+                    </h3>
+                    <p className="text-xs text-gray-600 truncate">
+                      {registration.admin_name}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {registration.email}
+                    </p>
+                    
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="text-xs text-orange-600 font-medium">
+                        ⏱️ {getTimeRemaining(registration.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mb-3">
           <button

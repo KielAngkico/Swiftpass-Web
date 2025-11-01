@@ -169,6 +169,15 @@ const ItemsInventory = () => {
     else if (rfidData?.rfid_tag && rfidData?.type === "rfid-registration-check") {
       console.log("📡 RFID from WebSocket:", rfidData.rfid_tag);
       rfidTagToUse = rfidData.rfid_tag;
+      
+      // Show toast based on role
+      if (rfidData.role) {
+        if (rfidData.role === 'Member') {
+          showToast({ message: `Member RFID scanned: ${rfidTagToUse}`, type: "info" });
+        } else if (rfidData.role === 'DayPass') {
+          showToast({ message: `Day Pass RFID scanned: ${rfidTagToUse}`, type: "info" });
+        }
+      }
     }
 
     if (rfidTagToUse) {

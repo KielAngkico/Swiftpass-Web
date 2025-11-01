@@ -48,12 +48,14 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
         console.error("❌ WebSocket error:", msg.message);
         return;
 
+
 case "rfid-registration-check":
   if (msg.data?.rfid_tag) {
-    const { rfid_tag, is_registered } = msg.data;
+    const { rfid_tag, is_registered, role } = msg.data;
 
     console.log(`📡 RFID Check Result: ${rfid_tag}`);
     console.log(`   Is Registered: ${is_registered}`);
+    console.log(`   Role: ${role || 'N/A'}`);
 
     const currentPath = window.location.pathname;
     const isSuperAdminPage = currentPath.startsWith("/SuperAdmin");
@@ -70,18 +72,37 @@ case "rfid-registration-check":
       sessionStorage.setItem('pendingSlotRfid', rfid_tag);
       sessionStorage.setItem('rfidScannedAt', Date.now().toString());
       
-       window.dispatchEvent(new Event('rfid-slot-scanned'));
+      window.dispatchEvent(new Event('rfid-slot-scanned'));
       return;
     }
 
-     if (is_registered) {
-      console.log("✅ Navigating to AddClient - modal will open");
-      customNavigate("/SuperAdmin/AddClient", {
-        state: { 
-          openModal: true, 
-          timestamp: Date.now() 
-        }
-      }, "superadmin");
+    if (is_registered) {
+      // Check role and route accordingly
+      if (role === 'Partner') {
+        console.log("✅ Partner RFID - navigating to AddPartner");
+        customNavigate("/SuperAdmin/AddPartner", {
+          state: { 
+            rfid_tag: rfid_tag,
+            timestamp: Date.now() 
+          }
+        }, "superadmin");
+      } else if (role === 'Member') {
+        console.log("ℹ️ Member RFID scanned");
+        // Store in rfidData so ItemsInventory can show toast
+        setRfidData({ ...msg.data, type: "rfid-registration-check" });
+      } else if (role === 'DayPass') {
+        console.log("ℹ️ Day Pass RFID scanned");
+        // Store in rfidData so ItemsInventory can show toast
+        setRfidData({ ...msg.data, type: "rfid-registration-check" });
+      } else {
+        console.log("✅ Navigating to AddClient - modal will open");
+        customNavigate("/SuperAdmin/AddClient", {
+          state: { 
+            openModal: true, 
+            timestamp: Date.now() 
+          }
+        }, "superadmin");
+      }
     } else {
       console.log("❌ Navigating to ItemsInventory for registration");
       customNavigate("/SuperAdmin/ItemsInventory", {

@@ -397,18 +397,51 @@
         return;
       }
 
-      if (location.toUpperCase() === "SUPERADMIN") {
-        const isRegistered = await isRfidRegistered(rfid_tag);
-        broadcastToClients({
-          type: "rfid-registration-check",
-          data: {
-            rfid_tag,
-            is_registered: isRegistered,
-            timestamp: new Date().toISOString()
-          }
-        });
-        return;
+if (location.toUpperCase() === "SUPERADMIN") {
+  const isRegistered = await isRfidRegistered(rfid_tag);
+  
+  if (isRegistered) {
+    // Check what role this RFID has
+    const [roleRows] = await dbSuperAdmin.promise().query(
+      "SELECT role, rfid_type FROM RegisteredRfid WHERE rfid_tag = ? LIMIT 1",
+      [rfid_tag]
+    );
+    
+    if (roleRows.length > 0) {
+      const { role, rfid_type } = roleRows[0];
+      
+      broadcastToClients({
+        type: "rfid-registration-check",
+        data: {
+          rfid_tag,
+          is_registered: true,
+          role: role,
+          rfid_type: rfid_type,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } else {
+      broadcastToClients({
+        type: "rfid-registration-check",
+        data: {
+          rfid_tag,
+          is_registered: true,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+  } else {
+    broadcastToClients({
+      type: "rfid-registration-check",
+      data: {
+        rfid_tag,
+        is_registered: false,
+        timestamp: new Date().toISOString()
       }
+    });
+  }
+  return;
+}
 
       if (location.toUpperCase() === "STAFF") {
         const isRegistered = await isRfidRegistered(rfid_tag);

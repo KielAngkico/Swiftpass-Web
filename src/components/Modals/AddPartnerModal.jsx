@@ -239,13 +239,7 @@ const AddPartnerModal = ({
       </option>
     ))}
   </select>
-  {formData.package_id && formData.packages?.length > 0 && (
-    <div className="mt-1 text-[10px] text-gray-600 bg-blue-50 p-1.5 rounded">
-      <strong>Included:</strong> {
-        formData.packages.find(p => p.id == formData.package_id)?.description || 'See package details'
-      }
-    </div>
-  )}
+
 </div>
             </div>
 

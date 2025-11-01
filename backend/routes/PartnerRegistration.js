@@ -204,5 +204,28 @@ router.put("/pending-registrations/:registration_number/approve", async (req, re
     res.status(500).json({ error: "Server error" });
   }
 });
+router.get("/subscription-packages-with-items", async (req, res) => {
+  try {
+    const [packages] = await query(`
+      SELECT id, name, description, price, duration_days, created_at
+      FROM SubscriptionPackages
+      ORDER BY price ASC, duration_days ASC
+    `);
 
+    for (let pkg of packages) {
+      const [items] = await query(`
+        SELECT item_name, quantity
+        FROM PackageItems
+        WHERE package_id = ?
+        ORDER BY id ASC
+      `, [pkg.id]);
+      pkg.items = items;
+    }
+
+    res.json(packages);
+  } catch (err) {
+    console.error("Get packages with items error:", err);
+    res.status(500).json({ error: "Failed to fetch packages" });
+  }
+});
 module.exports = router;

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Check } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -45,7 +44,7 @@ const PartnerRegistration = () => {
     });
 
     try {
-      const response = await fetch('/api/partner-registration', {
+      const response = await fetch(`${API_URL}/partner-registration`, {
         method: 'POST',
         body: payload
       });
@@ -67,7 +66,9 @@ const PartnerRegistration = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Check className="w-12 h-12 text-green-600" />
+            <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Registration Submitted!</h2>
           <p className="text-gray-600 mb-4">
@@ -92,45 +93,45 @@ const PartnerRegistration = () => {
             <p className="text-gray-600">Join SwiftPass Tech - Gym Management System</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Gym Name</label>
                 <input type="text" name="gym_name" value={formData.gym_name} onChange={handleChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500" />
+                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500" required />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Gym Address</label>
-                <textarea name="address" value={formData.address} onChange={handleChange} rows={2}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 resize-none" />
+                <textarea name="address" value={formData.address} onChange={handleChange} rows="2"
+                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none" required />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Admin Name</label>
                 <input type="text" name="admin_name" value={formData.admin_name} onChange={handleChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500" />
+                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500" required />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Age</label>
                 <input type="number" name="age" value={formData.age} onChange={handleChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500" />
+                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500" required />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Email Address</label>
                 <input type="email" name="email" value={formData.email} onChange={handleChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500" />
+                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500" required />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Password</label>
                 <input type="password" name="password" value={formData.password} onChange={handleChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500" />
+                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500" required />
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">System Type</label>
                 <select name="system_type" value={formData.system_type} onChange={handleChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500">
+                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500" required>
                   <option value="">-- Select System Type --</option>
                   <option value="prepaid_entry">Prepaid Entry</option>
                   <option value="subscription">Subscription Membership</option>
@@ -139,7 +140,8 @@ const PartnerRegistration = () => {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Session Fee (₱)</label>
                 <input type="number" name="session_fee" value={formData.session_fee} onChange={handleChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500" />
+                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter session fee amount" required />
               </div>
             </div>
 
@@ -158,9 +160,9 @@ const PartnerRegistration = () => {
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t">
+          <div className="flex gap-2 pt-4 mt-4 border-t">
             <button onClick={() => setShowTerms(true)}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md text-xs">
+              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md text-xs">
               Continue to Terms & Conditions
             </button>
           </div>
@@ -168,49 +170,56 @@ const PartnerRegistration = () => {
       </div>
 
       {showTerms && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4"
           onClick={() => setShowTerms(false)}>
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+          <div className="bg-white p-5 rounded-md shadow-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Terms and Conditions</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">Terms and Conditions</h2>
+              <button onClick={() => setShowTerms(false)} className="text-gray-500 hover:text-gray-700">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
             
-            <div className="space-y-4 text-sm text-gray-700 mb-6">
+            <div className="space-y-3 text-xs text-gray-700 mb-4">
               <section>
-                <h3 className="font-semibold text-base mb-2">1. Account Registration</h3>
+                <h3 className="font-semibold text-sm mb-1">1. Account Registration</h3>
                 <p>By registering as a partner, you agree to provide accurate information and maintain account confidentiality.</p>
               </section>
               <section>
-                <h3 className="font-semibold text-base mb-2">2. Service Usage</h3>
+                <h3 className="font-semibold text-sm mb-1">2. Service Usage</h3>
                 <p>SwiftPass Tech provides gym management software. You agree to use the service in compliance with all applicable laws.</p>
               </section>
               <section>
-                <h3 className="font-semibold text-base mb-2">3. Data Privacy</h3>
+                <h3 className="font-semibold text-sm mb-1">3. Data Privacy</h3>
                 <p>We collect and process your data in accordance with our Privacy Policy. You retain ownership of your data.</p>
               </section>
               <section>
-                <h3 className="font-semibold text-base mb-2">4. Payment Terms</h3>
+                <h3 className="font-semibold text-sm mb-1">4. Payment Terms</h3>
                 <p>Subscription fees are charged based on your plan. We reserve the right to modify pricing with 30 days notice.</p>
               </section>
               <section>
-                <h3 className="font-semibold text-base mb-2">5. Service Availability</h3>
+                <h3 className="font-semibold text-sm mb-1">5. Service Availability</h3>
                 <p>We strive for 99.9% uptime but do not guarantee uninterrupted service.</p>
               </section>
             </div>
 
-            <label className="flex items-start space-x-3 cursor-pointer mb-6">
+            <label className="flex items-start space-x-3 cursor-pointer mb-4">
               <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="w-5 h-5 mt-1 text-blue-600 border-gray-300 rounded" />
-              <span className="text-sm text-gray-700">I have read and agree to the Terms and Conditions</span>
+                className="w-5 h-5 mt-0.5 text-blue-600 border-gray-300 rounded" />
+              <span className="text-xs text-gray-700">I have read and agree to the Terms and Conditions</span>
             </label>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2 pt-2">
               <button onClick={() => setShowTerms(false)}
-                className="flex-1 bg-gray-500 text-white px-4 py-2 rounded-md text-sm hover:bg-gray-600">
+                className="flex-1 bg-gray-500 text-white px-3 py-2 rounded-md text-xs hover:bg-gray-600">
                 Cancel
               </button>
               <button onClick={handleSubmit} disabled={!termsAccepted}
-                className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold ${
-                  termsAccepted ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                className={`flex-1 px-3 py-2 rounded-md text-xs ${
+                  termsAccepted ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}>
                 Submit Registration
               </button>

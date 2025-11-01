@@ -22,12 +22,18 @@ router.post("/partner-registration", upload.single("profile_image_url"), async (
       email,
       password,
       address,
-      system_type
+      system_type,
+      package_id  // ← Added package_id
     } = req.body;
 
     // Validate required fields
     if (!gym_name || !admin_name || !email || !password || !address || !system_type) {
       return res.status(400).json({ error: "All required fields must be filled" });
+    }
+
+    // Validate package_id is provided
+    if (!package_id) {
+      return res.status(400).json({ error: "Please select a package" });
     }
 
     // Check if email already exists in AdminAccounts
@@ -58,12 +64,12 @@ router.post("/partner-registration", upload.single("profile_image_url"), async (
     const registrationNumber = generateRegistrationNumber();
     const imagePath = req.file ? `/uploads/partners/${req.file.filename}` : null;
 
-    // Insert into partner_registrations table
+    // Insert into partner_registrations table (WITH package_id)
     await query(`
       INSERT INTO partner_registrations
       (registration_number, gym_name, admin_name, email, password, address, 
-       system_type, profile_image_url, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+       system_type, package_id, profile_image_url, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
     `, [
       registrationNumber,
       gym_name,
@@ -72,6 +78,7 @@ router.post("/partner-registration", upload.single("profile_image_url"), async (
       password, // Store plain password for admin to process
       address,
       system_type,
+      package_id,  // ← Added
       imagePath
     ]);
 
@@ -92,21 +99,26 @@ router.get("/pending-registrations", async (req, res) => {
     // Get all pending registrations that haven't expired (within 1 hour)
     const [registrations] = await query(`
       SELECT 
-        id,
-        registration_number,
-        gym_name,
-        admin_name,
-        email,
-        password,
-        address,
-        system_type,
-        profile_image_url,
-        status,
-        created_at
-      FROM partner_registrations
-      WHERE status = 'pending'
-        AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
-      ORDER BY created_at DESC
+        pr.id,
+        pr.registration_number,
+        pr.gym_name,
+        pr.admin_name,
+        pr.email,
+        pr.password,
+        pr.address,
+        pr.system_type,
+        pr.package_id,
+        pr.profile_image_url,
+        pr.status,
+        pr.created_at,
+        sp.name as package_name,
+        sp.price as package_price,
+        sp.duration_days as package_duration
+      FROM partner_registrations pr
+      LEFT JOIN SubscriptionPackages sp ON pr.package_id = sp.id
+      WHERE pr.status = 'pending'
+        AND pr.created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
+      ORDER BY pr.created_at DESC
     `);
 
     res.json(registrations);
@@ -122,8 +134,13 @@ router.get("/pending-registrations/:registration_number", async (req, res) => {
     const { registration_number } = req.params;
 
     const [[registration]] = await query(`
-      SELECT * FROM partner_registrations
-      WHERE registration_number = ? AND status = 'pending'
+      SELECT pr.*, 
+             sp.name as package_name,
+             sp.price as package_price,
+             sp.duration_days as package_duration
+      FROM partner_registrations pr
+      LEFT JOIN SubscriptionPackages sp ON pr.package_id = sp.id
+      WHERE pr.registration_number = ? AND pr.status = 'pending'
     `, [registration_number]);
 
     if (!registration) {
@@ -204,6 +221,7 @@ router.put("/pending-registrations/:registration_number/approve", async (req, re
     res.status(500).json({ error: "Server error" });
   }
 });
+
 router.get("/subscription-packages-with-items", async (req, res) => {
   try {
     const [packages] = await query(`
@@ -228,4 +246,5 @@ router.get("/subscription-packages-with-items", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch packages" });
   }
 });
+
 module.exports = router;

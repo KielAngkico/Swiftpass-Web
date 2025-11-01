@@ -237,30 +237,22 @@ const useAutoLogout = (timeout = 1 * 60 * 60 * 1000, enabled = true) => {
   return { resetTimer };
 };
 
+// In your App.jsx, update the AppRoutes component:
+
 const AppRoutes = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  if (!user) {
-    return (
-      <ToastProvider>
-        <Suspense fallback={<p>Loading page...</p>}>
-          <Routes>
-            <Route path="/" element={<Homepage />} />
-            <Route path="/partner-registration" element={<PartnerRegistration />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
-      </ToastProvider>
-    );
-  }
-
+  // Always show public routes first, regardless of auth status
   return (
     <ToastProvider>
       <Suspense fallback={<p>Loading page...</p>}>
         <Routes>
+          {/* Public routes - accessible to everyone */}
           <Route path="/" element={<Homepage />} />
+          <Route path="/partner-registration" element={<PartnerRegistration />} />
 
+          {/* Protected routes - only when user is logged in */}
           {user?.role === "superadmin" && (
             <>
               <Route path="/SuperAdmin/addClient" element={<AddClient />} />
@@ -298,23 +290,28 @@ const AppRoutes = () => {
             </>
           )}
 
+          {/* Catch-all route */}
           <Route
             path="*"
             element={
-              <div style={{ textAlign: "center", padding: "2rem" }}>
-                <h1>Access Denied</h1>
-                <p>You don't have permission to access this page.</p>
-                <button 
-                  onClick={() => {
-                    if (user.role === "superadmin") navigate("/SuperAdmin/addClient");
-                    else if (user.role === "admin") navigate("/Admin/StaffManagement");  
-                    else if (user.role === "staff") navigate("/Staff/member-entry");
-                  }}
-                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mt-4"
-                >
-                  Go to Dashboard
-                </button>
-              </div>
+              user ? (
+                <div style={{ textAlign: "center", padding: "2rem" }}>
+                  <h1>Access Denied</h1>
+                  <p>You don't have permission to access this page.</p>
+                  <button 
+                    onClick={() => {
+                      if (user.role === "superadmin") navigate("/SuperAdmin/addClient");
+                      else if (user.role === "admin") navigate("/Admin/StaffManagement");  
+                      else if (user.role === "staff") navigate("/Staff/member-entry");
+                    }}
+                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mt-4"
+                  >
+                    Go to Dashboard
+                  </button>
+                </div>
+              ) : (
+                <Navigate to="/" replace />
+              )
             }
           />
         </Routes>

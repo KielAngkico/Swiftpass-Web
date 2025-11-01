@@ -246,36 +246,32 @@ const ItemsInventory = () => {
           </div>
 
           {/* RFID Registration Form with Dropdown */}
-          <div className="w-[400px] bg-white p-2 rounded-md shadow-sm">
-            <div className="flex gap-2 mb-2">
-              <select
-                value={JSON.stringify(selectedRfidOption)}
-                onChange={(e) => setSelectedRfidOption(JSON.parse(e.target.value))}
-                className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
-              >
-                {rfidOptions.map((option, idx) => (
-                  <option key={idx} value={JSON.stringify(option)}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={scanValue}
-                onChange={(e) => setScanValue(e.target.value)}
-                placeholder="Scan RFID..."
-                className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
-                autoFocus
-              />
-              <button
-                onClick={() => addScannedItem()}
-                className="bg-green-600 text-white px-2 py-1 rounded-md hover:bg-green-700 text-xs"
-              >
-                Add RFID
-              </button>
-            </div>
+          <div className="w-[400px] bg-white p-2 rounded-md shadow-sm flex gap-2">
+            <select
+              value={JSON.stringify(selectedRfidOption)}
+              onChange={(e) => setSelectedRfidOption(JSON.parse(e.target.value))}
+              className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
+            >
+              {rfidOptions.map((option, idx) => (
+                <option key={idx} value={JSON.stringify(option)}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={scanValue}
+              onChange={(e) => setScanValue(e.target.value)}
+              placeholder="Scan RFID..."
+              className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
+              autoFocus
+            />
+            <button
+              onClick={() => addScannedItem()}
+              className="bg-green-600 text-white px-2 py-1 rounded-md hover:bg-green-700 text-xs"
+            >
+              Add RFID
+            </button>
           </div>
         </div>
 
@@ -410,8 +406,9 @@ const ItemsInventory = () => {
                 <thead className="bg-gray-900 text-white sticky top-0">
                   <tr>
                     <th className="p-2 border border-gray-700">#</th>
-                    <th className="p-2 border border-gray-700 w-1/4">RFID Tag / Type</th>
-                    <th className="p-2 border border-gray-700 w-1/4">Role / Status</th>
+                    <th className="p-2 border border-gray-700">RFID Tag / Type</th>
+                    <th className="p-2 border border-gray-700">Role</th>
+                    <th className="p-2 border border-gray-700">Status</th>
                     <th className="p-2 border border-gray-700">Allocated To</th>
                     <th className="p-2 border border-gray-700">Created At</th>
                   </tr>
@@ -426,21 +423,19 @@ const ItemsInventory = () => {
                           {rfid.rfid_type || 'N/A'}
                         </div>
                       </td>
-                      <td className="p-2 border">
-                        <div>
-                          <span className="inline-block px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
-                            {rfid.role || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="mt-1">
-                          <span className={`inline-block px-2 py-1 rounded text-xs ${
-                            rfid.status === 'in_stock' ? 'bg-green-100 text-green-800' :
-                            rfid.status === 'allocated' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {rfid.status || 'N/A'}
-                          </span>
-                        </div>
+                      <td className="p-2 border text-center">
+                        <span className="inline-block px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
+                          {rfid.role || 'N/A'}
+                        </span>
+                      </td>
+                      <td className="p-2 border text-center">
+                        <span className={`inline-block px-2 py-1 rounded text-xs ${
+                          rfid.status === 'in_stock' ? 'bg-green-100 text-green-800' :
+                          rfid.status === 'allocated' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {rfid.status || 'N/A'}
+                        </span>
                       </td>
                       <td className="p-2 border text-center">
                         {rfid.allocated_to_admin ? (

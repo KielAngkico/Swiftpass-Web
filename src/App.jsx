@@ -23,6 +23,8 @@ import { setAccessToken, clearAccessToken, getAccessToken } from "./tokenMemory"
 import { scheduleTokenRefresh } from "./api";
 import { ToastProvider } from "./components/ToastManager";
 
+const PartnerRegistration = React.lazy(() => import("./Frontend/PartnerRegistrationForm"));
+
 
 const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));
 const ExerciseLibrary = React.lazy(() => import("./Frontend/SuperAdmin/ExerciseLibrary"));
@@ -245,6 +247,7 @@ const AppRoutes = () => {
         <Suspense fallback={<p>Loading page...</p>}>
           <Routes>
             <Route path="/" element={<Homepage />} />
+            <Route path="/partnerregistration" element={<PartnerRegistration />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

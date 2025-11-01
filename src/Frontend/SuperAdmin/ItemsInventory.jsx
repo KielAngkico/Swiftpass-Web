@@ -196,36 +196,36 @@ const ItemsInventory = () => {
         </div>
 
         {/* Add Item & RFID Forms */}
-        <div className="flex gap-4 mb-5 items-start">
-          <div className="flex flex-wrap gap-2 bg-white p-2 rounded-md shadow-sm">
+        <div className="flex gap-2 mb-5 items-center">
+          <div className="flex gap-2 bg-white p-2 rounded-md shadow-sm">
             <input
               type="text"
               placeholder="Item Name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-32 px-2 py-1 border border-gray-300 rounded text-xs"
               required
             />
             <input
               type="number"
               step="0.01"
-              placeholder="Purchase Price"
+              placeholder="Purchase"
               value={form.purchase_price}
               onChange={(e) =>
                 setForm({ ...form, purchase_price: e.target.value })
               }
-              className="px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-20 px-2 py-1 border border-gray-300 rounded text-xs"
               required
             />
             <input
               type="number"
               step="0.01"
-              placeholder="Selling Price"
+              placeholder="Selling"
               value={form.selling_price}
               onChange={(e) =>
                 setForm({ ...form, selling_price: e.target.value })
               }
-              className="px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-20 px-2 py-1 border border-gray-300 rounded text-xs"
               required
             />
             <input
@@ -233,49 +233,45 @@ const ItemsInventory = () => {
               placeholder="Qty"
               value={form.quantity}
               onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-              className="w-16 px-2 py-1 border border-gray-300 rounded text-xs"
+              className="w-14 px-2 py-1 border border-gray-300 rounded text-xs"
               min="1"
               required
             />
             <button
               onClick={addManualItem}
-              className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 text-xs"
+              className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 text-xs whitespace-nowrap"
             >
               Add Item
             </button>
           </div>
 
           {/* RFID Registration Form with Dropdown */}
-          <div className="w-[400px] bg-white p-2 rounded-md shadow-sm">
-            <div className="flex gap-2 mb-2">
-              <select
-                value={JSON.stringify(selectedRfidOption)}
-                onChange={(e) => setSelectedRfidOption(JSON.parse(e.target.value))}
-                className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
-              >
-                {rfidOptions.map((option, idx) => (
-                  <option key={idx} value={JSON.stringify(option)}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={scanValue}
-                onChange={(e) => setScanValue(e.target.value)}
-                placeholder="Scan RFID..."
-                className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
-                autoFocus
-              />
-              <button
-                onClick={() => addScannedItem()}
-                className="bg-green-600 text-white px-2 py-1 rounded-md hover:bg-green-700 text-xs"
-              >
-                Add RFID
-              </button>
-            </div>
+          <div className="flex gap-2 bg-white p-2 rounded-md shadow-sm">
+            <select
+              value={JSON.stringify(selectedRfidOption)}
+              onChange={(e) => setSelectedRfidOption(JSON.parse(e.target.value))}
+              className="w-40 px-2 py-1 border border-gray-300 rounded text-xs"
+            >
+              {rfidOptions.map((option, idx) => (
+                <option key={idx} value={JSON.stringify(option)}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={scanValue}
+              onChange={(e) => setScanValue(e.target.value)}
+              placeholder="Scan RFID..."
+              className="w-32 px-2 py-1 border border-gray-300 rounded text-xs"
+              autoFocus
+            />
+            <button
+              onClick={() => addScannedItem()}
+              className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 text-xs whitespace-nowrap"
+            >
+              Add RFID
+            </button>
           </div>
         </div>
 
@@ -392,14 +388,8 @@ const ItemsInventory = () => {
 
         {/* Registered RFIDs Table */}
         <div className="bg-white rounded-md shadow-sm mt-5">
-          <div className="p-2 border-b font-semibold text-xs flex justify-between items-center">
+          <div className="p-2 border-b font-semibold text-xs">
             <span>Registered RFIDs ({rfids.length})</span>
-            <button
-              onClick={fetchRfids}
-              className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs hover:bg-gray-300"
-            >
-              Refresh
-            </button>
           </div>
 
           {rfidError && (
@@ -416,10 +406,10 @@ const ItemsInventory = () => {
                 <thead className="bg-gray-900 text-white sticky top-0">
                   <tr>
                     <th className="p-2 border border-gray-700">#</th>
-                    <th className="p-2 border border-gray-700">RFID Tag</th>
-                    <th className="p-2 border border-gray-700">Type</th>
+                    <th className="p-2 border border-gray-700">RFID Tag / Type</th>
                     <th className="p-2 border border-gray-700">Role</th>
                     <th className="p-2 border border-gray-700">Status</th>
+                    <th className="p-2 border border-gray-700">Allocated To</th>
                     <th className="p-2 border border-gray-700">Created At</th>
                   </tr>
                 </thead>
@@ -427,11 +417,11 @@ const ItemsInventory = () => {
                   {rfids.map((rfid, index) => (
                     <tr key={rfid.id} className="hover:bg-gray-50">
                       <td className="p-2 border text-center">{index + 1}</td>
-                      <td className="p-2 border font-mono">{rfid.rfid_tag}</td>
-                      <td className="p-2 border text-center">
-                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                      <td className="p-2 border">
+                        <div className="font-mono">{rfid.rfid_tag}</div>
+                        <div className="text-[10px] text-gray-500 mt-1">
                           {rfid.rfid_type || 'N/A'}
-                        </span>
+                        </div>
                       </td>
                       <td className="p-2 border text-center">
                         <span className="inline-block px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
@@ -446,6 +436,15 @@ const ItemsInventory = () => {
                         }`}>
                           {rfid.status || 'N/A'}
                         </span>
+                      </td>
+                      <td className="p-2 border text-center">
+                        {rfid.allocated_to_admin ? (
+                          <span className="text-blue-600 font-medium">
+                            {rfid.gym_name || `Admin #${rfid.allocated_to_admin}`}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="p-2 border">
                         {new Date(rfid.created_at).toLocaleString()}

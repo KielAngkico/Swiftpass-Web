@@ -18,7 +18,7 @@ const PartnerRegistration = () => {
     password: '',
     address: '',
     system_type: '',
-    profile_image: null
+    profile_image_url: null
   });
   const [imagePreview, setImagePreview] = useState(null);
 
@@ -29,7 +29,7 @@ const PartnerRegistration = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setFormData({ ...formData, profile_image: file });
+      setFormData({ ...formData, profile_image_url: file });
       setImagePreview(URL.createObjectURL(file));
     }
   };

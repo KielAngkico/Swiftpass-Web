@@ -71,7 +71,7 @@ const AddClient = () => {
       password: registration.password || "",
       gym_name: registration.gym_name || "",
       system_type: registration.system_type || "",
-      profile_image_url: registration.profile_image ? `${API_URL}${registration.profile_image}` : null,
+      profile_image_url: registration.profile_image_url ? `${API_URL}${registration.profile_image}` : null,
       rfid_tag: "",
       rfid_tag_2: "",
     });

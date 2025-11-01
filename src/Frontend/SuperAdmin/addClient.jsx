@@ -427,17 +427,17 @@ const AddClient = () => {
 
 {/* Pending Registrations Section */}
         {pendingRegistrations.length > 0 && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="mb-6 bg-gray-50 border border-gray-300 rounded-lg p-4">
             <div className="flex justify-between items-center mb-3">
               <div>
-                <h2 className="text-sm font-semibold text-blue-800">
+                <h2 className="text-sm font-semibold text-gray-800">
                   Pending Registrations ({pendingRegistrations.length})
                 </h2>
-                <p className="text-xs text-blue-600">Click a registration to review and approve</p>
+                <p className="text-xs text-gray-600">Click a registration to review and approve</p>
               </div>
               <button
                 onClick={() => setShowRegistrations(!showRegistrations)}
-                className="text-blue-600 hover:text-blue-800 text-xs font-medium underline"
+                className="text-gray-700 hover:text-gray-900 text-xs font-medium underline"
               >
                 {showRegistrations ? "Hide" : "Show"}
               </button>
@@ -449,40 +449,26 @@ const AddClient = () => {
                   <div
                     key={registration.registration_number}
                     onClick={() => handleRegistrationClick(registration)}
-                    className="bg-white border border-gray-300 rounded-lg p-3 cursor-pointer hover:shadow-md hover:border-blue-400 transition-all"
+                    className="bg-white border border-gray-300 rounded-lg p-3 cursor-pointer hover:shadow-md hover:border-gray-500 transition-all"
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <span className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium">
+                      <span className="bg-gray-800 text-white px-2 py-1 rounded text-xs font-medium">
                         {registration.registration_number}
                       </span>
                       <button
                         onClick={(e) => handleDeleteRegistration(registration.registration_number, e)}
-                        className="text-red-500 hover:text-red-700 text-sm font-bold"
+                        className="text-gray-400 hover:text-red-600 text-sm font-bold"
                       >
                         ×
                       </button>
                     </div>
                     
-                    {registration.profile_image_url && (
-                      <img
-                        src={`${API_URL}${registration.profile_image_url}`}
-                        alt={registration.gym_name}
-                        className="w-full h-20 object-cover rounded mb-2"
-                      />
-                    )}
-                    
-                    <h3 className="font-semibold text-sm text-gray-800 truncate">
+                    <h3 className="font-semibold text-base text-gray-900">
                       {registration.gym_name}
                     </h3>
-                    <p className="text-xs text-gray-600 truncate">
-                      {registration.admin_name}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {registration.email}
-                    </p>
                     
                     <div className="mt-2 pt-2 border-t border-gray-200">
-                      <p className="text-xs text-orange-600 font-medium">
+                      <p className="text-xs text-gray-500">
                         Expires: {getTimeRemaining(registration.created_at)}
                       </p>
                     </div>

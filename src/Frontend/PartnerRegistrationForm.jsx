@@ -69,7 +69,7 @@ const PartnerRegistration = () => {
     console.log('Form data:', formData);
 
     try {
-      const response = await fetch(`${API_URL}/partner-registration`, {
+      const response = await fetch(`${API_URL}/api/partner-registration`, {
         method: 'POST',
         body: payload
       });

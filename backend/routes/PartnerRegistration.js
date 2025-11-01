@@ -62,7 +62,7 @@ router.post("/partner-registration", upload.single("profile_image_url"), async (
     await query(`
       INSERT INTO partner_registrations
       (registration_number, gym_name, admin_name, email, password, address, 
-       system_type, profile_image, status, created_at)
+       system_type, profile_image_url, status, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
     `, [
       registrationNumber,
@@ -100,7 +100,7 @@ router.get("/pending-registrations", async (req, res) => {
         password,
         address,
         system_type,
-        profile_image,
+        profile_image_url,
         status,
         created_at
       FROM partner_registrations

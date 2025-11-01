@@ -4,7 +4,22 @@ const db = require("../db");
 const router = express.Router();
 
 router.get("/inventory", (req, res) => {
-  db.query("SELECT * FROM SuperAdminInventory", (err, results) => {
+  const query = `
+    SELECT 
+      i.*,
+      COALESCE(
+        CASE 
+          WHEN i.name = 'Partner/Staff - Card' THEN (SELECT COUNT(*) FROM RegisteredRfid WHERE role = 'Partner' AND rfid_type = 'card')
+          WHEN i.name = 'Member - Wristband' THEN (SELECT COUNT(*) FROM RegisteredRfid WHERE role = 'Member' AND rfid_type = 'wristband')
+          WHEN i.name = 'Day Pass - KeyFob' THEN (SELECT COUNT(*) FROM RegisteredRfid WHERE role = 'DayPass' AND rfid_type = 'key_fob')
+          ELSE i.quantity
+        END, 
+        i.quantity
+      ) as quantity
+    FROM SuperAdminInventory i
+  `;
+  
+  db.query(query, (err, results) => {
     if (err) return res.status(500).json({ error: err });
     res.json(results);
   });
@@ -86,4 +101,3 @@ router.get("/rfid/check/:rfid_tag", (req, res) => {
 });
 
 module.exports = router;
-

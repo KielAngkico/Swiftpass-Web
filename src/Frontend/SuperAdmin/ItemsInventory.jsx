@@ -83,22 +83,11 @@ const ItemsInventory = () => {
       });
       console.log("RFID registered successfully:", response.data);
 
-      // Find and decrement the inventory item
-      const inventoryItemName = selectedRfidOption.inventory_item;
-      const inventoryItem = items.find(item => item.name === inventoryItemName);
-      
-      if (inventoryItem && inventoryItem.quantity > 0) {
-        await api.put(`/api/inventory/${inventoryItem.id}`, { 
-          quantity: inventoryItem.quantity - 1 
-        });
-        console.log(`Decremented ${inventoryItemName} quantity`);
-      }
-
       await fetchRfids();
-      await fetchItems(); // Refresh inventory to show updated quantity
+      await fetchItems(); // Refresh inventory to show updated count
 
       if (!rfidTag) setScanValue("");
-      showToast({ message: "RFID registered and inventory updated!", type: "success" });
+      showToast({ message: "RFID registered successfully!", type: "success" });
     } catch (error) {
       console.error("Failed to add RFID:", error.response?.data || error.message);
       showToast({ message: error.response?.data?.message || "Failed to add RFID", type: "error" });

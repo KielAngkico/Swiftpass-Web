@@ -18,6 +18,7 @@ const AddClient = () => {
   const [pendingRegistrations, setPendingRegistrations] = useState([]);
   const [showRegistrations, setShowRegistrations] = useState(true);
   
+  // ✅ FIX: Include packages in initial state
   const [formData, setFormData] = useState({
     admin_name: "",
     address: "",
@@ -29,6 +30,7 @@ const AddClient = () => {
     profile_image_url: null,
     rfid_tag: "",
     rfid_tag_2: "",
+    packages: [], // ← Added
   });
   
   const [admins, setAdmins] = useState([]);
@@ -60,6 +62,11 @@ const AddClient = () => {
     fetchPackages();
   }, []);
 
+  // ✅ FIX: Update formData.packages whenever packages state changes
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, packages }));
+  }, [packages]);
+
   useEffect(() => {
     fetchPendingRegistrations();
     const interval = setInterval(fetchPendingRegistrations, 30000);
@@ -75,6 +82,7 @@ const AddClient = () => {
     }
   };
 
+  // ✅ FIX: Include packages when populating from registration
   const handleRegistrationClick = (registration) => {
     setFormData({
       admin_name: registration.admin_name || "",
@@ -83,10 +91,11 @@ const AddClient = () => {
       password: registration.password || "",
       gym_name: registration.gym_name || "",
       system_type: registration.system_type || "",
-      package_id: "",
+      package_id: registration.package_id || "", // ← Now it will populate if exists
       profile_image_url: registration.profile_image_url ? `${API_URL}${registration.profile_image_url}` : null,
       rfid_tag: "",
       rfid_tag_2: "",
+      packages: packages, // ← Added
     });
     
     setModalMode("registration");
@@ -312,6 +321,7 @@ const AddClient = () => {
       setOriginalRfid2("");
       sessionStorage.removeItem('pendingSlotRfid');
       sessionStorage.removeItem('rfidScannedAt');
+      // ✅ FIX: Keep packages when resetting
       setFormData({
         admin_name: "",
         address: "",
@@ -323,12 +333,14 @@ const AddClient = () => {
         profile_image_url: null,
         rfid_tag: "",
         rfid_tag_2: "",
+        packages: packages,
       });
     } catch (error) {
       showToast({ message: `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`, type: "error" });
     }
   };
 
+  // ✅ FIX: Include packages when editing
   const handleEdit = (admin) => {
     setEditingAdmin(admin);
     setModalMode("edit");
@@ -345,6 +357,7 @@ const AddClient = () => {
       profile_image_url: admin.profile_image_url ? `${API_URL}${admin.profile_image_url}` : null,
       rfid_tag: admin.rfid_tag || "",
       rfid_tag_2: admin.rfid_tag_2 || "",
+      packages: packages, // ← Added
     });
     setShowAddForm(true);
   };
@@ -394,6 +407,7 @@ const AddClient = () => {
     );
   };
 
+  // ✅ FIX: Keep packages when closing modal
   const handleCloseModal = () => {
     setShowAddForm(false);
     setEditingAdmin(null);
@@ -414,6 +428,7 @@ const AddClient = () => {
       profile_image_url: null,
       rfid_tag: "",
       rfid_tag_2: "",
+      packages: packages, // ← Added
     });
   };
 
@@ -512,7 +527,7 @@ const AddClient = () => {
         <AddPartnerModal
           isOpen={showAddForm}
           onClose={handleCloseModal}
-          formData={{ ...formData, packages }}
+          formData={formData}
           onFormChange={handleChange}
           onSubmit={handleSubmit}
           mode={modalMode}

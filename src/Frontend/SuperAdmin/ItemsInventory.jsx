@@ -392,14 +392,8 @@ const ItemsInventory = () => {
 
         {/* Registered RFIDs Table */}
         <div className="bg-white rounded-md shadow-sm mt-5">
-          <div className="p-2 border-b font-semibold text-xs flex justify-between items-center">
+          <div className="p-2 border-b font-semibold text-xs">
             <span>Registered RFIDs ({rfids.length})</span>
-            <button
-              onClick={fetchRfids}
-              className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs hover:bg-gray-300"
-            >
-              Refresh
-            </button>
           </div>
 
           {rfidError && (
@@ -416,10 +410,9 @@ const ItemsInventory = () => {
                 <thead className="bg-gray-900 text-white sticky top-0">
                   <tr>
                     <th className="p-2 border border-gray-700">#</th>
-                    <th className="p-2 border border-gray-700">RFID Tag</th>
-                    <th className="p-2 border border-gray-700">Type</th>
-                    <th className="p-2 border border-gray-700">Role</th>
-                    <th className="p-2 border border-gray-700">Status</th>
+                    <th className="p-2 border border-gray-700 w-1/4">RFID Tag / Type</th>
+                    <th className="p-2 border border-gray-700 w-1/4">Role / Status</th>
+                    <th className="p-2 border border-gray-700">Allocated To</th>
                     <th className="p-2 border border-gray-700">Created At</th>
                   </tr>
                 </thead>
@@ -427,25 +420,36 @@ const ItemsInventory = () => {
                   {rfids.map((rfid, index) => (
                     <tr key={rfid.id} className="hover:bg-gray-50">
                       <td className="p-2 border text-center">{index + 1}</td>
-                      <td className="p-2 border font-mono">{rfid.rfid_tag}</td>
-                      <td className="p-2 border text-center">
-                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                      <td className="p-2 border">
+                        <div className="font-mono">{rfid.rfid_tag}</div>
+                        <div className="text-[10px] text-gray-500 mt-1">
                           {rfid.rfid_type || 'N/A'}
-                        </span>
+                        </div>
+                      </td>
+                      <td className="p-2 border">
+                        <div>
+                          <span className="inline-block px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
+                            {rfid.role || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="mt-1">
+                          <span className={`inline-block px-2 py-1 rounded text-xs ${
+                            rfid.status === 'in_stock' ? 'bg-green-100 text-green-800' :
+                            rfid.status === 'allocated' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {rfid.status || 'N/A'}
+                          </span>
+                        </div>
                       </td>
                       <td className="p-2 border text-center">
-                        <span className="inline-block px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
-                          {rfid.role || 'N/A'}
-                        </span>
-                      </td>
-                      <td className="p-2 border text-center">
-                        <span className={`inline-block px-2 py-1 rounded text-xs ${
-                          rfid.status === 'in_stock' ? 'bg-green-100 text-green-800' :
-                          rfid.status === 'allocated' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {rfid.status || 'N/A'}
-                        </span>
+                        {rfid.allocated_to_admin ? (
+                          <span className="text-blue-600 font-medium">
+                            {rfid.gym_name || `Admin #${rfid.allocated_to_admin}`}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="p-2 border">
                         {new Date(rfid.created_at).toLocaleString()}

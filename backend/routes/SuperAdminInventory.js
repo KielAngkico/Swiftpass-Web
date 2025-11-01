@@ -49,7 +49,16 @@ router.delete("/inventory/:id", (req, res) => {
 });
 
 router.get("/rfid", (req, res) => {
-  db.query("SELECT * FROM RegisteredRfid", (err, results) => {
+  const query = `
+    SELECT 
+      r.*,
+      a.gym_name
+    FROM RegisteredRfid r
+    LEFT JOIN AdminAccounts a ON r.allocated_to_admin = a.id
+    ORDER BY r.created_at DESC
+  `;
+  
+  db.query(query, (err, results) => {
     if (err) return res.status(500).json({ error: err });
     res.json(results);
   });

@@ -83,11 +83,22 @@ const ItemsInventory = () => {
       });
       console.log("RFID registered successfully:", response.data);
 
+      // Find and decrement the inventory item
+      const inventoryItemName = selectedRfidOption.inventory_item;
+      const inventoryItem = items.find(item => item.name === inventoryItemName);
+      
+      if (inventoryItem && inventoryItem.quantity > 0) {
+        await api.put(`/api/inventory/${inventoryItem.id}`, { 
+          quantity: inventoryItem.quantity - 1 
+        });
+        console.log(`Decremented ${inventoryItemName} quantity`);
+      }
+
       await fetchRfids();
-      await fetchItems(); // Refresh inventory to show updated count
+      await fetchItems(); // Refresh inventory to show updated quantity
 
       if (!rfidTag) setScanValue("");
-      showToast({ message: "RFID registered successfully!", type: "success" });
+      showToast({ message: "RFID registered and inventory updated!", type: "success" });
     } catch (error) {
       console.error("Failed to add RFID:", error.response?.data || error.message);
       showToast({ message: error.response?.data?.message || "Failed to add RFID", type: "error" });
@@ -160,39 +171,22 @@ const ItemsInventory = () => {
   }, [user]);
 
   useEffect(() => {
-  const handleRfidToast = (event) => {
-    const { rfid_tag, role, message } = event.detail;
-    showToast({ 
-      message: message || `RFID: ${rfid_tag} | Role: ${role}`,
-      type: "warning" 
-    });
-  };
+    let rfidTagToUse = null;
 
-  window.addEventListener('show-rfid-toast', handleRfidToast);
+    if (location.state?.rfid_tag) {
+      console.log("📍 RFID from navigation state:", location.state.rfid_tag);
+      rfidTagToUse = location.state.rfid_tag;
+    }
+    else if (rfidData?.rfid_tag && rfidData?.type === "rfid-registration-check") {
+      console.log("📡 RFID from WebSocket:", rfidData.rfid_tag);
+      rfidTagToUse = rfidData.rfid_tag;
+    }
 
-  return () => {
-    window.removeEventListener('show-rfid-toast', handleRfidToast);
-  };
-}, []);
-
-useEffect(() => {
-  let rfidTagToUse = null;
-
-  // Only populate if coming from navigation state with is_registered: false
-  if (location.state?.rfid_tag && location.state?.is_registered === false) {
-    console.log("📍 RFID from navigation state (unregistered):", location.state.rfid_tag);
-    rfidTagToUse = location.state.rfid_tag;
-  }
-  else if (rfidData?.rfid_tag && rfidData?.type === "rfid-registration-check") {
-    console.log("📡 RFID from WebSocket:", rfidData.rfid_tag);
-    rfidTagToUse = rfidData.rfid_tag;
-  }
-
-  if (rfidTagToUse) {
-    setScanValue(rfidTagToUse);
-    console.log("✅ Auto-populated scan input with:", rfidTagToUse);
-  }
-}, [location.state, rfidData]);
+    if (rfidTagToUse) {
+      setScanValue(rfidTagToUse);
+      console.log("✅ Auto-populated scan input with:", rfidTagToUse);
+    }
+  }, [location.state, rfidData]);
 
   const filteredItems = items.filter((it) =>
     it.name.toLowerCase().includes(searchQuery.toLowerCase())

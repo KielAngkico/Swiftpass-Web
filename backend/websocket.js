@@ -397,36 +397,18 @@
         return;
       }
 
-if (location.toUpperCase() === "SUPERADMIN") {
-  const isRegistered = await isRfidRegistered(rfid_tag);
-  
-  // Fetch the RFID details including role
-  let rfidRole = null;
-  if (isRegistered) {
-    try {
-      const [rows] = await db.query(
-        'SELECT role FROM RegisteredRfid WHERE rfid_tag = ?',
-        [rfid_tag]
-      );
-      if (rows.length > 0) {
-        rfidRole = rows[0].role;
+      if (location.toUpperCase() === "SUPERADMIN") {
+        const isRegistered = await isRfidRegistered(rfid_tag);
+        broadcastToClients({
+          type: "rfid-registration-check",
+          data: {
+            rfid_tag,
+            is_registered: isRegistered,
+            timestamp: new Date().toISOString()
+          }
+        });
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching RFID role:', error);
-    }
-  }
-  
-  broadcastToClients({
-    type: "rfid-registration-check",
-    data: {
-      rfid_tag,
-      is_registered: isRegistered,
-      role: rfidRole,
-      timestamp: new Date().toISOString()
-    }
-  });
-  return;
-}
 
       if (location.toUpperCase() === "STAFF") {
         const isRegistered = await isRfidRegistered(rfid_tag);

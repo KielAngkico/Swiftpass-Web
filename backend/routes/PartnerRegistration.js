@@ -14,7 +14,7 @@ const generateRegistrationNumber = () => {
 };
 
 // --- Partner Registration Form Submission ---
-router.post("/partner-registration", upload.single("profile_image"), async (req, res) => {
+router.post("/partner-registration", upload.single("profile_image_url"), async (req, res) => {
   try {
     const {
       gym_name,

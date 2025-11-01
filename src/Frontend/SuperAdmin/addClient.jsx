@@ -425,22 +425,19 @@ const AddClient = () => {
           </p>
         </div>
 
-        {/* Pending Registrations Section */}
+{/* Pending Registrations Section */}
         {pendingRegistrations.length > 0 && (
-          <div className="mb-6 bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex justify-between items-center mb-3">
               <div>
-                <h2 className="text-sm font-semibold text-blue-800 flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
+                <h2 className="text-sm font-semibold text-blue-800">
                   Pending Registrations ({pendingRegistrations.length})
                 </h2>
                 <p className="text-xs text-blue-600">Click a registration to review and approve</p>
               </div>
               <button
                 onClick={() => setShowRegistrations(!showRegistrations)}
-                className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                className="text-blue-600 hover:text-blue-800 text-xs font-medium underline"
               >
                 {showRegistrations ? "Hide" : "Show"}
               </button>
@@ -452,29 +449,29 @@ const AddClient = () => {
                   <div
                     key={registration.registration_number}
                     onClick={() => handleRegistrationClick(registration)}
-                    className="bg-white border-2 border-blue-300 rounded-lg p-3 cursor-pointer hover:shadow-lg hover:border-blue-500 transition-all"
+                    className="bg-white border border-gray-300 rounded-lg p-3 cursor-pointer hover:shadow-md hover:border-blue-400 transition-all"
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <div className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-bold">
-                        #{registration.registration_number}
-                      </div>
+                      <span className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium">
+                        {registration.registration_number}
+                      </span>
                       <button
                         onClick={(e) => handleDeleteRegistration(registration.registration_number, e)}
-                        className="text-red-500 hover:text-red-700 text-xs"
+                        className="text-red-500 hover:text-red-700 text-sm font-bold"
                       >
-                        ✕
+                        ×
                       </button>
                     </div>
                     
-                    {registration.profile_image && (
+                    {registration.profile_image_url && (
                       <img
-                        src={`${API_URL}${registration.profile_image}`}
+                        src={`${API_URL}${registration.profile_image_url}`}
                         alt={registration.gym_name}
                         className="w-full h-20 object-cover rounded mb-2"
                       />
                     )}
                     
-                    <h3 className="font-bold text-sm text-gray-800 truncate">
+                    <h3 className="font-semibold text-sm text-gray-800 truncate">
                       {registration.gym_name}
                     </h3>
                     <p className="text-xs text-gray-600 truncate">
@@ -486,7 +483,7 @@ const AddClient = () => {
                     
                     <div className="mt-2 pt-2 border-t border-gray-200">
                       <p className="text-xs text-orange-600 font-medium">
-                        ⏱️ {getTimeRemaining(registration.created_at)}
+                        Expires: {getTimeRemaining(registration.created_at)}
                       </p>
                     </div>
                   </div>

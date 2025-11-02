@@ -97,11 +97,13 @@ await conn.query(`
       const order_number = `ORD-${timestamp}${random}`;
 
       // Create order
-      const [orderResult] = await conn.query(`
-        INSERT INTO PartnerOrders 
-        (order_number, admin_id, order_type, amount, payment_status, status)
-        VALUES (?, ?, 'initial_package', ?, 'paid', 'pending')
-      `, [order_number, admin_id, pkgPrice]);
+// Create order
+const [orderResult] = await conn.query(`
+  INSERT INTO PartnerOrders 
+  (order_number, admin_id, order_type, total_amount, payment_status, status)
+  VALUES (?, ?, 'initial_package', ?, 'paid', 'pending')
+`, [order_number, admin_id, pkgPrice]);
+
 
       const order_id = orderResult.insertId;
 

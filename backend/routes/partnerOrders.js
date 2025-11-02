@@ -71,9 +71,6 @@ router.post("/create", async (req, res) => {
   }
 });
 
-// ========================================
-// CREATE INITIAL ORDER (When Partner is Added)
-// ========================================
 router.post("/create-initial", async (req, res) => {
   const conn = await db.promise().getConnection();
   try {
@@ -81,7 +78,6 @@ router.post("/create-initial", async (req, res) => {
 
     const { admin_id, package_id } = req.body;
 
-    // Get package details
     const [[pkg]] = await conn.query(
       `SELECT * FROM SubscriptionPackages WHERE id = ?`,
       [package_id]
@@ -94,28 +90,36 @@ router.post("/create-initial", async (req, res) => {
 
     const order_number = generateOrderNumber();
 
-    // Create order
+    const [packageItems] = await conn.query(`
+      SELECT 
+        pi.item_name, 
+        pi.quantity,
+        COALESCE(si.selling_price, 0) as unit_price
+      FROM PackageItems pi
+      LEFT JOIN SuperAdminInventory si ON pi.item_name = si.name
+      WHERE pi.package_id = ?
+    `, [package_id]);
+
+    const calculatedTotal = packageItems.reduce((sum, item) => {
+      return sum + (item.quantity * item.unit_price);
+    }, 0);
+
     const [orderResult] = await conn.query(`
       INSERT INTO PartnerOrders 
       (order_number, admin_id, order_type, total_amount, payment_status, status)
       VALUES (?, ?, 'initial_package', ?, 'paid', 'pending')
-    `, [order_number, admin_id, pkg.price]);
+    `, [order_number, admin_id, calculatedTotal]);
 
     const order_id = orderResult.insertId;
 
-    // Get package items
-    const [packageItems] = await conn.query(
-      `SELECT item_name, quantity FROM PackageItems WHERE package_id = ?`,
-      [package_id]
-    );
-
-    // Create order items (we'll use ₱0 as unit price since it's included in package)
     for (const item of packageItems) {
+      const subtotal = item.quantity * item.unit_price;
+      
       await conn.query(`
         INSERT INTO PartnerOrderItems 
         (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
-        VALUES (?, ?, 'other', ?, 0, 0, 'pending')
-      `, [order_id, item.item_name, item.quantity]);
+        VALUES (?, ?, 'other', ?, ?, ?, 'pending')
+      `, [order_id, item.item_name, item.quantity, item.unit_price, subtotal]);
     }
 
     await conn.commit();
@@ -125,6 +129,7 @@ router.post("/create-initial", async (req, res) => {
       order_id,
       order_number,
       package_name: pkg.name,
+      total_amount: calculatedTotal,
       items: packageItems
     });
 
@@ -136,10 +141,6 @@ router.post("/create-initial", async (req, res) => {
     conn.release();
   }
 });
-
-// ========================================
-// GET PARTNER ORDERS (For Partner View)
-// ========================================
 router.get("/partner/:admin_id", async (req, res) => {
   try {
     const { admin_id } = req.params;

@@ -43,12 +43,37 @@ router.post("/inventory", (req, res) => {
 });
 
 router.put("/inventory/:id", (req, res) => {
-  const { quantity } = req.body;
-  if (quantity === undefined) return res.status(400).json({ message: "Quantity required" });
-
+  const { name, purchase_price, selling_price, quantity } = req.body;
+  
+  let updates = [];
+  let values = [];
+  
+  if (name !== undefined) {
+    updates.push("name = ?");
+    values.push(name);
+  }
+  if (purchase_price !== undefined) {
+    updates.push("purchase_price = ?");
+    values.push(purchase_price);
+  }
+  if (selling_price !== undefined) {
+    updates.push("selling_price = ?");
+    values.push(selling_price);
+  }
+  if (quantity !== undefined) {
+    updates.push("quantity = ?");
+    values.push(quantity);
+  }
+  
+  if (updates.length === 0) {
+    return res.status(400).json({ message: "No fields to update" });
+  }
+  
+  values.push(req.params.id);
+  
   db.query(
-    "UPDATE SuperAdminInventory SET quantity = ? WHERE id = ?",
-    [quantity, req.params.id],
+    `UPDATE SuperAdminInventory SET ${updates.join(", ")} WHERE id = ?`,
+    values,
     (err) => {
       if (err) return res.status(500).json({ error: err });
       res.json({ success: true });

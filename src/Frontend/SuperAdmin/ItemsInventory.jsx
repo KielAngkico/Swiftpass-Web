@@ -19,7 +19,6 @@ const ItemsInventory = () => {
   const [rfidError, setRfidError] = useState(null);
   const { showToast, showConfirm } = useToast();
 
-  // RFID type/role options
   const rfidOptions = [
     { label: "Partner/Staff - Card", rfid_type: "card", role: "Partner", inventory_item: "Partner/Staff - Card" },
     { label: "Member - Wristband", rfid_type: "wristband", role: "Member", inventory_item: "Member - Wristband" },
@@ -35,8 +34,13 @@ const ItemsInventory = () => {
     quantity: 1,
   });
 
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [addQty, setAddQty] = useState("");
+  const [editingItem, setEditingItem] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    purchase_price: "",
+    selling_price: "",
+    quantity: 0
+  });
 
   const fetchItems = async () => {
     try {
@@ -83,22 +87,11 @@ const ItemsInventory = () => {
       });
       console.log("RFID registered successfully:", response.data);
 
-      // Find and decrement the inventory item
-      const inventoryItemName = selectedRfidOption.inventory_item;
-      const inventoryItem = items.find(item => item.name === inventoryItemName);
-      
-      if (inventoryItem && inventoryItem.quantity > 0) {
-        await api.put(`/api/inventory/${inventoryItem.id}`, { 
-          quantity: inventoryItem.quantity - 1 
-        });
-        console.log(`Decremented ${inventoryItemName} quantity`);
-      }
-
       await fetchRfids();
-      await fetchItems(); // Refresh inventory to show updated quantity
+      await fetchItems();
 
       if (!rfidTag) setScanValue("");
-      showToast({ message: "RFID registered and inventory updated!", type: "success" });
+      showToast({ message: "RFID registered successfully!", type: "success" });
     } catch (error) {
       console.error("Failed to add RFID:", error.response?.data || error.message);
       showToast({ message: error.response?.data?.message || "Failed to add RFID", type: "error" });
@@ -129,21 +122,30 @@ const ItemsInventory = () => {
     }
   };
 
-  const updateQuantity = async (id, newQty) => {
-    if (!newQty || newQty < 0) {
-      showToast({ message: "Invalid quantity", type: "error" });
-      return;
-    }
+  const startEdit = (item) => {
+    setEditingItem(item.id);
+    setEditForm({
+      name: item.name,
+      purchase_price: item.purchase_price,
+      selling_price: item.selling_price,
+      quantity: item.quantity
+    });
+  };
 
+  const cancelEdit = () => {
+    setEditingItem(null);
+    setEditForm({ name: "", purchase_price: "", selling_price: "", quantity: 0 });
+  };
+
+  const saveEdit = async (id) => {
     try {
-      await api.put(`/api/inventory/${id}`, { quantity: parseInt(newQty) });
+      await api.put(`/api/inventory/${id}`, editForm);
       await fetchItems();
-      setSelectedItem(null);
-      setAddQty("");
-      showToast({ message: "Quantity updated!", type: "success" });
+      setEditingItem(null);
+      showToast({ message: "Item updated successfully!", type: "success" });
     } catch (error) {
-      console.error("Failed to update quantity:", error);
-      showToast({ message: "Failed to update quantity", type: "error" });
+      console.error("Failed to update item:", error);
+      showToast({ message: "Failed to update item", type: "error" });
     }
   };
 
@@ -206,7 +208,6 @@ const ItemsInventory = () => {
           <p className="text-gray-600 text-xs">Manage items and RFID tags</p>
         </div>
 
-        {/* Add Item & RFID Forms */}
         <div className="flex gap-2 mb-5 items-center">
           <div className="flex gap-2 bg-white p-2 rounded-md shadow-sm">
             <input
@@ -256,7 +257,6 @@ const ItemsInventory = () => {
             </button>
           </div>
 
-          {/* RFID Registration Form with Dropdown */}
           <div className="flex gap-2 bg-white p-2 rounded-md shadow-sm">
             <select
               value={JSON.stringify(selectedRfidOption)}
@@ -286,119 +286,129 @@ const ItemsInventory = () => {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex gap-4">
-          {/* Inventory Table */}
-          <div className="flex-1 bg-white rounded-md shadow-sm p-2 overflow-auto max-h-[60vh]">
-            <div className="font-semibold mb-2 text-xs flex justify-between items-center">
-              <span>Inventory</span>
-              <input
-                type="text"
-                placeholder="Search items..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="px-2 py-1 border border-gray-300 rounded text-xs w-40"
-              />
-            </div>
+        <div className="bg-white rounded-md shadow-sm p-2 overflow-auto max-h-[60vh] mb-5">
+          <div className="font-semibold mb-2 text-xs flex justify-between items-center">
+            <span>Inventory</span>
+            <input
+              type="text"
+              placeholder="Search items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="px-2 py-1 border border-gray-300 rounded text-xs w-40"
+            />
+          </div>
 
-            {loading ? (
-              <p className="text-xs">Loading...</p>
-            ) : filteredItems.length === 0 ? (
-              <p className="text-xs">No items found</p>
-            ) : (
-              <table className="w-full border-collapse text-xs">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="p-2 border">#</th>
-                    <th className="p-2 border">Name</th>
-                    <th className="p-2 border">Purchase Price</th>
-                    <th className="p-2 border">Selling Price</th>
-                    <th className="p-2 border">Quantity</th>
-                    <th className="p-2 border">Actions</th>
+          {loading ? (
+            <p className="text-xs">Loading...</p>
+          ) : filteredItems.length === 0 ? (
+            <p className="text-xs">No items found</p>
+          ) : (
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="p-2 border">#</th>
+                  <th className="p-2 border">Name</th>
+                  <th className="p-2 border">Purchase Price</th>
+                  <th className="p-2 border">Selling Price</th>
+                  <th className="p-2 border">Quantity</th>
+                  <th className="p-2 border">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredItems.map((item, index) => (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="p-2 border text-center">{index + 1}</td>
+                    <td className="p-2 border">
+                      {editingItem === item.id ? (
+                        <input
+                          type="text"
+                          value={editForm.name}
+                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                          className="w-full px-1 py-1 border rounded text-xs"
+                        />
+                      ) : (
+                        item.name
+                      )}
+                    </td>
+                    <td className="p-2 border text-center">
+                      {editingItem === item.id ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editForm.purchase_price}
+                          onChange={(e) => setEditForm({ ...editForm, purchase_price: e.target.value })}
+                          className="w-full px-1 py-1 border rounded text-xs"
+                        />
+                      ) : (
+                        `₱${item.purchase_price}`
+                      )}
+                    </td>
+                    <td className="p-2 border text-center">
+                      {editingItem === item.id ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editForm.selling_price}
+                          onChange={(e) => setEditForm({ ...editForm, selling_price: e.target.value })}
+                          className="w-full px-1 py-1 border rounded text-xs"
+                        />
+                      ) : (
+                        `₱${item.selling_price}`
+                      )}
+                    </td>
+                    <td className="p-2 border text-center">
+                      {editingItem === item.id ? (
+                        <input
+                          type="number"
+                          value={editForm.quantity}
+                          onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
+                          className="w-full px-1 py-1 border rounded text-xs"
+                        />
+                      ) : (
+                        item.quantity
+                      )}
+                    </td>
+                    <td className="p-2 border flex justify-center gap-2">
+                      {editingItem === item.id ? (
+                        <>
+                          <button
+                            onClick={() => saveEdit(item.id)}
+                            className="bg-green-500 text-white px-2 py-1 rounded-md text-xs hover:bg-green-600"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            className="bg-gray-500 text-white px-2 py-1 rounded-md text-xs hover:bg-gray-600"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => startEdit(item)}
+                            className="bg-blue-500 text-white px-2 py-1 rounded-md text-xs hover:bg-blue-600"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteItem(item.id, item.name)}
+                            className="bg-red-500 text-white px-2 py-1 rounded-md text-xs hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="p-2 border text-center">{index + 1}</td>
-                      <td className="p-2 border">{item.name}</td>
-                      <td className="p-2 border text-center">
-                        ₱{item.purchase_price}
-                      </td>
-                      <td className="p-2 border text-center">
-                        ₱{item.selling_price}
-                      </td>
-                      <td className="p-2 border text-center">{item.quantity}</td>
-                      <td className="p-2 border flex justify-center gap-2">
-                        <button
-                          onClick={() => setSelectedItem(item)}
-                          className="bg-blue-500 text-white px-2 py-1 rounded-md text-xs hover:bg-blue-600"
-                        >
-                          Add Qty
-                        </button>
-                        <button
-                          onClick={() => deleteItem(item.id, item.name)}
-                          className="bg-red-500 text-white px-2 py-1 rounded-md text-xs hover:bg-red-600"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Add Quantity Panel */}
-          <div className="w-1/2 bg-white rounded-md shadow-sm p-3">
-            {selectedItem ? (
-              <>
-                <h2 className="text-sm font-semibold mb-2">
-                  Add Quantity for{" "}
-                  <span className="font-bold">{selectedItem.name}</span>
-                </h2>
-                <input
-                  type="number"
-                  placeholder="Enter quantity"
-                  value={addQty}
-                  onChange={(e) => setAddQty(e.target.value)}
-                  className="w-full px-2 py-1 border rounded text-xs mb-2"
-                  min="1"
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => {
-                      setSelectedItem(null);
-                      setAddQty("");
-                    }}
-                    className="px-3 py-1 bg-gray-400 text-white rounded-md text-xs"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() =>
-                      updateQuantity(
-                        selectedItem.id,
-                        selectedItem.quantity + parseInt(addQty)
-                      )
-                    }
-                    className="px-3 py-1 bg-blue-600 text-white rounded-md text-xs hover:bg-blue-700"
-                  >
-                    Save
-                  </button>
-                </div>
-              </>
-            ) : (
-              <p className="text-gray-500 text-xs">
-                Select an item from the table to add quantity
-              </p>
-            )}
-          </div>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        {/* Registered RFIDs Table */}
-        <div className="bg-white rounded-md shadow-sm mt-5">
+        <div className="bg-white rounded-md shadow-sm">
           <div className="p-2 border-b font-semibold text-xs">
             <span>Registered RFIDs ({rfids.length})</span>
           </div>

@@ -25,7 +25,6 @@ const insertDefaultPricing = async (conn, admin_id, system_type) => {
   }
 };
 
-// --- Add Client ---
 router.post("/add-client", upload.single("profile_image_url"), async (req, res) => {
   const conn = await db.promise().getConnection();
   try {
@@ -46,7 +45,6 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
 
     let pkgId = null, pkgPrice = 0, startDate = null, endDate = null;
 
-    // Calculate package dates if package selected (FOR ALL SYSTEM TYPES)
     if (package_id) {
       const [[pkg]] = await conn.query(`SELECT * FROM SubscriptionPackages WHERE id = ?`, [package_id]);
       if (pkg) {
@@ -72,57 +70,58 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
     await conn.query(`INSERT INTO AdminPaymentMethods (admin_id, name, is_default, is_enabled)
                  VALUES (?, 'Cash', 1, 1)`, [admin_id]);
 
-    await insertDefaultPricing(conn, admin_id, system_type); // Pass conn here
+    await insertDefaultPricing(conn, admin_id, system_type);
 
-    // Record package purchase transaction (FOR ALL SYSTEM TYPES)
     if (pkgId && pkgPrice > 0) {
       const [[pkg]] = await conn.query(`SELECT name FROM SubscriptionPackages WHERE id = ?`, [pkgId]);
       const [txn] = await conn.query(`
         INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount)
         VALUES (?, 'Package Purchase', ?)`, [admin_id, pkgPrice]);
-await conn.query(`
-  INSERT INTO SuperAdminTransactionItems
-  (transaction_id, item_name, quantity, unit_price, total_price)
-  VALUES (?, ?, ?, ?, ?)`,
-  [txn.insertId, pkg.name, 1, pkgPrice, pkgPrice] // total_price = unit_price * quantity
-);
+      
+      await conn.query(`
+        INSERT INTO SuperAdminTransactionItems
+        (transaction_id, item_name, quantity, unit_price, total_price)
+        VALUES (?, ?, ?, ?, ?)`,
+        [txn.insertId, pkg.name, 1, pkgPrice, pkgPrice]
+      );
 
-
-      // ========================================
-      // CREATE INITIAL ORDER FOR THE PACKAGE
-      // ========================================
-      // Generate order number
       const timestamp = Date.now().toString().slice(-8);
       const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
       const order_number = `ORD-${timestamp}${random}`;
 
-      // Create order
-// Create order
-const [orderResult] = await conn.query(`
-  INSERT INTO PartnerOrders 
-  (order_number, admin_id, order_type, total_amount, payment_status, status)
-  VALUES (?, ?, 'initial_package', ?, 'paid', 'pending')
-`, [order_number, admin_id, pkgPrice]);
+      const [packageItems] = await conn.query(`
+        SELECT 
+          pi.item_name, 
+          pi.quantity,
+          COALESCE(si.selling_price, 0) as unit_price
+        FROM PackageItems pi
+        LEFT JOIN SuperAdminInventory si ON pi.item_name = si.name
+        WHERE pi.package_id = ?
+      `, [pkgId]);
 
+      const calculatedTotal = packageItems.reduce((sum, item) => {
+        return sum + (item.quantity * item.unit_price);
+      }, 0);
+
+      const [orderResult] = await conn.query(`
+        INSERT INTO PartnerOrders 
+        (order_number, admin_id, order_type, total_amount, payment_status, status)
+        VALUES (?, ?, 'initial_package', ?, 'paid', 'pending')
+      `, [order_number, admin_id, calculatedTotal]);
 
       const order_id = orderResult.insertId;
 
-      // Get package items
-      const [packageItems] = await conn.query(
-        `SELECT item_name, quantity FROM PackageItems WHERE package_id = ?`,
-        [pkgId]
-      );
-
-      // Create order items
       for (const item of packageItems) {
+        const subtotal = item.quantity * item.unit_price;
+        
         await conn.query(`
           INSERT INTO PartnerOrderItems 
           (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
-          VALUES (?, ?, 'other', ?, 0, 0, 'pending')
-        `, [order_id, item.item_name, item.quantity]);
+          VALUES (?, ?, 'other', ?, ?, ?, 'pending')
+        `, [order_id, item.item_name, item.quantity, item.unit_price, subtotal]);
       }
 
-      console.log(`✅ Created initial order ${order_number} for partner ${admin_id}`);
+      console.log(`✅ Created initial order ${order_number} for partner ${admin_id} - Total: ₱${calculatedTotal}`);
     }
 
     await conn.commit();

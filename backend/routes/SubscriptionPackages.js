@@ -148,5 +148,120 @@ router.put("/packages/:id", async (req, res) => {
     conn.release();
   }
 });
+router.get("/payment-options", async (req, res) => {
+  try {
+    const [options] = await dbSuperAdmin.promise().query(`
+      SELECT * FROM SuperAdminPaymentOptions 
+      ORDER BY is_default DESC, payment_method ASC
+    `);
+    res.json(options);
+  } catch (err) {
+    console.error("Error fetching payment options:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
+// ADD payment option
+router.post("/payment-options", async (req, res) => {
+  try {
+    const { payment_method, account_name, account_number, is_enabled } = req.body;
+    
+    if (!payment_method) {
+      return res.status(400).json({ error: "Payment method is required" });
+    }
+
+    await dbSuperAdmin.promise().query(`
+      INSERT INTO SuperAdminPaymentOptions 
+      (payment_method, account_name, account_number, is_enabled)
+      VALUES (?, ?, ?, ?)
+    `, [payment_method, account_name || null, account_number || null, is_enabled ? 1 : 0]);
+
+    res.status(201).json({ message: "Payment option added" });
+  } catch (err) {
+    console.error("Error adding payment option:", err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: "Payment method already exists" });
+    }
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// UPDATE payment option
+router.put("/payment-options/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { payment_method, account_name, account_number, is_enabled } = req.body;
+
+    await dbSuperAdmin.promise().query(`
+      UPDATE SuperAdminPaymentOptions 
+      SET payment_method = ?, 
+          account_name = ?, 
+          account_number = ?,
+          is_enabled = ?
+      WHERE id = ?
+    `, [payment_method, account_name || null, account_number || null, is_enabled ? 1 : 0, id]);
+
+    res.json({ message: "Payment option updated" });
+  } catch (err) {
+    console.error("Error updating payment option:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// DELETE payment option
+router.delete("/payment-options/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [[option]] = await dbSuperAdmin.promise().query(
+      `SELECT is_default FROM SuperAdminPaymentOptions WHERE id = ?`, 
+      [id]
+    );
+
+    if (!option) {
+      return res.status(404).json({ error: "Payment option not found" });
+    }
+
+    if (option.is_default) {
+      return res.status(400).json({ error: "Cannot delete default payment method" });
+    }
+
+    await dbSuperAdmin.promise().query(`DELETE FROM SuperAdminPaymentOptions WHERE id = ?`, [id]);
+    res.json({ message: "Payment option deleted" });
+  } catch (err) {
+    console.error("Error deleting payment option:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// SET DEFAULT payment method
+router.put("/payment-options/:id/set-default", async (req, res) => {
+  const conn = await dbSuperAdmin.promise().getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // Remove default from all
+    await conn.query(`UPDATE SuperAdminPaymentOptions SET is_default = 0`);
+
+    // Set new default
+    const [result] = await conn.query(
+      `UPDATE SuperAdminPaymentOptions SET is_default = 1 WHERE id = ?`,
+      [req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      await conn.rollback();
+      return res.status(404).json({ error: "Payment option not found" });
+    }
+
+    await conn.commit();
+    res.json({ message: "Default payment method updated" });
+  } catch (err) {
+    await conn.rollback();
+    console.error("Error setting default:", err);
+    res.status(500).json({ error: "Server error" });
+  } finally {
+    conn.release();
+  }
+});
 module.exports = router;

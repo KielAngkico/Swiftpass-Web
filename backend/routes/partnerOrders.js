@@ -14,10 +14,18 @@ const generateOrderNumber = () => {
 // --- Determine item type based on item name ---
 const getItemType = (itemName) => {
   const name = itemName.toLowerCase();
+  
+  // Check for hardware items FIRST (PCB, lock, button)
+  if (name.includes('pcb') || name.includes('lock') || name.includes('button')) {
+    return 'other';
+  }
+  
+  // Then check for RFID items
   if (name.includes('partner') || name.includes('staff')) return 'partner_rfid';
   if (name.includes('member') || name.includes('wristband')) return 'member_rfid';
   if (name.includes('day pass') || name.includes('keyfob')) return 'daypass_rfid';
-  return 'other'; // For PCBs, locks, buttons, etc.
+  
+  return 'other';
 };
 
 // ========================================

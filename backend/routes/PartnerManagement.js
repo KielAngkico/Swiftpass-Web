@@ -27,9 +27,17 @@ const insertDefaultPricing = async (conn, admin_id, system_type) => {
 // Add this helper function at the top with other helpers
 const getItemType = (itemName) => {
   const name = itemName.toLowerCase();
+  
+  // Check for hardware items FIRST (PCB, lock, button)
+  if (name.includes('pcb') || name.includes('lock') || name.includes('button')) {
+    return 'other';
+  }
+  
+  // Then check for RFID items
   if (name.includes('partner') || name.includes('staff')) return 'partner_rfid';
   if (name.includes('member') || name.includes('wristband')) return 'member_rfid';
   if (name.includes('day pass') || name.includes('keyfob')) return 'daypass_rfid';
+  
   return 'other';
 };
 

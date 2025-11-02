@@ -54,7 +54,8 @@ const AddPartnerModal = ({
         )}
 
         <form onSubmit={onSubmit}>
-<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* COLUMN 1 - 5 fields */}
             <div className="space-y-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -79,7 +80,7 @@ const AddPartnerModal = ({
                   value={formData.address}
                   onChange={onFormChange}
                   className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  rows="2"
+                  rows="3"
                   required
                 />
               </div>
@@ -131,6 +132,7 @@ const AddPartnerModal = ({
               </div>
             </div>
 
+            {/* COLUMN 2 - 6 fields (with conditional reference) */}
             <div className="space-y-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -203,82 +205,82 @@ const AddPartnerModal = ({
                 </div>
               </div>
 
-<div>
-  <label className="block text-xs font-medium text-gray-700 mb-1">
-    System Type
-  </label>
-  <select
-    name="system_type"
-    value={formData.system_type}
-    onChange={onFormChange}
-    className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-    required
-  >
-    <option value="">-- Select System Type --</option>
-    <option value="prepaid_entry">Prepaid Entry</option>
-    <option value="subscription">Subscription Membership</option>
-  </select>
-</div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  System Type
+                </label>
+                <select
+                  name="system_type"
+                  value={formData.system_type}
+                  onChange={onFormChange}
+                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">-- Select System Type --</option>
+                  <option value="prepaid_entry">Prepaid Entry</option>
+                  <option value="subscription">Subscription Membership</option>
+                </select>
+              </div>
 
-{/* ALWAYS SHOW PACKAGE - NOT CONDITIONAL */}
-<div>
-  <label className="block text-xs font-medium text-gray-700 mb-1">
-    Package/Promo {!isEditMode && <span className="text-red-500">*</span>}
-  </label>
-  <select
-    name="package_id"
-    value={formData.package_id || ''}
-    onChange={onFormChange}
-    className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-    required={!isEditMode}
-  >
-    <option value="">-- Select Package --</option>
-    {formData.packages?.map((pkg) => (
-      <option key={pkg.id} value={pkg.id}>
-        {pkg.name} - ₱{parseFloat(pkg.price).toLocaleString('en-PH', {minimumFractionDigits: 2})} ({pkg.duration_days} days)
-      </option>
-    ))}
-  </select>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Package/Promo {!isEditMode && <span className="text-red-500">*</span>}
+                </label>
+                <select
+                  name="package_id"
+                  value={formData.package_id || ''}
+                  onChange={onFormChange}
+                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  required={!isEditMode}
+                >
+                  <option value="">-- Select Package --</option>
+                  {formData.packages?.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.name} - ₱{parseFloat(pkg.price).toLocaleString('en-PH', {minimumFractionDigits: 2})} ({pkg.duration_days} days)
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-</div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Payment Method {!isEditMode && <span className="text-red-500">*</span>}
+                </label>
+                <select
+                  name="payment_method"
+                  value={formData.payment_method || 'Cash'}
+                  onChange={onFormChange}
+                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  required={!isEditMode}
+                >
+                  <option value="Cash">Cash</option>
+                  {formData.paymentOptions?.map((option) => (
+                    <option key={option.id} value={option.payment_method}>
+                      {option.payment_method}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {formData.payment_method && formData.payment_method !== 'Cash' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Reference Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="reference_number"
+                    value={formData.reference_number || ''}
+                    onChange={onFormChange}
+                    placeholder="Enter reference/transaction number"
+                    className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+              )}
             </div>
-            <div>
-  <label className="block text-xs font-medium text-gray-700 mb-1">
-    Payment Method {!isEditMode && <span className="text-red-500">*</span>}
-  </label>
-  <select
-    name="payment_method"
-    value={formData.payment_method || 'Cash'}
-    onChange={onFormChange}
-    className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-    required={!isEditMode}
-  >
-    <option value="Cash">Cash</option>
-    {formData.paymentOptions?.map((option) => (
-      <option key={option.id} value={option.payment_method}>
-        {option.payment_method}
-      </option>
-    ))}
-  </select>
-</div>
 
-{formData.payment_method && formData.payment_method !== 'Cash' && (
-  <div>
-    <label className="block text-xs font-medium text-gray-700 mb-1">
-      Reference Number <span className="text-red-500">*</span>
-    </label>
-    <input
-      type="text"
-      name="reference_number"
-      value={formData.reference_number || ''}
-      onChange={onFormChange}
-      placeholder="Enter reference/transaction number"
-      className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-      required
-    />
-  </div>
-)}
-
+            {/* COLUMN 3 - Profile Picture */}
             <div className="flex flex-col items-center gap-2">
               <div className="w-48 h-48 bg-gray-100 border rounded-md flex items-center justify-center overflow-hidden">
                 {formData.profile_image_url ? (

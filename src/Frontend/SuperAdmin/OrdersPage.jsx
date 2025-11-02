@@ -11,13 +11,21 @@ const OrdersPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [allocatedRfids, setAllocatedRfids] = useState(null);
   const [processingOrderId, setProcessingOrderId] = useState(null);
+  const [paymentOptions, setPaymentOptions] = useState([]);
+  const [paymentData, setPaymentData] = useState({
+    payment_method: '',
+    reference_number: ''
+  });
+  const [completingOrder, setCompletingOrder] = useState(false);
   
   const { showToast, showConfirm } = useToast();
 
   useEffect(() => {
     fetchOrders();
+    fetchPaymentOptions();
   }, []);
 
   useEffect(() => {
@@ -34,6 +42,22 @@ const OrdersPage = () => {
       showToast({ message: 'Failed to fetch orders', type: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPaymentOptions = async () => {
+    try {
+      const { data } = await api.get('/api/partner-orders/payment-options');
+      setPaymentOptions(data);
+      // Set default payment method
+      if (data.length > 0) {
+        setPaymentData(prev => ({ 
+          ...prev, 
+          payment_method: data.find(opt => opt.is_default)?.payment_method || data[0].payment_method 
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching payment options:', error);
     }
   };
 
@@ -56,39 +80,42 @@ const OrdersPage = () => {
     setFilteredOrders(filtered);
   };
 
-const getStatusBadge = (status) => {
-  const statusConfig = {
-    pending: { 
-      color: 'bg-yellow-100 text-yellow-800 border-yellow-300', 
-      label: '⏳ Pending' 
-    },
-    processing: { 
-      color: 'bg-blue-100 text-blue-800 border-blue-300', 
-      label: '📦 Processing' 
-    },
-    delivering: { 
-      color: 'bg-purple-100 text-purple-800 border-purple-300', 
-      label: '🚚 Delivering' 
-    },
-    completed: { 
-      color: 'bg-green-100 text-green-800 border-green-300', 
-      label: '✅ Completed' 
-    },
-    cancelled: { 
-      color: 'bg-red-100 text-red-800 border-red-300', 
-      label: '❌ Cancelled' 
-    }
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      pending: { 
+        color: 'bg-yellow-100 text-yellow-800 border-yellow-300', 
+        label: '⏳ Pending' 
+      },
+      processing: { 
+        color: 'bg-blue-100 text-blue-800 border-blue-300', 
+        label: '📦 Processing' 
+      },
+      delivering: { 
+        color: 'bg-purple-100 text-purple-800 border-purple-300', 
+        label: '🚚 Delivering' 
+      },
+      received: { 
+        color: 'bg-orange-100 text-orange-800 border-orange-300', 
+        label: '📬 Received' 
+      },
+      completed: { 
+        color: 'bg-green-100 text-green-800 border-green-300', 
+        label: '✅ Completed' 
+      },
+      cancelled: { 
+        color: 'bg-red-100 text-red-800 border-red-300', 
+        label: '❌ Cancelled' 
+      }
+    };
+
+    const config = statusConfig[status] || statusConfig.pending;
+
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${config.color}`}>
+        {config.label}
+      </span>
+    );
   };
-
-  const config = statusConfig[status] || statusConfig.pending;
-
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${config.color}`}>
-      {config.label}
-    </span>
-  );
-};
-
 
   const getPaymentBadge = (paymentStatus) => {
     return paymentStatus === 'paid' ? (
@@ -149,6 +176,71 @@ const getStatusBadge = (status) => {
         }
       }
     );
+  };
+
+  const handleOpenCompleteModal = (order) => {
+    setSelectedOrder(order);
+    
+    // Reset payment data
+    setPaymentData({
+      payment_method: paymentOptions.find(opt => opt.is_default)?.payment_method || paymentOptions[0]?.payment_method || '',
+      reference_number: ''
+    });
+    
+    setShowPaymentModal(true);
+  };
+
+  const handleCompleteOrder = async (e) => {
+    e.preventDefault();
+    
+    if (!selectedOrder) return;
+
+    // Validate payment data for reorders
+    if (selectedOrder.order_type !== 'initial_package') {
+      if (!paymentData.payment_method) {
+        showToast({ message: 'Please select a payment method', type: 'error' });
+        return;
+      }
+
+      // Require reference number for non-cash payments
+      if (paymentData.payment_method.toLowerCase() !== 'cash' && !paymentData.reference_number.trim()) {
+        showToast({ message: 'Reference number is required for non-cash payments', type: 'error' });
+        return;
+      }
+    }
+
+    try {
+      setCompletingOrder(true);
+      
+      const { data } = await api.put(
+        `/api/partner-orders/${selectedOrder.id}/complete-with-payment`,
+        paymentData
+      );
+
+      if (data.skipped_payment) {
+        showToast({ 
+          message: 'Order completed! (Payment already recorded at signup)', 
+          type: 'success' 
+        });
+      } else {
+        showToast({ 
+          message: `Order completed! Payment recorded: ₱${data.amount_paid.toLocaleString()} via ${data.payment_method}`, 
+          type: 'success' 
+        });
+      }
+
+      setShowPaymentModal(false);
+      setSelectedOrder(null);
+      fetchOrders();
+    } catch (error) {
+      console.error('Complete order error:', error);
+      showToast({ 
+        message: error.response?.data?.error || 'Failed to complete order', 
+        type: 'error' 
+      });
+    } finally {
+      setCompletingOrder(false);
+    }
   };
 
   const handleCancelOrder = async (orderId) => {
@@ -275,9 +367,7 @@ const getStatusBadge = (status) => {
                   Processing...
                 </>
               ) : (
-                <>
-                  Process
-                </>
+                'Process'
               )}
             </button>
           )}
@@ -288,6 +378,15 @@ const getStatusBadge = (status) => {
               className="flex-1 bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-700 text-xs font-medium flex items-center justify-center gap-1"
             >
               Ship
+            </button>
+          )}
+
+          {order.status === 'received' && (
+            <button
+              onClick={() => handleOpenCompleteModal(order)}
+              className="flex-1 bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 text-xs font-medium flex items-center justify-center gap-1"
+            >
+              Complete
             </button>
           )}
 
@@ -329,6 +428,7 @@ const getStatusBadge = (status) => {
                 <option value="pending">Pending</option>
                 <option value="processing">Processing</option>
                 <option value="delivering">Delivering</option>
+                <option value="received">Received</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
               </select>
@@ -348,7 +448,7 @@ const getStatusBadge = (status) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mt-4 pt-4 border-t">
             <div className="text-center">
               <p className="text-2xl font-bold text-yellow-600">{orders.filter(o => o.status === 'pending').length}</p>
               <p className="text-xs text-gray-600">Pending</p>
@@ -360,6 +460,10 @@ const getStatusBadge = (status) => {
             <div className="text-center">
               <p className="text-2xl font-bold text-purple-600">{orders.filter(o => o.status === 'delivering').length}</p>
               <p className="text-xs text-gray-600">Delivering</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-orange-600">{orders.filter(o => o.status === 'received').length}</p>
+              <p className="text-xs text-gray-600">Received</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-green-600">{orders.filter(o => o.status === 'completed').length}</p>
@@ -394,6 +498,121 @@ const getStatusBadge = (status) => {
           </div>
         )}
 
+        {/* Payment Modal */}
+        {showPaymentModal && selectedOrder && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg w-full max-w-md">
+              <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-t-lg">
+                <h2 className="text-xl font-bold text-white">Complete Order</h2>
+                <p className="text-green-100 text-sm">{selectedOrder.order_number}</p>
+              </div>
+
+              <div className="p-6">
+                {selectedOrder.order_type === 'initial_package' ? (
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-900 font-medium mb-2">
+                      ℹ️ Initial Package Order
+                    </p>
+                    <p className="text-sm text-blue-700">
+                      Payment was already recorded when this partner signed up. 
+                      Click "Complete Order" to finalize delivery.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-600">Partner:</span>
+                        <span className="font-medium">{selectedOrder.gym_name}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Total Amount:</span>
+                        <span className="text-2xl font-bold text-green-600">
+                          ₱{selectedOrder.total_amount.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Payment Method *
+                      </label>
+                      <select
+                        value={paymentData.payment_method}
+                        onChange={(e) => setPaymentData({ ...paymentData, payment_method: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        required
+                      >
+                        <option value="">Select payment method</option>
+                        {paymentOptions.map((option) => (
+                          <option key={option.id} value={option.payment_method}>
+                            {option.payment_method}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {paymentData.payment_method && paymentData.payment_method.toLowerCase() !== 'cash' && (
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Reference Number *
+                        </label>
+                        <input
+                          type="text"
+                          value={paymentData.reference_number}
+                          onChange={(e) => setPaymentData({ ...paymentData, reference_number: e.target.value })}
+                          placeholder="Enter transaction reference number"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Required for {paymentData.payment_method} payments
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                      <p className="text-xs text-yellow-800">
+                        ⚠️ This will record the payment and mark the order as completed. 
+                        Make sure you've received the payment before proceeding.
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPaymentModal(false);
+                      setSelectedOrder(null);
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                    disabled={completingOrder}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCompleteOrder}
+                    disabled={completingOrder}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:bg-green-400 flex items-center justify-center gap-2"
+                  >
+                    {completingOrder ? (
+                      <>
+                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                        Completing...
+                      </>
+                    ) : (
+                      'Complete Order'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Details Modal */}
         {showDetailsModal && selectedOrder && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -410,6 +629,7 @@ const getStatusBadge = (status) => {
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
+                  ✖
                 </button>
               </div>
 
@@ -450,6 +670,12 @@ const getStatusBadge = (status) => {
                       <div className="flex justify-between">
                         <span className="text-gray-600">Shipped:</span>
                         <span className="text-gray-900">{formatDate(selectedOrder.shipped_at)}</span>
+                      </div>
+                    )}
+                    {selectedOrder.received_at && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Received:</span>
+                        <span className="text-gray-900">{formatDate(selectedOrder.received_at)}</span>
                       </div>
                     )}
                     {selectedOrder.completed_at && (

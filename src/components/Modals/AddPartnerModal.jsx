@@ -242,6 +242,42 @@ const AddPartnerModal = ({
 
 </div>
             </div>
+            <div>
+  <label className="block text-xs font-medium text-gray-700 mb-1">
+    Payment Method {!isEditMode && <span className="text-red-500">*</span>}
+  </label>
+  <select
+    name="payment_method"
+    value={formData.payment_method || 'Cash'}
+    onChange={onFormChange}
+    className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+    required={!isEditMode}
+  >
+    <option value="Cash">Cash</option>
+    {formData.paymentOptions?.map((option) => (
+      <option key={option.id} value={option.payment_method}>
+        {option.payment_method}
+      </option>
+    ))}
+  </select>
+</div>
+
+{formData.payment_method && formData.payment_method !== 'Cash' && (
+  <div>
+    <label className="block text-xs font-medium text-gray-700 mb-1">
+      Reference Number <span className="text-red-500">*</span>
+    </label>
+    <input
+      type="text"
+      name="reference_number"
+      value={formData.reference_number || ''}
+      onChange={onFormChange}
+      placeholder="Enter reference/transaction number"
+      className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+      required
+    />
+  </div>
+)}
 
             <div className="flex flex-col items-center gap-2">
               <div className="w-48 h-48 bg-gray-100 border rounded-md flex items-center justify-center overflow-hidden">

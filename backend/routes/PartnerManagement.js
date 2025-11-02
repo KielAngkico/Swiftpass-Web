@@ -89,11 +89,14 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
 
     await insertDefaultPricing(conn, admin_id, system_type);
 
-    if (pkgId && pkgPrice > 0) {
-      const [[pkg]] = await conn.query(`SELECT name FROM SubscriptionPackages WHERE id = ?`, [pkgId]);
-      const [txn] = await conn.query(`
-        INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount)
-        VALUES (?, 'Package Purchase', ?)`, [admin_id, pkgPrice]);
+if (pkgId && pkgPrice > 0) {
+  const { payment_method, reference_number } = req.body;
+  
+  const [[pkg]] = await conn.query(`SELECT name FROM SubscriptionPackages WHERE id = ?`, [pkgId]);
+  const [txn] = await conn.query(`
+    INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount, payment_method, reference_number)
+    VALUES (?, 'Package Purchase', ?, ?, ?)`, 
+    [admin_id, pkgPrice, payment_method || 'Cash', reference_number || null]);
       
       await conn.query(`
         INSERT INTO SuperAdminTransactionItems
@@ -341,9 +344,12 @@ router.post("/renew-subscription/:id", async (req, res) => {
     `, [package_id, startDate, endDate, id]);
 
     // Record renewal transaction
-    const [txn] = await query(`
-      INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount)
-      VALUES (?, 'Package Renewal', ?)`, [id, pkg.price]); // ← Changed label
+// Record renewal transaction
+const { payment_method, reference_number } = req.body;
+const [txn] = await query(`
+  INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount, payment_method, reference_number)
+  VALUES (?, 'Package Renewal', ?, ?, ?)`, 
+  [id, pkg.price, payment_method || 'Cash', reference_number || null]);
 await query(`
   INSERT INTO SuperAdminTransactionItems
   (transaction_id, item_name, quantity, unit_price, total_price)
@@ -420,5 +426,17 @@ router.get("/subscription-packages", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch subscription packages" });
   }
 });
-
+router.get("/payment-options", async (req, res) => {
+  try {
+    const [options] = await query(`
+      SELECT * FROM SuperAdminPaymentOptions 
+      WHERE is_enabled = 1
+      ORDER BY is_default DESC, payment_method ASC
+    `);
+    res.json(options);
+  } catch (err) {
+    console.error("Get payment options error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 module.exports = router;

@@ -19,22 +19,25 @@ const AddClient = () => {
   const [showRegistrations, setShowRegistrations] = useState(true);
   
   // ✅ FIX: Include packages in initial state
-  const [formData, setFormData] = useState({
-    admin_name: "",
-    address: "",
-    email: "",
-    password: "",
-    gym_name: "",
-    system_type: "",
-    package_id: "",
-    profile_image_url: null,
-    rfid_tag: "",
-    rfid_tag_2: "",
-    packages: [], // ← Added
-  });
+const [formData, setFormData] = useState({
+  admin_name: "",
+  address: "",
+  email: "",
+  password: "",
+  gym_name: "",
+  system_type: "",
+  package_id: "",
+  payment_method: "Cash",  // ← Add this
+  reference_number: "",     // ← Add this
+  profile_image_url: null,
+  rfid_tag: "",
+  rfid_tag_2: "",
+  packages: [],
+});
   
   const [admins, setAdmins] = useState([]);
   const [packages, setPackages] = useState([]);
+  const [paymentOptions, setPaymentOptions] = useState([]);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const { showToast, showConfirm } = useToast();
 
@@ -48,7 +51,14 @@ const AddClient = () => {
       showToast({ message: "Failed to load packages", type: "error" });
     }
   };
-
+const fetchPaymentOptions = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/api/payment-options`);
+    setPaymentOptions(response.data);
+  } catch (error) {
+    console.error("Failed to fetch payment options:", error);
+  }
+};
   useEffect(() => {
     const fetchAdmins = async () => {
       try {
@@ -60,12 +70,16 @@ const AddClient = () => {
     };
     fetchAdmins();
     fetchPackages();
+      fetchPaymentOptions();
   }, []);
 
-  // ✅ FIX: Update formData.packages whenever packages state changes
-  useEffect(() => {
-    setFormData(prev => ({ ...prev, packages }));
-  }, [packages]);
+useEffect(() => {
+  setFormData(prev => ({ 
+    ...prev, 
+    packages,
+    paymentOptions  // ← Add this
+  }));
+}, [packages, paymentOptions]);  // ← Add paymentOptions dependency
 
   useEffect(() => {
     fetchPendingRegistrations();
@@ -83,20 +97,23 @@ const AddClient = () => {
   };
 
   // ✅ FIX: Include packages when populating from registration
-  const handleRegistrationClick = (registration) => {
-    setFormData({
-      admin_name: registration.admin_name || "",
-      address: registration.address || "",
-      email: registration.email || "",
-      password: registration.password || "",
-      gym_name: registration.gym_name || "",
-      system_type: registration.system_type || "",
-      package_id: registration.package_id || "", // ← Now it will populate if exists
-      profile_image_url: registration.profile_image_url ? `${API_URL}${registration.profile_image_url}` : null,
-      rfid_tag: "",
-      rfid_tag_2: "",
-      packages: packages, // ← Added
-    });
+const handleRegistrationClick = (registration) => {
+  setFormData({
+    admin_name: registration.admin_name || "",
+    address: registration.address || "",
+    email: registration.email || "",
+    password: registration.password || "",
+    gym_name: registration.gym_name || "",
+    system_type: registration.system_type || "",
+    package_id: registration.package_id || "",
+    payment_method: "Cash",      // ← Add this
+    reference_number: "",         // ← Add this
+    profile_image_url: registration.profile_image_url ? `${API_URL}${registration.profile_image_url}` : null,
+    rfid_tag: "",
+    rfid_tag_2: "",
+    packages: packages,
+    paymentOptions: paymentOptions,  // ← Add this
+  });
     
     setModalMode("registration");
     setEditingAdmin({ registrationNumber: registration.registration_number });
@@ -219,14 +236,18 @@ const AddClient = () => {
           );
         }
 
-        const formPayload = new FormData();
-        formPayload.append("admin_name", formData.admin_name);
-        formPayload.append("address", formData.address);
-        formPayload.append("email", formData.email);
-        formPayload.append("gym_name", formData.gym_name);
-        formPayload.append("system_type", formData.system_type);
-        formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
-        formPayload.append("package_id", formData.package_id || "");
+const formPayload = new FormData();
+formPayload.append("admin_name", formData.admin_name);
+formPayload.append("rfid_tag", formData.rfid_tag);
+formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
+formPayload.append("address", formData.address);
+formPayload.append("email", formData.email);
+formPayload.append("password", formData.password);
+formPayload.append("gym_name", formData.gym_name);
+formPayload.append("system_type", formData.system_type);
+formPayload.append("package_id", formData.package_id || "");
+formPayload.append("payment_method", formData.payment_method || "Cash");  // ← Add this
+formPayload.append("reference_number", formData.reference_number || "");  // ← Add this
 
         if (formData.password && formData.password.trim() !== "") {
           formPayload.append("password", formData.password);
@@ -322,45 +343,50 @@ const AddClient = () => {
       sessionStorage.removeItem('pendingSlotRfid');
       sessionStorage.removeItem('rfidScannedAt');
       // ✅ FIX: Keep packages when resetting
-      setFormData({
-        admin_name: "",
-        address: "",
-        email: "",
-        password: "",
-        gym_name: "",
-        system_type: "",
-        package_id: "",
-        profile_image_url: null,
-        rfid_tag: "",
-        rfid_tag_2: "",
-        packages: packages,
-      });
+setFormData({
+  admin_name: "",
+  address: "",
+  email: "",
+  password: "",
+  gym_name: "",
+  system_type: "",
+  package_id: "",
+  payment_method: "Cash",      // ← Add this
+  reference_number: "",         // ← Add this
+  profile_image_url: null,
+  rfid_tag: "",
+  rfid_tag_2: "",
+  packages: packages,
+  paymentOptions: paymentOptions,  // ← Add this
+});
     } catch (error) {
       showToast({ message: `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`, type: "error" });
     }
   };
 
-  // ✅ FIX: Include packages when editing
-  const handleEdit = (admin) => {
-    setEditingAdmin(admin);
-    setModalMode("edit");
-    setOriginalRfid(admin.rfid_tag || "");
-    setOriginalRfid2(admin.rfid_tag_2 || "");
-    setFormData({
-      admin_name: admin.admin_name,
-      address: admin.address,
-      email: admin.email,
-      password: "",
-      gym_name: admin.gym_name,
-      system_type: admin.system_type,
-      package_id: admin.package_id || "",
-      profile_image_url: admin.profile_image_url ? `${API_URL}${admin.profile_image_url}` : null,
-      rfid_tag: admin.rfid_tag || "",
-      rfid_tag_2: admin.rfid_tag_2 || "",
-      packages: packages, // ← Added
-    });
-    setShowAddForm(true);
-  };
+ const handleEdit = (admin) => {
+  setEditingAdmin(admin);
+  setModalMode("edit");
+  setOriginalRfid(admin.rfid_tag || "");
+  setOriginalRfid2(admin.rfid_tag_2 || "");
+  setFormData({
+    admin_name: admin.admin_name,
+    address: admin.address,
+    email: admin.email,
+    password: "",
+    gym_name: admin.gym_name,
+    system_type: admin.system_type,
+    package_id: admin.package_id || "",
+    payment_method: "Cash",      // ← Add this
+    reference_number: "",         // ← Add this
+    profile_image_url: admin.profile_image_url ? `${API_URL}${admin.profile_image_url}` : null,
+    rfid_tag: admin.rfid_tag || "",
+    rfid_tag_2: admin.rfid_tag_2 || "",
+    packages: packages,
+    paymentOptions: paymentOptions,  // ← Add this
+  });
+  setShowAddForm(true);
+};
 
   const handleArchive = async (id, isArchived) => {
     const endpoint = isArchived ? "restore-admin" : "archive-admin";

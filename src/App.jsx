@@ -285,7 +285,7 @@ const AppRoutes = () => {
               <Route path="/Admin/AdminViewMembers" element={<AdminViewMembers />} />
               <Route path="/Admin/ActivityAnalytics" element={<ActivityAnalytics />} />
               <Route path="/Admin/TransactionsReport" element={<TransactionsReport />} />
-              <Route path="/Admin/MyOrder" element={<MyOrder />} />
+              <Route path="/Admin/MyOrders" element={<MyOrders />} />
               <Route path="/Admin/PricingManagement" element={<PricingManagement />} />
               <Route path="/Admin/StaffManagement" element={<StaffManagement />} />
               <Route path="/Admin/StaffActivityLogs" element={<StaffActivityLogs/>} />

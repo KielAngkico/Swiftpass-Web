@@ -1,15 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Package, 
-  Truck, 
-  CheckCircle, 
-  XCircle,
-  Clock,
-  Eye,
-  Filter,
-  Plus,
-  AlertCircle
-} from 'lucide-react';
+
 import { useNavigate } from 'react-router-dom';
 import OwnerSidebar from '../../components/OwnerSidebar';
 import { useToast } from '../../components/ToastManager';
@@ -82,45 +72,38 @@ const MyOrders = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      pending: { 
-        color: 'bg-yellow-100 text-yellow-800 border-yellow-300', 
-        icon: Clock,
-        label: 'Pending' 
-      },
-      processing: { 
-        color: 'bg-blue-100 text-blue-800 border-blue-300', 
-        icon: Package,
-        label: 'Processing' 
-      },
-      delivering: { 
-        color: 'bg-purple-100 text-purple-800 border-purple-300', 
-        icon: Truck,
-        label: 'Delivering' 
-      },
-      completed: { 
-        color: 'bg-green-100 text-green-800 border-green-300', 
-        icon: CheckCircle,
-        label: 'Completed' 
-      },
-      cancelled: { 
-        color: 'bg-red-100 text-red-800 border-red-300', 
-        icon: XCircle,
-        label: 'Cancelled' 
-      }
-    };
-
-    const config = statusConfig[status] || statusConfig.pending;
-    const Icon = config.icon;
-
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${config.color}`}>
-        <Icon size={12} />
-        {config.label}
-      </span>
-    );
+ const getStatusBadge = (status) => {
+  const statusConfig = {
+    pending: { 
+      color: 'bg-yellow-100 text-yellow-800 border-yellow-300', 
+      label: '⏳ Pending' 
+    },
+    processing: { 
+      color: 'bg-blue-100 text-blue-800 border-blue-300', 
+      label: '📦 Processing' 
+    },
+    delivering: { 
+      color: 'bg-purple-100 text-purple-800 border-purple-300', 
+      label: '🚚 Delivering' 
+    },
+    completed: { 
+      color: 'bg-green-100 text-green-800 border-green-300', 
+      label: '✅ Completed' 
+    },
+    cancelled: { 
+      color: 'bg-red-100 text-red-800 border-red-300', 
+      label: '❌ Cancelled' 
+    }
   };
+
+  const config = statusConfig[status] || statusConfig.pending;
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${config.color}`}>
+      {config.label}
+    </span>
+  );
+};
 
   const getPaymentBadge = (paymentStatus) => {
     return paymentStatus === 'paid' ? (
@@ -343,7 +326,6 @@ const MyOrders = () => {
             onClick={() => handleViewDetails(order)}
             className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded hover:bg-gray-200 text-xs font-medium flex items-center justify-center gap-1"
           >
-            <Eye size={14} />
             View Details
           </button>
 
@@ -352,7 +334,6 @@ const MyOrders = () => {
               onClick={() => handleCompleteOrder(order.id)}
               className="flex-1 bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 text-xs font-medium flex items-center justify-center gap-1"
             >
-              <CheckCircle size={14} />
               Received
             </button>
           )}
@@ -385,7 +366,6 @@ const MyOrders = () => {
             onClick={() => setShowCreateModal(true)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
           >
-            <Plus size={18} />
             Create New Order
           </button>
 
@@ -433,7 +413,6 @@ const MyOrders = () => {
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-            <Package size={48} className="mx-auto text-gray-400 mb-3" />
             <p className="text-gray-500 mb-1">No orders found</p>
             <p className="text-sm text-gray-400 mb-4">
               {statusFilter !== 'all' 
@@ -470,7 +449,7 @@ const MyOrders = () => {
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
-                  <XCircle size={24} />
+                        ✖
                 </button>
               </div>
 
@@ -483,7 +462,6 @@ const MyOrders = () => {
                       onClick={handleAddItem}
                       className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
                     >
-                      <Plus size={16} />
                       Add Item
                     </button>
                   </div>
@@ -655,7 +633,6 @@ const MyOrders = () => {
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
-                  <XCircle size={24} />
                 </button>
               </div>
 
@@ -764,7 +741,6 @@ const MyOrders = () => {
                 {selectedOrder.status === 'delivering' && (
                   <div className="border-t pt-4">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
-                      <AlertCircle className="text-blue-600 flex-shrink-0" size={20} />
                       <div>
                         <p className="font-medium text-blue-900 text-sm mb-1">
                           Order is on the way!
@@ -779,7 +755,6 @@ const MyOrders = () => {
                           }}
                           className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm font-medium flex items-center gap-1"
                         >
-                          <CheckCircle size={16} />
                           Confirm Receipt
                         </button>
                       </div>

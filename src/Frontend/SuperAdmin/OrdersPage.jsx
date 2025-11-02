@@ -1,15 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Package, 
-  Truck, 
-  CheckCircle, 
-  XCircle,
-  Clock,
-  Eye,
-  Filter,
-  Search,
-  User
-} from 'lucide-react';
 import SuperAdminSidebar from '../../components/SuperAdminSidebar';
 import { useToast } from '../../components/ToastManager';
 import api from '../../api';
@@ -67,45 +56,39 @@ const OrdersPage = () => {
     setFilteredOrders(filtered);
   };
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      pending: { 
-        color: 'bg-yellow-100 text-yellow-800 border-yellow-300', 
-        icon: Clock,
-        label: 'Pending' 
-      },
-      processing: { 
-        color: 'bg-blue-100 text-blue-800 border-blue-300', 
-        icon: Package,
-        label: 'Processing' 
-      },
-      delivering: { 
-        color: 'bg-purple-100 text-purple-800 border-purple-300', 
-        icon: Truck,
-        label: 'Delivering' 
-      },
-      completed: { 
-        color: 'bg-green-100 text-green-800 border-green-300', 
-        icon: CheckCircle,
-        label: 'Completed' 
-      },
-      cancelled: { 
-        color: 'bg-red-100 text-red-800 border-red-300', 
-        icon: XCircle,
-        label: 'Cancelled' 
-      }
-    };
-
-    const config = statusConfig[status] || statusConfig.pending;
-    const Icon = config.icon;
-
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${config.color}`}>
-        <Icon size={12} />
-        {config.label}
-      </span>
-    );
+const getStatusBadge = (status) => {
+  const statusConfig = {
+    pending: { 
+      color: 'bg-yellow-100 text-yellow-800 border-yellow-300', 
+      label: '⏳ Pending' 
+    },
+    processing: { 
+      color: 'bg-blue-100 text-blue-800 border-blue-300', 
+      label: '📦 Processing' 
+    },
+    delivering: { 
+      color: 'bg-purple-100 text-purple-800 border-purple-300', 
+      label: '🚚 Delivering' 
+    },
+    completed: { 
+      color: 'bg-green-100 text-green-800 border-green-300', 
+      label: '✅ Completed' 
+    },
+    cancelled: { 
+      color: 'bg-red-100 text-red-800 border-red-300', 
+      label: '❌ Cancelled' 
+    }
   };
+
+  const config = statusConfig[status] || statusConfig.pending;
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${config.color}`}>
+      {config.label}
+    </span>
+  );
+};
+
 
   const getPaymentBadge = (paymentStatus) => {
     return paymentStatus === 'paid' ? (
@@ -225,7 +208,6 @@ const OrdersPage = () => {
               </span>
             </div>
             <div className="flex items-center gap-1 text-sm text-gray-600">
-              <User size={14} />
               <span className="font-medium">{order.gym_name}</span>
             </div>
             <p className="text-xs text-gray-500">{order.admin_name}</p>
@@ -278,7 +260,6 @@ const OrdersPage = () => {
             onClick={() => handleViewDetails(order)}
             className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded hover:bg-gray-200 text-xs font-medium flex items-center justify-center gap-1"
           >
-            <Eye size={14} />
             View Details
           </button>
 
@@ -295,7 +276,6 @@ const OrdersPage = () => {
                 </>
               ) : (
                 <>
-                  <Package size={14} />
                   Process
                 </>
               )}
@@ -307,7 +287,6 @@ const OrdersPage = () => {
               onClick={() => handleShipOrder(order.id)}
               className="flex-1 bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-700 text-xs font-medium flex items-center justify-center gap-1"
             >
-              <Truck size={14} />
               Ship
             </button>
           )}
@@ -339,7 +318,6 @@ const OrdersPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Filter size={14} className="inline mr-1" />
                 Filter by Status
               </label>
               <select
@@ -358,7 +336,6 @@ const OrdersPage = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Search size={14} className="inline mr-1" />
                 Search
               </label>
               <input
@@ -402,7 +379,6 @@ const OrdersPage = () => {
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-            <Package size={48} className="mx-auto text-gray-400 mb-3" />
             <p className="text-gray-500 mb-1">No orders found</p>
             <p className="text-sm text-gray-400">
               {statusFilter !== 'all' || searchTerm 
@@ -434,7 +410,6 @@ const OrdersPage = () => {
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
-                  <XCircle size={24} />
                 </button>
               </div>
 

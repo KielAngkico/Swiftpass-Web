@@ -24,7 +24,16 @@ const insertDefaultPricing = async (conn, admin_id, system_type) => {
     );
   }
 };
+// Add this helper function at the top with other helpers
+const getItemType = (itemName) => {
+  const name = itemName.toLowerCase();
+  if (name.includes('partner') || name.includes('staff')) return 'partner_rfid';
+  if (name.includes('member') || name.includes('wristband')) return 'member_rfid';
+  if (name.includes('day pass') || name.includes('keyfob')) return 'daypass_rfid';
+  return 'other';
+};
 
+// REPLACE YOUR ENTIRE router.post("/add-client", ...) with this:
 router.post("/add-client", upload.single("profile_image_url"), async (req, res) => {
   const conn = await db.promise().getConnection();
   try {
@@ -89,15 +98,23 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
       const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
       const order_number = `ORD-${timestamp}${random}`;
 
+      // ✅ FIXED: Use INNER JOIN and proper item type detection
       const [packageItems] = await conn.query(`
         SELECT 
           pi.item_name, 
           pi.quantity,
-          COALESCE(si.selling_price, 0) as unit_price
+          si.selling_price as unit_price
         FROM PackageItems pi
-        LEFT JOIN SuperAdminInventory si ON pi.item_name = si.name
+        INNER JOIN SuperAdminInventory si ON pi.item_name = si.name
         WHERE pi.package_id = ?
       `, [pkgId]);
+
+      if (packageItems.length === 0) {
+        await conn.rollback();
+        return res.status(400).json({ 
+          error: "No items found for package or inventory mismatch" 
+        });
+      }
 
       const calculatedTotal = packageItems.reduce((sum, item) => {
         return sum + (item.quantity * item.unit_price);
@@ -113,15 +130,18 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
 
       for (const item of packageItems) {
         const subtotal = item.quantity * item.unit_price;
+        const itemType = getItemType(item.item_name); // ✅ Auto-detect type
         
         await conn.query(`
           INSERT INTO PartnerOrderItems 
           (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
-          VALUES (?, ?, 'other', ?, ?, ?, 'pending')
-        `, [order_id, item.item_name, item.quantity, item.unit_price, subtotal]);
+          VALUES (?, ?, ?, ?, ?, ?, 'pending')
+        `, [order_id, item.item_name, itemType, item.quantity, item.unit_price, subtotal]);
       }
 
-      console.log(`✅ Created initial order ${order_number} for partner ${admin_id} - Total: ₱${calculatedTotal}`);
+      console.log(`✅ Created initial order ${order_number} for partner ${admin_id}`);
+      console.log(`   Total: ₱${calculatedTotal.toFixed(2)}`);
+      console.log(`   Items: ${packageItems.map(i => `${i.item_name}(${i.quantity})`).join(', ')}`);
     }
 
     await conn.commit();

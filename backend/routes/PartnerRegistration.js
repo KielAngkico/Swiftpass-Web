@@ -48,14 +48,14 @@ router.post("/partner-registration", upload.single("profile_image_url"), async (
 
     // Check if email already has a pending registration
     const [[existingReg]] = await query(
-      `SELECT registration_number FROM partner_registrations 
-       WHERE email = ? AND status = 'pending' 
+      `SELECT registration_number FROM partner_registrations
+       WHERE email = ? AND status = 'pending'
        AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)`,
       [email]
     );
 
     if (existingReg) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "You already have a pending registration",
         registration_number: existingReg.registration_number
       });
@@ -67,7 +67,7 @@ router.post("/partner-registration", upload.single("profile_image_url"), async (
     // Insert into partner_registrations table (WITH package_id)
     await query(`
       INSERT INTO partner_registrations
-      (registration_number, gym_name, admin_name, email, password, address, 
+      (registration_number, gym_name, admin_name, email, password, address,
        system_type, package_id, profile_image_url, status, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
     `, [
@@ -98,7 +98,7 @@ router.get("/pending-registrations", async (req, res) => {
   try {
     // Get all pending registrations that haven't expired (within 1 hour)
     const [registrations] = await query(`
-      SELECT 
+      SELECT
         pr.id,
         pr.registration_number,
         pr.gym_name,
@@ -134,7 +134,7 @@ router.get("/pending-registrations/:registration_number", async (req, res) => {
     const { registration_number } = req.params;
 
     const [[registration]] = await query(`
-      SELECT pr.*, 
+      SELECT pr.*,
              sp.name as package_name,
              sp.price as package_price,
              sp.duration_days as package_duration
@@ -168,9 +168,9 @@ router.delete("/pending-registrations/:registration_number", async (req, res) =>
       return res.status(404).json({ error: "Registration not found" });
     }
 
-    res.json({ 
-      success: true, 
-      message: "Registration deleted successfully" 
+    res.json({
+      success: true,
+      message: "Registration deleted successfully"
     });
   } catch (err) {
     console.error("Delete registration error:", err);
@@ -187,7 +187,7 @@ router.post("/cleanup-expired-registrations", async (req, res) => {
         AND created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)
     `);
 
-    res.json({ 
+    res.json({
       message: "Cleanup completed",
       deleted_count: result.affectedRows
     });
@@ -212,9 +212,9 @@ router.put("/pending-registrations/:registration_number/approve", async (req, re
       return res.status(404).json({ error: "Registration not found" });
     }
 
-    res.json({ 
-      success: true, 
-      message: "Registration approved" 
+    res.json({
+      success: true,
+      message: "Registration approved"
     });
   } catch (err) {
     console.error("Approve registration error:", err);

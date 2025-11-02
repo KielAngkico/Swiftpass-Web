@@ -11,6 +11,15 @@ const generateOrderNumber = () => {
   return `ORD-${timestamp}${random}`;
 };
 
+// --- Determine item type based on item name ---
+const getItemType = (itemName) => {
+  const name = itemName.toLowerCase();
+  if (name.includes('partner') || name.includes('staff')) return 'partner_rfid';
+  if (name.includes('member') || name.includes('wristband')) return 'member_rfid';
+  if (name.includes('day pass') || name.includes('keyfob')) return 'daypass_rfid';
+  return 'other'; // For PCBs, locks, buttons, etc.
+};
+
 // ========================================
 // CREATE NEW ORDER (Partner)
 // ========================================
@@ -90,15 +99,33 @@ router.post("/create-initial", async (req, res) => {
 
     const order_number = generateOrderNumber();
 
+    // Get package items with CORRECTED pricing lookup
     const [packageItems] = await conn.query(`
       SELECT 
         pi.item_name, 
         pi.quantity,
-        COALESCE(si.selling_price, 0) as unit_price
+        si.selling_price as unit_price
       FROM PackageItems pi
-      LEFT JOIN SuperAdminInventory si ON pi.item_name = si.name
+      INNER JOIN SuperAdminInventory si ON pi.item_name = si.name
       WHERE pi.package_id = ?
     `, [package_id]);
+
+    if (packageItems.length === 0) {
+      await conn.rollback();
+      return res.status(400).json({ 
+        error: "No items found for this package or inventory items don't match package items" 
+      });
+    }
+
+    // Check for missing prices
+    const missingPrices = packageItems.filter(item => !item.unit_price || item.unit_price === 0);
+    if (missingPrices.length > 0) {
+      await conn.rollback();
+      return res.status(400).json({ 
+        error: "Some items have no selling price set",
+        items: missingPrices.map(i => i.item_name)
+      });
+    }
 
     const calculatedTotal = packageItems.reduce((sum, item) => {
       return sum + (item.quantity * item.unit_price);
@@ -114,12 +141,13 @@ router.post("/create-initial", async (req, res) => {
 
     for (const item of packageItems) {
       const subtotal = item.quantity * item.unit_price;
+      const itemType = getItemType(item.item_name); // Auto-detect type
       
       await conn.query(`
         INSERT INTO PartnerOrderItems 
         (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
-        VALUES (?, ?, 'other', ?, ?, ?, 'pending')
-      `, [order_id, item.item_name, item.quantity, item.unit_price, subtotal]);
+        VALUES (?, ?, ?, ?, ?, ?, 'pending')
+      `, [order_id, item.item_name, itemType, item.quantity, item.unit_price, subtotal]);
     }
 
     await conn.commit();
@@ -141,6 +169,7 @@ router.post("/create-initial", async (req, res) => {
     conn.release();
   }
 });
+
 router.get("/partner/:admin_id", async (req, res) => {
   try {
     const { admin_id } = req.params;
@@ -299,7 +328,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // ========================================
-// PROCESS ORDER (SuperAdmin) - Auto-allocate RFID
+// PROCESS ORDER (SuperAdmin) - Auto-allocate RFID + Deduct Inventory
 // ========================================
 router.put("/:id/process", async (req, res) => {
   const conn = await db.promise().getConnection();
@@ -326,63 +355,127 @@ router.put("/:id/process", async (req, res) => {
     );
 
     let allocationResults = [];
+    let inventoryDeductions = [];
 
     for (const item of orderItems) {
       const remainingQty = item.quantity - item.allocated_quantity;
       
       if (remainingQty <= 0) continue;
 
-      // Determine RFID role based on item type
-      let rfidRole = 'Member'; // default
-      if (item.item_type === 'partner_rfid') rfidRole = 'Partner';
+      // --- HANDLE RFID ITEMS ---
+      if (item.item_type.includes('rfid')) {
+        // Determine RFID role based on item type
+        let rfidRole = 'Member';
+        if (item.item_type === 'partner_rfid') rfidRole = 'Partner';
+        else if (item.item_type === 'daypass_rfid') rfidRole = 'DayPass';
 
-      // Find available RFIDs from stock
-      const [availableRfids] = await conn.query(`
-        SELECT id, rfid_tag FROM RegisteredRfid 
-        WHERE status = 'in_stock' 
-        AND role = ?
-        LIMIT ?
-      `, [rfidRole, remainingQty]);
+        // Find available RFIDs from RegisteredRfid table
+        const [availableRfids] = await conn.query(`
+          SELECT id, rfid_tag FROM RegisteredRfid 
+          WHERE status = 'in_stock' 
+          AND role = ?
+          LIMIT ?
+        `, [rfidRole, remainingQty]);
 
-      if (availableRfids.length === 0) {
+        if (availableRfids.length === 0) {
+          allocationResults.push({
+            item: item.item_name,
+            requested: remainingQty,
+            allocated: 0,
+            error: `No ${rfidRole} RFIDs available in stock`
+          });
+          continue;
+        }
+
+        // Allocate RFIDs
+        for (const rfid of availableRfids) {
+          await conn.query(`
+            UPDATE RegisteredRfid 
+            SET status = 'allocated',
+                allocated_to_admin = ?,
+                order_id = ?,
+                allocation_date = NOW()
+            WHERE id = ?
+          `, [order.admin_id, id, rfid.id]);
+        }
+
+        // Update order item
+        const newAllocated = item.allocated_quantity + availableRfids.length;
+        const newStatus = newAllocated >= item.quantity ? 'fully_allocated' : 'partially_allocated';
+
+        await conn.query(`
+          UPDATE PartnerOrderItems 
+          SET allocated_quantity = ?,
+              status = ?
+          WHERE id = ?
+        `, [newAllocated, newStatus, item.id]);
+
         allocationResults.push({
           item: item.item_name,
+          type: 'RFID',
           requested: remainingQty,
-          allocated: 0,
-          error: `No ${rfidRole} RFIDs available in stock`
+          allocated: availableRfids.length,
+          rfids: availableRfids.map(r => r.rfid_tag)
         });
-        continue;
-      }
+      } 
+      // --- HANDLE NON-RFID ITEMS (PCBs, locks, buttons, etc.) ---
+      else {
+        // Check inventory availability
+        const [[inventoryItem]] = await conn.query(`
+          SELECT id, name, quantity FROM SuperAdminInventory 
+          WHERE name = ?
+        `, [item.item_name]);
 
-      // Allocate RFIDs
-      for (const rfid of availableRfids) {
+        if (!inventoryItem) {
+          allocationResults.push({
+            item: item.item_name,
+            requested: remainingQty,
+            allocated: 0,
+            error: `Item not found in inventory`
+          });
+          continue;
+        }
+
+        if (inventoryItem.quantity < remainingQty) {
+          allocationResults.push({
+            item: item.item_name,
+            requested: remainingQty,
+            allocated: 0,
+            error: `Insufficient stock (Available: ${inventoryItem.quantity})`
+          });
+          continue;
+        }
+
+        // Deduct from inventory
         await conn.query(`
-          UPDATE RegisteredRfid 
-          SET status = 'allocated',
-              allocated_to_admin = ?,
-              order_id = ?,
-              allocation_date = NOW()
+          UPDATE SuperAdminInventory 
+          SET quantity = quantity - ?,
+              updated_at = NOW()
           WHERE id = ?
-        `, [order.admin_id, id, rfid.id]);
+        `, [remainingQty, inventoryItem.id]);
+
+        // Update order item
+        await conn.query(`
+          UPDATE PartnerOrderItems 
+          SET allocated_quantity = quantity,
+              status = 'fully_allocated'
+          WHERE id = ?
+        `, [item.id]);
+
+        allocationResults.push({
+          item: item.item_name,
+          type: 'Inventory',
+          requested: remainingQty,
+          allocated: remainingQty,
+          remaining_stock: inventoryItem.quantity - remainingQty
+        });
+
+        inventoryDeductions.push({
+          item: item.item_name,
+          deducted: remainingQty,
+          remaining: inventoryItem.quantity - remainingQty
+        });
       }
-
-      // Update order item
-      const newAllocated = item.allocated_quantity + availableRfids.length;
-      const newStatus = newAllocated >= item.quantity ? 'fully_allocated' : 'partially_allocated';
-
-      await conn.query(`
-        UPDATE PartnerOrderItems 
-        SET allocated_quantity = ?,
-            status = ?
-        WHERE id = ?
-      `, [newAllocated, newStatus, item.id]);
-
-      allocationResults.push({
-        item: item.item_name,
-        requested: remainingQty,
-        allocated: availableRfids.length,
-        rfids: availableRfids.map(r => r.rfid_tag)
-      });
     }
 
     // Update order status
@@ -397,7 +490,8 @@ router.put("/:id/process", async (req, res) => {
 
     res.json({
       message: "Order processed successfully",
-      allocation_results: allocationResults
+      allocation_results: allocationResults,
+      inventory_deductions: inventoryDeductions
     });
 
   } catch (err) {
@@ -502,6 +596,25 @@ router.put("/:id/cancel", async (req, res) => {
       return res.status(400).json({ error: "Cannot cancel completed order" });
     }
 
+    // Get allocated items to restore inventory
+    const [orderItems] = await conn.query(`
+      SELECT item_name, item_type, allocated_quantity 
+      FROM PartnerOrderItems 
+      WHERE order_id = ? AND allocated_quantity > 0
+    `, [id]);
+
+    // Restore inventory for non-RFID items
+    for (const item of orderItems) {
+      if (!item.item_type.includes('rfid')) {
+        await conn.query(`
+          UPDATE SuperAdminInventory 
+          SET quantity = quantity + ?,
+              updated_at = NOW()
+          WHERE name = ?
+        `, [item.allocated_quantity, item.item_name]);
+      }
+    }
+
     // Release allocated RFIDs back to stock
     await conn.query(`
       UPDATE RegisteredRfid 
@@ -566,6 +679,33 @@ router.get("/:id/allocated-rfids", async (req, res) => {
   } catch (err) {
     console.error("Get allocated RFIDs error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ========================================
+// DEBUGGING ENDPOINT - Check inventory prices
+// ========================================
+router.get("/debug/inventory-prices", async (req, res) => {
+  try {
+    const [inventory] = await query(`
+      SELECT id, name, quantity, purchase_price, selling_price 
+      FROM SuperAdminInventory 
+      ORDER BY name
+    `);
+    
+    const [packageItems] = await query(`
+      SELECT pi.*, sp.name as package_name
+      FROM PackageItems pi
+      JOIN SubscriptionPackages sp ON pi.package_id = sp.id
+    `);
+
+    res.json({
+      inventory,
+      packageItems,
+      note: "Check if item names match exactly between PackageItems and SuperAdminInventory"
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

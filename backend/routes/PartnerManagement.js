@@ -78,7 +78,7 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
     if (pkgId && pkgPrice > 0) {
       const [[pkg]] = await conn.query(`SELECT name FROM SubscriptionPackages WHERE id = ?`, [pkgId]);
       const [txn] = await conn.query(`
-        INSERT INTO SuperAdminTransactions (admin_id, transaction_type, total_amount)
+        INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount)
         VALUES (?, 'Package Purchase', ?)`, [admin_id, pkgPrice]);
       await conn.query(`
         INSERT INTO SuperAdminTransactionItems (transaction_id, item_name, quantity, price)
@@ -95,7 +95,7 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
       // Create order
       const [orderResult] = await conn.query(`
         INSERT INTO PartnerOrders 
-        (order_number, admin_id, order_type, total_amount, payment_status, status)
+        (order_number, admin_id, order_type, amount, payment_status, status)
         VALUES (?, ?, 'initial_package', ?, 'paid', 'pending')
       `, [order_number, admin_id, pkgPrice]);
 
@@ -309,7 +309,7 @@ router.post("/renew-subscription/:id", async (req, res) => {
 
     // Record renewal transaction
     const [txn] = await query(`
-      INSERT INTO SuperAdminTransactions (admin_id, transaction_type, total_amount)
+      INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount)
       VALUES (?, 'Package Renewal', ?)`, [id, pkg.price]); // ← Changed label
     await query(`
       INSERT INTO SuperAdminTransactionItems (transaction_id, item_name, quantity, price)

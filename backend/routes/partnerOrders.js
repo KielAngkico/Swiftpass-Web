@@ -143,31 +143,33 @@ router.post("/create", async (req, res) => {
 // ========================================
 // MARK AS RECEIVED (Partner) - Updated flow
 // ========================================
+// --- Partner clicks "Received" ---
 router.put("/:id/receive", async (req, res) => {
   try {
     const { id } = req.params;
 
     const [result] = await query(`
-      UPDATE PartnerOrders 
+      UPDATE PartnerOrders
       SET status = 'received',
           received_at = NOW()
       WHERE id = ? AND status = 'delivering'
     `, [id]);
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ 
-        error: "Order not found or not in delivering status" 
+      const [[order]] = await query(`SELECT id, status FROM PartnerOrders WHERE id = ?`, [id]);
+      if (!order) return res.status(404).json({ error: "Order not found" });
+      return res.status(400).json({
+        error: `Order cannot be marked as received (current status: ${order.status})`,
       });
     }
 
-    res.json({ 
-      message: "Order marked as received. Awaiting payment confirmation." 
-    });
+    res.json({ message: "Order marked as received successfully." });
   } catch (err) {
     console.error("Receive order error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 // ========================================
 // COMPLETE ORDER WITH PAYMENT (SuperAdmin) - New endpoint

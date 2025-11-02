@@ -80,9 +80,13 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
       const [txn] = await conn.query(`
         INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount)
         VALUES (?, 'Package Purchase', ?)`, [admin_id, pkgPrice]);
-      await conn.query(`
-        INSERT INTO SuperAdminTransactionItems (transaction_id, item_name, quantity, price)
-        VALUES (?, ?, 1, ?)`, [txn.insertId, pkg.name, pkgPrice]);
+await conn.query(`
+  INSERT INTO SuperAdminTransactionItems
+  (transaction_id, item_name, quantity, unit_price, total_price)
+  VALUES (?, ?, ?, ?, ?)`,
+  [txn.insertId, pkg.name, 1, pkgPrice, pkgPrice] // total_price = unit_price * quantity
+);
+
 
       // ========================================
       // CREATE INITIAL ORDER FOR THE PACKAGE

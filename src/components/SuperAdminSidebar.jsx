@@ -23,6 +23,7 @@ const SuperAdminSidebar = () => {
     if (!user) return [];
     return [
       { path: "/SuperAdmin/addClient", label: "Partners Management", icon: <FiUserPlus /> },
+      { path: "/SuperAdmin/OrdersPage", label: "Orders", icon: <FiUserPlus /> },
       { path: "/SuperAdmin/ExerciseLibrary", label: "Exercise Library", icon: <FaDumbbell /> },
       { path: "/SuperAdmin/SplitLibrary", label: "Workout Split Library", icon: <FiPackage /> },
       { path: "/SuperAdmin/FoodLibrary", label: "Food Library", icon: <FiPackage /> },

@@ -24,6 +24,7 @@ const OwnerSidebar = () => {
     return [
       { path: "/Admin/AdminAnalyticalDashboard", label: "Dashboard", icon: <FiPieChart /> },
       { path: "/Admin/TransactionsReport", label: "Sales Report", icon: <FiFileText /> },
+      { path: "/Admin/MyOrders", label: "My Orders", icon: <FiFileText /> },
       { path: "/Admin/ActivityAnalytics", label: "Activity Analytics", icon: <FiFileText /> },
       { path: "/Admin/AdminViewMembers", label: "Members Directory", icon: <FiUsers /> },
       { path: "/Admin/PricingManagement", label: "Pricing", icon: <IoPricetagOutline /> },

@@ -165,12 +165,10 @@ const runExpiryChecks = async () => {
   await expirePartnerSubscriptions();
 };
 
-// Run immediately on server start (2 seconds delay)
 setTimeout(() => {
   runExpiryChecks();
 }, 2000);
 
-// Schedule for 11:59 PM daily (ONE check per day)
 cron.schedule('59 23 * * *', () => {
   runExpiryChecks();
 });

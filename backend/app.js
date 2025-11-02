@@ -32,6 +32,7 @@ const SuperAdminInventory = require ("./routes/SuperAdminInventory");
 const RfidVerification = require ("./routes/RfidVerification");
 const SubscriptionPackages = require ("./routes/SubscriptionPackages.js");
 const RfidReplacementRoutes = require ("./routes/RfidReplacement");
+const partnerOrdersRoutes = require("./routes/partnerOrders");
 
 const app = express();
 
@@ -83,6 +84,7 @@ app.use("/uploads", express.static(path.join(__dirname, "..","public" ,"uploads"
 app.use("/api", loginroute);
 app.use("/api", authRoute);
 app.use("/api", PartnerRegistration);
+app.use("/api/partner-orders", partnerOrdersRoutes);
 app.use("/api", getExerciseLibrary);
 app.use("/api", getSplitLibrary);
 app.use("/api", getRepRange);

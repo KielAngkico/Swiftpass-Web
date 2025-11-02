@@ -7,7 +7,8 @@ const upload = require("../middleware/partnersUpload");
 const query = (sql, params = []) => db.promise().query(sql, params);
 
 // --- Insert Default Pricing ---
-const insertDefaultPricing = async (admin_id, system_type) => {
+// --- Insert Default Pricing (modified to accept connection) ---
+const insertDefaultPricing = async (conn, admin_id, system_type) => {
   const defaults = [
     ["Daily Session", 0],
     ["Key Fob", 0],
@@ -15,7 +16,7 @@ const insertDefaultPricing = async (admin_id, system_type) => {
     ["Membership Fee", 0],
   ];
   for (const [plan, amount] of defaults) {
-    await query(
+    await conn.query(
       `INSERT INTO AdminPricingOptions
       (admin_id, system_type, plan_name, amount_to_pay, is_deletable)
       VALUES (?, ?, ?, ?, FALSE)`,
@@ -26,13 +27,19 @@ const insertDefaultPricing = async (admin_id, system_type) => {
 
 // --- Add Client ---
 router.post("/add-client", upload.single("profile_image_url"), async (req, res) => {
+  const conn = await db.promise().getConnection();
   try {
+    await conn.beginTransaction();
+
     const {
       admin_name, email, password, address, gym_name,
       system_type, package_id, rfid_tag, rfid_tag_2,
     } = req.body;
 
-    if (!password) return res.status(400).json({ error: "Password is required" });
+    if (!password) {
+      await conn.rollback();
+      return res.status(400).json({ error: "Password is required" });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const imagePath = req.file ? `/uploads/partners/${req.file.filename}` : null;
@@ -40,8 +47,8 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
     let pkgId = null, pkgPrice = 0, startDate = null, endDate = null;
 
     // Calculate package dates if package selected (FOR ALL SYSTEM TYPES)
-    if (package_id) {  // ← REMOVED the system_type === "subscription" condition
-      const [[pkg]] = await query(`SELECT * FROM SubscriptionPackages WHERE id = ?`, [package_id]);
+    if (package_id) {
+      const [[pkg]] = await conn.query(`SELECT * FROM SubscriptionPackages WHERE id = ?`, [package_id]);
       if (pkg) {
         pkgId = pkg.id;
         pkgPrice = pkg.price;
@@ -50,7 +57,7 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
       }
     }
 
-    const [result] = await query(`
+    const [result] = await conn.query(`
       INSERT INTO AdminAccounts
       (admin_name, email, password, address, gym_name, system_type,
        profile_image_url, rfid_tag, rfid_tag_2, package_id,
@@ -62,21 +69,57 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
 
     const admin_id = result.insertId;
 
-    await query(`INSERT INTO AdminPaymentMethods (admin_id, name, is_default, is_enabled)
+    await conn.query(`INSERT INTO AdminPaymentMethods (admin_id, name, is_default, is_enabled)
                  VALUES (?, 'Cash', 1, 1)`, [admin_id]);
 
-    await insertDefaultPricing(admin_id, system_type);
+    await insertDefaultPricing(conn, admin_id, system_type); // Pass conn here
 
     // Record package purchase transaction (FOR ALL SYSTEM TYPES)
     if (pkgId && pkgPrice > 0) {
-      const [[pkg]] = await query(`SELECT name FROM SubscriptionPackages WHERE id = ?`, [pkgId]);
-      const [txn] = await query(`
+      const [[pkg]] = await conn.query(`SELECT name FROM SubscriptionPackages WHERE id = ?`, [pkgId]);
+      const [txn] = await conn.query(`
         INSERT INTO SuperAdminTransactions (admin_id, transaction_type, total_amount)
-        VALUES (?, 'Package Purchase', ?)`, [admin_id, pkgPrice]); // ← Changed label
-      await query(`
+        VALUES (?, 'Package Purchase', ?)`, [admin_id, pkgPrice]);
+      await conn.query(`
         INSERT INTO SuperAdminTransactionItems (transaction_id, item_name, quantity, price)
         VALUES (?, ?, 1, ?)`, [txn.insertId, pkg.name, pkgPrice]);
+
+      // ========================================
+      // CREATE INITIAL ORDER FOR THE PACKAGE
+      // ========================================
+      // Generate order number
+      const timestamp = Date.now().toString().slice(-8);
+      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const order_number = `ORD-${timestamp}${random}`;
+
+      // Create order
+      const [orderResult] = await conn.query(`
+        INSERT INTO PartnerOrders 
+        (order_number, admin_id, order_type, total_amount, payment_status, status)
+        VALUES (?, ?, 'initial_package', ?, 'paid', 'pending')
+      `, [order_number, admin_id, pkgPrice]);
+
+      const order_id = orderResult.insertId;
+
+      // Get package items
+      const [packageItems] = await conn.query(
+        `SELECT item_name, quantity FROM PackageItems WHERE package_id = ?`,
+        [pkgId]
+      );
+
+      // Create order items
+      for (const item of packageItems) {
+        await conn.query(`
+          INSERT INTO PartnerOrderItems 
+          (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
+          VALUES (?, ?, 'other', ?, 0, 0, 'pending')
+        `, [order_id, item.item_name, item.quantity]);
+      }
+
+      console.log(`✅ Created initial order ${order_number} for partner ${admin_id}`);
     }
+
+    await conn.commit();
 
     res.status(201).json({ 
       message: "Client added successfully", 
@@ -86,8 +129,11 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
       subscription_end_date: endDate
     });
   } catch (err) {
+    await conn.rollback();
     console.error("Add client error:", err);
     res.status(500).json({ error: "Server error", details: err.message });
+  } finally {
+    conn.release();
   }
 });
 // --- Update Admin ---

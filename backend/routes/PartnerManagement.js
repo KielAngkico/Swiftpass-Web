@@ -312,7 +312,7 @@ router.post("/renew-subscription/:id", async (req, res) => {
       INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount)
       VALUES (?, 'Package Renewal', ?)`, [id, pkg.price]); // ← Changed label
     await query(`
-      INSERT INTO SuperAdminTransactionItems (transaction_id, item_name, quantity, price)
+      INSERT INTO SuperAdminTransactionItems (transaction_id, item_name, quantity, unit_price, total_price)
       VALUES (?, ?, 1, ?)`, [txn.insertId, pkg.name, pkg.price]);
 
     res.json({ 

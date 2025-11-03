@@ -234,12 +234,12 @@ router.put("/:id/complete-with-payment", async (req, res) => {
     }
 
     // Create SuperAdmin transaction
-    const [txnResult] = await conn.query(`
-      INSERT INTO SuperAdminTransactions 
-      (admin_id, order_id, transaction_type, amount, payment_method, reference_number, transaction_date)
-      VALUES (?, ?, 'Order Payment', ?, ?, ?, NOW())
-    `, [order.admin_id, id, order.total_amount, payment_method, reference_number || null]);
-
+// Create SuperAdmin transaction
+const [txnResult] = await conn.query(`
+  INSERT INTO SuperAdminTransactions 
+  (admin_id, order_id, transaction_type, amount, payment_method, reference_number)
+  VALUES (?, ?, 'Order Payment', ?, ?, ?)
+`, [order.admin_id, id, order.total_amount, payment_method, reference_number || null]);
     const transaction_id = txnResult.insertId;
 
     // Get order items for transaction details

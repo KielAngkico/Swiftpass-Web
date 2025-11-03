@@ -34,6 +34,8 @@ const FoodLibrary = React.lazy(() => import("./Frontend/SuperAdmin/FoodLibrary")
 const Allergens = React.lazy(() => import("./Frontend/SuperAdmin/AllergensMasterList"));
 const ItemsInventory = React.lazy(() => import("./Frontend/SuperAdmin/ItemsInventory"));
 const PricingsManagement = React.lazy(() => import("./Frontend/SuperAdmin/PricingManagement"));
+const OrdersPage = React.lazy(() => import("./Frontend/SuperAdmin/OrdersPage"));
+
 
 const AdminAnalyticalDashboard = React.lazy(() => import("./Frontend/Admin/AdminAnalyticalDashboard"));
 const AdminViewMembers = React.lazy(() => import("./Frontend/Admin/AdminViewMembers"));
@@ -42,6 +44,8 @@ const TransactionsReport = React.lazy(() => import("./Frontend/Admin/Transaction
 const PricingManagement = React.lazy(() => import("./Frontend/Admin/PricingManagement"));
 const StaffManagement = React.lazy(() => import("./Frontend/Admin/StaffManagement"));
 const StaffActivityLogs = React.lazy(() => import("./Frontend/Admin/StaffActivityLogs"));
+const MyOrders = React.lazy(() => import("./Frontend/Admin/MyOrders"));
+
 
 const ViewMembers = React.lazy(() => import("./Frontend/Staff/ViewMembers"));
 const ScanRFID = React.lazy(() => import("./Frontend/Staff/ScanRFID"));
@@ -264,6 +268,7 @@ const AppRoutes = () => {
           {user?.role === "superadmin" && (
             <>
               <Route path="/SuperAdmin/addClient" element={<AddClient />} />
+              <Route path="/SuperAdmin/OrdersPage" element={<OrdersPage />} />
               <Route path="/SuperAdmin/ExerciseLibrary" element={<ExerciseLibrary />} />
               <Route path="/SuperAdmin/SplitLibrary" element={<SplitLibrary />} />
               <Route path="/SuperAdmin/RepRange" element={<RepRange />} />
@@ -280,6 +285,7 @@ const AppRoutes = () => {
               <Route path="/Admin/AdminViewMembers" element={<AdminViewMembers />} />
               <Route path="/Admin/ActivityAnalytics" element={<ActivityAnalytics />} />
               <Route path="/Admin/TransactionsReport" element={<TransactionsReport />} />
+              <Route path="/Admin/MyOrders" element={<MyOrders />} />
               <Route path="/Admin/PricingManagement" element={<PricingManagement />} />
               <Route path="/Admin/StaffManagement" element={<StaffManagement />} />
               <Route path="/Admin/StaffActivityLogs" element={<StaffActivityLogs/>} />

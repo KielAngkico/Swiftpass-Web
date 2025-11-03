@@ -23,7 +23,7 @@ import { setAccessToken, clearAccessToken, getAccessToken } from "./tokenMemory"
 import { scheduleTokenRefresh } from "./api";
 import { ToastProvider } from "./components/ToastManager";
 
-const PartnerRegistration = React.lazy(() => import("./Frontend/PartnerRegistrationForm"));
+import PartnerRegistration from "./Frontend/PartnerRegistrationForm";
 
 
 const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));
@@ -97,52 +97,69 @@ const AuthProvider = ({ children }) => {
     window.location.href = "/";
   };
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/auth-status-auto`, {
-          method: "GET",
-          credentials: "include", 
-        });
-        
-        const data = await res.json();
+// Replace your checkAuth useEffect with this fixed version:
 
-        if (res.ok && data.user) {
-          if (data.accessToken) {
-            setAccessToken(data.accessToken);
-            scheduleTokenRefresh(data.accessToken);
-          }
-          setUser(data.user);
-        } else {
-          clearAccessToken();
-          setUser(null);
-          if (window.location.pathname !== "/" && (res.status === 401 || res.status === 403)) {
+useEffect(() => {
+  const checkAuth = async () => {
+    const publicPaths = ['/', '/partner-registration'];
+    const currentPath = window.location.pathname;
+    
+    // Only skip auth check on public paths if user is not already logged in
+    if (publicPaths.includes(currentPath) && !user) {
+      console.log("🔓 Public page - skipping auth");
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      const res = await fetch(`${API_URL}/api/auth-status-auto`, {
+        method: "GET",
+        credentials: "include", 
+      });
+      
+      const data = await res.json();
+
+      if (res.ok && data.user) {
+        if (data.accessToken) {
+          setAccessToken(data.accessToken);
+          scheduleTokenRefresh(data.accessToken);
+        }
+        setUser(data.user);
+      } else {
+        clearAccessToken();
+        setUser(null);
+        // Only redirect to homepage if on protected route
+        if (!publicPaths.includes(currentPath)) {
+          if (res.status === 401 || res.status === 403) {
             window.location.href = "/";
           }
         }
-      } catch (err) {
-        clearAccessToken();
-        setUser(null);
-        if (window.location.pathname !== "/") {
-          window.location.href = "/";
-        }
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      console.error("Auth error:", err);
+      clearAccessToken();
+      setUser(null);
+      // Only redirect to homepage if on protected route
+      if (!publicPaths.includes(currentPath)) {
+        window.location.href = "/";
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  checkAuth();
+  
+  const handleAuthChanged = () => {
     checkAuth();
-    
-    const handleAuthChanged = () => {
-      checkAuth();
-    };
-    
-    window.addEventListener("auth-changed", handleAuthChanged);
+  };
+  
+  window.addEventListener("auth-changed", handleAuthChanged);
 
-    return () => {
-      window.removeEventListener("auth-changed", handleAuthChanged);
-    };
-  }, []);
+  return () => {
+    window.removeEventListener("auth-changed", handleAuthChanged);
+  };
+}, []); // Keep empty dependency array
 
   useEffect(() => {
     if (!user) return;

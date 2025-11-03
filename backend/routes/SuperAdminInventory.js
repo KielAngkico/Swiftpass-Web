@@ -9,9 +9,9 @@ router.get("/inventory", (req, res) => {
       i.*,
       COALESCE(
         CASE 
-          WHEN i.name = 'Partner/Staff - Card' THEN (SELECT COUNT(*) FROM RegisteredRfid WHERE role = 'Partner' AND rfid_type = 'card')
-          WHEN i.name = 'Member - Wristband' THEN (SELECT COUNT(*) FROM RegisteredRfid WHERE role = 'Member' AND rfid_type = 'wristband')
-          WHEN i.name = 'Day Pass - KeyFob' THEN (SELECT COUNT(*) FROM RegisteredRfid WHERE role = 'DayPass' AND rfid_type = 'key_fob')
+          WHEN i.name = 'Partner/Staff - Card' THEN (SELECT COUNT(*) FROM RegisteredRfid WHERE role = 'Partner' AND rfid_type = 'card' AND status = 'in_stock')
+          WHEN i.name = 'Member - Wristband' THEN (SELECT COUNT(*) FROM RegisteredRfid WHERE role = 'Member' AND rfid_type = 'wristband' AND status = 'in_stock')
+          WHEN i.name = 'Day Pass - KeyFob' THEN (SELECT COUNT(*) FROM RegisteredRfid WHERE role = 'DayPass' AND rfid_type = 'key_fob' AND status = 'in_stock')
           ELSE i.quantity
         END, 
         i.quantity
@@ -109,7 +109,7 @@ router.post("/rfid", (req, res) => {
   if (!rfid_tag) return res.status(400).json({ message: "Missing RFID tag" });
 
   db.query(
-    "INSERT INTO RegisteredRfid (rfid_tag, rfid_type, role) VALUES (?, ?, ?)", 
+    "INSERT INTO RegisteredRfid (rfid_tag, rfid_type, role, status) VALUES (?, ?, ?, 'in_stock')", 
     [rfid_tag, rfid_type || null, role || null], 
     (err, result) => {
       if (err) return res.status(500).json({ error: err });

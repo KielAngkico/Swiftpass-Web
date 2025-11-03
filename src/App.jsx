@@ -23,7 +23,7 @@ import { setAccessToken, clearAccessToken, getAccessToken } from "./tokenMemory"
 import { scheduleTokenRefresh } from "./api";
 import { ToastProvider } from "./components/ToastManager";
 
-const PartnerRegistration = React.lazy(() => import("./Frontend/PartnerRegistrationForm"));
+import PartnerRegistration from "./Frontend/PartnerRegistrationForm";
 
 
 const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));

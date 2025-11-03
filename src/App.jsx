@@ -97,14 +97,16 @@ const AuthProvider = ({ children }) => {
     window.location.href = "/";
   };
 
+// Replace your checkAuth useEffect with this fixed version:
+
 useEffect(() => {
   const checkAuth = async () => {
     const publicPaths = ['/', '/partner-registration'];
     const currentPath = window.location.pathname;
     
-    if (publicPaths.includes(currentPath)) {
+    // Only skip auth check on public paths if user is not already logged in
+    if (publicPaths.includes(currentPath) && !user) {
       console.log("🔓 Public page - skipping auth");
-      setUser(null);  // ⭐ ADD THIS
       setLoading(false);
       return;
     }
@@ -126,15 +128,21 @@ useEffect(() => {
       } else {
         clearAccessToken();
         setUser(null);
-        if (res.status === 401 || res.status === 403) {
-          window.location.href = "/";
+        // Only redirect to homepage if on protected route
+        if (!publicPaths.includes(currentPath)) {
+          if (res.status === 401 || res.status === 403) {
+            window.location.href = "/";
+          }
         }
       }
     } catch (err) {
       console.error("Auth error:", err);
       clearAccessToken();
       setUser(null);
-      window.location.href = "/";
+      // Only redirect to homepage if on protected route
+      if (!publicPaths.includes(currentPath)) {
+        window.location.href = "/";
+      }
     } finally {
       setLoading(false);
     }
@@ -151,7 +159,7 @@ useEffect(() => {
   return () => {
     window.removeEventListener("auth-changed", handleAuthChanged);
   };
-}, []); // ⭐ Keep empty dependency array - this is correct
+}, []); // Keep empty dependency array
 
   useEffect(() => {
     if (!user) return;

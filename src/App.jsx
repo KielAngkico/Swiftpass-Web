@@ -99,11 +99,12 @@ const AuthProvider = ({ children }) => {
 
 useEffect(() => {
   const checkAuth = async () => {
-    // Skip auth check for public pages
     const publicPaths = ['/', '/partner-registration'];
     const currentPath = window.location.pathname;
     
     if (publicPaths.includes(currentPath)) {
+      console.log("🔓 Public page - skipping auth");
+      setUser(null);  // ⭐ ADD THIS
       setLoading(false);
       return;
     }
@@ -150,7 +151,7 @@ useEffect(() => {
   return () => {
     window.removeEventListener("auth-changed", handleAuthChanged);
   };
-}, []);
+}, []); // ⭐ Keep empty dependency array - this is correct
 
   useEffect(() => {
     if (!user) return;

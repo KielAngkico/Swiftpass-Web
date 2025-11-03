@@ -37,20 +37,18 @@ router.get("/available-inventory", async (req, res) => {
         name,
         quantity as available_quantity,
         selling_price,
-        category,
+        type as category,
         updated_at
       FROM SuperAdminInventory
-      WHERE quantity > 0
-      ORDER BY category, name
+      ORDER BY type, name
     `);
     
     res.json(items);
   } catch (err) {
     console.error("Get available inventory error:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error", details: err.message });
   }
 });
-
 // ========================================
 // CREATE NEW ORDER (Partner) - Updated to use inventory prices
 // ========================================

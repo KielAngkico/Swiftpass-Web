@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../../../api";
-import {IP} from "../../../IpConfig";
 import { useToast } from "../../../components/ToastManager";
+import { useWebcam } from "../../../hooks/useWebcam"; // Import your custom hook
 
 const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
   const staffName = staffUser?.name;
@@ -29,17 +29,20 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
   const [serverMessage, setServerMessage] = useState("");
   const [membershipFee, setMembershipFee] = useState(0);
   const [paymentMethods, setPaymentMethods] = useState([]);
-  
-  // Webcam states
-  const [isWebcamActive, setIsWebcamActive] = useState(false);
-  const [stream, setStream] = useState(null);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
 
-  const wsRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
+  
+  // Use the custom webcam hook
+  const {
+    isWebcamActive,
+    videoRef,
+    canvasRef,
+    startWebcam,
+    stopWebcam,
+    capturePhoto
+  } = useWebcam(showToast);
 
   useEffect(() => {
     if (rfid_tag) {
@@ -61,7 +64,7 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
         const { data } = await api.get(`/api/payment-methods/${adminId}`);
         setPaymentMethods(data);
       } catch (err) {
-        console.error(" Failed to fetch payment methods:", err);
+        console.error("Failed to fetch payment methods:", err);
       }
     };
     fetchPaymentMethods();
@@ -85,15 +88,6 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
     fetchMembershipFee();
   }, [adminId]);
 
-  // Cleanup webcam on unmount
-  useEffect(() => {
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [stream]);
-
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -104,74 +98,11 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
     }
   };
 
-const startWebcam = async () => {
-  try {
-    console.log("🎥 Requesting camera access...");
-    
-    const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-      video: { 
-        width: 640, 
-        height: 480,
-        facingMode: "user"
-      } 
+  const handleCapturePhoto = () => {
+    capturePhoto((file, preview) => {
+      setSelectedImage(file);
+      setImagePreview(preview);
     });
-    
-    console.log("✅ Camera access granted", mediaStream);
-    
-    // Set stream and active state first
-    setStream(mediaStream);
-    setIsWebcamActive(true);
-    
-    // Use setTimeout to ensure the video element is rendered before attaching stream
-    setTimeout(() => {
-      if (videoRef.current) {
-        console.log("📹 Attaching stream to video element", videoRef.current);
-        videoRef.current.srcObject = mediaStream;
-        
-        // Force play
-        videoRef.current.play().then(() => {
-          console.log("▶️ Video playing");
-        }).catch(err => {
-          console.error("❌ Video play error:", err);
-        });
-      } else {
-        console.error("❌ Video ref is null");
-      }
-    }, 100);
-    
-  } catch (err) {
-    console.error("❌ Error accessing webcam:", err);
-    showToast({ message: "Failed to access webcam. Please check permissions.", type: "error" });
-  }
-};
-
-  const stopWebcam = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    setIsWebcamActive(false);
-  };
-
-  const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      
-      canvas.toBlob((blob) => {
-        const file = new File([blob], "captured-photo.jpg", { type: "image/jpeg" });
-        setSelectedImage(file);
-        setImagePreview(canvas.toDataURL('image/jpeg'));
-        stopWebcam();
-        showToast({ message: "Photo captured successfully!", type: "success" });
-      }, 'image/jpeg', 0.95);
-    }
   };
 
   const handleChange = (e) => {
@@ -254,13 +185,6 @@ const startWebcam = async () => {
       }
     }
   };
-  // Add this new useEffect after your other useEffects
-useEffect(() => {
-  if (isWebcamActive && stream && videoRef.current) {
-    console.log("🔄 UseEffect: Attaching stream");
-    videoRef.current.srcObject = stream;
-  }
-}, [isWebcamActive, stream]);
 
   return (
     <div className="min-h-screen w-full bg-white p-2">
@@ -529,7 +453,7 @@ useEffect(() => {
                 <>
                   <button
                     type="button"
-                    onClick={capturePhoto}
+                    onClick={handleCapturePhoto}
                     className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700"
                   >
                     📸 Capture

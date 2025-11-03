@@ -91,7 +91,10 @@ const ItemsInventory = () => {
       await fetchItems();
 
       if (!rfidTag) setScanValue("");
-      showToast({ message: "RFID registered successfully!", type: "success" });
+      showToast({ 
+        message: `RFID registered successfully! Warehouse #: ${response.data.warehouse_number}`, 
+        type: "success" 
+      });
     } catch (error) {
       console.error("Failed to add RFID:", error.response?.data || error.message);
       showToast({ message: error.response?.data?.message || "Failed to add RFID", type: "error" });
@@ -427,6 +430,7 @@ const ItemsInventory = () => {
                 <thead className="bg-gray-900 text-white sticky top-0">
                   <tr>
                     <th className="p-2 border border-gray-700">#</th>
+                    <th className="p-2 border border-gray-700">Warehouse #</th>
                     <th className="p-2 border border-gray-700">RFID Tag / Type</th>
                     <th className="p-2 border border-gray-700">Role</th>
                     <th className="p-2 border border-gray-700">Status</th>
@@ -438,6 +442,11 @@ const ItemsInventory = () => {
                   {rfids.map((rfid, index) => (
                     <tr key={rfid.id} className="hover:bg-gray-50">
                       <td className="p-2 border text-center">{index + 1}</td>
+                      <td className="p-2 border">
+                        <div className="font-mono font-bold text-blue-700">
+                          {rfid.warehouse_number || 'N/A'}
+                        </div>
+                      </td>
                       <td className="p-2 border">
                         <div className="font-mono">{rfid.rfid_tag}</div>
                         <div className="text-[10px] text-gray-500 mt-1">

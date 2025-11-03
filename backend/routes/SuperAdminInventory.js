@@ -3,6 +3,34 @@ const db = require("../db");
 
 const router = express.Router();
 
+// Helper function to generate warehouse number
+const generateWarehouseNumber = (role, callback) => {
+  const query = `
+    SELECT warehouse_number 
+    FROM RegisteredRfid 
+    WHERE role = ? AND warehouse_number IS NOT NULL
+    ORDER BY warehouse_number DESC 
+    LIMIT 1
+  `;
+  
+  db.query(query, [role], (err, results) => {
+    if (err) return callback(err);
+    
+    let nextNumber = 1;
+    if (results.length > 0 && results[0].warehouse_number) {
+      // Extract number from format "ROLE-0001"
+      const match = results[0].warehouse_number.match(/\d+$/);
+      if (match) {
+        nextNumber = parseInt(match[0]) + 1;
+      }
+    }
+    
+    // Format: ROLE-0001 (pad to 4 digits)
+    const warehouseNumber = `${role.toUpperCase()}-${String(nextNumber).padStart(4, '0')}`;
+    callback(null, warehouseNumber);
+  });
+};
+
 router.get("/inventory", (req, res) => {
   const query = `
     SELECT 
@@ -107,15 +135,30 @@ router.get("/rfid", (req, res) => {
 router.post("/rfid", (req, res) => {
   const { rfid_tag, rfid_type, role } = req.body;
   if (!rfid_tag) return res.status(400).json({ message: "Missing RFID tag" });
+  if (!role) return res.status(400).json({ message: "Missing role" });
 
-  db.query(
-    "INSERT INTO RegisteredRfid (rfid_tag, rfid_type, role, status) VALUES (?, ?, ?, 'in_stock')", 
-    [rfid_tag, rfid_type || null, role || null], 
-    (err, result) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json({ id: result.insertId });
+  // Generate warehouse number
+  generateWarehouseNumber(role, (err, warehouseNumber) => {
+    if (err) {
+      console.error("Error generating warehouse number:", err);
+      return res.status(500).json({ error: "Failed to generate warehouse number" });
     }
-  );
+
+    db.query(
+      "INSERT INTO RegisteredRfid (rfid_tag, rfid_type, role, status, warehouse_number) VALUES (?, ?, ?, 'in_stock', ?)", 
+      [rfid_tag, rfid_type || null, role, warehouseNumber], 
+      (err, result) => {
+        if (err) {
+          console.error("RFID Insert Error:", err);
+          return res.status(500).json({ error: err.sqlMessage || err.message });
+        }
+        res.json({ 
+          id: result.insertId,
+          warehouse_number: warehouseNumber
+        });
+      }
+    );
+  });
 });
 
 router.get("/rfid/check/:rfid_tag", (req, res) => {

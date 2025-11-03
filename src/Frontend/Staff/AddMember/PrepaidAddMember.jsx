@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../../../api";
-import {IP} from "../../../IpConfig";
+import { IP } from "../../../IpConfig";
 import { useToast } from "../../../components/ToastManager";
+import { useWebcam } from "../../../hooks/useWebcam";
 
 const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
   const staffName = staffUser?.name;
@@ -34,6 +35,16 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
+
+  // Use the custom webcam hook
+  const {
+    isWebcamActive,
+    videoRef,
+    canvasRef,
+    startWebcam,
+    stopWebcam,
+    capturePhoto
+  } = useWebcam(showToast);
 
   useEffect(() => {
     if (rfid_tag) {
@@ -87,6 +98,13 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
       reader.readAsDataURL(file);
       setSelectedImage(file);
     }
+  };
+
+  const handleCapturePhoto = () => {
+    capturePhoto((file, preview) => {
+      setSelectedImage(file);
+      setImagePreview(preview);
+    });
   };
 
   const handleChange = (e) => {
@@ -386,25 +404,69 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
               </div>
               <div className="flex flex-col items-center p-4">
                 <div className="w-50 h-50 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
-                  {imagePreview ? (
+                  {isWebcamActive ? (
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  ) : imagePreview ? (
                     <img
                       src={imagePreview}
                       alt="Profile Preview"
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-gray-400 text-sm">Upload Photo</span>
+                    <span className="text-gray-400 text-sm">Upload or Capture Photo</span>
                   )}
                 </div>
               </div>
             </div>
 
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="w-3/4 px-3 py-2 border border-gray-300 rounded text-sm"
-            />
+            {/* Hidden canvas for capturing */}
+            <canvas ref={canvasRef} className="hidden" />
+
+            {/* Webcam Controls */}
+            <div className="flex gap-2 w-3/4">
+              {!isWebcamActive ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={startWebcam}
+                    className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700"
+                  >
+                    📷 Open Camera
+                  </button>
+                  <label className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700 cursor-pointer text-center">
+                    📁 Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCapturePhoto}
+                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700"
+                  >
+                    📸 Capture
+                  </button>
+                  <button
+                    type="button"
+                    onClick={stopWebcam}
+                    className="flex-1 px-3 py-2 bg-red-600 text-white rounded text-sm font-semibold hover:bg-red-700"
+                  >
+                    ✖ Cancel
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </form>
       </main>

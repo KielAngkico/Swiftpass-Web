@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../../../api";
@@ -33,6 +29,12 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
   const [serverMessage, setServerMessage] = useState("");
   const [membershipFee, setMembershipFee] = useState(0);
   const [paymentMethods, setPaymentMethods] = useState([]);
+  
+  // Webcam states
+  const [isWebcamActive, setIsWebcamActive] = useState(false);
+  const [stream, setStream] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
 
   const wsRef = useRef(null);
   const navigate = useNavigate();
@@ -83,6 +85,15 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
     fetchMembershipFee();
   }, [adminId]);
 
+  // Cleanup webcam on unmount
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
+
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -90,6 +101,51 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
       reader.onload = () => setImagePreview(reader.result);
       reader.readAsDataURL(file);
       setSelectedImage(file);
+    }
+  };
+
+  const startWebcam = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: 640, height: 480 } 
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+      setIsWebcamActive(true);
+    } catch (err) {
+      console.error("Error accessing webcam:", err);
+      showToast({ message: "Failed to access webcam. Please check permissions.", type: "error" });
+    }
+  };
+
+  const stopWebcam = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsWebcamActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+      
+      canvas.toBlob((blob) => {
+        const file = new File([blob], "captured-photo.jpg", { type: "image/jpeg" });
+        setSelectedImage(file);
+        setImagePreview(canvas.toDataURL('image/jpeg'));
+        stopWebcam();
+        showToast({ message: "Photo captured successfully!", type: "success" });
+      }, 'image/jpeg', 0.95);
     }
   };
 
@@ -102,12 +158,12 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
     e.preventDefault();
 
     if (!staffName || !adminId) {
-showToast({ message: "Staff info missing. Please login again.", type: "error" });
+      showToast({ message: "Staff info missing. Please login again.", type: "error" });
       return;
     }
 
     if (membershipFee <= 0) {
-showToast({ message: "Membership fee not found. Please contact administrator.", type: "error" });
+      showToast({ message: "Membership fee not found. Please contact administrator.", type: "error" });
       return;
     }
 
@@ -140,7 +196,7 @@ showToast({ message: "Membership fee not found. Please contact administrator.", 
       const result = response.data;
       setServerMessage(result.message);
 
-showToast({ message: "Member added successfully!", type: "success" });
+      showToast({ message: "Member added successfully!", type: "success" });
 
       setFormData({
         full_name: "",
@@ -165,11 +221,11 @@ showToast({ message: "Member added successfully!", type: "success" });
 
       if (err.response) {
         console.log("Server error response:", err.response.data);
-showToast({ message: err.response.data.message || 'Something went wrong', type: "error" });
+        showToast({ message: err.response.data.message || 'Something went wrong', type: "error" });
       } else if (err.request) {
-showToast({ message: "Network error. Please check your connection.", type: "error" });
+        showToast({ message: "Network error. Please check your connection.", type: "error" });
       } else {
-showToast({ message: "Something went wrong. Please try again.", type: "error" });
+        showToast({ message: "Something went wrong. Please try again.", type: "error" });
       }
     }
   };
@@ -393,25 +449,69 @@ showToast({ message: "Something went wrong. Please try again.", type: "error" })
               </div>
               <div className="flex flex-col items-center p-4">
                 <div className="w-50 h-50 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
-                  {imagePreview ? (
+                  {isWebcamActive ? (
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  ) : imagePreview ? (
                     <img
                       src={imagePreview}
                       alt="Profile Preview"
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-gray-400 text-sm">Upload Photo</span>
+                    <span className="text-gray-400 text-sm">Upload or Capture Photo</span>
                   )}
                 </div>
               </div>
             </div>
 
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="w-3/4 px-3 py-2 border border-gray-300 rounded text-sm"
-            />
+            {/* Hidden canvas for capturing */}
+            <canvas ref={canvasRef} className="hidden" />
+
+            {/* Webcam Controls */}
+            <div className="flex gap-2 w-3/4">
+              {!isWebcamActive ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={startWebcam}
+                    className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700"
+                  >
+                    📷 Open Camera
+                  </button>
+                  <label className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700 cursor-pointer text-center">
+                    📁 Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={capturePhoto}
+                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700"
+                  >
+                    📸 Capture
+                  </button>
+                  <button
+                    type="button"
+                    onClick={stopWebcam}
+                    className="flex-1 px-3 py-2 bg-red-600 text-white rounded text-sm font-semibold hover:bg-red-700"
+                  >
+                    ✖ Cancel
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </form>
       </main>

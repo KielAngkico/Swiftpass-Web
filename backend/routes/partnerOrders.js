@@ -480,6 +480,7 @@ router.put("/:id/process", async (req, res) => {
           continue;
         }
 
+        // Allocate RFIDs
         for (const rfid of availableRfids) {
           await conn.query(`
             UPDATE RegisteredRfid 
@@ -490,6 +491,14 @@ router.put("/:id/process", async (req, res) => {
             WHERE id = ?
           `, [order.admin_id, id, rfid.id]);
         }
+
+        // 🔥 UPDATE: Deduct allocated RFIDs from SuperAdminInventory
+        await conn.query(`
+          UPDATE SuperAdminInventory 
+          SET quantity = quantity - ?,
+              updated_at = NOW()
+          WHERE name = ?
+        `, [availableRfids.length, item.item_name]);
 
         const newAllocated = item.allocated_quantity + availableRfids.length;
         const newStatus = newAllocated >= item.quantity ? 'fully_allocated' : 'partially_allocated';
@@ -631,17 +640,17 @@ router.put("/:id/cancel", async (req, res) => {
       WHERE order_id = ? AND allocated_quantity > 0
     `, [id]);
 
+    // 🔥 Restore inventory for ALL items (including RFIDs)
     for (const item of orderItems) {
-      if (!item.item_type.includes('rfid')) {
-        await conn.query(`
-          UPDATE SuperAdminInventory 
-          SET quantity = quantity + ?,
-              updated_at = NOW()
-          WHERE name = ?
-        `, [item.allocated_quantity, item.item_name]);
-      }
+      await conn.query(`
+        UPDATE SuperAdminInventory 
+        SET quantity = quantity + ?,
+            updated_at = NOW()
+        WHERE name = ?
+      `, [item.allocated_quantity, item.item_name]);
     }
 
+    // Release RFIDs back to in_stock
     await conn.query(`
       UPDATE RegisteredRfid 
       SET status = 'in_stock',

@@ -23,7 +23,7 @@ import { setAccessToken, clearAccessToken, getAccessToken } from "./tokenMemory"
 import { scheduleTokenRefresh } from "./api";
 import { ToastProvider } from "./components/ToastManager";
 
-import PartnerRegistration from "./Frontend/PartnerRegistrationForm";
+const PartnerRegistration = React.lazy(() => import("./Frontend/PartnerRegistrationForm"));
 
 
 const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));
@@ -34,8 +34,6 @@ const FoodLibrary = React.lazy(() => import("./Frontend/SuperAdmin/FoodLibrary")
 const Allergens = React.lazy(() => import("./Frontend/SuperAdmin/AllergensMasterList"));
 const ItemsInventory = React.lazy(() => import("./Frontend/SuperAdmin/ItemsInventory"));
 const PricingsManagement = React.lazy(() => import("./Frontend/SuperAdmin/PricingManagement"));
-const OrdersPage = React.lazy(() => import("./Frontend/SuperAdmin/OrdersPage"));
-
 
 const AdminAnalyticalDashboard = React.lazy(() => import("./Frontend/Admin/AdminAnalyticalDashboard"));
 const AdminViewMembers = React.lazy(() => import("./Frontend/Admin/AdminViewMembers"));
@@ -44,8 +42,6 @@ const TransactionsReport = React.lazy(() => import("./Frontend/Admin/Transaction
 const PricingManagement = React.lazy(() => import("./Frontend/Admin/PricingManagement"));
 const StaffManagement = React.lazy(() => import("./Frontend/Admin/StaffManagement"));
 const StaffActivityLogs = React.lazy(() => import("./Frontend/Admin/StaffActivityLogs"));
-const MyOrders = React.lazy(() => import("./Frontend/Admin/MyOrders"));
-
 
 const ViewMembers = React.lazy(() => import("./Frontend/Staff/ViewMembers"));
 const ScanRFID = React.lazy(() => import("./Frontend/Staff/ScanRFID"));
@@ -97,69 +93,52 @@ const AuthProvider = ({ children }) => {
     window.location.href = "/";
   };
 
-// Replace your checkAuth useEffect with this fixed version:
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/auth-status-auto`, {
+          method: "GET",
+          credentials: "include", 
+        });
+        
+        const data = await res.json();
 
-useEffect(() => {
-  const checkAuth = async () => {
-    const publicPaths = ['/', '/partner-registration'];
-    const currentPath = window.location.pathname;
-    
-    // Only skip auth check on public paths if user is not already logged in
-    if (publicPaths.includes(currentPath) && !user) {
-      console.log("🔓 Public page - skipping auth");
-      setLoading(false);
-      return;
-    }
-    
-    try {
-      const res = await fetch(`${API_URL}/api/auth-status-auto`, {
-        method: "GET",
-        credentials: "include", 
-      });
-      
-      const data = await res.json();
-
-      if (res.ok && data.user) {
-        if (data.accessToken) {
-          setAccessToken(data.accessToken);
-          scheduleTokenRefresh(data.accessToken);
-        }
-        setUser(data.user);
-      } else {
-        clearAccessToken();
-        setUser(null);
-        // Only redirect to homepage if on protected route
-        if (!publicPaths.includes(currentPath)) {
-          if (res.status === 401 || res.status === 403) {
+        if (res.ok && data.user) {
+          if (data.accessToken) {
+            setAccessToken(data.accessToken);
+            scheduleTokenRefresh(data.accessToken);
+          }
+          setUser(data.user);
+        } else {
+          clearAccessToken();
+          setUser(null);
+          if (window.location.pathname !== "/" && (res.status === 401 || res.status === 403)) {
             window.location.href = "/";
           }
         }
+      } catch (err) {
+        clearAccessToken();
+        setUser(null);
+        if (window.location.pathname !== "/") {
+          window.location.href = "/";
+        }
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Auth error:", err);
-      clearAccessToken();
-      setUser(null);
-      // Only redirect to homepage if on protected route
-      if (!publicPaths.includes(currentPath)) {
-        window.location.href = "/";
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  checkAuth();
-  
-  const handleAuthChanged = () => {
     checkAuth();
-  };
-  
-  window.addEventListener("auth-changed", handleAuthChanged);
+    
+    const handleAuthChanged = () => {
+      checkAuth();
+    };
+    
+    window.addEventListener("auth-changed", handleAuthChanged);
 
-  return () => {
-    window.removeEventListener("auth-changed", handleAuthChanged);
-  };
-}, []); // Keep empty dependency array
+    return () => {
+      window.removeEventListener("auth-changed", handleAuthChanged);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -285,7 +264,6 @@ const AppRoutes = () => {
           {user?.role === "superadmin" && (
             <>
               <Route path="/SuperAdmin/addClient" element={<AddClient />} />
-              <Route path="/SuperAdmin/OrdersPage" element={<OrdersPage />} />
               <Route path="/SuperAdmin/ExerciseLibrary" element={<ExerciseLibrary />} />
               <Route path="/SuperAdmin/SplitLibrary" element={<SplitLibrary />} />
               <Route path="/SuperAdmin/RepRange" element={<RepRange />} />
@@ -302,7 +280,6 @@ const AppRoutes = () => {
               <Route path="/Admin/AdminViewMembers" element={<AdminViewMembers />} />
               <Route path="/Admin/ActivityAnalytics" element={<ActivityAnalytics />} />
               <Route path="/Admin/TransactionsReport" element={<TransactionsReport />} />
-              <Route path="/Admin/MyOrders" element={<MyOrders />} />
               <Route path="/Admin/PricingManagement" element={<PricingManagement />} />
               <Route path="/Admin/StaffManagement" element={<StaffManagement />} />
               <Route path="/Admin/StaffActivityLogs" element={<StaffActivityLogs/>} />

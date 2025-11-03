@@ -99,6 +99,15 @@ const AuthProvider = ({ children }) => {
 
 useEffect(() => {
   const checkAuth = async () => {
+    // Skip auth check for public pages
+    const publicPaths = ['/', '/partner-registration'];
+    const currentPath = window.location.pathname;
+    
+    if (publicPaths.includes(currentPath)) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       const res = await fetch(`${API_URL}/api/auth-status-auto`, {
         method: "GET",
@@ -116,10 +125,7 @@ useEffect(() => {
       } else {
         clearAccessToken();
         setUser(null);
-        // FIX: Don't redirect from public pages!
-        const publicPaths = ['/', '/partner-registration'];
-        const currentPath = window.location.pathname;
-        if (!publicPaths.includes(currentPath) && (res.status === 401 || res.status === 403)) {
+        if (res.status === 401 || res.status === 403) {
           window.location.href = "/";
         }
       }
@@ -127,12 +133,7 @@ useEffect(() => {
       console.error("Auth error:", err);
       clearAccessToken();
       setUser(null);
-      // FIX: Don't redirect from public pages!
-      const publicPaths = ['/', '/partner-registration'];
-      const currentPath = window.location.pathname;
-      if (!publicPaths.includes(currentPath)) {
-        window.location.href = "/";
-      }
+      window.location.href = "/";
     } finally {
       setLoading(false);
     }

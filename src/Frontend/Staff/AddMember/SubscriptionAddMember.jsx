@@ -441,78 +441,81 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
             )}
           </div>
 
-          <div className="flex flex-col items-center gap-3 w-80">
-            <h2 className="text-sm font-semibold text-gray-700">Profile Picture</h2>
-            <div className="bg-white border rounded-lg shadow w-3/4">
-              <div className="bg-black h-16 flex items-center justify-center">
-                <h3 className="text-white font-semibold text-sm">PHOTO</h3>
-              </div>
-              <div className="flex flex-col items-center p-4">
-                <div className="w-50 h-50 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
-                  {isWebcamActive ? (
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      className="w-full h-full object-cover"
-                    />
-                  ) : imagePreview ? (
-                    <img
-                      src={imagePreview}
-                      alt="Profile Preview"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-gray-400 text-sm">Upload or Capture Photo</span>
-                  )}
-                </div>
-              </div>
-            </div>
+// Replace the photo preview section with this updated code:
 
-            {/* Hidden canvas for capturing */}
-            <canvas ref={canvasRef} className="hidden" />
+<div className="flex flex-col items-center gap-3 w-80">
+  <h2 className="text-sm font-semibold text-gray-700">Profile Picture</h2>
+  <div className="bg-white border rounded-lg shadow w-full">
+    <div className="bg-black h-16 flex items-center justify-center">
+      <h3 className="text-white font-semibold text-sm">PHOTO</h3>
+    </div>
+    <div className="flex flex-col items-center p-4">
+      <div className="w-full h-64 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
+        {isWebcamActive ? (
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+          />
+        ) : imagePreview ? (
+          <img
+            src={imagePreview}
+            alt="Profile Preview"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <span className="text-gray-400 text-sm">Upload or Capture Photo</span>
+        )}
+      </div>
+    </div>
+  </div>
 
-            {/* Webcam Controls */}
-            <div className="flex gap-2 w-3/4">
-              {!isWebcamActive ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={startWebcam}
-                    className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700"
-                  >
-                    📷 Open Camera
-                  </button>
-                  <label className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700 cursor-pointer text-center">
-                    📁 Upload
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={capturePhoto}
-                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700"
-                  >
-                    📸 Capture
-                  </button>
-                  <button
-                    type="button"
-                    onClick={stopWebcam}
-                    className="flex-1 px-3 py-2 bg-red-600 text-white rounded text-sm font-semibold hover:bg-red-700"
-                  >
-                    ✖ Cancel
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
+  {/* Hidden canvas for capturing */}
+  <canvas ref={canvasRef} className="hidden" />
+
+  {/* Webcam Controls */}
+  <div className="flex gap-2 w-full">
+    {!isWebcamActive ? (
+      <>
+        <button
+          type="button"
+          onClick={startWebcam}
+          className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700"
+        >
+          📷 Open Camera
+        </button>
+        <label className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700 cursor-pointer text-center">
+          📁 Upload
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </label>
+      </>
+    ) : (
+      <>
+        <button
+          type="button"
+          onClick={capturePhoto}
+          className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700"
+        >
+          📸 Capture
+        </button>
+        <button
+          type="button"
+          onClick={stopWebcam}
+          className="flex-1 px-3 py-2 bg-red-600 text-white rounded text-sm font-semibold hover:bg-red-700"
+        >
+          ✖ Cancel
+        </button>
+      </>
+    )}
+  </div>
+</div>
         </form>
       </main>
     </div>

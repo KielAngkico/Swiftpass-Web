@@ -104,21 +104,46 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
     }
   };
 
-  const startWebcam = async () => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        video: { width: 640, height: 480 } 
-      });
-      setStream(mediaStream);
+const startWebcam = async () => {
+  try {
+    console.log("🎥 Requesting camera access...");
+    
+    const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        width: 640, 
+        height: 480,
+        facingMode: "user"
+      } 
+    });
+    
+    console.log("✅ Camera access granted", mediaStream);
+    
+    // Set stream and active state first
+    setStream(mediaStream);
+    setIsWebcamActive(true);
+    
+    // Use setTimeout to ensure the video element is rendered before attaching stream
+    setTimeout(() => {
       if (videoRef.current) {
+        console.log("📹 Attaching stream to video element", videoRef.current);
         videoRef.current.srcObject = mediaStream;
+        
+        // Force play
+        videoRef.current.play().then(() => {
+          console.log("▶️ Video playing");
+        }).catch(err => {
+          console.error("❌ Video play error:", err);
+        });
+      } else {
+        console.error("❌ Video ref is null");
       }
-      setIsWebcamActive(true);
-    } catch (err) {
-      console.error("Error accessing webcam:", err);
-      showToast({ message: "Failed to access webcam. Please check permissions.", type: "error" });
-    }
-  };
+    }, 100);
+    
+  } catch (err) {
+    console.error("❌ Error accessing webcam:", err);
+    showToast({ message: "Failed to access webcam. Please check permissions.", type: "error" });
+  }
+};
 
   const stopWebcam = () => {
     if (stream) {
@@ -229,6 +254,13 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
       }
     }
   };
+  // Add this new useEffect after your other useEffects
+useEffect(() => {
+  if (isWebcamActive && stream && videoRef.current) {
+    console.log("🔄 UseEffect: Attaching stream");
+    videoRef.current.srcObject = stream;
+  }
+}, [isWebcamActive, stream]);
 
   return (
     <div className="min-h-screen w-full bg-white p-2">
@@ -441,81 +473,78 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
             )}
           </div>
 
-// Replace the photo preview section with this updated code:
+          <div className="flex flex-col items-center gap-3 w-80">
+            <h2 className="text-sm font-semibold text-gray-700">Profile Picture</h2>
+            <div className="bg-white border rounded-lg shadow w-3/4">
+              <div className="bg-black h-16 flex items-center justify-center">
+                <h3 className="text-white font-semibold text-sm">PHOTO</h3>
+              </div>
+              <div className="flex flex-col items-center p-4">
+                <div className="w-50 h-50 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
+                  {isWebcamActive ? (
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  ) : imagePreview ? (
+                    <img
+                      src={imagePreview}
+                      alt="Profile Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-gray-400 text-sm">Upload or Capture Photo</span>
+                  )}
+                </div>
+              </div>
+            </div>
 
-<div className="flex flex-col items-center gap-3 w-80">
-  <h2 className="text-sm font-semibold text-gray-700">Profile Picture</h2>
-  <div className="bg-white border rounded-lg shadow w-full">
-    <div className="bg-black h-16 flex items-center justify-center">
-      <h3 className="text-white font-semibold text-sm">PHOTO</h3>
-    </div>
-    <div className="flex flex-col items-center p-4">
-      <div className="w-full h-64 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
-        {isWebcamActive ? (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-        ) : imagePreview ? (
-          <img
-            src={imagePreview}
-            alt="Profile Preview"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <span className="text-gray-400 text-sm">Upload or Capture Photo</span>
-        )}
-      </div>
-    </div>
-  </div>
+            {/* Hidden canvas for capturing */}
+            <canvas ref={canvasRef} className="hidden" />
 
-  {/* Hidden canvas for capturing */}
-  <canvas ref={canvasRef} className="hidden" />
-
-  {/* Webcam Controls */}
-  <div className="flex gap-2 w-full">
-    {!isWebcamActive ? (
-      <>
-        <button
-          type="button"
-          onClick={startWebcam}
-          className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700"
-        >
-          📷 Open Camera
-        </button>
-        <label className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700 cursor-pointer text-center">
-          📁 Upload
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-        </label>
-      </>
-    ) : (
-      <>
-        <button
-          type="button"
-          onClick={capturePhoto}
-          className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700"
-        >
-          📸 Capture
-        </button>
-        <button
-          type="button"
-          onClick={stopWebcam}
-          className="flex-1 px-3 py-2 bg-red-600 text-white rounded text-sm font-semibold hover:bg-red-700"
-        >
-          ✖ Cancel
-        </button>
-      </>
-    )}
-  </div>
-</div>
+            {/* Webcam Controls */}
+            <div className="flex gap-2 w-3/4">
+              {!isWebcamActive ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={startWebcam}
+                    className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700"
+                  >
+                    📷 Open Camera
+                  </button>
+                  <label className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700 cursor-pointer text-center">
+                    📁 Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={capturePhoto}
+                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700"
+                  >
+                    📸 Capture
+                  </button>
+                  <button
+                    type="button"
+                    onClick={stopWebcam}
+                    className="flex-1 px-3 py-2 bg-red-600 text-white rounded text-sm font-semibold hover:bg-red-700"
+                  >
+                    ✖ Cancel
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </form>
       </main>
     </div>

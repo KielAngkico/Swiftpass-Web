@@ -97,52 +97,59 @@ const AuthProvider = ({ children }) => {
     window.location.href = "/";
   };
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/auth-status-auto`, {
-          method: "GET",
-          credentials: "include", 
-        });
-        
-        const data = await res.json();
+useEffect(() => {
+  const checkAuth = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth-status-auto`, {
+        method: "GET",
+        credentials: "include", 
+      });
+      
+      const data = await res.json();
 
-        if (res.ok && data.user) {
-          if (data.accessToken) {
-            setAccessToken(data.accessToken);
-            scheduleTokenRefresh(data.accessToken);
-          }
-          setUser(data.user);
-        } else {
-          clearAccessToken();
-          setUser(null);
-          if (window.location.pathname !== "/" && (res.status === 401 || res.status === 403)) {
-            window.location.href = "/";
-          }
+      if (res.ok && data.user) {
+        if (data.accessToken) {
+          setAccessToken(data.accessToken);
+          scheduleTokenRefresh(data.accessToken);
         }
-      } catch (err) {
+        setUser(data.user);
+      } else {
         clearAccessToken();
         setUser(null);
-        if (window.location.pathname !== "/") {
+        // FIX: Don't redirect from public pages!
+        const publicPaths = ['/', '/partner-registration'];
+        const currentPath = window.location.pathname;
+        if (!publicPaths.includes(currentPath) && (res.status === 401 || res.status === 403)) {
           window.location.href = "/";
         }
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      console.error("Auth error:", err);
+      clearAccessToken();
+      setUser(null);
+      // FIX: Don't redirect from public pages!
+      const publicPaths = ['/', '/partner-registration'];
+      const currentPath = window.location.pathname;
+      if (!publicPaths.includes(currentPath)) {
+        window.location.href = "/";
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  checkAuth();
+  
+  const handleAuthChanged = () => {
     checkAuth();
-    
-    const handleAuthChanged = () => {
-      checkAuth();
-    };
-    
-    window.addEventListener("auth-changed", handleAuthChanged);
+  };
+  
+  window.addEventListener("auth-changed", handleAuthChanged);
 
-    return () => {
-      window.removeEventListener("auth-changed", handleAuthChanged);
-    };
-  }, []);
+  return () => {
+    window.removeEventListener("auth-changed", handleAuthChanged);
+  };
+}, []);
 
   useEffect(() => {
     if (!user) return;

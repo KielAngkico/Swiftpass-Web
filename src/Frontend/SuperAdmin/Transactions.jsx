@@ -16,7 +16,6 @@ const KpiBox = ({ title, value, color }) => (
 const SuperAdminTransactions = () => {
   const [transactions, setTransactions] = useState([]);
   const [filtered, setFiltered] = useState([]);
-  const [admins, setAdmins] = useState({});
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [filterMethod, setFilterMethod] = useState("All");
@@ -37,22 +36,6 @@ const SuperAdminTransactions = () => {
       const txnRes = await axios.get(`${API_URL}/api/superadmin-transactions`);
       setTransactions(txnRes.data);
       setFiltered(txnRes.data);
-
-      // Fetch admin details for all unique admin_ids
-      const uniqueAdminIds = [...new Set(txnRes.data.map(txn => txn.admin_id))];
-      const adminPromises = uniqueAdminIds.map(id => 
-        axios.get(`${API_URL}/api/admin/${id}`).catch(() => null)
-      );
-      
-      const adminResponses = await Promise.all(adminPromises);
-      const adminMap = {};
-      adminResponses.forEach((res, idx) => {
-        if (res && res.data) {
-          adminMap[uniqueAdminIds[idx]] = res.data;
-        }
-      });
-      
-      setAdmins(adminMap);
     } catch (err) {
       console.error("Error fetching data:", err);
       showToast({ message: "Failed to fetch transactions", type: "error" });

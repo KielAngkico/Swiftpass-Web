@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const db = require("./db"); // Adjust path to your database connection
+const db = require("../db"); // Adjust path to your database connection
 
 // GET all SuperAdmin transactions
 router.get("/api-superadmintransactions", async (req, res) => {

@@ -79,7 +79,7 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
        subscription_start_date, subscription_end_date, is_archived)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
     `, [admin_name, email, hashedPassword, address, gym_name,
-      system_type, imagePath, rfid_tag || null, rfid_tag_2 || null,
+      system_type, imagePath,null,null,
       pkgId, startDate, endDate]);
 
     const admin_id = result.insertId;

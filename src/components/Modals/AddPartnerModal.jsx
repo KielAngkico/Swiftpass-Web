@@ -132,95 +132,101 @@ const AddPartnerModal = ({
               </div>
             </div>
 
-            {/* COLUMN 2 - 6 fields (with conditional reference) */}
-            <div className="space-y-2">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  RFID Tag 1 {!isEditMode && <span className="text-red-500">*</span>}
-                </label>
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    name="rfid_tag"
-                    value={formData.rfid_tag}
-                    onChange={onFormChange}
-                    className="flex-1 p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder={
-                      waitingForSlot === 1
-                        ? "Scanning..."
-                        : "Click 'Scan Now' or enter manually"
-                    }
-                    readOnly={waitingForSlot === 1}
-                    required={!isEditMode}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onScanSlot(1)}
-                    disabled={waitingForSlot !== null}
-                    className={`px-2.5 py-1.5 text-white text-xs rounded-md whitespace-nowrap transition-colors ${
-                      waitingForSlot === 1
-                        ? "bg-blue-400 cursor-wait"
-                        : waitingForSlot !== null
-                        ? "bg-gray-300 cursor-not-allowed"
-                        : "bg-blue-500 hover:bg-blue-600"
-                    }`}
-                  >
-                    {waitingForSlot === 1 ? "Scanning..." : "Scan Now"}
-                  </button>
-                </div>
-              </div>
+{/* COLUMN 2 - fields (with conditional RFID) */}
+<div className="space-y-2">
+  {/* Only show RFID fields in EDIT mode */}
+  {isEditMode && (
+    <>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">
+          RFID Tag 1
+        </label>
+        <div className="flex gap-1.5">
+          <input
+            type="text"
+            name="rfid_tag"
+            value={formData.rfid_tag}
+            onChange={onFormChange}
+            className="flex-1 p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            placeholder={
+              waitingForSlot === 1
+                ? "Scanning..."
+                : "Click 'Scan Now' or enter manually"
+            }
+            readOnly={waitingForSlot === 1}
+          />
+          <button
+            type="button"
+            onClick={() => onScanSlot(1)}
+            disabled={waitingForSlot !== null}
+            className={`px-2.5 py-1.5 text-white text-xs rounded-md whitespace-nowrap transition-colors ${
+              waitingForSlot === 1
+                ? "bg-blue-400 cursor-wait"
+                : waitingForSlot !== null
+                ? "bg-gray-300 cursor-not-allowed"
+                : "bg-blue-500 hover:bg-blue-600"
+            }`}
+          >
+            {waitingForSlot === 1 ? "Scanning..." : "Scan Now"}
+          </button>
+        </div>
+      </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  RFID Tag 2 <span className="text-gray-500">(Optional)</span>
-                </label>
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    name="rfid_tag_2"
-                    value={formData.rfid_tag_2 || ""}
-                    onChange={onFormChange}
-                    className="flex-1 p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder={
-                      waitingForSlot === 2
-                        ? "Scanning..."
-                        : "Click 'Scan Now' or enter manually"
-                    }
-                    readOnly={waitingForSlot === 2}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onScanSlot(2)}
-                    disabled={waitingForSlot !== null}
-                    className={`px-2.5 py-1.5 text-white text-xs rounded-md whitespace-nowrap transition-colors ${
-                      waitingForSlot === 2
-                        ? "bg-blue-400 cursor-wait"
-                        : waitingForSlot !== null
-                        ? "bg-gray-300 cursor-not-allowed"
-                        : "bg-blue-500 hover:bg-blue-600"
-                    }`}
-                  >
-                    {waitingForSlot === 2 ? "Scanning..." : "Scan Now"}
-                  </button>
-                </div>
-              </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">
+          RFID Tag 2 <span className="text-gray-500">(Optional)</span>
+        </label>
+        <div className="flex gap-1.5">
+          <input
+            type="text"
+            name="rfid_tag_2"
+            value={formData.rfid_tag_2 || ""}
+            onChange={onFormChange}
+            className="flex-1 p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            placeholder={
+              waitingForSlot === 2
+                ? "Scanning..."
+                : "Click 'Scan Now' or enter manually"
+            }
+            readOnly={waitingForSlot === 2}
+          />
+          <button
+            type="button"
+            onClick={() => onScanSlot(2)}
+            disabled={waitingForSlot !== null}
+            className={`px-2.5 py-1.5 text-white text-xs rounded-md whitespace-nowrap transition-colors ${
+              waitingForSlot === 2
+                ? "bg-blue-400 cursor-wait"
+                : waitingForSlot !== null
+                ? "bg-gray-300 cursor-not-allowed"
+                : "bg-blue-500 hover:bg-blue-600"
+            }`}
+          >
+            {waitingForSlot === 2 ? "Scanning..." : "Scan Now"}
+          </button>
+        </div>
+      </div>
+    </>
+  )}
 
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  System Type
-                </label>
-                <select
-                  name="system_type"
-                  value={formData.system_type}
-                  onChange={onFormChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                >
-                  <option value="">-- Select System Type --</option>
-                  <option value="prepaid_entry">Prepaid Entry</option>
-                  <option value="subscription">Subscription Membership</option>
-                </select>
-              </div>
+  <div>
+    <label className="block text-xs font-medium text-gray-700 mb-1">
+      System Type
+    </label>
+    <select
+      name="system_type"
+      value={formData.system_type}
+      onChange={onFormChange}
+      className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+      required
+    >
+      <option value="">-- Select System Type --</option>
+      <option value="prepaid_entry">Prepaid Entry</option>
+      <option value="subscription">Subscription Membership</option>
+    </select>
+  </div>
+
+  {/* Rest of the fields remain the same... */}
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">

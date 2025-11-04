@@ -474,37 +474,48 @@ router.put("/:id/process", async (req, res) => {
         }
 
         // Allocate RFIDs
-for (const rfid of availableRfids) {
-  // Get next customer number for this role and admin
-  const [[countResult]] = await conn.query(`
-    SELECT COUNT(*) as count 
-    FROM RegisteredRfid 
-    WHERE allocated_to_admin = ? AND role = ?
-  `, [order.admin_id, rfidRole]);
-  
-  const nextNumber = (countResult.count || 0) + 1;
-  const displayNumber = `${rfidRole} #${nextNumber}`;
-  
-  // Allocate RFID with customer number
-  await conn.query(`
-    UPDATE RegisteredRfid 
-    SET status = 'allocated',
-        allocated_to_admin = ?,
-        order_id = ?,
-        allocation_date = NOW(),
-        customer_number = ?,
-        customer_number_display = ?
-    WHERE id = ?
-  `, [order.admin_id, id, nextNumber, displayNumber, rfid.id]);
-}
+        for (const rfid of availableRfids) {
+          await conn.query(`
+            UPDATE RegisteredRfid 
+            SET status = 'allocated',
+                allocated_to_admin = ?,
+                order_id = ?,
+                allocation_date = NOW()
+            WHERE id = ?
+          `, [order.admin_id, id, rfid.id]);
+        }
 
-        // 🔥 UPDATE: Deduct allocated RFIDs from SuperAdminInventory
-        await conn.query(`
+        // 🔥 SAFE DEDUCTION - Prevents negative inventory
+        const [deductResult] = await conn.query(`
           UPDATE SuperAdminInventory 
           SET quantity = quantity - ?,
               updated_at = NOW()
           WHERE name = ?
-        `, [availableRfids.length, item.item_name]);
+            AND quantity >= ?
+        `, [availableRfids.length, item.item_name, availableRfids.length]);
+
+        // Check if deduction succeeded
+        if (deductResult.affectedRows === 0) {
+          // Rollback RFID allocations for this item
+          for (const rfid of availableRfids) {
+            await conn.query(`
+              UPDATE RegisteredRfid 
+              SET status = 'in_stock',
+                  allocated_to_admin = NULL,
+                  order_id = NULL,
+                  allocation_date = NULL
+              WHERE id = ?
+            `, [rfid.id]);
+          }
+          
+          allocationResults.push({
+            item: item.item_name,
+            requested: remainingQty,
+            allocated: 0,
+            error: `Inventory depleted during processing (concurrent order detected)`
+          });
+          continue;
+        }
 
         const newAllocated = item.allocated_quantity + availableRfids.length;
         const newStatus = newAllocated >= item.quantity ? 'fully_allocated' : 'partially_allocated';
@@ -524,6 +535,7 @@ for (const rfid of availableRfids) {
           rfids: availableRfids.map(r => r.rfid_tag)
         });
       } else {
+        // Non-RFID items (PCB, locks, buttons, etc.)
         const [[inventoryItem]] = await conn.query(`
           SELECT id, name, quantity FROM SuperAdminInventory 
           WHERE name = ?
@@ -549,12 +561,25 @@ for (const rfid of availableRfids) {
           continue;
         }
 
-        await conn.query(`
+        // 🔥 SAFE DEDUCTION - Prevents negative inventory
+        const [deductResult] = await conn.query(`
           UPDATE SuperAdminInventory 
           SET quantity = quantity - ?,
               updated_at = NOW()
           WHERE id = ?
-        `, [remainingQty, inventoryItem.id]);
+            AND quantity >= ?
+        `, [remainingQty, inventoryItem.id, remainingQty]);
+
+        // Check if deduction succeeded
+        if (deductResult.affectedRows === 0) {
+          allocationResults.push({
+            item: item.item_name,
+            requested: remainingQty,
+            allocated: 0,
+            error: `Inventory depleted during processing (concurrent order detected)`
+          });
+          continue;
+        }
 
         await conn.query(`
           UPDATE PartnerOrderItems 
@@ -595,7 +620,6 @@ for (const rfid of availableRfids) {
     conn.release();
   }
 });
-
 router.put("/:id/ship", async (req, res) => {
   try {
     const { id } = req.params;

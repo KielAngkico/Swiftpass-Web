@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import api from "../../api";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import SuperAdminSidebar from "../../components/SuperAdminSidebar";
+
 import { useToast } from "../../components/ToastManager";
 
 const KpiBox = ({ title, value, color }) => (
@@ -100,6 +102,7 @@ const SuperAdminTransactions = () => {
 
   return (
     <div className="min-h-screen w-full bg-white p-2 flex flex-col space-y-3">
+        <SuperAdminSidebar/>
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-lg sm:text-xl font-semibold">Transactions Page</h1>

@@ -35,6 +35,8 @@ const Allergens = React.lazy(() => import("./Frontend/SuperAdmin/AllergensMaster
 const ItemsInventory = React.lazy(() => import("./Frontend/SuperAdmin/ItemsInventory"));
 const PricingsManagement = React.lazy(() => import("./Frontend/SuperAdmin/PricingManagement"));
 const OrdersPage = React.lazy(() => import("./Frontend/SuperAdmin/OrdersPage"));
+const TransactionsPage = React.lazy(() => import("./Frontend/SuperAdmin/Transactions"));
+
 
 
 const AdminAnalyticalDashboard = React.lazy(() => import("./Frontend/Admin/AdminAnalyticalDashboard"));
@@ -295,6 +297,7 @@ const AppRoutes = () => {
               <Route path="/SuperAdmin/AllergensMasterList" element={<Allergens />} />
               <Route path="/SuperAdmin/ItemsInventory" element={<ItemsInventory />} />
               <Route path="/SuperAdmin/PricingManagement" element={<PricingsManagement />} />
+              <Route path="/SuperAdmin/Transactions" element={<TransactionsPage />} />
             </>
           )}
 

@@ -12,6 +12,7 @@ const loginroute = require("./routes/login");
 const authRoute = require("./routes/auth");
 const PartnerRegistration = require("./routes/PartnerRegistration");
 const partnerRfidsRoutes = require('./routes/partnerRfids');
+const SuperAdminTransactions = require('./routes/SuperAdminTransactions');
 
 const getExerciseLibrary = require("./routes/ExerciseLibrary");
 const getSplitLibrary = require("./routes/WorkoutSplitRoutes");
@@ -107,5 +108,6 @@ app.use("/api", SuperAdminInventory);
 app.use("/api", RfidVerification);
 app.use("/api", SubscriptionPackages);
 app.use("/api", RfidReplacementRoutes);
+app.use("/api", SuperAdminTransactions);
 
 module.exports = app;

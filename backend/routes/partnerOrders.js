@@ -452,10 +452,12 @@ router.put("/:id/process", async (req, res) => {
       if (remainingQty <= 0) continue;
 
       if (item.item_type.includes('rfid')) {
+        // ===== RFID ALLOCATION =====
         let rfidRole = 'Member';
         if (item.item_type === 'partner_rfid') rfidRole = 'Partner';
         else if (item.item_type === 'daypass_rfid') rfidRole = 'DayPass';
 
+        // Check RegisteredRfid table (source of truth for RFIDs)
         const [availableRfids] = await conn.query(`
           SELECT id, rfid_tag FROM RegisteredRfid 
           WHERE status = 'in_stock' 
@@ -468,12 +470,12 @@ router.put("/:id/process", async (req, res) => {
             item: item.item_name,
             requested: remainingQty,
             allocated: 0,
-            error: `No ${rfidRole} RFIDs available in stock`
+            error: `No ${rfidRole} RFIDs available in RegisteredRfid table`
           });
           continue;
         }
 
-        // Allocate RFIDs
+        // Allocate RFIDs in RegisteredRfid table
         for (const rfid of availableRfids) {
           await conn.query(`
             UPDATE RegisteredRfid 
@@ -485,38 +487,16 @@ router.put("/:id/process", async (req, res) => {
           `, [order.admin_id, id, rfid.id]);
         }
 
-        // 🔥 SAFE DEDUCTION - Prevents negative inventory
-        const [deductResult] = await conn.query(`
+        // Update SuperAdminInventory (sync the count)
+        // Use simple deduction without safety check since RegisteredRfid is the source of truth
+        await conn.query(`
           UPDATE SuperAdminInventory 
-          SET quantity = quantity - ?,
+          SET quantity = GREATEST(0, quantity - ?),
               updated_at = NOW()
           WHERE name = ?
-            AND quantity >= ?
-        `, [availableRfids.length, item.item_name, availableRfids.length]);
+        `, [availableRfids.length, item.item_name]);
 
-        // Check if deduction succeeded
-        if (deductResult.affectedRows === 0) {
-          // Rollback RFID allocations for this item
-          for (const rfid of availableRfids) {
-            await conn.query(`
-              UPDATE RegisteredRfid 
-              SET status = 'in_stock',
-                  allocated_to_admin = NULL,
-                  order_id = NULL,
-                  allocation_date = NULL
-              WHERE id = ?
-            `, [rfid.id]);
-          }
-          
-          allocationResults.push({
-            item: item.item_name,
-            requested: remainingQty,
-            allocated: 0,
-            error: `Inventory depleted during processing (concurrent order detected)`
-          });
-          continue;
-        }
-
+        // Update order item status
         const newAllocated = item.allocated_quantity + availableRfids.length;
         const newStatus = newAllocated >= item.quantity ? 'fully_allocated' : 'partially_allocated';
 
@@ -534,8 +514,9 @@ router.put("/:id/process", async (req, res) => {
           allocated: availableRfids.length,
           rfids: availableRfids.map(r => r.rfid_tag)
         });
+
       } else {
-        // Non-RFID items (PCB, locks, buttons, etc.)
+        // ===== NON-RFID ITEMS (PCB, locks, buttons, etc.) =====
         const [[inventoryItem]] = await conn.query(`
           SELECT id, name, quantity FROM SuperAdminInventory 
           WHERE name = ?
@@ -561,7 +542,7 @@ router.put("/:id/process", async (req, res) => {
           continue;
         }
 
-        // 🔥 SAFE DEDUCTION - Prevents negative inventory
+        // Safe deduction for physical items (WITH check)
         const [deductResult] = await conn.query(`
           UPDATE SuperAdminInventory 
           SET quantity = quantity - ?,
@@ -570,7 +551,6 @@ router.put("/:id/process", async (req, res) => {
             AND quantity >= ?
         `, [remainingQty, inventoryItem.id, remainingQty]);
 
-        // Check if deduction succeeded
         if (deductResult.affectedRows === 0) {
           allocationResults.push({
             item: item.item_name,

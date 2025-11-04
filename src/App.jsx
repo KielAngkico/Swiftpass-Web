@@ -45,6 +45,8 @@ const PricingManagement = React.lazy(() => import("./Frontend/Admin/PricingManag
 const StaffManagement = React.lazy(() => import("./Frontend/Admin/StaffManagement"));
 const StaffActivityLogs = React.lazy(() => import("./Frontend/Admin/StaffActivityLogs"));
 const MyOrders = React.lazy(() => import("./Frontend/Admin/MyOrders"));
+const MyRfidInventory = React.lazy(() => import("./Frontend/Admin/MyRfidInventory"));
+
 
 
 const ViewMembers = React.lazy(() => import("./Frontend/Staff/ViewMembers"));
@@ -303,6 +305,7 @@ const AppRoutes = () => {
               <Route path="/Admin/ActivityAnalytics" element={<ActivityAnalytics />} />
               <Route path="/Admin/TransactionsReport" element={<TransactionsReport />} />
               <Route path="/Admin/MyOrders" element={<MyOrders />} />
+              <Route path="/Admin/MyRfidInventory" element={<MyRfidInventory />} />
               <Route path="/Admin/PricingManagement" element={<PricingManagement />} />
               <Route path="/Admin/StaffManagement" element={<StaffManagement />} />
               <Route path="/Admin/StaffActivityLogs" element={<StaffActivityLogs/>} />

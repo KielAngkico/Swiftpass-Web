@@ -11,6 +11,7 @@ const dbSuperAdmin = require('./db');
 const loginroute = require("./routes/login");
 const authRoute = require("./routes/auth");
 const PartnerRegistration = require("./routes/PartnerRegistration");
+const partnerRfidsRoutes = require('./routes/partnerRfids');
 
 const getExerciseLibrary = require("./routes/ExerciseLibrary");
 const getSplitLibrary = require("./routes/WorkoutSplitRoutes");
@@ -85,6 +86,7 @@ app.use("/api", loginroute);
 app.use("/api", authRoute);
 app.use("/api", PartnerRegistration);
 app.use("/api/partner-orders", partnerOrdersRoutes);
+app.use('/api/partner-rfids', partnerRfidsRoutes);
 app.use("/api", getExerciseLibrary);
 app.use("/api", getSplitLibrary);
 app.use("/api", getRepRange);

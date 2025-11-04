@@ -31,8 +31,6 @@ const SuperAdminTransactions = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch transactions
       const txnRes = await axios.get(`${API_URL}/api/superadmin-transactions`);
       setTransactions(txnRes.data);
       setFiltered(txnRes.data);
@@ -49,11 +47,11 @@ const SuperAdminTransactions = () => {
 
     if (search) {
       filteredData = filteredData.filter((txn) => {
-        const adminName = admins[txn.admin_id]?.name || "";
         const referenceNumber = txn.reference_number || "";
+        const orderId = txn.order_id ? txn.order_id.toString() : "";
         return (
-          adminName.toLowerCase().includes(search.toLowerCase()) ||
           referenceNumber.toLowerCase().includes(search.toLowerCase()) ||
+          orderId.includes(search) ||
           txn.id.toString().includes(search)
         );
       });
@@ -82,7 +80,7 @@ const SuperAdminTransactions = () => {
     }
 
     setFiltered(filteredData);
-  }, [search, filterType, filterMethod, transactions, admins, startDate, endDate]);
+  }, [search, filterType, filterMethod, transactions, startDate, endDate]);
 
   const totalRevenue = filtered.reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
   const totalTransactions = filtered.length;
@@ -125,7 +123,7 @@ const SuperAdminTransactions = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <input
               type="text"
-              placeholder="🔍 Search Admin/Reference/ID"
+              placeholder="🔍 Search Reference/Order/Transaction ID"
               className="w-full p-2 border border-gray-300 rounded text-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -201,7 +199,7 @@ const SuperAdminTransactions = () => {
                 <thead className="bg-gray-700 text-white uppercase text-xs">
                   <tr>
                     <th className="px-4 py-3">ID</th>
-                    <th className="px-4 py-3">Admin</th>
+                    <th className="px-4 py-3">Admin ID</th>
                     <th className="px-4 py-3">Type</th>
                     <th className="px-4 py-3">Amount</th>
                     <th className="px-4 py-3">Total Amount</th>
@@ -215,13 +213,8 @@ const SuperAdminTransactions = () => {
                   {filtered.map((txn, index) => (
                     <tr key={txn.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                       <td className="px-4 py-3 font-medium text-gray-900">#{txn.id}</td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-gray-800">
-                          {admins[txn.admin_id]?.name || `Admin #${txn.admin_id}`}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {admins[txn.admin_id]?.email || ""}
-                        </div>
+                      <td className="px-4 py-3 text-gray-700">
+                        Admin #{txn.admin_id}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded text-xs font-medium ${

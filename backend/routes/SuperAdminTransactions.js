@@ -2,6 +2,23 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db"); // Adjust path to your database connection
 
+// GET all SuperAdmin payment options
+router.get("/api/superadmin-payment-options", async (req, res) => {
+  try {
+    const query = `
+      SELECT * FROM SuperAdminPaymentOptions
+      WHERE is_enabled = 1
+      ORDER BY is_default DESC, payment_method ASC
+    `;
+    
+    const [options] = await db.query(query);
+    res.json(options);
+  } catch (error) {
+    console.error("Error fetching payment options:", error);
+    res.status(500).json({ error: "Failed to fetch payment options" });
+  }
+});
+
 // GET all SuperAdmin transactions
 router.get("/api-superadmintransactions", async (req, res) => {
   try {

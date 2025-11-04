@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import OwnerSidebar from "../../components/OwnerSidebar";
+import api from "../../api";
+import { useToast } from "../../components/ToastManager";
 
 const MyRfidsInventory = () => {
   const [user, setUser] = useState(null);
@@ -11,6 +14,7 @@ const MyRfidsInventory = () => {
   const [filterStatus, setFilterStatus] = useState("All");
 
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -37,6 +41,7 @@ const MyRfidsInventory = () => {
         setFilteredRfids(data.rfids || []);
       } catch (error) {
         console.error("Failed to load RFID inventory:", error);
+        showToast({ message: "Failed to load RFID inventory.", type: "error" });
       } finally {
         setLoading(false);
       }
@@ -44,9 +49,11 @@ const MyRfidsInventory = () => {
     fetchInventory();
   }, [user]);
 
+  // Apply filters
   useEffect(() => {
     let filtered = inventory.rfids || [];
 
+    // Search by warehouse number or assigned name
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -57,10 +64,12 @@ const MyRfidsInventory = () => {
       );
     }
 
+    // Filter by type (role)
     if (filterType !== "All") {
       filtered = filtered.filter((rfid) => rfid.role === filterType);
     }
 
+    // Filter by status (available/in use)
     if (filterStatus === "Available") {
       filtered = filtered.filter((rfid) => !rfid.assigned_to_name);
     } else if (filterStatus === "In Use") {
@@ -89,6 +98,7 @@ const MyRfidsInventory = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
+      <OwnerSidebar />
       <main className="flex-1 p-5">
         <div className="mb-6">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-800">

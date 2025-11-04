@@ -1,166 +1,171 @@
-import React, { useEffect, useState } from "react";
-import api from "../../api";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import SuperAdminSidebar from "../../components/SuperAdminSidebar";
+import { API_URL } from "../../config";
+import { useToast } from "../../components/ToastManager";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import SuperAdminSidebar from "../../components/SuperAdminSidebar";
-import { useToast } from "../../components/ToastManager";
 
 const KpiBox = ({ title, value, color }) => (
-  <div className="bg-white shadow p-2 rounded text-center">
-    <h3 className="text-[10px] sm:text-xs text-gray-600 truncate">{title}</h3>
-    <p className={`text-sm sm:text-base font-bold ${color}`}>{value}</p>
+  <div className="bg-white shadow p-3 rounded text-center">
+    <h3 className="text-xs text-gray-600 truncate">{title}</h3>
+    <p className={`text-lg font-bold ${color}`}>{value}</p>
   </div>
 );
 
 const SuperAdminTransactions = () => {
-  const [user, setUser] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [filtered, setFiltered] = useState([]);
-  const [admins, setAdmins] = useState([]);
+  const [admins, setAdmins] = useState({});
   const [search, setSearch] = useState("");
-  const [filterMethod, setFilterMethod] = useState("All");
   const [filterType, setFilterType] = useState("All");
+  const [filterMethod, setFilterMethod] = useState("All");
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const { data } = await api.get("/api/me");
-        if (!data.authenticated || !data.user) throw new Error("Not authenticated");
-        setUser(data.user);
-      } catch {
-        window.location.href = "/login";
-      }
-    };
-    fetchUser();
+    fetchData();
   }, []);
 
-  useEffect(() => {
-    if (!user?.id) return;
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch transactions
+      const txnRes = await axios.get(`${API_URL}/api/superadmin-transactions`);
+      setTransactions(txnRes.data);
+      setFiltered(txnRes.data);
 
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [txnRes, adminRes] = await Promise.all([
-          api.get("/api-superadmintransactions"),
-          api.get("/api/admin-accounts"),
-        ]);
-        setTransactions(txnRes.data || []);
-        setFiltered(txnRes.data || []);
-        setAdmins(adminRes.data || []);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        showToast({ message: "Failed to load transactions", type: "error" });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [user]);
-
-  useEffect(() => {
-    const merged = transactions.map((txn) => {
-      const admin = admins.find((a) => a.id === txn.admin_id);
-      return { 
-        ...txn, 
-        admin_name: admin?.name || "Unknown Admin",
-        gym_name: admin?.gym_name || "N/A"
-      };
-    });
-
-    let filteredData = merged;
-
-    if (search)
-      filteredData = filteredData.filter((txn) =>
-        txn.admin_name?.toLowerCase().includes(search.toLowerCase()) ||
-        txn.gym_name?.toLowerCase().includes(search.toLowerCase())
+      // Fetch admin details for all unique admin_ids
+      const uniqueAdminIds = [...new Set(txnRes.data.map(txn => txn.admin_id))];
+      const adminPromises = uniqueAdminIds.map(id => 
+        axios.get(`${API_URL}/api/admin/${id}`).catch(() => null)
       );
+      
+      const adminResponses = await Promise.all(adminPromises);
+      const adminMap = {};
+      adminResponses.forEach((res, idx) => {
+        if (res && res.data) {
+          adminMap[uniqueAdminIds[idx]] = res.data;
+        }
+      });
+      
+      setAdmins(adminMap);
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      showToast({ message: "Failed to fetch transactions", type: "error" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    if (filterMethod !== "All")
-      filteredData = filteredData.filter((txn) => txn.payment_method === filterMethod);
+  useEffect(() => {
+    let filteredData = transactions;
 
-    if (filterType !== "All")
+    if (search) {
+      filteredData = filteredData.filter((txn) => {
+        const adminName = admins[txn.admin_id]?.name || "";
+        const referenceNumber = txn.reference_number || "";
+        return (
+          adminName.toLowerCase().includes(search.toLowerCase()) ||
+          referenceNumber.toLowerCase().includes(search.toLowerCase()) ||
+          txn.id.toString().includes(search)
+        );
+      });
+    }
+
+    if (filterType !== "All") {
       filteredData = filteredData.filter((txn) => txn.transaction_type === filterType);
+    }
 
-    if (startDate)
+    if (filterMethod !== "All") {
+      filteredData = filteredData.filter(
+        (txn) => txn.payment_method.toLowerCase() === filterMethod.toLowerCase()
+      );
+    }
+
+    if (startDate) {
       filteredData = filteredData.filter(
         (txn) => new Date(txn.created_at) >= startDate
       );
+    }
 
-    if (endDate)
+    if (endDate) {
       filteredData = filteredData.filter(
         (txn) => new Date(txn.created_at) <= endDate
       );
+    }
 
     setFiltered(filteredData);
-  }, [search, filterMethod, filterType, transactions, admins, startDate, endDate]);
+  }, [search, filterType, filterMethod, transactions, admins, startDate, endDate]);
 
-  const totalRevenue = transactions.reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
+  const totalRevenue = filtered.reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
   const totalTransactions = filtered.length;
   const cashRevenue = filtered
-    .filter((txn) => txn.payment_method === "cash")
+    .filter((txn) => txn.payment_method.toLowerCase() === "cash")
     .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
-  const cashlessRevenue = filtered
-    .filter((txn) => txn.payment_method !== "cash")
+  const gcashRevenue = filtered
+    .filter((txn) => txn.payment_method.toLowerCase() === "gcash")
     .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
+
+  const packagePurchases = filtered.filter(txn => txn.transaction_type === "Package Purchase").length;
+  const orderPayments = filtered.filter(txn => txn.transaction_type === "Order Payment").length;
 
   return (
     <div className="flex min-h-screen bg-gray-100">
       <SuperAdminSidebar />
-      <div className="flex-1 p-6">
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h1 className="text-lg sm:text-xl font-semibold">Transactions Page</h1>
-              <p className="text-xs text-gray-500">Overview of all admin transactions</p>
-            </div>
-          </div>
+      
+      <main className="flex-1 p-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">Super Admin Transactions</h1>
+          <p className="text-sm text-gray-600">Overview of all admin transactions</p>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6">
-            <KpiBox title="💰 Total Revenue" value={`₱${totalRevenue.toFixed(2)}`} color="text-green-600" />
-            <KpiBox title="📄 Total Transactions" value={totalTransactions} color="text-blue-600" />
-            <KpiBox title="💵 Cash Revenue" value={`₱${cashRevenue.toFixed(2)}`} color="text-teal-600" />
-            <KpiBox title="📲 Cashless" value={`₱${cashlessRevenue.toFixed(2)}`} color="text-purple-600" />
-          </div>
+        {/* KPI Boxes */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <KpiBox title="💰 Total Revenue" value={`₱${totalRevenue.toFixed(2)}`} color="text-green-600" />
+          <KpiBox title="📄 Total Transactions" value={totalTransactions} color="text-blue-600" />
+          <KpiBox title="💵 Cash Revenue" value={`₱${cashRevenue.toFixed(2)}`} color="text-teal-600" />
+          <KpiBox title="📲 GCash Revenue" value={`₱${gcashRevenue.toFixed(2)}`} color="text-purple-600" />
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-6">
+          <KpiBox title="📦 Package Purchases" value={packagePurchases} color="text-orange-600" />
+          <KpiBox title="🛒 Order Payments" value={orderPayments} color="text-indigo-600" />
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white p-4 rounded shadow-sm mb-6">
+          <h2 className="text-lg font-semibold mb-3">Filters</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <input
               type="text"
-              placeholder="🔍 Search Admin/Gym"
-              className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm placeholder:text-gray-400"
+              placeholder="🔍 Search Admin/Reference/ID"
+              className="w-full p-2 border border-gray-300 rounded text-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
 
             <select
-              className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+              className="w-full p-2 border border-gray-300 rounded text-sm"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
             >
               <option value="All">All Types</option>
               <option value="Package Purchase">Package Purchase</option>
               <option value="Order Payment">Order Payment</option>
-              <option value="subscription">Subscription</option>
-              <option value="renewal">Renewal</option>
-              <option value="rfid_purchase">RFID Purchase</option>
-              <option value="rfid_replacement">RFID Replacement</option>
-              <option value="other">Other</option>
             </select>
 
             <select
-              className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+              className="w-full p-2 border border-gray-300 rounded text-sm"
               value={filterMethod}
               onChange={(e) => setFilterMethod(e.target.value)}
             >
               <option value="All">All Methods</option>
-              <option value="cash">Cash</option>
-              <option value="gcash">GCash</option>
-              <option value="card">Card</option>
-              <option value="bank">Bank</option>
+              <option value="Cash">Cash</option>
+              <option value="GCash">GCash</option>
             </select>
 
             <DatePicker
@@ -168,7 +173,7 @@ const SuperAdminTransactions = () => {
               onChange={(date) => setStartDate(date)}
               maxDate={new Date()}
               dateFormat="yyyy-MM-dd"
-              className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+              className="w-full p-2 border border-gray-300 rounded text-sm"
               placeholderText="Start Date"
               isClearable
             />
@@ -179,58 +184,103 @@ const SuperAdminTransactions = () => {
               minDate={startDate}
               maxDate={new Date()}
               dateFormat="yyyy-MM-dd"
-              className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm"
+              className="w-full p-2 border border-gray-300 rounded text-sm"
               placeholderText="End Date"
               isClearable
             />
           </div>
+        </div>
 
-          {loading ? (
-            <div className="text-center py-8 text-gray-500">Loading transactions...</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-[10px] sm:text-xs text-left border-collapse">
-                <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-[10px]">
+        {/* Transactions Table */}
+        <div className="bg-white rounded shadow-sm">
+          <div className="p-4 border-b">
+            <h2 className="text-lg font-semibold">Transaction History</h2>
+          </div>
+          
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                <span className="mt-4 text-gray-600 block">Loading transactions...</span>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-2">
+                  <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">No transactions found</h3>
+                <p className="text-gray-500">Try adjusting your filters or search criteria.</p>
+              </div>
+            ) : (
+              <table className="min-w-full text-sm text-left border-collapse">
+                <thead className="bg-gray-700 text-white uppercase text-xs">
                   <tr>
-                    <th className="px-3 py-2">#</th>
-                    <th className="px-3 py-2">Admin</th>
-                    <th className="px-3 py-2">Gym Name</th>
-                    <th className="px-3 py-2">Type</th>
-                    <th className="px-3 py-2">Amount</th>
-                    <th className="px-3 py-2">Method</th>
-                    <th className="px-3 py-2">Reference</th>
-                    <th className="px-3 py-2">Order ID</th>
-                    <th className="px-3 py-2">Date</th>
+                    <th className="px-4 py-3">ID</th>
+                    <th className="px-4 py-3">Admin</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Amount</th>
+                    <th className="px-4 py-3">Total Amount</th>
+                    <th className="px-4 py-3">Method</th>
+                    <th className="px-4 py-3">Reference</th>
+                    <th className="px-4 py-3">Order ID</th>
+                    <th className="px-4 py-3">Date</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.length === 0 ? (
-                    <tr>
-                      <td colSpan="9" className="text-center py-8 text-gray-500">
-                        No transactions found
+                  {filtered.map((txn, index) => (
+                    <tr key={txn.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                      <td className="px-4 py-3 font-medium text-gray-900">#{txn.id}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-800">
+                          {admins[txn.admin_id]?.name || `Admin #${txn.admin_id}`}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {admins[txn.admin_id]?.email || ""}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          txn.transaction_type === "Package Purchase" 
+                            ? "bg-orange-100 text-orange-700" 
+                            : "bg-indigo-100 text-indigo-700"
+                        }`}>
+                          {txn.transaction_type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-green-600">
+                        ₱{parseFloat(txn.amount).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-blue-600">
+                        ₱{parseFloat(txn.total_amount).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          txn.payment_method.toLowerCase() === "cash" 
+                            ? "bg-teal-100 text-teal-700" 
+                            : "bg-purple-100 text-purple-700"
+                        }`}>
+                          {txn.payment_method}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {txn.reference_number || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {txn.order_id || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {new Date(txn.created_at).toLocaleString()}
                       </td>
                     </tr>
-                  ) : (
-                    filtered.map((txn, index) => (
-                      <tr key={txn.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                        <td className="px-3 py-2">{index + 1}</td>
-                        <td className="px-3 py-2 font-medium text-gray-800">{txn.admin_name}</td>
-                        <td className="px-3 py-2">{txn.gym_name}</td>
-                        <td className="px-3 py-2">{txn.transaction_type}</td>
-                        <td className="px-3 py-2">₱{parseFloat(txn.amount).toFixed(2)}</td>
-                        <td className="px-3 py-2 capitalize">{txn.payment_method}</td>
-                        <td className="px-3 py-2">{txn.reference_number || "N/A"}</td>
-                        <td className="px-3 py-2">{txn.order_id || "N/A"}</td>
-                        <td className="px-3 py-2">{new Date(txn.created_at).toLocaleString()}</td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

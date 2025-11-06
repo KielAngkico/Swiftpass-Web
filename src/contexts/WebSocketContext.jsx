@@ -48,52 +48,53 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
         console.error("❌ WebSocket error:", msg.message);
         return;
 
-case "rfid-registration-check":
-  if (msg.data?.rfid_tag) {
-    const { rfid_tag, is_registered } = msg.data;
+      case "rfid-registration-check":
+        if (msg.data?.rfid_tag) {
+          const { rfid_tag, is_registered } = msg.data;
 
-    console.log(`📡 RFID Check Result: ${rfid_tag}`);
-    console.log(`   Is Registered: ${is_registered}`);
+          console.log(`📡 RFID Check Result: ${rfid_tag}`);
+          console.log(`   Is Registered: ${is_registered}`);
 
-    const currentPath = window.location.pathname;
-    const isSuperAdminPage = currentPath.startsWith("/SuperAdmin");
+          const currentPath = window.location.pathname;
+          const isSuperAdminPage = currentPath.startsWith("/SuperAdmin");
 
-    if (!isSuperAdminPage) {
-      console.log("Not on SuperAdmin page - no navigation");
-      return;
-    }
+          if (!isSuperAdminPage) {
+            console.log("Not on SuperAdmin page - no navigation");
+            return;
+          }
 
-    const isOnAddClientPage = currentPath === "/SuperAdmin/AddClient";
+          const isOnAddClientPage = currentPath === "/SuperAdmin/AddClient";
 
-    if (isOnAddClientPage) {
-      console.log("🔄 On AddClient page - storing RFID for slot selection");
-      sessionStorage.setItem('pendingSlotRfid', rfid_tag);
-      sessionStorage.setItem('rfidScannedAt', Date.now().toString());
-      
-       window.dispatchEvent(new Event('rfid-slot-scanned'));
-      return;
-    }
+          if (isOnAddClientPage) {
+            console.log("🔄 On AddClient page - storing RFID for slot selection");
+            sessionStorage.setItem('pendingSlotRfid', rfid_tag);
+            sessionStorage.setItem('rfidScannedAt', Date.now().toString());
+            
+            window.dispatchEvent(new Event('rfid-slot-scanned'));
+            return;
+          }
 
-     if (is_registered) {
-      console.log("✅ Navigating to AddClient - modal will open");
-      customNavigate("/SuperAdmin/AddClient", {
-        state: { 
-          openModal: true, 
-          timestamp: Date.now() 
+          if (is_registered) {
+            console.log("✅ Navigating to AddClient - modal will open");
+            customNavigate("/SuperAdmin/AddClient", {
+              state: { 
+                openModal: true, 
+                timestamp: Date.now() 
+              }
+            }, "superadmin");
+          } else {
+            console.log("❌ Navigating to ItemsInventory for registration");
+            customNavigate("/SuperAdmin/ItemsInventory", {
+              state: { rfid_tag, is_registered: false }
+            }, "superadmin");
+          }
         }
-      }, "superadmin");
-    } else {
-      console.log("❌ Navigating to ItemsInventory for registration");
-      customNavigate("/SuperAdmin/ItemsInventory", {
-        state: { rfid_tag, is_registered: false }
-      }, "superadmin");
-    }
-  }
-  return;
+        return;
+
       case "rfid-replacement-scanned":
         if (msg.data?.rfid_tag) {
-          console.log("📡 Replacement RFID Scanned:", msg.data.rfid_tag);
-          setReplacementScannedRfid(msg.data.rfid_tag);
+          console.log("📡 Replacement RFID Scanned:", msg.data);
+          setReplacementScannedRfid(msg.data);
         }
         return;
 
@@ -104,7 +105,7 @@ case "rfid-registration-check":
 
       case "rfid-scanned-for-staff":
         if (msg.data?.rfid_tag) {
-          console.log("📡 RFID Scanned for Staff Registration:", msg.data.rfid_tag);
+          console.log("📡 RFID Scanned for Staff Registration:", msg.data);
 
           if (msg.data.status === "error") {
             console.log("❌ RFID Validation Error:", msg.data.reason);
@@ -115,7 +116,7 @@ case "rfid-registration-check":
 
           if (msg.data.status === "success") {
             console.log("✅ RFID is valid for staff registration");
-            setScannedRfidForStaff(msg.data.rfid_tag);
+            setScannedRfidForStaff(msg.data);
           }
         }
         return;
@@ -125,38 +126,38 @@ case "rfid-registration-check":
         console.log("🔄 Staff registration scan mode:", msg.data?.enabled ? "ENABLED" : "DISABLED");
         return;
  
-case "member-update":
-  if (!msg.data || msg.data.status === "unregistered") return;
-  
-  console.log("📥 Received member-update:", msg.data);
-  
-  addOrUpdateStatusLog({
-    id: msg.data.id, 
-    rfid_tag: msg.data.rfid_tag,
-    full_name: msg.data.full_name || "Unknown",
-    profile_image_url: msg.data.profile_image_url,
-    entry_time: msg.data.entry_time || null,
-    exit_time: msg.data.exit_time || null,
-    member_status: msg.data.status || msg.data.member_status || "outside",
-    status: msg.data.status || msg.data.member_status || "outside",
-    visitor_type: msg.data.visitor_type || "Member",
-    system_type: msg.data.system_type || "gate",
-    deducted_amount: msg.data.deducted_amount, 
-    current_balance: msg.data.current_balance, 
-    remaining_balance: msg.data.remaining_balance || msg.data.current_balance,
-    subscription_expiry: msg.data.subscription_expiry,
-    staff_name: msg.data.staff_name,
-    action: msg.data.exit_time ? "exit" : "entry",
-    last_activity: msg.data.exit_time || msg.data.entry_time || new Date().toISOString(),
-  });
-  return;
+      case "member-update":
+        if (!msg.data || msg.data.status === "unregistered") return;
+        
+        console.log("📥 Received member-update:", msg.data);
+        
+        addOrUpdateStatusLog({
+          id: msg.data.id, 
+          rfid_tag: msg.data.rfid_tag,
+          full_name: msg.data.full_name || "Unknown",
+          profile_image_url: msg.data.profile_image_url,
+          entry_time: msg.data.entry_time || null,
+          exit_time: msg.data.exit_time || null,
+          member_status: msg.data.status || msg.data.member_status || "outside",
+          status: msg.data.status || msg.data.member_status || "outside",
+          visitor_type: msg.data.visitor_type || "Member",
+          system_type: msg.data.system_type || "gate",
+          deducted_amount: msg.data.deducted_amount, 
+          current_balance: msg.data.current_balance, 
+          remaining_balance: msg.data.remaining_balance || msg.data.current_balance,
+          subscription_expiry: msg.data.subscription_expiry,
+          staff_name: msg.data.staff_name,
+          action: msg.data.exit_time ? "exit" : "entry",
+          last_activity: msg.data.exit_time || msg.data.entry_time || new Date().toISOString(),
+        });
+        return;
 
       case "staff-scan":
         if (!msg.data) return;
 
         const { rfid_tag, status, location, full_name, system_type, reason } = msg.data;
         
-         console.log("📥 Received staff-scan message:", {
+        console.log("📥 Received staff-scan message:", {
           rfid_tag,
           status,
           location,
@@ -168,18 +169,18 @@ case "member-update":
           return;
         }
 
-         if (rfid_tag === lastProcessedRfid.current) {
+        if (rfid_tag === lastProcessedRfid.current) {
           console.log("⏭️ Skipping duplicate RFID scan");
           return;
         }
         lastProcessedRfid.current = rfid_tag;
         setTimeout(() => (lastProcessedRfid.current = null), 2000);
 
-         setRfidData({ ...msg.data, timestamp: new Date().toLocaleString() });
+        setRfidData({ ...msg.data, timestamp: new Date().toLocaleString() });
         sessionStorage.setItem("rfid_tag", rfid_tag);
         sessionStorage.setItem("system_type", system_type || "");
 
-         const currentPath = window.location.pathname;
+        const currentPath = window.location.pathname;
         const isStaffPage = currentPath.startsWith("/Staff");
         
         if (!isStaffPage) {
@@ -187,7 +188,7 @@ case "member-update":
           return;
         }
 
-         if (reason && reason.includes("not registered with SwiftPass")) {
+        if (reason && reason.includes("not registered with SwiftPass")) {
           console.log("❌ Unauthorized RFID - not registered with SwiftPass");
           alert("This RFID is not registered with SwiftPass company. Please use an authorized RFID.");
           return;
@@ -199,7 +200,7 @@ case "member-update":
           return;
         }
 
-         if (status === "member_found") {
+        if (status === "member_found") {
           console.log("✅ Member found - navigating to MembershipTransactions");
           customNavigate("/Staff/MembershipTransactions", {
             state: { rfid_tag, full_name, ...msg.data, system_type },

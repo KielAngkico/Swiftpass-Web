@@ -172,57 +172,89 @@ if (pkgId && pkgPrice > 0) {
     conn.release();
   }
 });
-// --- Update Admin ---
-router.put("/update-admin/:id", upload.single("profile_image_url"), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { admin_name, email, address, gym_name, system_type, password, rfid_tag_2 } = req.body;
-
-    const [[admin]] = await query(`SELECT * FROM AdminAccounts WHERE id = ?`, [id]);
-    if (!admin) return res.status(404).json({ error: "Admin not found" });
-
-    const imagePath = req.file ? `/uploads/partners/${req.file.filename}` : admin.profile_image_url;
-    const hashedPassword = password ? await bcrypt.hash(password, 10) : admin.password;
-
-    await query(`
-      UPDATE AdminAccounts 
-      SET admin_name=?, email=?, address=?, gym_name=?, system_type=?,
-          profile_image_url=?, password=?, rfid_tag_2=?
-      WHERE id=?`,
-      [admin_name, email, address, gym_name, system_type,
-        imagePath, hashedPassword, rfid_tag_2 || null, id]
-    );
-
-    res.json({ message: "Admin updated successfully", profile_image_url: imagePath });
-  } catch (err) {
-    console.error("Update error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// --- Replace RFID ---
-router.put("/replace-admin-rfid/:id", async (req, res) => {
+// --- Update Admin RFID (Handles Both Slots) ---
+router.put("/update-admin-rfid/:id", async (req, res) => {
   const { id } = req.params;
-  const { new_rfid_tag, rfid_slot } = req.body;
+  const { new_rfid_tag, new_rfid_tag_2 } = req.body;
 
   try {
-    const [[admin]] = await query("SELECT rfid_tag, rfid_tag_2 FROM AdminAccounts WHERE id = ?", [id]);
+    // 1️⃣ Get current RFID values
+    const [[admin]] = await query(
+      "SELECT rfid_tag, rfid_tag_2, previous_rfid, previous_rfid_2 FROM AdminAccounts WHERE id = ?",
+      [id]
+    );
     if (!admin) return res.status(404).json({ error: "Admin not found" });
 
-    const isSlot2 = rfid_slot === 2;
-    const oldRfid = isSlot2 ? admin.rfid_tag_2 : admin.rfid_tag;
-    const columnPrefix = isSlot2 ? "_2" : "";
+    // 2️⃣ Prepare variables
+    let updateFields = [];
+    let values = [];
 
-    await query(`
+    // ✅ Slot 1
+    if (new_rfid_tag && new_rfid_tag !== admin.rfid_tag) {
+      updateFields.push("previous_rfid = ?", "rfid_tag = ?");
+      values.push(admin.rfid_tag || null, new_rfid_tag);
+    }
+
+    // ✅ Slot 2
+    if (new_rfid_tag_2 && new_rfid_tag_2 !== admin.rfid_tag_2) {
+      updateFields.push("previous_rfid_2 = ?", "rfid_tag_2 = ?");
+      values.push(admin.rfid_tag_2 || null, new_rfid_tag_2);
+    }
+
+    // If nothing to update
+    if (updateFields.length === 0) {
+      return res.json({ message: "No RFID changes detected." });
+    }
+
+    // Add common fields
+    updateFields.push("replaced_by = 'SuperAdmin'", "replaced_at = NOW()");
+    const updateQuery = `
       UPDATE AdminAccounts
-      SET previous_rfid${columnPrefix}=?, rfid_tag${columnPrefix}=?, replaced_by='SuperAdmin', replaced_at=NOW()
-      WHERE id=?`, [oldRfid, new_rfid_tag, id]);
+      SET ${updateFields.join(", ")}
+      WHERE id = ?
+    `;
+    values.push(id);
 
-    res.json({ message: `RFID ${rfid_slot} replaced successfully`, old_rfid: oldRfid, new_rfid_tag });
+    // 3️⃣ Execute update
+    await query(updateQuery, values);
+
+    res.json({
+      message: "RFID(s) updated successfully",
+      updated: {
+        slot1: new_rfid_tag || admin.rfid_tag,
+        slot2: new_rfid_tag_2 || admin.rfid_tag_2,
+      },
+    });
   } catch (err) {
+    console.error("RFID Update Error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
+
+
+  // --- Replace RFID ---
+  router.put("/replace-admin-rfid/:id", async (req, res) => {
+    const { id } = req.params;
+    const { new_rfid_tag, rfid_slot } = req.body;
+
+    try {
+      const [[admin]] = await query("SELECT rfid_tag, rfid_tag_2 FROM AdminAccounts WHERE id = ?", [id]);
+      if (!admin) return res.status(404).json({ error: "Admin not found" });
+
+      const isSlot2 = rfid_slot === 2;
+      const oldRfid = isSlot2 ? admin.rfid_tag_2 : admin.rfid_tag;
+      const columnPrefix = isSlot2 ? "_2" : "";
+
+      await query(`
+        UPDATE AdminAccounts
+        SET previous_rfid${columnPrefix}=?, rfid_tag${columnPrefix}=?, replaced_by='SuperAdmin', replaced_at=NOW()
+        WHERE id=?`, [oldRfid, new_rfid_tag, id]);
+
+      res.json({ message: `RFID ${rfid_slot} replaced successfully`, old_rfid: oldRfid, new_rfid_tag });
+    } catch (err) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
 
 // --- Get Admins ---
 router.get("/admins", async (_, res) => {

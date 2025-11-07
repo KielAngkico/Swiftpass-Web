@@ -208,185 +208,180 @@ const handleRegistrationClick = (registration) => {
     }, 10000);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+    const handleSubmit = async (e) => {
+      e.preventDefault();
 
-    try {
-      if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
-        const rfid1Changed = formData.rfid_tag !== originalRfid;
-        const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
+      try {
+        if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
+          const rfid1Changed = formData.rfid_tag !== originalRfid;
+          const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
 
-        if (rfid1Changed && originalRfid) {
-          await axios.put(
-            `${API_URL}/api/replace-admin-rfid/${editingAdmin.id}`,
-            { 
-              new_rfid_tag: formData.rfid_tag,
-              rfid_slot: 1 
-            }
+if (rfid1Changed && formData.rfid_tag) {
+  await axios.put(`${API_URL}/api/replace-admin-rfid/${editingAdmin.id}`, {
+    new_rfid_tag: formData.rfid_tag,
+    rfid_slot: 1
+  });
+}
+
+if (rfid2Changed && formData.rfid_tag_2) {
+  await axios.put(`${API_URL}/api/replace-admin-rfid/${editingAdmin.id}`, {
+    new_rfid_tag: formData.rfid_tag_2,
+    rfid_slot: 2
+  });
+}
+
+
+  const formPayload = new FormData();
+  formPayload.append("admin_name", formData.admin_name);
+  formPayload.append("rfid_tag", formData.rfid_tag);
+  formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
+  formPayload.append("address", formData.address);
+  formPayload.append("email", formData.email);
+  formPayload.append("password", formData.password);
+  formPayload.append("gym_name", formData.gym_name);
+  formPayload.append("system_type", formData.system_type);
+  formPayload.append("package_id", formData.package_id || "");
+  formPayload.append("payment_method", formData.payment_method || "Cash");  // ← Add this
+  formPayload.append("reference_number", formData.reference_number || "");  // ← Add this
+
+          if (formData.password && formData.password.trim() !== "") {
+            formPayload.append("password", formData.password);
+          }
+
+          if (
+            formData.profile_image_url &&
+            typeof formData.profile_image_url !== "string"
+          ) {
+            formPayload.append("profile_image_url", formData.profile_image_url);
+          }
+
+          const response = await axios.put(
+            `${API_URL}/api/update-admin/${editingAdmin.id}`,
+            formPayload,
+            { headers: { "Content-Type": "multipart/form-data" } }
           );
-        }
 
-        if (rfid2Changed && originalRfid2) {
-          await axios.put(
-            `${API_URL}/api/replace-admin-rfid/${editingAdmin.id}`,
-            { 
-              new_rfid_tag: formData.rfid_tag_2,
-              rfid_slot: 2 
-            }
+          showToast({ message: "Partner updated successfully!", type: "success" });
+
+          setAdmins(
+            admins.map((admin) =>
+              admin.id === editingAdmin.id
+                ? {
+                    ...admin,
+                    admin_name: formData.admin_name,
+                    address: formData.address,
+                    email: formData.email,
+                    gym_name: formData.gym_name,
+                    system_type: formData.system_type,
+                    package_id: formData.package_id,
+                    profile_image_url:
+                      response.data.profile_image_url || admin.profile_image_url,
+                    rfid_tag: formData.rfid_tag,
+                    rfid_tag_2: formData.rfid_tag_2,
+                  }
+                : admin
+            )
           );
-        }
-
-const formPayload = new FormData();
-formPayload.append("admin_name", formData.admin_name);
-formPayload.append("rfid_tag", formData.rfid_tag);
-formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
-formPayload.append("address", formData.address);
-formPayload.append("email", formData.email);
-formPayload.append("password", formData.password);
-formPayload.append("gym_name", formData.gym_name);
-formPayload.append("system_type", formData.system_type);
-formPayload.append("package_id", formData.package_id || "");
-formPayload.append("payment_method", formData.payment_method || "Cash");  // ← Add this
-formPayload.append("reference_number", formData.reference_number || "");  // ← Add this
-
-        if (formData.password && formData.password.trim() !== "") {
+        } else {
+          const formPayload = new FormData();
+          formPayload.append("admin_name", formData.admin_name);
+          formPayload.append("rfid_tag", formData.rfid_tag);
+          formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
+          formPayload.append("address", formData.address);
+          formPayload.append("email", formData.email);
           formPayload.append("password", formData.password);
+          formPayload.append("gym_name", formData.gym_name);
+          formPayload.append("system_type", formData.system_type);
+          formPayload.append("package_id", formData.package_id || "");
+
+          if (formData.profile_image_url) {
+            formPayload.append("profile_image_url", formData.profile_image_url);
+          }
+
+          const response = await axios.post(
+            `${API_URL}/api/add-client`,
+            formPayload,
+            { headers: { "Content-Type": "multipart/form-data" } }
+          );
+
+          showToast({ message: "Partner added successfully!", type: "success" });
+
+          if (modalMode === "registration" && editingAdmin?.registrationNumber) {
+            await axios.delete(`${API_URL}/api/pending-registrations/${editingAdmin.registrationNumber}`);
+            fetchPendingRegistrations();
+          }
+
+          setAdmins([
+            ...admins,
+            {
+              id: response.data.id,
+              admin_name: formData.admin_name,
+              address: formData.address,
+              email: formData.email,
+              gym_name: formData.gym_name,
+              system_type: formData.system_type,
+              package_id: formData.package_id,
+              profile_image_url: response.data.profile_image_url || null,
+              rfid_tag: formData.rfid_tag,
+              rfid_tag_2: formData.rfid_tag_2,
+              is_archived: 0,
+            },
+          ]);
         }
 
-        if (
-          formData.profile_image_url &&
-          typeof formData.profile_image_url !== "string"
-        ) {
-          formPayload.append("profile_image_url", formData.profile_image_url);
-        }
-
-        const response = await axios.put(
-          `${API_URL}/api/update-admin/${editingAdmin.id}`,
-          formPayload,
-          { headers: { "Content-Type": "multipart/form-data" } }
-        );
-
-        showToast({ message: "Partner updated successfully!", type: "success" });
-
-        setAdmins(
-          admins.map((admin) =>
-            admin.id === editingAdmin.id
-              ? {
-                  ...admin,
-                  admin_name: formData.admin_name,
-                  address: formData.address,
-                  email: formData.email,
-                  gym_name: formData.gym_name,
-                  system_type: formData.system_type,
-                  package_id: formData.package_id,
-                  profile_image_url:
-                    response.data.profile_image_url || admin.profile_image_url,
-                  rfid_tag: formData.rfid_tag,
-                  rfid_tag_2: formData.rfid_tag_2,
-                }
-              : admin
-          )
-        );
-      } else {
-        const formPayload = new FormData();
-        formPayload.append("admin_name", formData.admin_name);
-        formPayload.append("rfid_tag", formData.rfid_tag);
-        formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
-        formPayload.append("address", formData.address);
-        formPayload.append("email", formData.email);
-        formPayload.append("password", formData.password);
-        formPayload.append("gym_name", formData.gym_name);
-        formPayload.append("system_type", formData.system_type);
-        formPayload.append("package_id", formData.package_id || "");
-
-        if (formData.profile_image_url) {
-          formPayload.append("profile_image_url", formData.profile_image_url);
-        }
-
-        const response = await axios.post(
-          `${API_URL}/api/add-client`,
-          formPayload,
-          { headers: { "Content-Type": "multipart/form-data" } }
-        );
-
-        showToast({ message: "Partner added successfully!", type: "success" });
-
-        if (modalMode === "registration" && editingAdmin?.registrationNumber) {
-          await axios.delete(`${API_URL}/api/pending-registrations/${editingAdmin.registrationNumber}`);
-          fetchPendingRegistrations();
-        }
-
-        setAdmins([
-          ...admins,
-          {
-            id: response.data.id,
-            admin_name: formData.admin_name,
-            address: formData.address,
-            email: formData.email,
-            gym_name: formData.gym_name,
-            system_type: formData.system_type,
-            package_id: formData.package_id,
-            profile_image_url: response.data.profile_image_url || null,
-            rfid_tag: formData.rfid_tag,
-            rfid_tag_2: formData.rfid_tag_2,
-            is_archived: 0,
-          },
-        ]);
-      }
-
-      setShowAddForm(false);
-      setEditingAdmin(null);
-      setModalMode("add");
-      setWaitingForSlot(null);
-      setOriginalRfid("");
-      setOriginalRfid2("");
-      sessionStorage.removeItem('pendingSlotRfid');
-      sessionStorage.removeItem('rfidScannedAt');
-      // ✅ FIX: Keep packages when resetting
-setFormData({
-  admin_name: "",
-  address: "",
-  email: "",
-  password: "",
-  gym_name: "",
-  system_type: "",
-  package_id: "",
-  payment_method: "Cash",      // ← Add this
-  reference_number: "",         // ← Add this
-  profile_image_url: null,
-  rfid_tag: "",
-  rfid_tag_2: "",
-  packages: packages,
-  paymentOptions: paymentOptions,  // ← Add this
-});
-    } catch (error) {
-      showToast({ message: `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`, type: "error" });
-    }
-  };
-
- const handleEdit = (admin) => {
-  setEditingAdmin(admin);
-  setModalMode("edit");
-  setOriginalRfid(admin.rfid_tag || "");
-  setOriginalRfid2(admin.rfid_tag_2 || "");
+        setShowAddForm(false);
+        setEditingAdmin(null);
+        setModalMode("add");
+        setWaitingForSlot(null);
+        setOriginalRfid("");
+        setOriginalRfid2("");
+        sessionStorage.removeItem('pendingSlotRfid');
+        sessionStorage.removeItem('rfidScannedAt');
+        // ✅ FIX: Keep packages when resetting
   setFormData({
-    admin_name: admin.admin_name,
-    address: admin.address,
-    email: admin.email,
+    admin_name: "",
+    address: "",
+    email: "",
     password: "",
-    gym_name: admin.gym_name,
-    system_type: admin.system_type,
-    package_id: admin.package_id || "",
+    gym_name: "",
+    system_type: "",
+    package_id: "",
     payment_method: "Cash",      // ← Add this
     reference_number: "",         // ← Add this
-    profile_image_url: admin.profile_image_url ? `${API_URL}${admin.profile_image_url}` : null,
-    rfid_tag: admin.rfid_tag || "",
-    rfid_tag_2: admin.rfid_tag_2 || "",
+    profile_image_url: null,
+    rfid_tag: "",
+    rfid_tag_2: "",
     packages: packages,
     paymentOptions: paymentOptions,  // ← Add this
   });
-  setShowAddForm(true);
-};
+      } catch (error) {
+        showToast({ message: `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`, type: "error" });
+      }
+    };
+
+  const handleEdit = (admin) => {
+    setEditingAdmin(admin);
+    setModalMode("edit");
+    setOriginalRfid(admin.rfid_tag || "");
+    setOriginalRfid2(admin.rfid_tag_2 || "");
+    setFormData({
+      admin_name: admin.admin_name,
+      address: admin.address,
+      email: admin.email,
+      password: "",
+      gym_name: admin.gym_name,
+      system_type: admin.system_type,
+      package_id: admin.package_id || "",
+      payment_method: "Cash",      // ← Add this
+      reference_number: "",         // ← Add this
+      profile_image_url: admin.profile_image_url ? `${API_URL}${admin.profile_image_url}` : null,
+      rfid_tag: admin.rfid_tag || "",
+      rfid_tag_2: admin.rfid_tag_2 || "",
+      packages: packages,
+      paymentOptions: paymentOptions,  // ← Add this
+    });
+    setShowAddForm(true);
+  };
 
   const handleArchive = async (id, isArchived) => {
     const endpoint = isArchived ? "restore-admin" : "archive-admin";

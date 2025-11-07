@@ -206,6 +206,7 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
           `UPDATE RegisteredRfid 
            SET assigned_to_id = ?,
                assigned_to_name = ?,
+               assigned_to_type = 'Admin',
                status = 'in_use',
                assignment_date = NOW()
            WHERE rfid_tag = ? AND role = 'Partner'`,
@@ -219,6 +220,7 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
           `UPDATE RegisteredRfid 
            SET assigned_to_id = NULL,
                assigned_to_name = NULL,
+               assigned_to_type = NULL,
                status = 'allocated',
                assignment_date = NULL
            WHERE rfid_tag = ? AND role = 'Partner'`,
@@ -238,6 +240,7 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
           `UPDATE RegisteredRfid 
            SET assigned_to_id = ?,
                assigned_to_name = ?,
+               assigned_to_type = 'Admin',
                status = 'in_use',
                assignment_date = NOW()
            WHERE rfid_tag = ? AND role = 'Partner'`,
@@ -251,6 +254,7 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
           `UPDATE RegisteredRfid 
            SET assigned_to_id = NULL,
                assigned_to_name = NULL,
+               assigned_to_type = NULL,
                status = 'allocated',
                assignment_date = NULL
            WHERE rfid_tag = ? AND role = 'Partner'`,

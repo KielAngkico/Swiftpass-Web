@@ -79,6 +79,7 @@ app.use(helmet({
 app.use("/uploads/partners", express.static(path.join(__dirname, "..", "public","uploads/partners")));
 app.use("/uploads/staff", express.static(path.join(__dirname, "..","public" ,"uploads/staff")));
 app.use("/uploads/members", express.static(path.join(__dirname, "..", "public","uploads/members")));
+app.use("/uploads/daypass", express.static(path.join(__dirname, "..", "public","uploads/daypass")));
 app.use("/uploads/exercises", express.static(path.join(__dirname, "..", "public","uploads/exercises")));
 app.use("/uploads", express.static(path.join(__dirname, "..","public" ,"uploads")));
 

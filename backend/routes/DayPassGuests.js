@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
+const daypassUpload = require("../middleware/daypassUploads");
 
 router.get("/session-fee", async (req, res) => {
   const { admin_id } = req.query;
@@ -32,7 +33,10 @@ router.get("/session-fee", async (req, res) => {
   }
 });
 
-router.post("/register-session", async (req, res) => {
+router.post("/register-session", upload.single("guest_image"), async (req, res) => {
+  console.log("Received req.body:", req.body);
+  console.log("Received req.file:", req.file);
+
   const conn = await db.promise().getConnection();
   
   try {
@@ -52,6 +56,8 @@ router.post("/register-session", async (req, res) => {
       cashless_reference,
       rfid_keyfob_fee,
     } = req.body;
+
+    const profileImage = req.file ? `uploads/members/${req.file.filename}` : null;
 
     const [adminRows] = await conn.query(
       "SELECT session_fee FROM AdminAccounts WHERE id = ?",
@@ -74,14 +80,15 @@ router.post("/register-session", async (req, res) => {
     let guestId;
 
     if (guestRows.length === 0) {
-      // ✅ Insert new guest
+      // ✅ Insert new guest with profile image
       const [insertResult] = await conn.query(
         `INSERT INTO DayPassGuests
-        (guest_name, gender, rfid_tag, system_type, staff_name, admin_id, paid_amount, expires_at, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+        (guest_name, gender, profile_image_url, rfid_tag, system_type, staff_name, admin_id, paid_amount, expires_at, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
         [
           guest_name,
           gender,
+          profileImage,
           rfid_tag,
           system_type,
           staff_name,
@@ -92,11 +99,11 @@ router.post("/register-session", async (req, res) => {
       );
       guestId = insertResult.insertId;
     } else {
-      // ✅ Update existing guest
+      // ✅ Update existing guest with profile image
       guestId = guestRows[0].id;
       await conn.query(
-        "UPDATE DayPassGuests SET expires_at = ?, admin_id = ? WHERE rfid_tag = ? AND status = 'active'",
-        [expires_at, admin_id, rfid_tag]
+        "UPDATE DayPassGuests SET expires_at = ?, admin_id = ?, profile_image_url = ? WHERE rfid_tag = ? AND status = 'active'",
+        [expires_at, admin_id, profileImage, rfid_tag]
       );
     }
 
@@ -126,6 +133,7 @@ router.post("/register-session", async (req, res) => {
       session_fee: sessionFee,
       key_fob_fee: rfid_keyfob_fee,
       total_amount: totalAmount,
+      profile_image_url: profileImage,
     });
   } catch (error) {
     await conn.rollback();

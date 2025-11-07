@@ -87,16 +87,17 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
     const employeeId = result.insertId;
 
     // ✅ Update RegisteredRfid table (role = 'Partner' for employees too)
-    if (rfid_tag && rfid_tag.trim() !== "") {
-      const [updateResult] = await conn.query(
-        `UPDATE RegisteredRfid 
-         SET assigned_to_id = ?,
-             assigned_to_name = ?,
-             status = 'in_use',
-             assignment_date = NOW()
-         WHERE rfid_tag = ? AND role = 'Partner'`,
-        [employeeId, name, rfid_tag]
-      );
+      if (rfid_tag && rfid_tag.trim() !== "") {
+        const [updateResult] = await conn.query(
+          `UPDATE RegisteredRfid 
+          SET assigned_to_id = ?,
+              assigned_to_name = ?,
+              assigned_to_type = 'Staff',
+              status = 'in_use',
+              assignment_date = NOW()
+          WHERE rfid_tag = ? AND role = 'Partner'`,
+          [employeeId, name, rfid_tag]
+        );
 
       console.log(`✅ RegisteredRfid UPDATE result:`, updateResult);
       console.log(`   - Rows affected: ${updateResult.affectedRows}`);
@@ -252,31 +253,33 @@ router.put("/replace-employee-rfid/:id", async (req, res) => {
       [oldRfid, new_rfid_tag || null, "Admin", employeeId]
     );
 
-    // ✅ Clear old RFID in RegisteredRfid
-    if (oldRfid) {
-      await conn.query(
-        `UPDATE RegisteredRfid 
-         SET assigned_to_id = NULL,
-             assigned_to_name = NULL,
-             status = 'allocated',
-             assignment_date = NULL
-         WHERE rfid_tag = ? AND role = 'Employee'`,
-        [oldRfid]
-      );
-    }
+ // ✅ Clear old RFID in RegisteredRfid
+if (oldRfid) {
+  await conn.query(
+    `UPDATE RegisteredRfid 
+     SET assigned_to_id = NULL,
+         assigned_to_name = NULL,
+         assigned_to_type = NULL,
+         status = 'allocated',
+         assignment_date = NULL
+     WHERE rfid_tag = ? AND role = 'Partner'`,
+    [oldRfid]
+  );
+}
 
-    // ✅ Assign new RFID in RegisteredRfid
-    if (new_rfid_tag && new_rfid_tag.trim() !== "") {
-      await conn.query(
-        `UPDATE RegisteredRfid 
-         SET assigned_to_id = ?,
-             assigned_to_name = ?,
-             status = 'in_use',
-             assignment_date = NOW()
-         WHERE rfid_tag = ? AND role = 'Employee'`,
-        [employeeId, staffName, new_rfid_tag]
-      );
-    }
+// ✅ Assign new RFID in RegisteredRfid
+if (new_rfid_tag && new_rfid_tag.trim() !== "") {
+  await conn.query(
+    `UPDATE RegisteredRfid 
+     SET assigned_to_id = ?,
+         assigned_to_name = ?,
+         assigned_to_type = 'Staff',
+         status = 'in_use',
+         assignment_date = NOW()
+     WHERE rfid_tag = ? AND role = 'Partner'`,
+    [employeeId, staffName, new_rfid_tag]
+  );
+}
 
     await conn.commit();
 

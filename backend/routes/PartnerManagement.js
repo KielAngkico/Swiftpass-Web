@@ -177,13 +177,19 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
   const { id } = req.params;
   const { new_rfid_tag, new_rfid_tag_2 } = req.body;
 
+  const conn = await db.promise().getConnection();
   try {
-    // 1️⃣ Get current RFID values
-    const [[admin]] = await query(
-      "SELECT rfid_tag, rfid_tag_2, previous_rfid, previous_rfid_2 FROM AdminAccounts WHERE id = ?",
+    await conn.beginTransaction();
+
+    // 1️⃣ Get current RFID values and admin name
+    const [[admin]] = await conn.query(
+      "SELECT rfid_tag, rfid_tag_2, previous_rfid, previous_rfid_2, admin_name FROM AdminAccounts WHERE id = ?",
       [id]
     );
-    if (!admin) return res.status(404).json({ error: "Admin not found" });
+    if (!admin) {
+      await conn.rollback();
+      return res.status(404).json({ error: "Admin not found" });
+    }
 
     // 2️⃣ Prepare variables
     let updateFields = [];
@@ -193,16 +199,69 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
     if (new_rfid_tag && new_rfid_tag !== admin.rfid_tag) {
       updateFields.push("previous_rfid = ?", "rfid_tag = ?");
       values.push(admin.rfid_tag || null, new_rfid_tag);
+
+      // Update RegisteredRfid for slot 1
+      if (new_rfid_tag) {
+        await conn.query(
+          `UPDATE RegisteredRfid 
+           SET assigned_to_id = ?,
+               assigned_to_name = ?,
+               status = 'in_use',
+               assignment_date = NOW()
+           WHERE rfid_tag = ? AND role = 'Partner'`,
+          [id, admin.admin_name, new_rfid_tag]
+        );
+      }
+
+      // Clear old RFID if exists
+      if (admin.rfid_tag) {
+        await conn.query(
+          `UPDATE RegisteredRfid 
+           SET assigned_to_id = NULL,
+               assigned_to_name = NULL,
+               status = 'allocated',
+               assignment_date = NULL
+           WHERE rfid_tag = ? AND role = 'Partner'`,
+          [admin.rfid_tag]
+        );
+      }
     }
 
     // ✅ Slot 2
     if (new_rfid_tag_2 && new_rfid_tag_2 !== admin.rfid_tag_2) {
       updateFields.push("previous_rfid_2 = ?", "rfid_tag_2 = ?");
       values.push(admin.rfid_tag_2 || null, new_rfid_tag_2);
+
+      // Update RegisteredRfid for slot 2
+      if (new_rfid_tag_2) {
+        await conn.query(
+          `UPDATE RegisteredRfid 
+           SET assigned_to_id = ?,
+               assigned_to_name = ?,
+               status = 'in_use',
+               assignment_date = NOW()
+           WHERE rfid_tag = ? AND role = 'Partner'`,
+          [id, admin.admin_name, new_rfid_tag_2]
+        );
+      }
+
+      // Clear old RFID if exists
+      if (admin.rfid_tag_2) {
+        await conn.query(
+          `UPDATE RegisteredRfid 
+           SET assigned_to_id = NULL,
+               assigned_to_name = NULL,
+               status = 'allocated',
+               assignment_date = NULL
+           WHERE rfid_tag = ? AND role = 'Partner'`,
+          [admin.rfid_tag_2]
+        );
+      }
     }
 
     // If nothing to update
     if (updateFields.length === 0) {
+      await conn.rollback();
       return res.json({ message: "No RFID changes detected." });
     }
 
@@ -216,7 +275,9 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
     values.push(id);
 
     // 3️⃣ Execute update
-    await query(updateQuery, values);
+    await conn.query(updateQuery, values);
+
+    await conn.commit();
 
     res.json({
       message: "RFID(s) updated successfully",
@@ -226,13 +287,19 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
       },
     });
   } catch (err) {
+    await conn.rollback();
     console.error("RFID Update Error:", err);
     res.status(500).json({ error: "Server error" });
+  } finally {
+    conn.release();
   }
 });
 
 
-  // --- Replace RFID ---
+
+
+  // -
+  // -- Replace RFID ---
   router.put("/replace-admin-rfid/:id", async (req, res) => {
     const { id } = req.params;
     const { new_rfid_tag, rfid_slot } = req.body;

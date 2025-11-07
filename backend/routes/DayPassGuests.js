@@ -33,40 +33,49 @@ router.get("/session-fee", async (req, res) => {
 });
 
 router.post("/register-session", async (req, res) => {
-  const {
-    guest_name,
-    gender,
-    rfid_tag,
-    system_type,
-    staff_name,
-    admin_id,
-    mobile_number,
-    email,
-    expires_at,
-    payment_method,
-    cashless_reference,
-    rfid_keyfob_fee,
-  } = req.body;
-
+  const conn = await db.promise().getConnection();
+  
   try {
-    const [adminRows] = await db.promise().query(
+    await conn.beginTransaction();
+
+    const {
+      guest_name,
+      gender,
+      rfid_tag,
+      system_type,
+      staff_name,
+      admin_id,
+      mobile_number,
+      email,
+      expires_at,
+      payment_method,
+      cashless_reference,
+      rfid_keyfob_fee,
+    } = req.body;
+
+    const [adminRows] = await conn.query(
       "SELECT session_fee FROM AdminAccounts WHERE id = ?",
       [admin_id]
     );
 
     if (adminRows.length === 0) {
+      await conn.rollback();
       return res.status(400).json({ error: "Admin not found" });
     }
+    
     const sessionFee = adminRows[0].session_fee;
     const totalAmount = parseFloat(sessionFee) + parseFloat(rfid_keyfob_fee || 0);
 
-    const [guestRows] = await db.promise().query(
+    const [guestRows] = await conn.query(
       "SELECT * FROM DayPassGuests WHERE rfid_tag = ? AND status = 'active'",
       [rfid_tag]
     );
 
+    let guestId;
+
     if (guestRows.length === 0) {
-      await db.promise().query(
+      // ✅ Insert new guest
+      const [insertResult] = await conn.query(
         `INSERT INTO DayPassGuests
         (guest_name, gender, rfid_tag, system_type, staff_name, admin_id, paid_amount, expires_at, status)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
@@ -81,19 +90,36 @@ router.post("/register-session", async (req, res) => {
           expires_at,
         ]
       );
+      guestId = insertResult.insertId;
     } else {
-      await db.promise().query(
+      // ✅ Update existing guest
+      guestId = guestRows[0].id;
+      await conn.query(
         "UPDATE DayPassGuests SET expires_at = ?, admin_id = ? WHERE rfid_tag = ? AND status = 'active'",
         [expires_at, admin_id, rfid_tag]
       );
     }
 
-    await db.promise().query(
+    // ✅ UPDATE RegisteredRfid table
+    await conn.query(
+      `UPDATE RegisteredRfid 
+       SET assigned_to_id = ?,
+           assigned_to_name = ?,
+           status = 'in_use',
+           assignment_date = NOW()
+       WHERE rfid_tag = ? AND role = 'DayPass'`,
+      [guestId, guest_name, rfid_tag]
+    );
+
+    // Insert transaction
+    await conn.query(
       `INSERT INTO AdminTransactions
       (admin_id, member_name, rfid_tag, amount, payment_method, staff_name, transaction_type, transaction_date, cashless_reference)
       VALUES (?, ?, ?, ?, ?, ?, 'day_pass_session', NOW(), ?)`,
       [admin_id, guest_name, rfid_tag, totalAmount, payment_method, staff_name, cashless_reference || null]
     );
+
+    await conn.commit();
 
     return res.status(201).json({
       message: "Day pass session registered successfully",
@@ -102,8 +128,11 @@ router.post("/register-session", async (req, res) => {
       total_amount: totalAmount,
     });
   } catch (error) {
+    await conn.rollback();
     console.error("Error registering day pass session:", error);
     res.status(500).json({ error: "Server error" });
+  } finally {
+    conn.release();
   }
 });
 

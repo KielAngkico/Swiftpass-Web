@@ -6,33 +6,39 @@ const staffUpload = require("../middleware/staffupload");
 const path = require("path");
 
 router.post("/add-employee", staffUpload.single("profile_image"), async (req, res) => {
+  const conn = await dbSuperAdmin.promise().getConnection();
   try {
+    await conn.beginTransaction();
+
     console.log("REQ.BODY:", req.body);
     console.log("REQ.FILE:", req.file);
 
     const { name, age, address, contact_number, email, password, admin_id, rfid_tag } = req.body;
 
     if (!name || !age || !address || !contact_number || !email || !password || !admin_id) {
+      await conn.rollback();
       return res.status(400).json({ message: "All required fields must be filled." });
     }
 
     const emailRegex = /^[a-zA-Z0-9._-]+@gmail\.com$/;
     if (!emailRegex.test(email)) {
+      await conn.rollback();
       return res.status(400).json({ message: "Email must be a valid Gmail address." });
     }
 
-     const [existing] = await dbSuperAdmin
-      .promise()
-      .query("SELECT * FROM StaffAccounts WHERE email = ?", [email]);
+    const [existing] = await conn.query("SELECT * FROM StaffAccounts WHERE email = ?", [email]);
     if (existing.length > 0) {
+      await conn.rollback();
       return res.status(400).json({ message: "Email already exists. Use a different one." });
     }
 
-     if (rfid_tag && rfid_tag.trim() !== "") {
-      const [existingRfid] = await dbSuperAdmin
-        .promise()
-        .query("SELECT * FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ?", [rfid_tag, admin_id]);
+    if (rfid_tag && rfid_tag.trim() !== "") {
+      const [existingRfid] = await conn.query(
+        "SELECT * FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ?", 
+        [rfid_tag, admin_id]
+      );
       if (existingRfid.length > 0) {
+        await conn.rollback();
         return res.status(400).json({ message: "RFID tag already assigned to another staff member." });
       }
     }
@@ -40,24 +46,39 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
     const hashedPassword = await bcrypt.hash(password, 10);
     const profile_image_filename = req.file ? req.file.filename : null;
 
-    const [result] = await dbSuperAdmin
-      .promise()
-      .query(
-        `INSERT INTO StaffAccounts
-          (admin_id, staff_name, age, address, contact_number, email, password, profile_image_url, rfid_tag, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
-        [
-          admin_id,
-          name,
-          age,
-          address,
-          contact_number,
-          email,
-          hashedPassword,
-          profile_image_filename,
-          rfid_tag || null
-        ]
+    const [result] = await conn.query(
+      `INSERT INTO StaffAccounts
+        (admin_id, staff_name, age, address, contact_number, email, password, profile_image_url, rfid_tag, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+      [
+        admin_id,
+        name,
+        age,
+        address,
+        contact_number,
+        email,
+        hashedPassword,
+        profile_image_filename,
+        rfid_tag || null
+      ]
+    );
+
+    const employeeId = result.insertId;
+
+    // ✅ Update RegisteredRfid table
+    if (rfid_tag && rfid_tag.trim() !== "") {
+      await conn.query(
+        `UPDATE RegisteredRfid 
+         SET assigned_to_id = ?,
+             assigned_to_name = ?,
+             status = 'in_use',
+             assignment_date = NOW()
+         WHERE rfid_tag = ? AND role = 'Employee'`,
+        [employeeId, name, rfid_tag]
       );
+    }
+
+    await conn.commit();
 
     const profile_image_url = profile_image_filename
       ? `${req.protocol}://${req.get('host')}/uploads/staff/${profile_image_filename}`
@@ -65,14 +86,17 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
 
     res.status(200).json({
       message: "Employee added successfully!",
-      id: result.insertId,
+      id: employeeId,
       profile_image_url,
       rfid_tag: rfid_tag || null
     });
 
   } catch (err) {
+    await conn.rollback();
     console.error(err);
     res.status(500).json({ message: "Server error adding employee." });
+  } finally {
+    conn.release();
   }
 });
 
@@ -151,51 +175,81 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
   }
 });
 
- router.put("/replace-employee-rfid/:id", async (req, res) => {
+router.put("/replace-employee-rfid/:id", async (req, res) => {
   const employeeId = req.params.id;
   const { new_rfid_tag } = req.body;
 
+  const conn = await dbSuperAdmin.promise().getConnection();
   try {
-     const [currentEmployee] = await dbSuperAdmin.promise().query(
-      "SELECT rfid_tag, admin_id FROM StaffAccounts WHERE id = ?",
+    await conn.beginTransaction();
+
+    // Get current employee data
+    const [currentEmployee] = await conn.query(
+      "SELECT rfid_tag, admin_id, staff_name FROM StaffAccounts WHERE id = ?",
       [employeeId]
     );
 
     if (currentEmployee.length === 0) {
+      await conn.rollback();
       return res.status(404).json({ error: "Employee not found" });
     }
 
     const oldRfid = currentEmployee[0].rfid_tag;
     const adminId = currentEmployee[0].admin_id;
+    const staffName = currentEmployee[0].staff_name;
 
-     if (new_rfid_tag && new_rfid_tag.trim() !== "") {
-      const [existingRfid] = await dbSuperAdmin.promise().query(
+    // Check if new RFID already assigned
+    if (new_rfid_tag && new_rfid_tag.trim() !== "") {
+      const [existingRfid] = await conn.query(
         "SELECT * FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ? AND id != ?",
         [new_rfid_tag, adminId, employeeId]
       );
       if (existingRfid.length > 0) {
+        await conn.rollback();
         return res.status(400).json({ 
           error: "RFID tag already assigned to another staff member under this admin." 
         });
       }
     }
 
-     const updateSql = `
-      UPDATE StaffAccounts
-      SET
-        previous_rfid = ?,
-        rfid_tag = ?,
-        replaced_by = ?,
-        replaced_at = NOW()
-      WHERE id = ?
-    `;
+    // Update StaffAccounts
+    await conn.query(
+      `UPDATE StaffAccounts
+       SET previous_rfid = ?,
+           rfid_tag = ?,
+           replaced_by = ?,
+           replaced_at = NOW()
+       WHERE id = ?`,
+      [oldRfid, new_rfid_tag || null, "Admin", employeeId]
+    );
 
-    await dbSuperAdmin.promise().query(updateSql, [
-      oldRfid,           
-      new_rfid_tag || null,  
-      "Admin",           
-      employeeId
-    ]);
+    // ✅ Clear old RFID in RegisteredRfid
+    if (oldRfid) {
+      await conn.query(
+        `UPDATE RegisteredRfid 
+         SET assigned_to_id = NULL,
+             assigned_to_name = NULL,
+             status = 'allocated',
+             assignment_date = NULL
+         WHERE rfid_tag = ? AND role = 'Employee'`,
+        [oldRfid]
+      );
+    }
+
+    // ✅ Assign new RFID in RegisteredRfid
+    if (new_rfid_tag && new_rfid_tag.trim() !== "") {
+      await conn.query(
+        `UPDATE RegisteredRfid 
+         SET assigned_to_id = ?,
+             assigned_to_name = ?,
+             status = 'in_use',
+             assignment_date = NOW()
+         WHERE rfid_tag = ? AND role = 'Employee'`,
+        [employeeId, staffName, new_rfid_tag]
+      );
+    }
+
+    await conn.commit();
 
     res.json({
       message: "RFID replaced successfully",
@@ -205,8 +259,11 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
     });
 
   } catch (error) {
+    await conn.rollback();
     console.error("Replace RFID error:", error);
     res.status(500).json({ error: "Server error" });
+  } finally {
+    conn.release();
   }
 });
 

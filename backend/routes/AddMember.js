@@ -75,6 +75,15 @@ const upload = require("../middleware/upload");
       emergency_contact_person || null, emergency_contact_number || null, emergency_contact_relationship || null
     ]);
     const memberId = insertResult.insertId;
+    await dbSuperAdmin.promise().query(
+  `UPDATE RegisteredRfid 
+   SET assigned_to_id = ?,
+       assigned_to_name = ?,
+       status = 'in_use',
+       assignment_date = NOW()
+   WHERE rfid_tag = ? AND role = 'Member'`,
+  [memberId, full_name, rfid_tag]
+);
 
      const insertTransactionSql = `
       INSERT INTO AdminTransactions
@@ -168,6 +177,15 @@ router.post("/add-subscription-member", upload.single("member_image"), async (re
       emergency_contact_person || null, emergency_contact_number || null, emergency_contact_relationship || null
     ]);
     const memberId = memberInsertResult.insertId;
+    await dbSuperAdmin.promise().query(
+  `UPDATE RegisteredRfid 
+   SET assigned_to_id = ?,
+       assigned_to_name = ?,
+       status = 'in_use',
+       assignment_date = NOW()
+   WHERE rfid_tag = ? AND role = 'Member'`,
+  [memberId, full_name, rfid_tag]
+);
 
     const insertTxnSql = `
       INSERT INTO AdminTransactions

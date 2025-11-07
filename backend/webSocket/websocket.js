@@ -484,17 +484,186 @@ if (location.toUpperCase() !== "SUPERADMIN" &&
       rfid_type: allocation?.rfid_type
     });
 
-    // ============= STAFF LOCATION =============
-    if (location.toUpperCase() === "STAFF") {
-      await handleStaffScan(rfid_tag, location, target_admin_id, allocation, {
-        isRfidRegistered,
-        getStaffByRfid,
-        getAdminByRfid,
-        getMemberByRfid,
-        broadcastToClients
+// ============= STAFF LOCATION HANDLER =============
+// Replace this entire section in your websocket.js handleMessage function
+
+if (location.toUpperCase() === "STAFF") {
+  console.log(`\n📍 ===== STAFF LOCATION SCAN =====`);
+  console.log(`   RFID Tag: ${rfid_tag}`);
+  console.log(`   Scanner Admin ID: ${scanner_admin_id}`);
+  console.log(`   Target Admin ID: ${target_admin_id}`);
+  console.log(`   Active Scan Modes:`, adminScanModes);
+  
+  // ============= CHECK FOR ACTIVE SCAN MODE =============
+  // Find if ANY admin has scan mode enabled (since STAFF scanner might not have admin_id)
+  const activeScanModeAdmin = Object.keys(adminScanModes).find(
+    adminId => adminScanModes[adminId] === true
+  );
+  
+  if (activeScanModeAdmin) {
+    console.log(`✅ SCAN MODE ACTIVE for admin: ${activeScanModeAdmin}`);
+    console.log(`🔍 Processing employee registration scan...`);
+    
+    // Validate RFID for scan mode
+    const validation = await validateScanModeRfid(rfid_tag, parseInt(activeScanModeAdmin));
+    
+    if (!validation.valid) {
+      console.log(`❌ Validation Failed: ${validation.reason}`);
+      adminScanModes[activeScanModeAdmin] = false;
+      
+      // Only broadcast error if not a silent fail
+      if (!validation.silent) {
+        broadcastToClients({
+          type: "rfid-scanned-for-staff",
+          data: {
+            rfid_tag,
+            admin_id: parseInt(activeScanModeAdmin),
+            status: "error",
+            reason: validation.reason,
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+      
+      // Turn off scan mode
+      broadcastToClients({
+        type: "scan-mode-updated",
+        data: { enabled: false, admin_id: parseInt(activeScanModeAdmin) }
       });
+      console.log(`🔴 Scan mode disabled\n`);
       return;
     }
+
+    const allocation = validation.allocation;
+    console.log(`✅ RFID Allocation Valid:`, {
+      rfid_type: allocation.rfid_type,
+      role: allocation.role,
+      allocated_to: allocation.allocated_to_admin
+    });
+
+    // ============= CHECK FOR DUPLICATES =============
+    console.log(`🔍 Checking for duplicate RFID assignments...`);
+    
+    // Check StaffAccounts
+    const staffCheck = await getStaffByRfid(rfid_tag, parseInt(activeScanModeAdmin));
+    if (staffCheck) {
+      console.log(`❌ DUPLICATE - Already assigned to Staff: ${staffCheck.staff_name}`);
+      adminScanModes[activeScanModeAdmin] = false;
+      
+      broadcastToClients({
+        type: "rfid-scanned-for-staff",
+        data: {
+          rfid_tag,
+          admin_id: parseInt(activeScanModeAdmin),
+          status: "error",
+          reason: `Duplicate RFID - already assigned to Staff ${staffCheck.staff_name}`,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      broadcastToClients({
+        type: "scan-mode-updated",
+        data: { enabled: false, admin_id: parseInt(activeScanModeAdmin) }
+      });
+      console.log(`🔴 Scan mode disabled\n`);
+      return;
+    }
+
+    // Check AdminAccounts
+    const adminCheck = await getAdminByRfid(rfid_tag);
+    if (adminCheck) {
+      console.log(`❌ DUPLICATE - Already assigned to Admin: ${adminCheck.admin_name}`);
+      adminScanModes[activeScanModeAdmin] = false;
+      
+      broadcastToClients({
+        type: "rfid-scanned-for-staff",
+        data: {
+          rfid_tag,
+          admin_id: parseInt(activeScanModeAdmin),
+          status: "error",
+          reason: `Duplicate RFID - already assigned to Admin ${adminCheck.admin_name}`,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      broadcastToClients({
+        type: "scan-mode-updated",
+        data: { enabled: false, admin_id: parseInt(activeScanModeAdmin) }
+      });
+      console.log(`🔴 Scan mode disabled\n`);
+      return;
+    }
+
+    // Check MembersAccounts
+    const memberCheck = await getMemberByRfid(rfid_tag, parseInt(activeScanModeAdmin));
+    if (memberCheck) {
+      console.log(`❌ DUPLICATE - Already assigned to Member: ${memberCheck.full_name}`);
+      adminScanModes[activeScanModeAdmin] = false;
+      
+      broadcastToClients({
+        type: "rfid-scanned-for-staff",
+        data: {
+          rfid_tag,
+          admin_id: parseInt(activeScanModeAdmin),
+          status: "error",
+          reason: `Duplicate RFID - already assigned to Member ${memberCheck.full_name}`,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      broadcastToClients({
+        type: "scan-mode-updated",
+        data: { enabled: false, admin_id: parseInt(activeScanModeAdmin) }
+      });
+      console.log(`🔴 Scan mode disabled\n`);
+      return;
+    }
+
+    // ============= ALL CHECKS PASSED - SUCCESS! =============
+    console.log(`✅ All validation checks passed!`);
+    console.log(`📤 Broadcasting SUCCESS to admin: ${allocation.allocated_to_admin}`);
+    
+    const successPayload = {
+      type: "rfid-scanned-for-staff",
+      data: {
+        rfid_tag,
+        admin_id: allocation.allocated_to_admin,
+        rfid_type: allocation.rfid_type,
+        role: allocation.role,
+        status: "success",
+        reason: "RFID ready for registration",
+        timestamp: new Date().toISOString()
+      }
+    };
+    
+    console.log(`📦 Success Payload:`, JSON.stringify(successPayload, null, 2));
+    broadcastToClients(successPayload);
+
+    // Turn off scan mode
+    adminScanModes[activeScanModeAdmin] = false;
+    broadcastToClients({
+      type: "scan-mode-updated",
+      data: { enabled: false, admin_id: parseInt(activeScanModeAdmin) }
+    });
+    
+    console.log(`✅ Scan mode processing complete!`);
+    console.log(`🔴 Scan mode disabled`);
+    console.log(`===== END STAFF SCAN =====\n`);
+    return;
+  }
+  
+  // ============= NO SCAN MODE - NORMAL FLOW =============
+  console.log(`ℹ️ No scan mode active - using normal handleStaffScan flow`);
+  await handleStaffScan(rfid_tag, location, target_admin_id, allocation, {
+    isRfidRegistered,
+    getStaffByRfid,
+    getAdminByRfid,
+    getMemberByRfid,
+    broadcastToClients
+  });
+  console.log(`===== END STAFF SCAN =====\n`);
+  return;
+}
 
     // ============= ENTRY/EXIT LOCATION =============
     if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {

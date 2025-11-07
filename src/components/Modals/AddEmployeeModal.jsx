@@ -57,24 +57,42 @@ const AddEmployeeModal = ({
       setImagePreview(null);
     }
   }, [mode, editingEmployee, isOpen]);
-
 useEffect(() => {
   if (scannedRfidForStaff && isOpen) {
+    console.log("📡 Received scanned RFID data:", scannedRfidForStaff);
+    
     // Extract rfid_tag from the object
     const rfidTag = typeof scannedRfidForStaff === 'string' 
       ? scannedRfidForStaff 
       : scannedRfidForStaff.rfid_tag;
-      
+    
+    if (!rfidTag) {
+      console.error("❌ Invalid RFID data received:", scannedRfidForStaff);
+      setNotification({
+        type: "error",
+        message: "❌ Invalid RFID data received"
+      });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    console.log("✅ Setting RFID in form:", rfidTag);
     setFormData(prev => ({ ...prev, rfid_tag: rfidTag }));
     clearScannedRfid();
     
+    // Turn off scan mode automatically
+    if (scanModeEnabled) {
+      console.log("🔴 Auto-disabling scan mode");
+      toggleScanMode(false);
+    }
+    
     setNotification({
       type: "success",
-      message: `✅ RFID Card Scanned: ${rfidTag}`
+      message: `✅ RFID Card Scanned Successfully: ${rfidTag}`
     });
-    setTimeout(() => setNotification(null), 3000);
+    setTimeout(() => setNotification(null), 5000);
   }
-}, [scannedRfidForStaff, isOpen, clearScannedRfid]);
+}, [scannedRfidForStaff, isOpen, clearScannedRfid, scanModeEnabled, toggleScanMode]);
 
    useEffect(() => {
     if (!isOpen && scanModeEnabled) {

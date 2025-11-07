@@ -435,7 +435,7 @@ async function handleMessage(ws, message) {
         type: "rfid-scanned-for-staff",
         data: {
           rfid_tag,
-          admin_id: scanner_admin_id,
+          admin_id: allocation.allocated_to_admin,
           rfid_type: allocation.rfid_type,
           role: allocation.role,
           status: "success",

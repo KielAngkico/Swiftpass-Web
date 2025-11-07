@@ -33,8 +33,7 @@ router.get("/session-fee", async (req, res) => {
   }
 });
 
-router.post("/register-session", upload.single("guest_image"), async (req, res) => {
-  console.log("Received req.body:", req.body);
+router.post("/register-session", daypassUpload.single("guest_image"), async (req, res) => {  console.log("Received req.body:", req.body);
   console.log("Received req.file:", req.file);
 
   const conn = await db.promise().getConnection();
@@ -57,8 +56,7 @@ router.post("/register-session", upload.single("guest_image"), async (req, res) 
       rfid_keyfob_fee,
     } = req.body;
 
-    const profileImage = req.file ? `uploads/members/${req.file.filename}` : null;
-
+const profileImage = req.file ? `uploads/daypass/${req.file.filename}` : null;
     const [adminRows] = await conn.query(
       "SELECT session_fee FROM AdminAccounts WHERE id = ?",
       [admin_id]

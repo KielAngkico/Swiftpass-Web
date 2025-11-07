@@ -277,10 +277,13 @@ async function handleMessage(ws, message) {
 
     const scanner_admin_id = ws.admin_id; // Admin ID from scanner/websocket
 
-    if (location.toUpperCase() !== "SUPERADMIN" && !scanner_admin_id) {
-      ws.send(JSON.stringify({ type: "error", message: "Not authenticated" }));
-      return;
-    }
+// ✅ NEW - Allow STAFF location without admin_id (will use allocation routing)
+if (location.toUpperCase() !== "SUPERADMIN" && 
+    location.toUpperCase() !== "STAFF" && 
+    !scanner_admin_id) {
+  ws.send(JSON.stringify({ type: "error", message: "Not authenticated" }));
+  return;
+}
 
     // ============= REPLACEMENT SCAN MODE =============
     if (adminScanModes.replacement && adminScanModes.replacement[scanner_admin_id] === true) {

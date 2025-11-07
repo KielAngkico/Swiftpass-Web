@@ -205,8 +205,9 @@ case "staff-scan":
   }
 
   // 🚦 NAVIGATION LOGIC
-// 🚦 NAVIGATION LOGIC (Final)
-if (rfid_type === "card") {
+// ✅ FINAL RFID NAVIGATION LOGIC
+if (rfid_type === "card" && role === "Partner") {
+  // Partner/Admin card – not for staff use
   console.log("🧾 Partner/Admin RFID detected - for admin use only");
   Toast.show({
     type: "info",
@@ -215,25 +216,27 @@ if (rfid_type === "card") {
   });
 }
 
-else if (rfid_type === "key_fob") {
+// 🟢 DAYPASS HANDLING
+else if (rfid_type === "keyfob" && role === "DayPass") {
   if (status === "unregistered") {
-    console.log("🎟️ New DayPass KeyFob - navigating to DayPass.jsx");
+    console.log("🎟️ New DayPass Keyfob - navigating to DayPass.jsx");
     customNavigate(
       "/Staff/DayPass",
-      { state: { rfid_tag, rfid_type } },
+      { state: { rfid_tag, rfid_type, role } },
       "staff"
     );
   } else {
-    console.log("🎟️ Existing DayPass RFID - already used");
+    console.log("⚠️ This DayPass RFID is already registered");
     Toast.show({
       type: "info",
-      text1: "RFID In Use",
-      text2: "This keyfob is already assigned to a Day Pass guest.",
+      text1: "Already Assigned",
+      text2: "This keyfob is already linked to a DayPass guest.",
     });
   }
 }
 
-else if (rfid_type === "wristband") {
+// 🟢 MEMBER HANDLING
+else if (rfid_type === "wristband" && role === "Member") {
   if (status === "member_found") {
     console.log("💳 Registered Member - navigating to MembershipTransactions.jsx");
     customNavigate(
@@ -241,26 +244,27 @@ else if (rfid_type === "wristband") {
       { state: { rfid_tag, full_name, ...msg.data } },
       "staff"
     );
-  } else {
+  } else if (status === "unregistered") {
     console.log("🆕 New Wristband - navigating to AddMember.jsx");
     customNavigate(
       "/Staff/AddMember",
-      { state: { rfid_tag, rfid_type } },
+      { state: { rfid_tag, rfid_type, role } },
       "staff"
     );
+  } else {
+    console.log("⚠️ Unknown member status:", status);
   }
 }
 
+// ⚠️ UNKNOWN / FALLBACK
 else {
-  console.log("⚠️ Unknown RFID type - no navigation");
+  console.log("⚠️ Unknown RFID type or role:", rfid_type, role);
   Toast.show({
     type: "error",
-    text1: "Unknown RFID",
-    text2: "Unrecognized RFID type or configuration.",
+    text1: "Unrecognized RFID",
+    text2: `RFID type: ${rfid_type || "unknown"} (${role || "no role"})`,
   });
 }
-
-return;
 
 
 

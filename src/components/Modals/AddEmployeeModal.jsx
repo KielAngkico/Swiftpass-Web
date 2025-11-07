@@ -58,18 +58,23 @@ const AddEmployeeModal = ({
     }
   }, [mode, editingEmployee, isOpen]);
 
-   useEffect(() => {
-    if (scannedRfidForStaff && isOpen) {
-      setFormData(prev => ({ ...prev, rfid_tag: scannedRfidForStaff }));
-      clearScannedRfid();
+useEffect(() => {
+  if (scannedRfidForStaff && isOpen) {
+    // Extract rfid_tag from the object
+    const rfidTag = typeof scannedRfidForStaff === 'string' 
+      ? scannedRfidForStaff 
+      : scannedRfidForStaff.rfid_tag;
       
-      setNotification({
-        type: "success",
-        message: `✅ RFID Card Scanned: ${scannedRfidForStaff}`
-      });
-      setTimeout(() => setNotification(null), 3000);
-    }
-  }, [scannedRfidForStaff, isOpen, clearScannedRfid]);
+    setFormData(prev => ({ ...prev, rfid_tag: rfidTag }));
+    clearScannedRfid();
+    
+    setNotification({
+      type: "success",
+      message: `✅ RFID Card Scanned: ${rfidTag}`
+    });
+    setTimeout(() => setNotification(null), 3000);
+  }
+}, [scannedRfidForStaff, isOpen, clearScannedRfid]);
 
    useEffect(() => {
     if (!isOpen && scanModeEnabled) {

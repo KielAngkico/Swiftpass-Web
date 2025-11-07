@@ -161,11 +161,10 @@ case "rfid-registration-check":
           last_activity: msg.data.exit_time || msg.data.entry_time || new Date().toISOString(),
         });
         return;
-
 case "staff-scan":
   if (!msg.data) return;
 
-  const { rfid_tag, status, location, full_name, system_type, reason, rfid_type } = msg.data;
+  const { rfid_tag, status, location, full_name, system_type, reason, rfid_type, role } = msg.data;
 
   console.log("📥 Received staff-scan message:", msg.data);
 
@@ -204,12 +203,13 @@ case "staff-scan":
     return;
   }
 
-  // 🚦 NAVIGATION LOGIC
-  if (rfid_type === "keyfob" || system_type === "daypass") {
+  // 🚦 NAVIGATION LOGIC - Fixed to match database values
+  // Check role from database (DayPass, Member, Partner)
+  if (role === "DayPass" || rfid_type === "key_fob") {
     console.log("🎟️ Detected DayPass RFID - navigating to DayPass.jsx");
-    customNavigate("/Staff/DayPass", { state: { rfid_tag, system_type, rfid_type } }, "staff");
+    customNavigate("/Staff/DayPass", { state: { rfid_tag, system_type, rfid_type, role } }, "staff");
   } 
-  else if (rfid_type === "wristband" || system_type === "member") {
+  else if (role === "Member" || rfid_type === "wristband") {
     if (status === "member_found") {
       console.log("💳 Registered Member - navigating to MembershipTransactions.jsx");
       customNavigate("/Staff/MembershipTransactions", {
@@ -217,9 +217,13 @@ case "staff-scan":
       }, "staff");
     } else {
       console.log("🆕 New Wristband - navigating to AddMember.jsx");
-      customNavigate("/Staff/AddMember", { state: { rfid_tag, system_type, rfid_type } }, "staff");
+      customNavigate("/Staff/AddMember", { state: { rfid_tag, system_type, rfid_type, role } }, "staff");
     }
-  } 
+  }
+  else if (role === "Partner" || rfid_type === "card") {
+    console.log("🚫 Partner/Admin card detected");
+    alert("This is a Partner card - for admin use only");
+  }
   else {
     console.log("⚠️ Unknown RFID type - no navigation");
   }

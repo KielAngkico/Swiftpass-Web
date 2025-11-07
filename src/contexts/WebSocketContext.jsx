@@ -204,17 +204,36 @@ case "staff-scan":
     return;
   }
 
-// 🚦 NAVIGATION LOGIC (Updated)
-if (rfid_type === "key_fob" && role === "DayPass") {
-  console.log("🎟️ Detected DayPass RFID - navigating to DayPass.jsx");
-  customNavigate(
-    "/Staff/DayPass",
-    { state: { rfid_tag, rfid_type, role } },
-    "staff"
-  );
+  // 🚦 NAVIGATION LOGIC
+// 🚦 NAVIGATION LOGIC (Final)
+if (rfid_type === "card") {
+  console.log("🧾 Partner/Admin RFID detected - for admin use only");
+  Toast.show({
+    type: "info",
+    text1: "Access Restricted",
+    text2: "This RFID is for admin use only.",
+  });
 }
 
-else if (rfid_type === "wristband" && role === "Member") {
+else if (rfid_type === "keyfob") {
+  if (status === "unregistered") {
+    console.log("🎟️ New DayPass KeyFob - navigating to DayPass.jsx");
+    customNavigate(
+      "/Staff/DayPass",
+      { state: { rfid_tag, rfid_type } },
+      "staff"
+    );
+  } else {
+    console.log("🎟️ Existing DayPass RFID - already used");
+    Toast.show({
+      type: "info",
+      text1: "RFID In Use",
+      text2: "This keyfob is already assigned to a Day Pass guest.",
+    });
+  }
+}
+
+else if (rfid_type === "wristband") {
   if (status === "member_found") {
     console.log("💳 Registered Member - navigating to MembershipTransactions.jsx");
     customNavigate(
@@ -226,24 +245,22 @@ else if (rfid_type === "wristband" && role === "Member") {
     console.log("🆕 New Wristband - navigating to AddMember.jsx");
     customNavigate(
       "/Staff/AddMember",
-      { state: { rfid_tag, rfid_type, role } },
+      { state: { rfid_tag, rfid_type } },
       "staff"
     );
   }
 }
 
-else if (rfid_type === "card" && role === "Partner") {
-  console.log("🤝 Detected Partner RFID - navigating to Partner.jsx");
-  customNavigate(
-    "/Staff/Partner",
-    { state: { rfid_tag, rfid_type, role } },
-    "staff"
-  );
+else {
+  console.log("⚠️ Unknown RFID type - no navigation");
+  Toast.show({
+    type: "error",
+    text1: "Unknown RFID",
+    text2: "Unrecognized RFID type or configuration.",
+  });
 }
 
-else {
-  console.log("⚠️ Unknown RFID type or role - no navigation");
-}
+return;
 
 
 

@@ -120,7 +120,6 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
 }
 
 // ============= ENTRY/EXIT HANDLER =============
-
 async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers) {
   const { 
     isRfidRegistered, 
@@ -166,24 +165,13 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
     return;
   }
 
-  // Check allocation matches the admin
-  if (allocation.allocated_to_admin !== admin_id) {
-    broadcastToClients({
-      type: "member-update",
-      data: {
-        rfid_tag,
-        status: "denied",
-        reason: `This ${allocation.role} RFID is allocated to a different gym`,
-        location,
-        admin_id,
-        timestamp: new Date().toISOString()
-      }
-    });
-    return;
-  }
+  // USE ALLOCATION'S ADMIN_ID FOR ROUTING
+  const target_admin_id = allocation.allocated_to_admin;
 
-  // Check for staff member
-  const staffMember = await getStaffByRfid(rfid_tag, admin_id);
+  console.log(`🎯 Entry/Exit Routing - Using allocation admin_id: ${target_admin_id}`);
+
+  // Check for staff member using target_admin_id
+  const staffMember = await getStaffByRfid(rfid_tag, target_admin_id);
   if (staffMember) {
     await logStaffActivity(rfid_tag, staffMember, location, location.toUpperCase());
 
@@ -213,7 +201,7 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
         status: "admin_granted",
         reason: "Admin access - door open",
         location,
-        admin_id,
+        admin_id: target_admin_id,
         timestamp: new Date().toISOString()
       }
     });
@@ -227,7 +215,7 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
       FROM MembersAccounts
       WHERE rfid_tag = ? AND admin_id = ?
       LIMIT 1`,
-      [rfid_tag, admin_id]
+      [rfid_tag, target_admin_id]
     );
 
     if (memberRows.length > 0) {
@@ -257,7 +245,7 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
 
   // Check for DayPass guest - only if RFID role is DayPass
   if (allocation.role === 'DayPass') {
-    await handleDayPassGuest(rfid_tag, location, admin_id);
+    await handleDayPassGuest(rfid_tag, location, target_admin_id);
     return;
   }
 
@@ -270,7 +258,7 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
       status: "unregistered",
       reason: `${allocation.role} RFID not assigned to anyone yet`,
       location,
-      admin_id,
+      admin_id: target_admin_id,
       timestamp: new Date().toISOString()
     }
   });

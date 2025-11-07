@@ -456,18 +456,49 @@ if (location.toUpperCase() !== "SUPERADMIN" &&
     }
 
     // ============= SUPERADMIN LOCATION =============
-    if (location.toUpperCase() === "SUPERADMIN") {
-      const isRegistered = await isRfidRegistered(rfid_tag);
-      broadcastToClients({
-        type: "rfid-registration-check",
-        data: {
-          rfid_tag,
-          is_registered: isRegistered,
-          timestamp: new Date().toISOString()
-        }
-      });
-      return;
-    }
+// ============= SUPERADMIN LOCATION =============
+if (location.toUpperCase() === "SUPERADMIN") {
+  const allocation = await getRfidAllocation(rfid_tag);
+  
+  if (!allocation || !allocation.isValid) {
+    broadcastToClients({
+      type: "rfid-registration-check",
+      data: {
+        rfid_tag,
+        is_registered: false,
+        error: allocation ? allocation.reason : "RFID not found",
+        timestamp: new Date().toISOString()
+      }
+    });
+    return;
+  }
+
+  // Check if it's a Partner RFID
+  if (allocation.role === 'Partner') {
+    broadcastToClients({
+      type: "rfid-registration-check",
+      data: {
+        rfid_tag,
+        is_registered: true,
+        role: 'Partner',
+        timestamp: new Date().toISOString()
+      }
+    });
+  } else {
+    // Member or DayPass card
+    broadcastToClients({
+      type: "rfid-registration-check",
+      data: {
+        rfid_tag,
+        is_registered: true,
+        role: allocation.role,
+        error: `This is a ${allocation.role} card, not for admin registration`,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+  return;
+}
 
     // ============= GET RFID ALLOCATION FOR ROUTING =============
     const allocation = await getRfidAllocation(rfid_tag);
@@ -487,6 +518,7 @@ if (location.toUpperCase() !== "SUPERADMIN" &&
 // ============= STAFF LOCATION HANDLER =============
 // Replace this entire section in your websocket.js handleMessage function
 
+// ============= STAFF LOCATION HANDLER =============
 if (location.toUpperCase() === "STAFF") {
   console.log(`\n📍 ===== STAFF LOCATION SCAN =====`);
   console.log(`   RFID Tag: ${rfid_tag}`);
@@ -494,8 +526,26 @@ if (location.toUpperCase() === "STAFF") {
   console.log(`   Target Admin ID: ${target_admin_id}`);
   console.log(`   Active Scan Modes:`, adminScanModes);
   
+  // Get allocation first
+  const allocation = await getRfidAllocation(rfid_tag);
+  
+  if (!allocation || !allocation.isValid) {
+    broadcastToClients({
+      type: "staff-scan",
+      data: {
+        rfid_tag,
+        status: "unregistered",
+        reason: allocation ? allocation.reason : "RFID not registered with SwiftPass company",
+        location,
+        admin_id: target_admin_id,
+        timestamp: new Date().toISOString()
+      }
+    });
+    console.log(`===== END STAFF SCAN =====\n`);
+    return;
+  }
+
   // ============= CHECK FOR ACTIVE SCAN MODE =============
-  // Find if ANY admin has scan mode enabled (since STAFF scanner might not have admin_id)
   const activeScanModeAdmin = Object.keys(adminScanModes).find(
     adminId => adminScanModes[adminId] === true
   );
@@ -504,6 +554,30 @@ if (location.toUpperCase() === "STAFF") {
     console.log(`✅ SCAN MODE ACTIVE for admin: ${activeScanModeAdmin}`);
     console.log(`🔍 Processing employee registration scan...`);
     
+    // MUST BE PARTNER RFID for employee registration
+    if (allocation.role !== 'Partner') {
+      console.log(`❌ Not a Partner RFID - role: ${allocation.role}`);
+      adminScanModes[activeScanModeAdmin] = false;
+      
+      broadcastToClients({
+        type: "rfid-scanned-for-staff",
+        data: {
+          rfid_tag,
+          admin_id: parseInt(activeScanModeAdmin),
+          status: "error",
+          reason: `Use Partner RFID for employee registration. This is a ${allocation.role} card.`,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      broadcastToClients({
+        type: "scan-mode-updated",
+        data: { enabled: false, admin_id: parseInt(activeScanModeAdmin) }
+      });
+      console.log(`🔴 Scan mode disabled\n`);
+      return;
+    }
+    
     // Validate RFID for scan mode
     const validation = await validateScanModeRfid(rfid_tag, parseInt(activeScanModeAdmin));
     
@@ -511,7 +585,6 @@ if (location.toUpperCase() === "STAFF") {
       console.log(`❌ Validation Failed: ${validation.reason}`);
       adminScanModes[activeScanModeAdmin] = false;
       
-      // Only broadcast error if not a silent fail
       if (!validation.silent) {
         broadcastToClients({
           type: "rfid-scanned-for-staff",
@@ -525,7 +598,6 @@ if (location.toUpperCase() === "STAFF") {
         });
       }
       
-      // Turn off scan mode
       broadcastToClients({
         type: "scan-mode-updated",
         data: { enabled: false, admin_id: parseInt(activeScanModeAdmin) }
@@ -534,17 +606,9 @@ if (location.toUpperCase() === "STAFF") {
       return;
     }
 
-    const allocation = validation.allocation;
-    console.log(`✅ RFID Allocation Valid:`, {
-      rfid_type: allocation.rfid_type,
-      role: allocation.role,
-      allocated_to: allocation.allocated_to_admin
-    });
-
     // ============= CHECK FOR DUPLICATES =============
     console.log(`🔍 Checking for duplicate RFID assignments...`);
     
-    // Check StaffAccounts
     const staffCheck = await getStaffByRfid(rfid_tag, parseInt(activeScanModeAdmin));
     if (staffCheck) {
       console.log(`❌ DUPLICATE - Already assigned to Staff: ${staffCheck.staff_name}`);
@@ -569,7 +633,6 @@ if (location.toUpperCase() === "STAFF") {
       return;
     }
 
-    // Check AdminAccounts
     const adminCheck = await getAdminByRfid(rfid_tag);
     if (adminCheck) {
       console.log(`❌ DUPLICATE - Already assigned to Admin: ${adminCheck.admin_name}`);
@@ -594,7 +657,6 @@ if (location.toUpperCase() === "STAFF") {
       return;
     }
 
-    // Check MembersAccounts
     const memberCheck = await getMemberByRfid(rfid_tag, parseInt(activeScanModeAdmin));
     if (memberCheck) {
       console.log(`❌ DUPLICATE - Already assigned to Member: ${memberCheck.full_name}`);
@@ -623,7 +685,7 @@ if (location.toUpperCase() === "STAFF") {
     console.log(`✅ All validation checks passed!`);
     console.log(`📤 Broadcasting SUCCESS to admin: ${allocation.allocated_to_admin}`);
     
-    const successPayload = {
+    broadcastToClients({
       type: "rfid-scanned-for-staff",
       data: {
         rfid_tag,
@@ -634,12 +696,8 @@ if (location.toUpperCase() === "STAFF") {
         reason: "RFID ready for registration",
         timestamp: new Date().toISOString()
       }
-    };
-    
-    console.log(`📦 Success Payload:`, JSON.stringify(successPayload, null, 2));
-    broadcastToClients(successPayload);
+    });
 
-    // Turn off scan mode
     adminScanModes[activeScanModeAdmin] = false;
     broadcastToClients({
       type: "scan-mode-updated",
@@ -653,14 +711,78 @@ if (location.toUpperCase() === "STAFF") {
   }
   
   // ============= NO SCAN MODE - NORMAL FLOW =============
-  console.log(`ℹ️ No scan mode active - using normal handleStaffScan flow`);
-  await handleStaffScan(rfid_tag, location, target_admin_id, allocation, {
-    isRfidRegistered,
-    getStaffByRfid,
-    getAdminByRfid,
-    getMemberByRfid,
-    broadcastToClients
-  });
+  console.log(`ℹ️ No scan mode active - checking role-based routing`);
+  
+  // Partner RFID in normal scan
+  if (allocation.role === 'Partner') {
+    broadcastToClients({
+      type: "staff-scan",
+      data: {
+        rfid_tag,
+        status: "partner_card",
+        reason: "This is a Partner card - for admin use only",
+        location,
+        admin_id: target_admin_id,
+        timestamp: new Date().toISOString()
+      }
+    });
+    console.log(`===== END STAFF SCAN =====\n`);
+    return;
+  }
+  
+  // Member RFID - always go to AddMember
+  if (allocation.role === 'Member') {
+    const memberCheck = await getMemberByRfid(rfid_tag, target_admin_id);
+    if (memberCheck) {
+      broadcastToClients({
+        type: "staff-scan",
+        data: {
+          rfid_tag,
+          status: "member_found",
+          full_name: memberCheck.full_name,
+          location,
+          admin_id: target_admin_id,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } else {
+      broadcastToClients({
+        type: "staff-scan",
+        data: {
+          rfid_tag,
+          status: "unregistered",
+          reason: "Ready for new member registration",
+          rfid_type: allocation.rfid_type,
+          role: allocation.role,
+          location,
+          admin_id: target_admin_id,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    console.log(`===== END STAFF SCAN =====\n`);
+    return;
+  }
+  
+  // DayPass RFID - always go to DayPass
+  if (allocation.role === 'DayPass') {
+    broadcastToClients({
+      type: "staff-scan",
+      data: {
+        rfid_tag,
+        status: "daypass_ready",
+        reason: "Ready for day pass registration",
+        rfid_type: allocation.rfid_type,
+        role: allocation.role,
+        location,
+        admin_id: target_admin_id,
+        timestamp: new Date().toISOString()
+      }
+    });
+    console.log(`===== END STAFF SCAN =====\n`);
+    return;
+  }
+
   console.log(`===== END STAFF SCAN =====\n`);
   return;
 }

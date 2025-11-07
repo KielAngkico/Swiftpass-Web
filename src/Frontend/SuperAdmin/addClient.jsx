@@ -215,18 +215,11 @@ const handleRegistrationClick = (registration) => {
         if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
           const rfid1Changed = formData.rfid_tag !== originalRfid;
           const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
-
-if (rfid1Changed && formData.rfid_tag) {
-  await axios.put(`${API_URL}/api/replace-admin-rfid/${editingAdmin.id}`, {
-    new_rfid_tag: formData.rfid_tag,
-    rfid_slot: 1
-  });
-}
-
-if (rfid2Changed && formData.rfid_tag_2) {
-  await axios.put(`${API_URL}/api/replace-admin-rfid/${editingAdmin.id}`, {
-    new_rfid_tag: formData.rfid_tag_2,
-    rfid_slot: 2
+// ✅ Handle both RFID slot updates in one call
+if ((rfid1Changed && formData.rfid_tag) || (rfid2Changed && formData.rfid_tag_2)) {
+  await axios.put(`${API_URL}/api/update-admin-rfid/${editingAdmin.id}`, {
+    new_rfid_tag: formData.rfid_tag || null,
+    new_rfid_tag_2: formData.rfid_tag_2 || null,
   });
 }
 

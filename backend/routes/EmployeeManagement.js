@@ -41,6 +41,27 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
         await conn.rollback();
         return res.status(400).json({ message: "RFID tag already assigned to another staff member." });
       }
+
+      // ✅ CHECK if RFID exists in RegisteredRfid with role 'Partner' (shared with Employee)
+      const [rfidExists] = await conn.query(
+        "SELECT * FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Partner'",
+        [rfid_tag]
+      );
+
+      if (rfidExists.length === 0) {
+        await conn.rollback();
+        return res.status(400).json({ 
+          message: "RFID tag not found in registered Partner/Employee RFIDs." 
+        });
+      }
+
+      // ✅ CHECK if RFID is available for this admin
+      if (rfidExists[0].allocated_to_admin !== parseInt(admin_id)) {
+        await conn.rollback();
+        return res.status(400).json({ 
+          message: "This RFID is not allocated to your account." 
+        });
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -65,17 +86,25 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
 
     const employeeId = result.insertId;
 
-    // ✅ Update RegisteredRfid table
+    // ✅ Update RegisteredRfid table (role = 'Partner' for employees too)
     if (rfid_tag && rfid_tag.trim() !== "") {
-      await conn.query(
+      const [updateResult] = await conn.query(
         `UPDATE RegisteredRfid 
          SET assigned_to_id = ?,
              assigned_to_name = ?,
              status = 'in_use',
              assignment_date = NOW()
-         WHERE rfid_tag = ? AND role = 'Employee'`,
+         WHERE rfid_tag = ? AND role = 'Partner'`,
         [employeeId, name, rfid_tag]
       );
+
+      console.log(`✅ RegisteredRfid UPDATE result:`, updateResult);
+      console.log(`   - Rows affected: ${updateResult.affectedRows}`);
+      console.log(`   - RFID: ${rfid_tag}, Employee ID: ${employeeId}, Name: ${name}`);
+
+      if (updateResult.affectedRows === 0) {
+        console.warn(`⚠️ WARNING: RFID ${rfid_tag} was NOT updated in RegisteredRfid`);
+      }
     }
 
     await conn.commit();
@@ -93,7 +122,7 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
 
   } catch (err) {
     await conn.rollback();
-    console.error(err);
+    console.error("❌ Add employee error:", err);
     res.status(500).json({ message: "Server error adding employee." });
   } finally {
     conn.release();

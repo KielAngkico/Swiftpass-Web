@@ -81,8 +81,8 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
       setLoadingCheck(true);
       try {
         const res = await api.get(`/api/session-fee?admin_id=${adminId}`);
-        setSessionFee(res.data.session_fee || 0);
-        setKeyFobFee(res.data.key_fob_fee || 0);
+        setSessionFee(parseFloat(res.data.session_fee) || 0);
+        setKeyFobFee(parseFloat(res.data.key_fob_fee) || 0);
       } catch (err) {
         console.error("❌ Failed to fetch fees:", err);
         setSessionFee(0);
@@ -201,150 +201,148 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
 
         <form
           onSubmit={handleSubmit}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 bg-white rounded-lg shadow"
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white rounded-lg shadow"
         >
-          {/* Column 1: Guest Information */}
-          <div className="flex flex-col gap-4 h-full self-stretch">
-            <h2 className="text-sm font-semibold text-gray-700">Guest Information</h2>
-            <div className="grid grid-cols-2 gap-4">
+          {/* Column 1 & 2: Form Fields */}
+          <div className="md:col-span-2 flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Guest Name</label>
+                <label className="block mb-1 text-xs text-gray-600">Guest Name</label>
                 <input
                   type="text"
                   value={guestName}
                   onChange={(e) => setGuestName(e.target.value)}
                   required
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+                  className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">RFID Tag</label>
+                <label className="block mb-1 text-xs text-gray-600">RFID Tag</label>
                 <input
                   type="text"
                   value={rfid}
                   readOnly
                   placeholder="Scan RFID tag"
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-gray-100 text-gray-700"
+                  className="w-full border border-gray-200 px-2 py-1.5 rounded bg-gray-50 text-sm text-gray-700 cursor-not-allowed"
                 />
               </div>
-              <div className="col-span-2">
-                <label className="block text-xs text-gray-600 mb-1">Email Address</label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block mb-1 text-xs text-gray-600">Email Address</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+                  className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Mobile Number</label>
+                <label className="block mb-1 text-xs text-gray-600">Mobile Number</label>
                 <input
                   type="tel"
                   value={mobileNumber}
                   onChange={(e) => setMobileNumber(e.target.value)}
                   required
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+                  className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Gender</label>
+                <label className="block mb-1 text-xs text-gray-600">Gender</label>
                 <select
                   value={gender}
                   onChange={(e) => setGender(e.target.value)}
                   required
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
+                  className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm bg-white"
                 >
-                  <option value="">Select</option>
+                  <option value="" disabled>
+                    Select gender
+                  </option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                   <option value="other">Other</option>
                 </select>
               </div>
+              <div>
+                <label className="block mb-1 text-xs text-gray-600">Payment Method</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  required
+                  className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm bg-white"
+                >
+                  <option value="">Select</option>
+                  {paymentMethods.map((method) => (
+                    <option key={method.id} value={method.name}>
+                      {method.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {paymentMethod && paymentMethod.toLowerCase() !== "cash" && (
+              <div>
+                <label className="block mb-1 text-xs text-gray-600">
+                  {paymentMethod} Reference
+                </label>
+                <input
+                  type="text"
+                  value={cashlessRef}
+                  onChange={(e) => setCashlessRef(e.target.value)}
+                  required
+                  placeholder={`Enter ${paymentMethod} reference`}
+                  className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm"
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block mb-1 text-xs text-gray-600">RFID Tag Fee (₱)</label>
+                <input
+                  type="text"
+                  value={`₱${(keyFobFee || 0).toFixed(2)}`}
+                  readOnly
+                  className="w-full border border-gray-200 bg-gray-50 px-2 py-1.5 rounded text-sm text-gray-700"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-xs text-gray-600">Session Fee (₱)</label>
+                <input
+                  type="text"
+                  value={`₱${(sessionFee || 0).toFixed(2)}`}
+                  readOnly
+                  className="w-full border border-gray-200 bg-gray-50 px-2 py-1.5 rounded text-sm text-gray-700"
+                />
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={submitting || loadingCheck}
+                className="w-1/2 mt-2 px-4 py-2 rounded bg-black text-white text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
+              >
+                {submitting ? "Submitting..." : "Add Guest"}
+              </button>
             </div>
           </div>
 
-          {/* Column 2: Payment Information */}
-          <div className="flex flex-col gap-4 h-full self-stretch">
-            <section>
-              <h2 className="text-sm font-semibold text-gray-700 mb-2">Payment Information</h2>
-              <div className="grid grid-cols-1 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Payment Method</label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    required
-                    className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
-                  >
-                    <option value="">Select</option>
-                    {paymentMethods.map((method) => (
-                      <option key={method.id} value={method.name}>
-                        {method.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {paymentMethod && paymentMethod.toLowerCase() !== "cash" && (
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">
-                      {paymentMethod} Reference
-                    </label>
-                    <input
-                      type="text"
-                      value={cashlessRef}
-                      onChange={(e) => setCashlessRef(e.target.value)}
-                      required
-                      placeholder={`Enter ${paymentMethod} reference`}
-                      className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
-                    />
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-sm font-semibold text-gray-700 mb-2">Fees</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">RFID Tag Fee</label>
-                  <input
-                    type="text"
-                    value={`₱${keyFobFee.toFixed(2)}`}
-                    readOnly
-                    className="w-full border border-gray-200 bg-gray-50 px-3 py-2 rounded text-sm text-gray-700 font-semibold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Session Fee</label>
-                  <input
-                    type="text"
-                    value={`₱${sessionFee.toFixed(2)}`}
-                    readOnly
-                    className="w-full border border-gray-200 bg-gray-50 px-3 py-2 rounded text-sm text-gray-700 font-semibold"
-                  />
-                </div>
-              </div>
-            </section>
-
-            <button
-              type="submit"
-              disabled={submitting || loadingCheck}
-              className="w-1/2 mt-2 px-4 py-2 rounded bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 disabled:opacity-50"
-            >
-              {submitting ? "Submitting..." : "Add Guest"}
-            </button>
-          </div>
-
           {/* Column 3: Profile Picture */}
-          <div className="flex flex-col items-center gap-3 w-80">
+          <div className="flex flex-col items-center gap-3">
             <h2 className="text-sm font-semibold text-gray-700">Profile Picture</h2>
-            <div className="bg-white border rounded-lg shadow w-3/4">
+            <div className="bg-white border rounded-lg shadow w-full">
               <div className="bg-black h-16 flex items-center justify-center">
                 <h3 className="text-white font-semibold text-sm">PHOTO</h3>
               </div>
               <div className="flex flex-col items-center p-4">
-                <div className="w-50 h-50 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
+                <div className="w-full h-64 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
                   {isWebcamActive ? (
                     <video
                       ref={videoRef}
@@ -369,7 +367,7 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
             <canvas ref={canvasRef} className="hidden" />
 
             {/* Webcam Controls */}
-            <div className="flex gap-2 w-3/4">
+            <div className="flex gap-2 w-full">
               {!isWebcamActive ? (
                 <>
                   <button
@@ -415,4 +413,4 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
   );
 };
 
-export default PrepaidDayPass;
+export default PrepaidDayPass

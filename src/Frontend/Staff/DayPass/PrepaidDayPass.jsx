@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import api from "../../../api";
 import { useToast } from "../../../components/ToastManager";
-import { useWebcam } from "../../../hooks/useWebcam";
 
 function formatDateToLocalString(date) {
   const yyyy = date.getFullYear();
@@ -26,34 +25,16 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [cashlessRef, setCashlessRef] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
 
   const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId;
   const staffName = staffUser?.name || "";
   const { showToast } = useToast();
-
-  // Use the custom webcam hook
-  const {
-    isWebcamActive,
-    videoRef,
-    canvasRef,
-    startWebcam,
-    stopWebcam,
-    capturePhoto
-  } = useWebcam(showToast);
 
   const validateEmail = (email) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const validateMobile = (number) =>
     /^[0-9]{7,15}$/.test(number);
-
-  useEffect(() => {
-    if (rfid_tag) {
-      setRfid(rfid_tag);
-    }
-  }, [rfid_tag]);
 
   useEffect(() => {
     if (!adminId) return;
@@ -81,8 +62,8 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
       setLoadingCheck(true);
       try {
         const res = await api.get(`/api/session-fee?admin_id=${adminId}`);
-        setSessionFee(parseFloat(res.data.session_fee) || 0);
-        setKeyFobFee(parseFloat(res.data.key_fob_fee) || 0);
+        setSessionFee(res.data.session_fee || 0);
+        setKeyFobFee(res.data.key_fob_fee || 0);
       } catch (err) {
         console.error("❌ Failed to fetch fees:", err);
         setSessionFee(0);
@@ -94,23 +75,6 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
 
     fetchFees();
   }, [adminId]);
-
-  const handleFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => setImagePreview(reader.result);
-      reader.readAsDataURL(file);
-      setSelectedImage(file);
-    }
-  };
-
-  const handleCapturePhoto = () => {
-    capturePhoto((file, preview) => {
-      setSelectedImage(file);
-      setImagePreview(preview);
-    });
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -141,47 +105,34 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
       const expires_at = new Date();
       expires_at.setHours(23, 59, 59, 999);
 
-      const formData = new FormData();
-      formData.append("guest_name", guestName);
-      formData.append("gender", gender);
-      formData.append("rfid_tag", rfid);
-      formData.append("system_type", "prepaid_entry");
-      formData.append("staff_name", staffName);
-      formData.append("admin_id", adminId);
-      formData.append("mobile_number", mobileNumber);
-      formData.append("email", email);
-      formData.append("expires_at", formatDateToLocalString(expires_at));
-      formData.append("payment_method", paymentMethod);
-      formData.append("cashless_reference", paymentMethod && paymentMethod.toLowerCase() !== "cash" ? cashlessRef.trim() : "");
-      formData.append("rfid_keyfob_fee", keyFobFee);
+      const payload = {
+        guest_name: guestName,
+        gender,
+        rfid_tag: rfid,
+        system_type: "prepaid_entry",
+        staff_name: staffName,
+        admin_id: adminId,
+        mobile_number: mobileNumber,
+        email,
+        expires_at: formatDateToLocalString(expires_at),
+        payment_method: paymentMethod,
+        cashless_reference: paymentMethod && paymentMethod.toLowerCase() !== "cash" ? cashlessRef.trim() : "",
+        rfid_keyfob_fee: keyFobFee,
+      };
 
-      if (selectedImage) {
-        formData.append("guest_image", selectedImage);
-      }
+      console.log("Submitting payload:", payload);
 
-      console.log("📤 Sending FormData:");
-      for (let [key, value] of formData.entries()) {
-        console.log(`${key}:`, value);
-      }
-
-      await api.post("/api/register-session", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await api.post("/api/register-session", payload);
 
       showToast({ message: "Day pass session registered successfully!", type: "success" });
-      
-      // Reset form
       setGuestName("");
       setGender("");
       setMobileNumber("");
       setEmail("");
       setCashlessRef("");
-      setSelectedImage(null);
-      setImagePreview(null);
-      setPaymentMethod("");
     } catch (error) {
       console.error("Error registering session:", error);
-      showToast({ message: error.response?.data?.error || "Failed to register day pass session. Please try again.", type: "error" });
+      showToast({ message: "Failed to register day pass session. Please try again.", type: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -189,7 +140,7 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
 
   return (
     <div className="min-h-screen w-full bg-white p-2">
-      <main className="max-w-screen-xl mx-auto">
+      <main className="max-w-screen-md">
         <div className="mb-6">
           <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
             Prepaid Day Pass
@@ -201,9 +152,8 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
 
         <form
           onSubmit={handleSubmit}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white rounded-lg shadow"
+          className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white rounded-lg shadow"
         >
-          {/* Column 1 & 2: Form Fields */}
           <div className="md:col-span-2 flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -273,7 +223,6 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  required
                   className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm bg-white"
                 >
                   <option value="">Select</option>
@@ -306,8 +255,8 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
               <div>
                 <label className="block mb-1 text-xs text-gray-600">RFID Tag Fee (₱)</label>
                 <input
-                  type="text"
-                  value={`₱${(keyFobFee || 0).toFixed(2)}`}
+                  type="number"
+                  value={keyFobFee}
                   readOnly
                   className="w-full border border-gray-200 bg-gray-50 px-2 py-1.5 rounded text-sm text-gray-700"
                 />
@@ -315,8 +264,8 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
               <div>
                 <label className="block mb-1 text-xs text-gray-600">Session Fee (₱)</label>
                 <input
-                  type="text"
-                  value={`₱${(sessionFee || 0).toFixed(2)}`}
+                  type="number"
+                  value={sessionFee}
                   readOnly
                   className="w-full border border-gray-200 bg-gray-50 px-2 py-1.5 rounded text-sm text-gray-700"
                 />
@@ -329,82 +278,8 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
                 disabled={submitting || loadingCheck}
                 className="w-1/2 mt-2 px-4 py-2 rounded bg-black text-white text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
               >
-                {submitting ? "Submitting..." : "Add Guest"}
+                {submitting ? "Submitting..." : "Add Member"}
               </button>
-            </div>
-          </div>
-
-          {/* Column 3: Profile Picture */}
-          <div className="flex flex-col items-center gap-3">
-            <h2 className="text-sm font-semibold text-gray-700">Profile Picture</h2>
-            <div className="bg-white border rounded-lg shadow w-full">
-              <div className="bg-black h-16 flex items-center justify-center">
-                <h3 className="text-white font-semibold text-sm">PHOTO</h3>
-              </div>
-              <div className="flex flex-col items-center p-4">
-                <div className="w-full h-64 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden">
-                  {isWebcamActive ? (
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      className="w-full h-full object-cover"
-                    />
-                  ) : imagePreview ? (
-                    <img
-                      src={imagePreview}
-                      alt="Profile Preview"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-gray-400 text-sm">Upload or Capture Photo</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Hidden canvas for capturing */}
-            <canvas ref={canvasRef} className="hidden" />
-
-            {/* Webcam Controls */}
-            <div className="flex gap-2 w-full">
-              {!isWebcamActive ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={startWebcam}
-                    className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700"
-                  >
-                    📷 Open Camera
-                  </button>
-                  <label className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700 cursor-pointer text-center">
-                    📁 Upload
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleCapturePhoto}
-                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700"
-                  >
-                    📸 Capture
-                  </button>
-                  <button
-                    type="button"
-                    onClick={stopWebcam}
-                    className="flex-1 px-3 py-2 bg-red-600 text-white rounded text-sm font-semibold hover:bg-red-700"
-                  >
-                    ✖ Cancel
-                  </button>
-                </>
-              )}
             </div>
           </div>
         </form>
@@ -413,4 +288,4 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
   );
 };
 
-export default PrepaidDayPass
+export default PrepaidDayPass;

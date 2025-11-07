@@ -165,22 +165,12 @@ case "rfid-registration-check":
 case "staff-scan":
   if (!msg.data) return;
 
-  const { rfid_tag, status, location, full_name, system_type, reason } = msg.data;
-  
-  console.log("📥 Received staff-scan message:", {
-    rfid_tag,
-    status,
-    location
-  });
+  const { rfid_tag, status, location, full_name, system_type, reason, rfid_type } = msg.data;
+
+  console.log("📥 Received staff-scan message:", msg.data);
 
   if (!rfid_tag || location !== "STAFF") {
     console.log("⚠️ Invalid staff-scan data");
-    return;
-  }
-
-  // Handle Partner card message
-  if (status === "partner_card") {
-    alert(reason || "This is a Partner card - for admin use only");
     return;
   }
 
@@ -191,13 +181,13 @@ case "staff-scan":
   lastProcessedRfid.current = rfid_tag;
   setTimeout(() => (lastProcessedRfid.current = null), 2000);
 
-  setRfidData({ ...msg.data, timestamp: new Date().toLocaleString() });
+  // Store session data
   sessionStorage.setItem("rfid_tag", rfid_tag);
   sessionStorage.setItem("system_type", system_type || "");
 
   const currentPath = window.location.pathname;
   const isStaffPage = currentPath.startsWith("/Staff");
-  
+
   if (!isStaffPage) {
     console.log("Admin viewing - RFID data stored but no navigation");
     return;
@@ -214,17 +204,28 @@ case "staff-scan":
     return;
   }
 
-  // Navigate based on status
-  if (status === "member_found") {
-    customNavigate("/Staff/MembershipTransactions", {
-      state: { rfid_tag, full_name, ...msg.data, system_type },
-    }, "staff");
-  } else if (status === "daypass_ready") {
-    customNavigate("/Staff/DayPass", { state: { rfid_tag, system_type } }, "staff");
-  } else if (status === "unregistered") {
-    customNavigate("/Staff/AddMember", { state: { rfid_tag, system_type } }, "staff");
+  // 🚦 NAVIGATION LOGIC
+  if (rfid_type === "keyfob" || system_type === "daypass") {
+    console.log("🎟️ Detected DayPass RFID - navigating to DayPass.jsx");
+    customNavigate("/Staff/DayPass", { state: { rfid_tag, system_type, rfid_type } }, "staff");
+  } 
+  else if (rfid_type === "wristband" || system_type === "member") {
+    if (status === "member_found") {
+      console.log("💳 Registered Member - navigating to MembershipTransactions.jsx");
+      customNavigate("/Staff/MembershipTransactions", {
+        state: { rfid_tag, full_name, ...msg.data, system_type },
+      }, "staff");
+    } else {
+      console.log("🆕 New Wristband - navigating to AddMember.jsx");
+      customNavigate("/Staff/AddMember", { state: { rfid_tag, system_type, rfid_type } }, "staff");
+    }
+  } 
+  else {
+    console.log("⚠️ Unknown RFID type - no navigation");
   }
+
   return;
+
 
       default:
         console.log("Unknown WebSocket message type:", msg.type);

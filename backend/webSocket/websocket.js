@@ -1,6 +1,6 @@
 
 const WebSocket = require("ws");
-const dbSuperAdmin = require("./db");
+const dbSuperAdmin = require("../db");
 const jwt = require("jsonwebtoken");
 const {
   handleStaffScan,

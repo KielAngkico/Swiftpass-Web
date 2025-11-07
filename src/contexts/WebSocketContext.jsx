@@ -204,27 +204,47 @@ case "staff-scan":
     return;
   }
 
-  // 🚦 NAVIGATION LOGIC
-  if (rfid_type === "keyfob" || system_type === "daypass") {
-    console.log("🎟️ Detected DayPass RFID - navigating to DayPass.jsx");
-    customNavigate("/Staff/DayPass", { state: { rfid_tag, system_type, rfid_type } }, "staff");
-  } 
-  else if (rfid_type === "wristband" || system_type === "member") {
-    if (status === "member_found") {
-      console.log("💳 Registered Member - navigating to MembershipTransactions.jsx");
-      customNavigate("/Staff/MembershipTransactions", {
-        state: { rfid_tag, full_name, ...msg.data, system_type },
-      }, "staff");
-    } else {
-      console.log("🆕 New Wristband - navigating to AddMember.jsx");
-      customNavigate("/Staff/AddMember", { state: { rfid_tag, system_type, rfid_type } }, "staff");
-    }
-  } 
-  else {
-    console.log("⚠️ Unknown RFID type - no navigation");
-  }
+// 🚦 NAVIGATION LOGIC (Updated)
+if (rfid_type === "key_fob" && role === "DayPass") {
+  console.log("🎟️ Detected DayPass RFID - navigating to DayPass.jsx");
+  customNavigate(
+    "/Staff/DayPass",
+    { state: { rfid_tag, rfid_type, role } },
+    "staff"
+  );
+}
 
-  return;
+else if (rfid_type === "wristband" && role === "Member") {
+  if (status === "member_found") {
+    console.log("💳 Registered Member - navigating to MembershipTransactions.jsx");
+    customNavigate(
+      "/Staff/MembershipTransactions",
+      { state: { rfid_tag, full_name, ...msg.data } },
+      "staff"
+    );
+  } else {
+    console.log("🆕 New Wristband - navigating to AddMember.jsx");
+    customNavigate(
+      "/Staff/AddMember",
+      { state: { rfid_tag, rfid_type, role } },
+      "staff"
+    );
+  }
+}
+
+else if (rfid_type === "card" && role === "Partner") {
+  console.log("🤝 Detected Partner RFID - navigating to Partner.jsx");
+  customNavigate(
+    "/Staff/Partner",
+    { state: { rfid_tag, rfid_type, role } },
+    "staff"
+  );
+}
+
+else {
+  console.log("⚠️ Unknown RFID type or role - no navigation");
+}
+
 
 
       default:

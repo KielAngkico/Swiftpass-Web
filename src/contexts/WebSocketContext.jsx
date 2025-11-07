@@ -215,7 +215,7 @@ if (rfid_type === "card") {
   });
 }
 
-else if (rfid_type === "keyfob") {
+else if (rfid_type === "key_fob") {
   if (status === "unregistered") {
     console.log("🎟️ New DayPass KeyFob - navigating to DayPass.jsx");
     customNavigate(

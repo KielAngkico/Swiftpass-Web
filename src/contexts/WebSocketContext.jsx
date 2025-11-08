@@ -203,29 +203,35 @@ case "staff-scan":
     return;
   }
 
-  // 🚦 NAVIGATION LOGIC - Fixed to match database values
-  // Check role from database (DayPass, Member, Partner)
-  if (role === "DayPass" || rfid_type === "key_fob") {
+  // 🚦 NAVIGATION LOGIC - Fixed to prioritize role and status
+  console.log(`🔍 Navigation Check - Role: ${role}, Status: ${status}, RFID Type: ${rfid_type}`);
+
+  // DayPass: Unregistered key_fob or role is DayPass
+  if (role === "DayPass" || (rfid_type === "key_fob" && status !== "member_found")) {
     console.log("🎟️ Detected DayPass RFID - navigating to DayPass.jsx");
     customNavigate("/Staff/DayPass", { state: { rfid_tag, system_type, rfid_type, role } }, "staff");
   } 
-  else if (role === "Member" || rfid_type === "wristband") {
-    if (status === "member_found") {
-      console.log("💳 Registered Member - navigating to MembershipTransactions.jsx");
-      customNavigate("/Staff/MembershipTransactions", {
-        state: { rfid_tag, full_name, ...msg.data, system_type },
-      }, "staff");
-    } else {
-      console.log("🆕 New Wristband - navigating to AddMember.jsx");
-      customNavigate("/Staff/AddMember", { state: { rfid_tag, system_type, rfid_type, role } }, "staff");
-    }
+  // Member Found: Navigate to MembershipTransactions (which routes to PrepaidTapUp or SubscriptionRenewal)
+  else if (status === "member_found") {
+    console.log("💳 Registered Member - navigating to MembershipTransactions");
+    customNavigate("/Staff/MembershipTransactions", {
+      state: { rfid_tag, full_name, ...msg.data, system_type },
+    }, "staff");
   }
+  // New Member: Unregistered wristband or role is Member but not found
+  else if (role === "Member" || rfid_type === "wristband") {
+    console.log("🆕 New Wristband - navigating to AddMember.jsx");
+    customNavigate("/Staff/AddMember", { state: { rfid_tag, system_type, rfid_type, role } }, "staff");
+  }
+  // Partner/Admin Card
   else if (role === "Partner" || rfid_type === "card") {
     console.log("🚫 Partner/Admin card detected");
     alert("This is a Partner card - for admin use only");
   }
+  // Unknown
   else {
     console.log("⚠️ Unknown RFID type - no navigation");
+    console.log("Debug info:", { role, status, rfid_type, full_name });
   }
 
   return;

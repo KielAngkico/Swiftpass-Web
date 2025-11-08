@@ -1,3 +1,8 @@
+const express = require("express");
+const router = express.Router();
+const db = require("../db");
+const daypassUpload = require("../middleware/daypassUploads");
+
 router.get("/session-fee", async (req, res) => {
   const { admin_id } = req.query;
 
@@ -152,3 +157,5 @@ router.post("/register-session", daypassUpload.single("guest_image"), async (req
     conn.release();
   }
 });
+
+module.exports = router;

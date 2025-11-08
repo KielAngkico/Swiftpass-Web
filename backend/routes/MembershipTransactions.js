@@ -193,12 +193,15 @@ router.post("/tapup-member", async (req, res) => {
   }
 
   try {
-    const [adminData] = await dbSuperAdmin.promise().query(
-      "SELECT session_fee FROM AdminAccounts WHERE id = ? LIMIT 1",
+    // ✅ FIXED: Get Daily Session fee from AdminPricingOptions instead of AdminAccounts
+    const [sessionRows] = await dbSuperAdmin.promise().query(
+      "SELECT amount_to_pay FROM AdminPricingOptions WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1 LIMIT 1",
       [admin_id]
     );
     
-    const minimumSessionFee = adminData.length > 0 ? parseFloat(adminData[0].session_fee) : 0;
+    const minimumSessionFee = sessionRows.length > 0 ? parseFloat(sessionRows[0].amount_to_pay) : 0;
+    
+    console.log(`💰 Minimum Session Fee from AdminPricingOptions: ₱${minimumSessionFee}`);
 
     const updateSql = `
       UPDATE MembersAccounts
@@ -222,7 +225,10 @@ router.post("/tapup-member", async (req, res) => {
     const memberId = memberRow[0]?.id;
     const newBalance = parseFloat(memberRow[0]?.current_balance || 0);
 
+    // ✅ Calculate status based on Daily Session fee
     const newStatus = newBalance >= minimumSessionFee ? 'active' : 'inactive';
+    
+    console.log(`📊 Balance Check: ₱${newBalance} ${newBalance >= minimumSessionFee ? '≥' : '<'} ₱${minimumSessionFee} → Status: ${newStatus}`);
     
     await dbSuperAdmin.promise().query(
       "UPDATE MembersAccounts SET status = ? WHERE rfid_tag = ?",
@@ -268,7 +274,7 @@ router.post("/tapup-member", async (req, res) => {
     return res.status(200).json({ 
       message: newStatus === 'active' 
         ? "✅ Tap-up successful. Member is now active!" 
-        : "✅ Tap-up successful. Balance still below session fee.",
+        : `✅ Tap-up successful. Balance still below session fee (₱${minimumSessionFee}).`,
       status: newStatus,
       new_balance: newBalance,
       minimum_session_fee: minimumSessionFee

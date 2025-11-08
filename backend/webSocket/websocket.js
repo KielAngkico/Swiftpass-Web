@@ -207,38 +207,55 @@ function broadcastToClients(data) {
   }
 
   // ✅ Handle member-update messages (ENTRY/EXIT logs)
-  if (data.type === "member-update") {
-    if (!data.data || !data.data.admin_id) {
-      console.log("⚠️ member-update missing admin_id, broadcasting to all");
-      connectedClients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN && client.clientType === "dashboard") {
-          client.send(JSON.stringify(data));
-        }
-      });
-      return;
-    }
-
-    const targetAdminId = data.data.admin_id;
-    console.log(`📡 Broadcasting member-update to admin: ${targetAdminId}`);
-
-    let sentCount = 0;
+ // ✅ Handle member-update messages (ENTRY/EXIT logs)
+if (data.type === "member-update") {
+  if (!data.data || !data.data.admin_id) {
+    console.log("⚠️ member-update missing admin_id, broadcasting to all");
     connectedClients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN &&
-          client.clientType === "dashboard" &&
-          client.admin_id === targetAdminId) {
+      if (client.readyState === WebSocket.OPEN && client.clientType === "dashboard") {
         client.send(JSON.stringify(data));
-        sentCount++;
-        console.log(`   ✅ Sent to dashboard client (admin_id: ${client.admin_id})`);
       }
     });
-
-    if (sentCount === 0) {
-      console.log(`   ⚠️ No connected dashboard clients for admin ${targetAdminId}`);
-    } else {
-      console.log(`   📊 Sent to ${sentCount} client(s)`);
-    }
     return;
   }
+
+  const targetAdminId = data.data.admin_id;
+  const messageLocation = data.data.location; // ENTRY or EXIT
+  
+  console.log(`📡 Broadcasting member-update to admin: ${targetAdminId}`);
+  console.log(`   Location: ${messageLocation}`);
+
+  let sentCount = 0;
+  
+  connectedClients.forEach((client) => {
+    if (client.readyState !== WebSocket.OPEN) return;
+
+    // ✅ Send to dashboard clients (Staff/Admin viewing)
+    if (client.clientType === "dashboard" && client.admin_id === targetAdminId) {
+      client.send(JSON.stringify(data));
+      sentCount++;
+      console.log(`   ✅ Sent to dashboard client (admin_id: ${client.admin_id})`);
+    }
+    
+    // ✅ NEW: Send to Arduino clients at the same location
+    if (client.clientType === "arduino") {
+      // Send to ENTRY/EXIT arduinos regardless of admin_id (they need to control door/buzzer)
+      if (["ENTRY", "EXIT"].includes(client.location?.toUpperCase()) && 
+          client.location?.toUpperCase() === messageLocation?.toUpperCase()) {
+        client.send(JSON.stringify(data));
+        sentCount++;
+        console.log(`   ✅ Sent to Arduino at ${client.location}`);
+      }
+    }
+  });
+
+  if (sentCount === 0) {
+    console.log(`   ⚠️ No connected clients for admin ${targetAdminId} at ${messageLocation}`);
+  } else {
+    console.log(`   📊 Sent to ${sentCount} client(s)`);
+  }
+  return;
+}
 
   // Default handler for other message types
   if (!data || !data.data || !data.data.admin_id) return;

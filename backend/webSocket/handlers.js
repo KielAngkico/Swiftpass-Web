@@ -255,7 +255,7 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
 // ============= DAY PASS GUEST HANDLER =============
 
 async function handleDayPassGuest(rfid_tag, location, admin_id) {
-  const dbSuperAdmin = require("./db");
+  const dbSuperAdmin = require("../db");
   const { broadcastToClients } = require("./websocket");
 
   try {
@@ -393,7 +393,7 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
 // ============= MEMBER HANDLER =============
 
 async function handleMember(member, rfid_tag, location) {
-  const dbSuperAdmin = require("./db");
+  const dbSuperAdmin = require("../db");
   const { broadcastToClients } = require("./websocket");
 
   try {

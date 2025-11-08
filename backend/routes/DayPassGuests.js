@@ -7,8 +7,9 @@ router.get("/session-fee", async (req, res) => {
   const { admin_id } = req.query;
 
   try {
+    // Verify admin exists
     const [adminRows] = await db.promise().query(
-      "SELECT session_fee FROM AdminAccounts WHERE id = ?",
+      "SELECT id FROM AdminAccounts WHERE id = ?",
       [admin_id]
     );
 
@@ -16,15 +17,24 @@ router.get("/session-fee", async (req, res) => {
       return res.status(404).json({ error: "Admin not found" });
     }
 
+    // Get Daily Session fee from AdminPricingOptions
+    const [sessionRows] = await db.promise().query(
+      "SELECT amount_to_pay FROM AdminPricingOptions WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1 LIMIT 1",
+      [admin_id]
+    );
+
+    const sessionFee = sessionRows.length > 0 ? sessionRows[0].amount_to_pay : 0;
+
+    // Get Key Fob fee from AdminPricingOptions
     const [keyFobRows] = await db.promise().query(
-      "SELECT amount_to_pay FROM AdminPricingOptions WHERE admin_id = ? AND plan_name = 'Key Fob' LIMIT 1",
+      "SELECT amount_to_pay FROM AdminPricingOptions WHERE admin_id = ? AND plan_name = 'Key Fob' AND is_active = 1 LIMIT 1",
       [admin_id]
     );
 
     const keyFobFee = keyFobRows.length > 0 ? keyFobRows[0].amount_to_pay : 0;
 
     res.json({ 
-      session_fee: adminRows[0].session_fee,
+      session_fee: sessionFee,
       key_fob_fee: keyFobFee
     });
   } catch (err) {

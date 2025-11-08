@@ -136,31 +136,50 @@ case "rfid-registration-check":
         console.log("🔄 Staff registration scan mode:", msg.data?.enabled ? "ENABLED" : "DISABLED");
         return;
  
-      case "member-update":
-        if (!msg.data || msg.data.status === "unregistered") return;
-        
-        console.log("📥 Received member-update:", msg.data);
-        
-        addOrUpdateStatusLog({
-          id: msg.data.id, 
-          rfid_tag: msg.data.rfid_tag,
-          full_name: msg.data.full_name || "Unknown",
-          profile_image_url: msg.data.profile_image_url,
-          entry_time: msg.data.entry_time || null,
-          exit_time: msg.data.exit_time || null,
-          member_status: msg.data.status || msg.data.member_status || "outside",
-          status: msg.data.status || msg.data.member_status || "outside",
-          visitor_type: msg.data.visitor_type || "Member",
-          system_type: msg.data.system_type || "gate",
-          deducted_amount: msg.data.deducted_amount, 
-          current_balance: msg.data.current_balance, 
-          remaining_balance: msg.data.remaining_balance || msg.data.current_balance,
-          subscription_expiry: msg.data.subscription_expiry,
-          staff_name: msg.data.staff_name,
-          action: msg.data.exit_time ? "exit" : "entry",
-          last_activity: msg.data.exit_time || msg.data.entry_time || new Date().toISOString(),
-        });
-        return;
+ case "member-update":
+  if (!msg.data || msg.data.status === "unregistered") return;
+  
+  console.log("📥 Received member-update:", msg.data);
+  
+  // ✅ Filter by admin_id - only process if it matches current user's admin
+  const currentUserAdminId = parseInt(sessionStorage.getItem('adminId')) || user?.adminId;
+  const messageAdminId = msg.data.admin_id;
+  
+  console.log(`🔍 Admin ID Check:`, {
+    currentUserAdminId,
+    messageAdminId,
+    matches: currentUserAdminId === messageAdminId
+  });
+  
+  // Skip if admin_id doesn't match (different gym)
+  if (messageAdminId && currentUserAdminId && messageAdminId !== currentUserAdminId) {
+    console.log(`⏭️ Skipping - message for admin ${messageAdminId}, current user is admin ${currentUserAdminId}`);
+    return;
+  }
+  
+  addOrUpdateStatusLog({
+    id: msg.data.id, 
+    rfid_tag: msg.data.rfid_tag,
+    full_name: msg.data.full_name || "Unknown",
+    profile_image_url: msg.data.profile_image_url,
+    entry_time: msg.data.entry_time || null,
+    exit_time: msg.data.exit_time || null,
+    member_status: msg.data.status || msg.data.member_status || "outside",
+    status: msg.data.status || msg.data.member_status || "outside",
+    visitor_type: msg.data.visitor_type || "Member",
+    system_type: msg.data.system_type || "gate",
+    deducted_amount: msg.data.deducted_amount, 
+    current_balance: msg.data.current_balance, 
+    remaining_balance: msg.data.remaining_balance || msg.data.current_balance,
+    subscription_expiry: msg.data.subscription_expiry,
+    staff_name: msg.data.staff_name,
+    admin_id: msg.data.admin_id,
+    action: msg.data.exit_time ? "exit" : "entry",
+    last_activity: msg.data.exit_time || msg.data.entry_time || new Date().toISOString(),
+  });
+  
+  console.log(`✅ Added to globalEntryLogs for admin ${messageAdminId}`);
+  return;
 case "staff-scan":
   if (!msg.data) return;
 

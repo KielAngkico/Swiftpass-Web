@@ -132,47 +132,19 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
     dbSuperAdmin
   } = helpers;
 
-  // Check if RFID is registered
-  const isRegistered = await isRfidRegistered(rfid_tag);
-  if (!isRegistered) {
-    broadcastToClients({
-      type: "member-update",
-      data: {
-        rfid_tag,
-        status: "unregistered",
-        reason: "RFID not registered with SwiftPass company",
-        location,
-        admin_id,
-        timestamp: new Date().toISOString()
-      }
-    });
-    return;
-  }
+  console.log(`\n🎯 ===== HANDLE ENTRY/EXIT =====`);
+  console.log(`   RFID: ${rfid_tag}`);
+  console.log(`   Location: ${location}`);
+  console.log(`   Target Admin ID: ${admin_id}`);
 
-  // Validate allocation
-  if (!allocation || !allocation.isValid) {
-    broadcastToClients({
-      type: "member-update",
-      data: {
-        rfid_tag,
-        status: "unregistered",
-        reason: allocation ? allocation.reason : "RFID allocation not found",
-        location,
-        admin_id,
-        timestamp: new Date().toISOString()
-      }
-    });
-    return;
-  }
+  // ✅ admin_id parameter is already from allocation.allocated_to_admin
+  const target_admin_id = admin_id;
 
-  // USE ALLOCATION'S ADMIN_ID FOR ROUTING
-  const target_admin_id = allocation.allocated_to_admin;
-
-  console.log(`🎯 Entry/Exit Routing - Using allocation admin_id: ${target_admin_id}`);
-
-  // Check for staff member using target_admin_id
+  // Check for staff member using allocation's admin_id
+  console.log(`🔍 Checking StaffAccounts for admin ${target_admin_id}...`);
   const staffMember = await getStaffByRfid(rfid_tag, target_admin_id);
   if (staffMember) {
+    console.log(`✅ Staff Found: ${staffMember.staff_name}`);
     await logStaffActivity(rfid_tag, staffMember, location, location.toUpperCase());
 
     broadcastToClients({
@@ -187,12 +159,15 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
         timestamp: new Date().toISOString()
       }
     });
+    console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
     return;
   }
 
   // Check for admin member
+  console.log(`🔍 Checking AdminAccounts...`);
   const adminMember = await getAdminByRfid(rfid_tag);
   if (adminMember) {
+    console.log(`✅ Admin Found: ${adminMember.admin_name}`);
     broadcastToClients({
       type: "member-update",
       data: {
@@ -205,11 +180,13 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
         timestamp: new Date().toISOString()
       }
     });
+    console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
     return;
   }
 
   // Check for member - only if RFID role is Member
   if (allocation.role === 'Member') {
+    console.log(`🔍 Checking MembersAccounts for admin ${target_admin_id}...`);
     const [memberRows] = await dbSuperAdmin.promise().query(
       `SELECT id, full_name, profile_image_url, system_type, current_balance, subscription_expiry, admin_id, status
       FROM MembersAccounts
@@ -220,8 +197,10 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
 
     if (memberRows.length > 0) {
       const member = memberRows[0];
+      console.log(`✅ Member Found: ${member.full_name} (Status: ${member.status})`);
       
       if (member.status === 'inactive') {
+        console.log(`❌ Member is inactive`);
         broadcastToClients({
           type: "member-update",
           data: {
@@ -235,21 +214,29 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
             timestamp: new Date().toISOString()
           }
         });
+        console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
         return;
       }
 
+      console.log(`📞 Calling handleMember...`);
       await handleMember(member, rfid_tag, location);
+      console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
       return;
+    } else {
+      console.log(`⚠️ No member found with this RFID for admin ${target_admin_id}`);
     }
   }
 
   // Check for DayPass guest - only if RFID role is DayPass
   if (allocation.role === 'DayPass') {
+    console.log(`🔍 Checking DayPassGuests for admin ${target_admin_id}...`);
     await handleDayPassGuest(rfid_tag, location, target_admin_id);
+    console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
     return;
   }
 
   // RFID is allocated but not assigned to anyone yet
+  console.log(`⚠️ RFID allocated but not assigned to any member/staff`);
   broadcastToClients({
     type: "member-update",
     data: {
@@ -262,6 +249,7 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
       timestamp: new Date().toISOString()
     }
   });
+  console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
 }
 
 // ============= DAY PASS GUEST HANDLER =============

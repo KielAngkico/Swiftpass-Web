@@ -176,6 +176,7 @@ async function logStaffActivity(rfidTag, staffData, location, activityType) {
 }
 
 function broadcastToClients(data) {
+  // Handle SuperAdmin RFID registration checks
   if (data.type === "rfid-registration-check") {
     connectedClients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN &&
@@ -187,6 +188,7 @@ function broadcastToClients(data) {
     return;
   }
 
+  // Handle staff scan mode messages
   if (data.type === "rfid-scanned-for-staff" ||
       data.type === "scan-mode-updated" ||
       data.type === "rfid-replacement-scanned" ||
@@ -204,6 +206,41 @@ function broadcastToClients(data) {
     return;
   }
 
+  // ✅ Handle member-update messages (ENTRY/EXIT logs)
+  if (data.type === "member-update") {
+    if (!data.data || !data.data.admin_id) {
+      console.log("⚠️ member-update missing admin_id, broadcasting to all");
+      connectedClients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN && client.clientType === "dashboard") {
+          client.send(JSON.stringify(data));
+        }
+      });
+      return;
+    }
+
+    const targetAdminId = data.data.admin_id;
+    console.log(`📡 Broadcasting member-update to admin: ${targetAdminId}`);
+
+    let sentCount = 0;
+    connectedClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN &&
+          client.clientType === "dashboard" &&
+          client.admin_id === targetAdminId) {
+        client.send(JSON.stringify(data));
+        sentCount++;
+        console.log(`   ✅ Sent to dashboard client (admin_id: ${client.admin_id})`);
+      }
+    });
+
+    if (sentCount === 0) {
+      console.log(`   ⚠️ No connected dashboard clients for admin ${targetAdminId}`);
+    } else {
+      console.log(`   📊 Sent to ${sentCount} client(s)`);
+    }
+    return;
+  }
+
+  // Default handler for other message types
   if (!data || !data.data || !data.data.admin_id) return;
 
   const targetAdminId = data.data.admin_id;
@@ -788,19 +825,54 @@ if (location.toUpperCase() === "STAFF") {
 }
 
     // ============= ENTRY/EXIT LOCATION =============
-    if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
-      await handleEntryExit(rfid_tag, location, target_admin_id, allocation, {
-        isRfidRegistered,
-        getStaffByRfid,
-        getAdminByRfid,
-        logStaffActivity,
-        broadcastToClients,
-        handleDayPassGuest,
-        handleMember,
-        dbSuperAdmin
-      });
-      return;
-    }
+if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
+  console.log(`\n📍 ===== ENTRY/EXIT SCAN =====`);
+  console.log(`   RFID Tag: ${rfid_tag}`);
+  console.log(`   Location: ${location}`);
+  console.log(`   Scanner Admin ID: ${scanner_admin_id}`);
+
+  // ✅ ALWAYS get allocation first for ENTRY/EXIT
+  const allocation = await getRfidAllocation(rfid_tag);
+  
+  if (!allocation || !allocation.isValid) {
+    console.log(`❌ RFID not found or invalid`);
+    broadcastToClients({
+      type: "member-update",
+      data: {
+        rfid_tag,
+        status: "unregistered",
+        reason: allocation ? allocation.reason : "RFID not registered with SwiftPass",
+        location,
+        timestamp: new Date().toISOString()
+      }
+    });
+    console.log(`===== END ENTRY/EXIT SCAN =====\n`);
+    return;
+  }
+
+  // ✅ USE ALLOCATION'S ADMIN_ID (not scanner's admin_id)
+  const target_admin_id = allocation.allocated_to_admin;
+  
+  console.log(`✅ RFID Allocated to Admin: ${target_admin_id}`);
+  console.log(`   Role: ${allocation.role}`);
+  console.log(`   RFID Type: ${allocation.rfid_type}`);
+  console.log(`   Status: ${allocation.status}`);
+
+  // ✅ Call handler with correct admin_id from allocation
+  await handleEntryExit(rfid_tag, location, target_admin_id, allocation, {
+    isRfidRegistered,
+    getStaffByRfid,
+    getAdminByRfid,
+    logStaffActivity,
+    broadcastToClients,
+    handleDayPassGuest,
+    handleMember,
+    dbSuperAdmin
+  });
+  
+  console.log(`===== END ENTRY/EXIT SCAN =====\n`);
+  return;
+}
 
   } catch (err) {
     console.error("❌ Message error:", err.message);

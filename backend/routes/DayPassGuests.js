@@ -1,8 +1,3 @@
-const express = require("express");
-const router = express.Router();
-const db = require("../db");
-const daypassUpload = require("../middleware/daypassUploads");
-
 router.get("/session-fee", async (req, res) => {
   const { admin_id } = req.query;
 
@@ -43,7 +38,8 @@ router.get("/session-fee", async (req, res) => {
   }
 });
 
-router.post("/register-session", daypassUpload.single("guest_image"), async (req, res) => {  console.log("Received req.body:", req.body);
+router.post("/register-session", daypassUpload.single("guest_image"), async (req, res) => {
+  console.log("Received req.body:", req.body);
   console.log("Received req.file:", req.file);
 
   const conn = await db.promise().getConnection();
@@ -66,19 +62,24 @@ router.post("/register-session", daypassUpload.single("guest_image"), async (req
       rfid_keyfob_fee,
     } = req.body;
 
-const profileImage = req.file ? `uploads/daypass/${req.file.filename}` : null;
-    const [adminRows] = await conn.query(
-      "SELECT session_fee FROM AdminAccounts WHERE id = ?",
+    const profileImage = req.file ? `uploads/daypass/${req.file.filename}` : null;
+
+    // ✅ FIXED: Get Daily Session fee from AdminPricingOptions instead of AdminAccounts
+    const [sessionRows] = await conn.query(
+      "SELECT amount_to_pay FROM AdminPricingOptions WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1 LIMIT 1",
       [admin_id]
     );
 
-    if (adminRows.length === 0) {
+    if (sessionRows.length === 0) {
       await conn.rollback();
-      return res.status(400).json({ error: "Admin not found" });
+      return res.status(400).json({ error: "Daily Session pricing not found for this admin" });
     }
     
-    const sessionFee = adminRows[0].session_fee;
-    const totalAmount = parseFloat(sessionFee) + parseFloat(rfid_keyfob_fee || 0);
+    const sessionFee = parseFloat(sessionRows[0].amount_to_pay);
+    const keyFobFee = parseFloat(rfid_keyfob_fee || 0);
+    const totalAmount = sessionFee + keyFobFee;
+
+    console.log(`💰 Pricing: Session Fee = ${sessionFee}, Key Fob = ${keyFobFee}, Total = ${totalAmount}`);
 
     const [guestRows] = await conn.query(
       "SELECT * FROM DayPassGuests WHERE rfid_tag = ? AND status = 'active'",
@@ -139,7 +140,7 @@ const profileImage = req.file ? `uploads/daypass/${req.file.filename}` : null;
     return res.status(201).json({
       message: "Day pass session registered successfully",
       session_fee: sessionFee,
-      key_fob_fee: rfid_keyfob_fee,
+      key_fob_fee: keyFobFee,
       total_amount: totalAmount,
       profile_image_url: profileImage,
     });
@@ -151,5 +152,3 @@ const profileImage = req.file ? `uploads/daypass/${req.file.filename}` : null;
     conn.release();
   }
 });
-
-module.exports = router;

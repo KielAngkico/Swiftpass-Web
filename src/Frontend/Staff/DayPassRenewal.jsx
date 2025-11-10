@@ -146,6 +146,8 @@ useEffect(() => {
         setGuestName(data.guest_name || "");
         setGender(data.gender || "");
         setImagePreview(data.profile_image_url || null);
+              setEmail(data.email || "");
+      setMobileNumber(data.mobile_number || "");
         
         const paidAmount = parseFloat(data.paid_amount);
         if (!isNaN(paidAmount)) {
@@ -203,6 +205,8 @@ useEffect(() => {
       setGuestName("");
       setGender("");
       setImagePreview(null);
+      setEmail("");
+setMobileNumber("");
       setPaymentMethod("");
       setReference("");
       setSessionFee(0);

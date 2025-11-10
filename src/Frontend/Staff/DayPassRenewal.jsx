@@ -83,33 +83,31 @@ const DayPassRenewal = ({ staffUser }) => {
     }
   }, [rfid, adminId]);
 
-  const fetchGuest = async () => {
-    if (!rfid || !adminId) return;
-    setLoading(true);
-    try {
-      const { data } = await api.get(`/api/member-by-rfid/${rfid}`);
-      if (data && data.system_type === "prepaid_entry") {
-        data.admin_id = data.admin_id || adminId;
-        setGuest(data);
-        
-        // Pre-fill form fields (read-only)
-        setGuestName(data.full_name || data.guest_name || "");
-        setGender(data.gender || "");
-        setMobileNumber(data.mobile_number || "");
-        setEmail(data.email || "");
-        setImagePreview(data.profile_image_url || null);
-      } else {
-        setGuest(null);
-        showToast({ message: "Guest not found or not a day pass account.", type: "error" });
-      }
-    } catch (err) {
-      console.error("Error fetching guest:", err);
-      showToast({ message: "Error fetching guest data.", type: "error" });
+ const fetchGuest = async () => {
+  if (!rfid || !adminId) return;
+  setLoading(true);
+  try {
+    // ✅ Try fetching from DayPassGuests first
+    const { data } = await api.get(`/api/daypass-guest/${rfid}?admin_id=${adminId}`);
+    
+    if (data) {
+      setGuest(data);
+      setGuestName(data.guest_name || "");
+      setGender(data.gender || "");
+      setImagePreview(data.profile_image_url || null);
+      setSessionFee(data.paid_amount || sessionFee);
+    } else {
       setGuest(null);
-    } finally {
-      setLoading(false);
+      showToast({ message: "Guest not found.", type: "error" });
     }
-  };
+  } catch (err) {
+    console.error("Error fetching guest:", err);
+    showToast({ message: "Error fetching guest data.", type: "error" });
+    setGuest(null);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSubmit = async () => {
     if (!guest || !paymentMethod || !staffName) {

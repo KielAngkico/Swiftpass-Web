@@ -238,5 +238,28 @@ router.post("/renew-daypass", async (req, res) => {
     conn.release();
   }
 });
+router.get("/daypass-guest/:rfid", async (req, res) => {
+  const { rfid } = req.params;
+  const { admin_id } = req.query;
 
+  try {
+    const [rows] = await db.promise().query(
+      `SELECT id, guest_name, gender, profile_image_url, rfid_tag, system_type, 
+              paid_amount, expires_at, status, staff_name, admin_id
+       FROM DayPassGuests 
+       WHERE rfid_tag = ? AND admin_id = ? AND status IN ('active', 'expired')
+       LIMIT 1`,
+      [rfid, admin_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Guest not found" });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("Error fetching day pass guest:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 module.exports = router;

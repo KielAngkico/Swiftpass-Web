@@ -170,6 +170,13 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
         
         console.log("📥 Received member-update:", msg.data);
         
+        // ✅ Skip Staff and Admin entries (they shouldn't show in member logs)
+        const visitorType = msg.data.visitor_type || msg.data.role;
+        if (visitorType === "Staff" || visitorType === "Admin" || visitorType === "Partner") {
+          console.log(`⏭️ Skipping ${visitorType} entry - not displaying in member logs`);
+          return;
+        }
+        
         // ✅ Use currentUser from state (fetched from /api/me)
         const currentUserAdminId = currentUser?.adminId;
         const messageAdminId = msg.data.admin_id;
@@ -178,7 +185,8 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
           currentUserAdminId,
           messageAdminId,
           matches: currentUserAdminId === messageAdminId,
-          currentUser: currentUser // Debug log
+          currentUser: currentUser,
+          visitorType: visitorType // Debug log
         });
         
         // ✅ Skip if admin_id doesn't match (different gym)

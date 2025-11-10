@@ -79,56 +79,37 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
         console.error("❌ WebSocket error:", msg.message);
         return;
 
-      case "rfid-registration-check":
-        if (msg.data?.rfid_tag) {
-          const { rfid_tag, is_registered, role, error } = msg.data;
+case "rfid-registration-check":
+  if (msg.data?.rfid_tag) {
+    const { rfid_tag, is_registered, error } = msg.data;
 
-          console.log(`📡 RFID Check Result: ${rfid_tag}`);
-          console.log(`   Is Registered: ${is_registered}`);
-          console.log(`   Role: ${role}`);
+    console.log(`📡 RFID Check Result: ${rfid_tag}`);
+    console.log(`   Is Registered: ${is_registered}`);
 
-          const currentPath = window.location.pathname;
-          const isSuperAdminPage = currentPath.startsWith("/SuperAdmin");
+    const currentPath = window.location.pathname;
+    const isSuperAdminPage = currentPath.startsWith("/SuperAdmin");
 
-          if (!isSuperAdminPage) {
-            console.log("Not on SuperAdmin page - no navigation");
-            return;
-          }
+    if (!isSuperAdminPage) {
+      console.log("Not on SuperAdmin page - ignoring RFID");
+      return;
+    }
 
-          if (error) {
-            alert(error);
-            return;
-          }
+    if (error) {
+      alert(error);
+      return;
+    }
 
-          if (role === 'Partner') {
-            const isOnAddClientPage = currentPath === "/SuperAdmin/AddClient";
-
-            if (isOnAddClientPage) {
-              console.log("🔄 On AddClient page - storing RFID for slot selection");
-              sessionStorage.setItem('pendingSlotRfid', rfid_tag);
-              sessionStorage.setItem('rfidScannedAt', Date.now().toString());
-              
-              window.dispatchEvent(new Event('rfid-slot-scanned'));
-              return;
-            }
-
-            if (is_registered) {
-              console.log("✅ Navigating to AddClient - modal will open");
-              customNavigate("/SuperAdmin/AddClient", {
-                state: { 
-                  openModal: true, 
-                  timestamp: Date.now() 
-                }
-              }, "superadmin");
-            } else {
-              console.log("❌ Navigating to ItemsInventory for registration");
-              customNavigate("/SuperAdmin/ItemsInventory", {
-                state: { rfid_tag, is_registered: false }
-              }, "superadmin");
-            }
-          }
-        }
-        return;
+    // ✅ Only if RFID exists, go straight to ItemsInventory
+    if (is_registered) {
+      console.log("✅ RFID exists - navigating to ItemsInventory");
+      customNavigate("/SuperAdmin/ItemsInventory", {
+        state: { rfid_tag, is_registered: true },
+      }, "superadmin");
+    } else {
+      console.log("⚠️ RFID not registered - staying on page (no ownership info)");
+    }
+  }
+  return;
 
       case "rfid-replacement-scanned":
         if (msg.data?.rfid_tag) {

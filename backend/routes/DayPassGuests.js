@@ -95,22 +95,25 @@ router.post("/register-session", daypassUpload.single("guest_image"), async (req
 
     if (guestRows.length === 0) {
       // ✅ Insert new guest with profile image
-      const [insertResult] = await conn.query(
-        `INSERT INTO DayPassGuests
-        (guest_name, gender, profile_image_url, rfid_tag, system_type, staff_name, admin_id, paid_amount, expires_at, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
-        [
-          guest_name,
-          gender,
-          profileImage,
-          rfid_tag,
-          system_type,
-          staff_name,
-          admin_id,
-          totalAmount,
-          expires_at,
-        ]
-      );
+const [insertResult] = await conn.query(
+  `INSERT INTO DayPassGuests
+  (guest_name, gender, mobile_number, email, profile_image_url, rfid_tag, system_type, staff_name, admin_id, paid_amount, expires_at, renewed_at, status)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+  [
+    guest_name,
+    gender,
+    mobile_number,
+    email,
+    profileImage,
+    rfid_tag,
+    system_type,
+    staff_name,
+    admin_id,
+    totalAmount,
+    expires_at,
+    formattedNow
+  ]
+);
       guestId = insertResult.insertId;
     } else {
       // ✅ Update existing guest with profile image

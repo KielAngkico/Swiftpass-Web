@@ -183,7 +183,7 @@ case "rfid-registration-check":
 case "staff-scan":
   if (!msg.data) return;
 
-  const { rfid_tag, status, location, full_name, system_type, reason, rfid_type, role, guest_data } = msg.data;
+  const { rfid_tag, status, location, full_name, system_type, reason, rfid_type, role } = msg.data;
 
   console.log("📥 Received staff-scan message:", msg.data);
 
@@ -225,26 +225,10 @@ case "staff-scan":
   // 🚦 NAVIGATION LOGIC - Fixed to prioritize role and status
   console.log(`🔍 Navigation Check - Role: ${role}, Status: ${status}, RFID Type: ${rfid_type}`);
 
-  // ✅ NEW: Day Pass Renewal - Existing guest
-  if (status === "daypass_renewal") {
-    console.log("🔄 Existing Day Pass - navigating to DayPassRenewal");
-    customNavigate("/Staff/DayPassRenewal", {
-      state: { 
-        rfid_tag, 
-        full_name,
-        guest_data,
-        system_type, 
-        rfid_type, 
-        role 
-      },
-    }, "staff");
-  }
-  // DayPass: New registration (key_fob not assigned yet)
-  else if (role === "DayPass" || (rfid_type === "key_fob" && status !== "member_found")) {
-    console.log("🎟️ New Day Pass - navigating to PrepaidDayPass");
-    customNavigate("/Staff/DayPass", { 
-      state: { rfid_tag, system_type, rfid_type, role } 
-    }, "staff");
+  // DayPass: Unregistered key_fob or role is DayPass
+  if (role === "DayPass" || (rfid_type === "key_fob" && status !== "member_found")) {
+    console.log("🎟️ Detected DayPass RFID - navigating to DayPass.jsx");
+    customNavigate("/Staff/DayPass", { state: { rfid_tag, system_type, rfid_type, role } }, "staff");
   } 
   // Member Found: Navigate to MembershipTransactions (which routes to PrepaidTapUp or SubscriptionRenewal)
   else if (status === "member_found") {
@@ -256,9 +240,7 @@ case "staff-scan":
   // New Member: Unregistered wristband or role is Member but not found
   else if (role === "Member" || rfid_type === "wristband") {
     console.log("🆕 New Wristband - navigating to AddMember.jsx");
-    customNavigate("/Staff/AddMember", { 
-      state: { rfid_tag, system_type, rfid_type, role } 
-    }, "staff");
+    customNavigate("/Staff/AddMember", { state: { rfid_tag, system_type, rfid_type, role } }, "staff");
   }
   // Partner/Admin Card
   else if (role === "Partner" || rfid_type === "card") {
@@ -273,9 +255,10 @@ case "staff-scan":
 
   return;
 
-default:
-  console.log("Unknown WebSocket message type:", msg.type);
-  break;
+
+      default:
+        console.log("Unknown WebSocket message type:", msg.type);
+        break;
     }
   };
 

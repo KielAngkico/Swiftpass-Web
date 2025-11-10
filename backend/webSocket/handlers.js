@@ -1,7 +1,7 @@
 
 
 async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers) {
-  const { isRfidRegistered, getStaffByRfid, getAdminByRfid, getMemberByRfid, broadcastToClients, dbSuperAdmin } = helpers;
+  const { isRfidRegistered, getStaffByRfid, getAdminByRfid, getMemberByRfid, broadcastToClients } = helpers;
 
   // Check if RFID is registered in RegisteredRfid
   const isRegistered = await isRfidRegistered(rfid_tag);
@@ -50,44 +50,6 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
       }
     });
     return;
-  }
-
-  // ✅ NEW: Check if DayPass RFID is already registered in DayPassGuests
-  if (allocation.role === 'DayPass') {
-    console.log("🔍 Checking if Day Pass guest exists...");
-    
-    const [dayPassRows] = await dbSuperAdmin.promise().query(
-      `SELECT id, guest_name, gender, mobile_number, email, profile_image_url, rfid_tag, expires_at, status 
-       FROM DayPassGuests 
-       WHERE rfid_tag = ? AND admin_id = ? AND status = 'active'
-       LIMIT 1`,
-      [rfid_tag, admin_id]
-    );
-
-    if (dayPassRows.length > 0) {
-      const guest = dayPassRows[0];
-      console.log(`✅ Day Pass guest found: ${guest.guest_name}`);
-      
-      // Route to DayPassRenewal
-      broadcastToClients({
-        type: "staff-scan",
-        data: {
-          rfid_tag,
-          status: "daypass_renewal",
-          full_name: guest.guest_name,
-          guest_data: guest,
-          rfid_type: allocation.rfid_type,
-          role: allocation.role,
-          location,
-          admin_id,
-          timestamp: new Date().toISOString()
-        }
-      });
-      return;
-    }
-    
-    console.log("⚠️ Day Pass RFID not assigned yet - route to new registration");
-    // Will continue to the "All checks passed" section below
   }
 
   // Check for duplicates in StaffAccounts

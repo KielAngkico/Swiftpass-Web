@@ -137,7 +137,6 @@ router.post("/rfid", (req, res) => {
   if (!rfid_tag) return res.status(400).json({ message: "Missing RFID tag" });
   if (!role) return res.status(400).json({ message: "Missing role" });
 
-  // Generate warehouse number
   generateWarehouseNumber(role, (err, warehouseNumber) => {
     if (err) {
       console.error("Error generating warehouse number:", err);
@@ -152,14 +151,31 @@ router.post("/rfid", (req, res) => {
           console.error("RFID Insert Error:", err);
           return res.status(500).json({ error: err.sqlMessage || err.message });
         }
-        res.json({ 
-          id: result.insertId,
-          warehouse_number: warehouseNumber
-        });
+
+        // Update inventory
+        let inventoryName;
+        if (role === 'Partner') inventoryName = 'Partner/Staff - Card';
+        else if (role === 'Member') inventoryName = 'Member - Wristband';
+        else if (role === 'DayPass') inventoryName = 'Day Pass - KeyFob';
+
+        if (inventoryName) {
+          db.query(
+            "UPDATE SuperAdminInventory SET quantity = quantity + 1 WHERE name = ?",
+            [inventoryName],
+            (invErr) => {
+              if (invErr) console.error("Inventory update error:", invErr);
+              // Return response even if inventory update fails
+              res.json({ id: result.insertId, warehouse_number: warehouseNumber });
+            }
+          );
+        } else {
+          res.json({ id: result.insertId, warehouse_number: warehouseNumber });
+        }
       }
     );
   });
 });
+
 
 router.get("/rfid/check/:rfid_tag", (req, res) => {
   db.query("SELECT COUNT(*) as count FROM RegisteredRfid WHERE rfid_tag = ?", [req.params.rfid_tag], (err, results) => {

@@ -18,7 +18,7 @@ const DayPassRenewal = ({ staffUser }) => {
   const location = useLocation();
   const { rfid_tag: scannedRfid, guest_data, full_name } = location.state || {};
   
-  console.log("🎯 DayPassRenewal received:", { scannedRfid, guest_data, full_name }); // ✅ Debug log
+  console.log("🎯 DayPassRenewal received:", { scannedRfid, guest_data, full_name });
   
   const staffName = staffUser?.name || "";
   const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId;
@@ -33,7 +33,7 @@ const DayPassRenewal = ({ staffUser }) => {
   const [email, setEmail] = useState("");
   const [imagePreview, setImagePreview] = useState(guest_data?.profile_image_url || null);
 
-  const [sessionFee, setSessionFee] = useState(guest_data?.paid_amount || 0);
+  const [sessionFee, setSessionFee] = useState(0); // ✅ Always initialize as 0
   const [paymentMethod, setPaymentMethod] = useState("");
   const [reference, setReference] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
@@ -50,16 +50,22 @@ const DayPassRenewal = ({ staffUser }) => {
       setGuestName(full_name || guest_data.guest_name || "");
       setGender(guest_data.gender || "");
       setImagePreview(guest_data.profile_image_url || null);
-      setSessionFee(guest_data.paid_amount || sessionFee);
+      
+      // ✅ Parse paid_amount safely
+      const paidAmount = parseFloat(guest_data.paid_amount);
+      if (!isNaN(paidAmount)) {
+        setSessionFee(paidAmount);
+      }
       
       console.log("✅ State updated:", {
         guestName: full_name || guest_data.guest_name,
         gender: guest_data.gender,
         imagePreview: guest_data.profile_image_url,
-        sessionFee: guest_data.paid_amount
+        sessionFee: paidAmount
       });
     }
   }, [scannedRfid, guest_data, full_name]);
+
   useEffect(() => {
     if (!adminId) return;
 
@@ -75,48 +81,63 @@ const DayPassRenewal = ({ staffUser }) => {
     const fetchSessionFee = async () => {
       try {
         const res = await api.get(`/api/session-fee?admin_id=${adminId}`);
-        setSessionFee(parseFloat(res.data.session_fee) || 0);
+        const fee = parseFloat(res.data.session_fee);
+        
+        // ✅ Only set if not already set by guest_data
+        if (!guest_data?.paid_amount && !isNaN(fee)) {
+          setSessionFee(fee);
+        }
       } catch (err) {
         console.error("❌ Failed to fetch session fee:", err);
-        setSessionFee(0);
       }
     };
 
     fetchPaymentMethods();
-    fetchSessionFee();
-  }, [adminId]);
+    
+    // ✅ Only fetch session fee if we don't have guest_data
+    if (!guest_data?.paid_amount) {
+      fetchSessionFee();
+    }
+  }, [adminId, guest_data]);
 
+  // ✅ Removed automatic fetchGuest on rfid change to avoid overwriting navigation data
+  // Only allow manual RFID changes if user types a different one
   useEffect(() => {
-    if (rfid && rfid.length >= 8 && adminId) {
+    // Only fetch if RFID was manually changed (not from navigation)
+    if (rfid && rfid.length >= 8 && adminId && rfid !== scannedRfid) {
       fetchGuest();
     }
-  }, [rfid, adminId]);
+  }, [rfid, adminId, scannedRfid]);
 
- const fetchGuest = async () => {
-  if (!rfid || !adminId) return;
-  setLoading(true);
-  try {
-    // ✅ Try fetching from DayPassGuests first
-    const { data } = await api.get(`/api/daypass-guest/${rfid}?admin_id=${adminId}`);
-    
-    if (data) {
-      setGuest(data);
-      setGuestName(data.guest_name || "");
-      setGender(data.gender || "");
-      setImagePreview(data.profile_image_url || null);
-      setSessionFee(data.paid_amount || sessionFee);
-    } else {
+  const fetchGuest = async () => {
+    if (!rfid || !adminId) return;
+    setLoading(true);
+    try {
+      const { data } = await api.get(`/api/daypass-guest/${rfid}?admin_id=${adminId}`);
+      
+      if (data) {
+        setGuest(data);
+        setGuestName(data.guest_name || "");
+        setGender(data.gender || "");
+        setImagePreview(data.profile_image_url || null);
+        
+        // ✅ Parse paid_amount safely
+        const paidAmount = parseFloat(data.paid_amount);
+        if (!isNaN(paidAmount)) {
+          setSessionFee(paidAmount);
+        }
+      } else {
+        setGuest(null);
+        showToast({ message: "Guest not found.", type: "error" });
+      }
+    } catch (err) {
+      console.error("Error fetching guest:", err);
+      showToast({ message: "Error fetching guest data.", type: "error" });
       setGuest(null);
-      showToast({ message: "Guest not found.", type: "error" });
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Error fetching guest:", err);
-    showToast({ message: "Error fetching guest data.", type: "error" });
-    setGuest(null);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleSubmit = async () => {
     if (!guest || !paymentMethod || !staffName) {
@@ -159,6 +180,7 @@ const DayPassRenewal = ({ staffUser }) => {
       setImagePreview(null);
       setPaymentMethod("");
       setReference("");
+      setSessionFee(0);
     } catch (err) {
       console.error("❌ Error renewing day pass:", err);
       showToast({ message: "Failed to renew day pass.", type: "error" });
@@ -230,7 +252,7 @@ const DayPassRenewal = ({ staffUser }) => {
                 <label className="block mb-1 text-xs text-gray-600">Session Fee (₱)</label>
                 <input
                   type="text"
-                  value={`₱${(sessionFee || 0).toFixed(2)}`}
+                  value={`₱${Number(sessionFee || 0).toFixed(2)}`}
                   readOnly
                   className="w-full border border-gray-200 bg-gray-50 px-2 py-1.5 rounded text-sm text-gray-700"
                 />
@@ -299,6 +321,17 @@ const DayPassRenewal = ({ staffUser }) => {
                   src={imagePreview}
                   alt="Guest"
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    console.error("❌ Failed to load image:", imagePreview);
+                    e.target.style.display = 'none';
+                    e.target.parentElement.innerHTML = `
+                      <div class="w-full h-full flex items-center justify-center">
+                        <span class="text-gray-400 text-xs text-center px-2">
+                          ${guestName ? guestName.charAt(0).toUpperCase() : "No Photo"}
+                        </span>
+                      </div>
+                    `;
+                  }}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">

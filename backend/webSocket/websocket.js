@@ -460,31 +460,45 @@ async function handleMessage(ws, message) {
     }
 // ============= SUPERADMIN LOCATION =============
 if (location.toUpperCase() === "SUPERADMIN") {
-  console.log(`\n📍 ===== SUPERADMIN RFID SCAN =====`);
-  console.log(`   RFID Tag: ${rfid_tag}`);
-
-  try {
-    // ✅ Check if RFID exists in RegisteredRfid
-    const isRegistered = await isRfidRegistered(rfid_tag);
-    console.log(`   RFID Registered: ${isRegistered}`);
-
-    // ✅ Broadcast result to all SuperAdmin dashboards
+  const allocation = await getRfidAllocation(rfid_tag);
+  
+  if (!allocation || !allocation.isValid) {
     broadcastToClients({
       type: "rfid-registration-check",
       data: {
         rfid_tag,
-        is_registered: isRegistered,
+        is_registered: false,
+        error: allocation ? allocation.reason : "RFID not found",
         timestamp: new Date().toISOString()
       }
     });
-
-    console.log("📡 Broadcasted SUPERADMIN RFID status to dashboards.");
-  } catch (err) {
-    console.error("❌ Error during SUPERADMIN scan:", err.message);
-    ws.send(JSON.stringify({ type: "error", message: "Failed to check RFID registration" }));
+    return;
   }
 
-  console.log(`===== END SUPERADMIN SCAN =====\n`);
+  // Check if it's a Partner RFID
+  if (allocation.role === 'Partner') {
+    broadcastToClients({
+      type: "rfid-registration-check",
+      data: {
+        rfid_tag,
+        is_registered: true,
+        role: 'Partner',
+        timestamp: new Date().toISOString()
+      }
+    });
+  } else {
+    // Member or DayPass card
+    broadcastToClients({
+      type: "rfid-registration-check",
+      data: {
+        rfid_tag,
+        is_registered: true,
+        role: allocation.role,
+        error: `This is a ${allocation.role} card, not for admin registration`,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
   return;
 }
 

@@ -191,16 +191,16 @@ router.post("/renew-daypass", async (req, res) => {
       expires_at
     });
 
-    // ✅ Verify the guest exists and is a prepaid_entry (day pass)
+    // ✅ Verify the guest exists - accept both subscription and prepaid_entry types, and both active and expired statuses
     const [guestRows] = await conn.query(
-      "SELECT * FROM DayPassGuests WHERE rfid_tag = ? AND system_type = 'prepaid_entry' AND status = 'active'",
+      "SELECT * FROM DayPassGuests WHERE rfid_tag = ? AND system_type IN ('prepaid_entry', 'subscription') AND status IN ('active', 'expired')",
       [rfid_tag]
     );
 
     if (guestRows.length === 0) {
       console.log("❌ Guest not found with RFID:", rfid_tag);
       await conn.rollback();
-      return res.status(404).json({ error: "Day pass guest not found" });
+      return res.status(404).json({ error: "Day pass guest not found. Guest must have a subscription or prepaid entry system type." });
     }
 
     const guestId = guestRows[0].id;
@@ -224,9 +224,9 @@ router.post("/renew-daypass", async (req, res) => {
 
     console.log(`💰 Renewal Pricing: Session Fee = ${sessionFeeAmount}, No Key Fob Fee`);
 
-    // ✅ Update guest's expiry date (extend to today 11:59 PM)
+    // ✅ Update guest's expiry date AND status (extend to today 11:59 PM and reactivate)
     await conn.query(
-      "UPDATE DayPassGuests SET expires_at = ?, admin_id = ? WHERE id = ?",
+      "UPDATE DayPassGuests SET expires_at = ?, admin_id = ?, status = 'active' WHERE id = ?",
       [expires_at, admin_id, guestId]
     );
 

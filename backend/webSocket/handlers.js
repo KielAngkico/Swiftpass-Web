@@ -200,20 +200,10 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
     console.log(`✅ Staff Found: ${staffMember.staff_name}`);
     await logStaffActivity(rfid_tag, staffMember, location, location.toUpperCase());
 
-    broadcastToClients({
-      type: "member-update",
-      data: {
-        rfid_tag,
-        full_name: staffMember.staff_name,
-        status: "staff_granted",
-        reason: "Staff access - door open",
-        location,
-        admin_id: staffMember.admin_id,
-        timestamp: new Date().toISOString()
-      }
-    });
+    // ✅ LOG ONLY - Don't broadcast to frontend
+    console.log(`⏭️ Staff entry logged - NOT broadcasting to dashboard`);
     console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
-    return;
+    return; // ✅ EXIT HERE - no broadcast
   }
 
   // Check for admin member
@@ -221,20 +211,11 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
   const adminMember = await getAdminByRfid(rfid_tag);
   if (adminMember) {
     console.log(`✅ Admin Found: ${adminMember.admin_name}`);
-    broadcastToClients({
-      type: "member-update",
-      data: {
-        rfid_tag,
-        full_name: adminMember.admin_name,
-        status: "admin_granted",
-        reason: "Admin access - door open",
-        location,
-        admin_id: target_admin_id,
-        timestamp: new Date().toISOString()
-      }
-    });
+    
+    // ✅ LOG ONLY - Don't broadcast to frontend
+    console.log(`⏭️ Admin entry logged - NOT broadcasting to dashboard`);
     console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
-    return;
+    return; // ✅ EXIT HERE - no broadcast
   }
 
   // Check for member

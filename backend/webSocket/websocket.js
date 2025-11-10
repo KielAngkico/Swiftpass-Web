@@ -175,7 +175,19 @@ async function logStaffActivity(rfidTag, staffData, location, activityType) {
   }
 }
 
-function broadcastToClients(data) {
+function broadcastToClients(data, arduinoOnly = false) {
+  if (arduinoOnly === true) {
+  connectedClients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN && client.clientType === "arduino") {
+      // Optional: match by location if included
+      if (!data.data?.location || client.location?.toUpperCase() === data.data.location?.toUpperCase()) {
+        client.send(JSON.stringify(data));
+        console.log(`📡 Sent Arduino-only message to ${client.location}`);
+      }
+    }
+  });
+  return; // stop here — don't send to dashboards
+}
   // Handle SuperAdmin RFID registration checks
   if (data.type === "rfid-registration-check") {
     connectedClients.forEach((client) => {

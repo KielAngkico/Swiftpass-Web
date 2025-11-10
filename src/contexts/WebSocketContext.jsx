@@ -162,7 +162,7 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
 
           if (msg.data.status === "success") {
             console.log("✅ RFID is valid for staff registration");
-            setScannedRfidForStaff(msg.data);
+setScannedRfidForStaff(msg.data.rfid_tag);
           }
         }
         return;

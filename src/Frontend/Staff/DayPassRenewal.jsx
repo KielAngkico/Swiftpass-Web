@@ -4,7 +4,6 @@ import api from "../../api";
 import { useToast } from "../../components/ToastManager";
 import StaffSidebar from "../../components/StaffSidebar";
 
-
 function formatDateToLocalString(date) {
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -23,7 +22,11 @@ const DayPassRenewal = ({ staffUser }) => {
   const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId;
 
   const [rfid, setRfid] = useState(scannedRfid || "");
-  const [guest, setGuest] = useState(guest_data || null);
+  const [guest, setGuest] = useState(
+    scannedRfid && guest_data
+      ? guest_data
+      : null
+  );
   const [guestName, setGuestName] = useState(full_name || guest_data?.guest_name || "");
   const [gender, setGender] = useState(guest_data?.gender || "");
   const [mobileNumber, setMobileNumber] = useState("");
@@ -37,11 +40,16 @@ const DayPassRenewal = ({ staffUser }) => {
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
 
+  // ✅ Update state when navigation state changes
   useEffect(() => {
-    if (rfid_tag) {
-      setRfid(rfid_tag);
+    if (scannedRfid && guest_data) {
+      setRfid(scannedRfid);
+      setGuest(guest_data);
+      setGuestName(full_name || guest_data.guest_name || "");
+      setGender(guest_data.gender || "");
+      setImagePreview(guest_data.profile_image_url || null);
     }
-  }, [rfid_tag]);
+  }, [scannedRfid, guest_data, full_name]);
 
   useEffect(() => {
     if (!adminId) return;
@@ -121,8 +129,8 @@ const DayPassRenewal = ({ staffUser }) => {
       expires_at.setHours(23, 59, 59, 999);
 
       const payload = {
-        rfid_tag: guest.rfid_tag,
-        full_name: guest.full_name || guestName,
+        rfid_tag: guest.rfid_tag || rfid,
+        full_name: guest.guest_name || guestName,
         admin_id: guest.admin_id || adminId,
         staff_name: staffName,
         system_type: "prepaid_entry",
@@ -139,6 +147,9 @@ const DayPassRenewal = ({ staffUser }) => {
       showToast({ message: "Day pass renewed successfully!", type: "success" });
       setGuest(null);
       setRfid("");
+      setGuestName("");
+      setGender("");
+      setImagePreview(null);
       setPaymentMethod("");
       setReference("");
     } catch (err) {
@@ -149,19 +160,19 @@ const DayPassRenewal = ({ staffUser }) => {
     }
   };
 
-return (
-  <div className="flex min-h-screen bg-gray-50">
-    <StaffSidebar />
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      <StaffSidebar />
 
-    <main className="flex-1 p-6 overflow-auto">
-      <div className="mb-6">
-        <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
-          Day Pass Renewal
-        </h1>
-        <p className="text-sm text-gray-500">
-          Renew a guest's day pass using RFID. No key fob fee required.
-        </p>
-      </div>
+      <main className="flex-1 p-6 overflow-auto">
+        <div className="mb-6">
+          <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
+            Day Pass Renewal
+          </h1>
+          <p className="text-sm text-gray-500">
+            Renew a guest's day pass using RFID. No key fob fee required.
+          </p>
+        </div>
 
         <form
           onSubmit={(e) => {
@@ -194,27 +205,6 @@ return (
                   onChange={(e) => setRfid(e.target.value)}
                   placeholder="Scan RFID tag"
                   className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block mb-1 text-xs text-gray-600">Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  readOnly
-                  className="w-full border border-gray-200 px-2 py-1.5 rounded bg-gray-50 text-sm text-gray-700 cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-xs text-gray-600">Mobile Number</label>
-                <input
-                  type="tel"
-                  value={mobileNumber}
-                  readOnly
-                  className="w-full border border-gray-200 px-2 py-1.5 rounded bg-gray-50 text-sm text-gray-700 cursor-not-allowed"
                 />
               </div>
             </div>
@@ -283,7 +273,7 @@ return (
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !guest}
                 className="w-1/2 mt-2 px-4 py-2 rounded bg-black text-white text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
               >
                 {loading ? "Processing..." : "Renew Day Pass"}

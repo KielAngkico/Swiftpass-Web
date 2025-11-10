@@ -53,41 +53,56 @@
     }
 
     // ✅ NEW: Check if DayPass RFID is already registered in DayPassGuests
+// ✅ FIXED: Check if DayPass RFID is already registered in DayPassGuests
 if (allocation.role === 'DayPass') {
   console.log("🔍 Checking if Day Pass guest exists...");
   
   const [dayPassRows] = await dbSuperAdmin.promise().query(
-    `SELECT id, guest_name, gender, profile_image_url, rfid_tag, expires_at, status, system_type, staff_name, paid_amount
-    FROM DayPassGuests 
-    WHERE rfid_tag = ? AND admin_id = ? AND status IN ('active', 'expired')
-    LIMIT 1`,
+    `SELECT id, guest_name, gender, profile_image_url, rfid_tag, expires_at, 
+            status, system_type, staff_name, paid_amount, admin_id
+     FROM DayPassGuests 
+     WHERE rfid_tag = ? AND admin_id = ? AND status IN ('active', 'expired')
+     LIMIT 1`,
     [rfid_tag, admin_id]
   );
-      if (dayPassRows.length > 0) {
-        const guest = dayPassRows[0];
-        console.log(`✅ Day Pass guest found: ${guest.guest_name}`);
-        
-        // Route to DayPassRenewal
-        broadcastToClients({
-          type: "staff-scan",
-          data: {
-            rfid_tag,
-            status: "daypass_renewal",
-            full_name: guest.guest_name,
-            guest_data: guest,
-            rfid_type: allocation.rfid_type,
-            role: allocation.role,
-            location,
-            admin_id,
-            timestamp: new Date().toISOString()
-          }
-        });
-        return;
+
+  if (dayPassRows.length > 0) {
+    const guest = dayPassRows[0];
+    console.log(`✅ Day Pass guest found: ${guest.guest_name}`);
+    
+    // ✅ Route to DayPassRenewal with complete guest data
+    broadcastToClients({
+      type: "staff-scan",
+      data: {
+        rfid_tag,
+        status: "daypass_renewal", // ✅ This triggers the renewal flow
+        full_name: guest.guest_name,
+        guest_data: {
+          id: guest.id,
+          guest_name: guest.guest_name,
+          gender: guest.gender,
+          profile_image_url: guest.profile_image_url, // ✅ Include photo
+          rfid_tag: guest.rfid_tag,
+          expires_at: guest.expires_at,
+          status: guest.status,
+          system_type: guest.system_type,
+          staff_name: guest.staff_name,
+          paid_amount: guest.paid_amount,
+          admin_id: guest.admin_id
+        },
+        rfid_type: allocation.rfid_type,
+        role: allocation.role,
+        location,
+        admin_id,
+        timestamp: new Date().toISOString()
       }
-      
-      console.log("⚠️ Day Pass RFID not assigned yet - route to new registration");
-      // Will continue to the "All checks passed" section below
-    }
+    });
+    return;
+  }
+  
+  console.log("⚠️ Day Pass RFID not assigned yet - route to new registration");
+  // Will continue to the "All checks passed" section below
+}
 
     // Check for duplicates in StaffAccounts
     const staffMember = await getStaffByRfid(rfid_tag, admin_id);

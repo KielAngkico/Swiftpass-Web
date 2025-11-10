@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import api from "../../api";
+import { useToast } from "../../components/ToastManager";
+import StaffSidebar from "../../components/StaffSidebar";
 
 function formatDateToLocalString(date) {
   const yyyy = date.getFullYear();
@@ -15,73 +18,107 @@ const DayPassRenewal = ({ staffUser }) => {
   const location = useLocation();
   const { rfid_tag: scannedRfid, guest_data, full_name } = location.state || {};
   
+  console.log("🎯 DayPassRenewal received:", { scannedRfid, guest_data, full_name }); // ✅ Debug log
+  
   const staffName = staffUser?.name || "";
   const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId;
 
   const [rfid, setRfid] = useState(scannedRfid || "");
   const [guest, setGuest] = useState(
-    scannedRfid && guest_data
-      ? guest_data
-      : null
+    scannedRfid && guest_data ? guest_data : null
   );
   const [guestName, setGuestName] = useState(full_name || guest_data?.guest_name || "");
   const [gender, setGender] = useState(guest_data?.gender || "");
+  const [mobileNumber, setMobileNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [imagePreview, setImagePreview] = useState(guest_data?.profile_image_url || null);
 
-  const [sessionFee, setSessionFee] = useState(0);
+  const [sessionFee, setSessionFee] = useState(guest_data?.paid_amount || 0);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [reference, setReference] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { showToast } = useToast();
 
-  // Mock functions for demo
-  const showToast = ({ message, type }) => {
-    console.log(`${type.toUpperCase()}: ${message}`);
-    alert(`${type.toUpperCase()}: ${message}`);
-  };
-
-  // Update state when navigation state changes
+  // ✅ Update state when navigation state changes
   useEffect(() => {
+    console.log("🔄 Navigation state changed:", { scannedRfid, guest_data, full_name });
+    
     if (scannedRfid && guest_data) {
       setRfid(scannedRfid);
       setGuest(guest_data);
       setGuestName(full_name || guest_data.guest_name || "");
       setGender(guest_data.gender || "");
       setImagePreview(guest_data.profile_image_url || null);
+      setSessionFee(guest_data.paid_amount || sessionFee);
+      
+      console.log("✅ State updated:", {
+        guestName: full_name || guest_data.guest_name,
+        gender: guest_data.gender,
+        imagePreview: guest_data.profile_image_url,
+        sessionFee: guest_data.paid_amount
+      });
     }
   }, [scannedRfid, guest_data, full_name]);
-
-  // Mock data for demo
   useEffect(() => {
-    // Mock payment methods
-    setPaymentMethods([
-      { id: 1, name: "Cash" },
-      { id: 2, name: "GCash" },
-      { id: 3, name: "Card" }
-    ]);
-    
-    // Mock session fee
-    setSessionFee(50);
-    
-    // Mock guest data for demo
-    if (!guest) {
-      setGuest({
-        rfid_tag: "DEMO123",
-        guest_name: "John Doe",
-        gender: "male",
-        profile_image_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400",
-        paid_amount: 50,
-        admin_id: adminId
-      });
-      setGuestName("John Doe");
-      setGender("male");
-      setImagePreview("https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400");
-    }
-  }, []);
+    if (!adminId) return;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+    const fetchPaymentMethods = async () => {
+      try {
+        const { data } = await api.get(`/api/payment-methods/${adminId}`);
+        setPaymentMethods(data);
+      } catch (err) {
+        console.error("❌ Failed to fetch payment methods:", err);
+      }
+    };
+
+    const fetchSessionFee = async () => {
+      try {
+        const res = await api.get(`/api/session-fee?admin_id=${adminId}`);
+        setSessionFee(parseFloat(res.data.session_fee) || 0);
+      } catch (err) {
+        console.error("❌ Failed to fetch session fee:", err);
+        setSessionFee(0);
+      }
+    };
+
+    fetchPaymentMethods();
+    fetchSessionFee();
+  }, [adminId]);
+
+  useEffect(() => {
+    if (rfid && rfid.length >= 8 && adminId) {
+      fetchGuest();
+    }
+  }, [rfid, adminId]);
+
+ const fetchGuest = async () => {
+  if (!rfid || !adminId) return;
+  setLoading(true);
+  try {
+    // ✅ Try fetching from DayPassGuests first
+    const { data } = await api.get(`/api/daypass-guest/${rfid}?admin_id=${adminId}`);
     
+    if (data) {
+      setGuest(data);
+      setGuestName(data.guest_name || "");
+      setGender(data.gender || "");
+      setImagePreview(data.profile_image_url || null);
+      setSessionFee(data.paid_amount || sessionFee);
+    } else {
+      setGuest(null);
+      showToast({ message: "Guest not found.", type: "error" });
+    }
+  } catch (err) {
+    console.error("Error fetching guest:", err);
+    showToast({ message: "Error fetching guest data.", type: "error" });
+    setGuest(null);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const handleSubmit = async () => {
     if (!guest || !paymentMethod || !staffName) {
       showToast({ message: "Please complete all required fields.", type: "error" });
       return;
@@ -112,12 +149,9 @@ const DayPassRenewal = ({ staffUser }) => {
 
       console.log("📤 Payload to submit:", payload);
 
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await api.post("/api/renew-daypass", payload);
 
       showToast({ message: "Day pass renewed successfully!", type: "success" });
-      
-      // Reset form
       setGuest(null);
       setRfid("");
       setGuestName("");
@@ -134,159 +168,151 @@ const DayPassRenewal = ({ staffUser }) => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gray-50 p-6">
-      <main className="max-w-screen-xl mx-auto">
+    <div className="flex min-h-screen bg-gray-50">
+      <StaffSidebar />
+
+      <main className="flex-1 p-6 overflow-auto">
         <div className="mb-6">
           <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
             Day Pass Renewal
           </h1>
-          <p className="text-xs text-gray-500">
+          <p className="text-sm text-gray-500">
             Renew a guest's day pass using RFID. No key fob fee required.
           </p>
         </div>
 
         <form
-          onSubmit={handleSubmit}
-          className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-white rounded-lg shadow items-start"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white rounded-lg shadow"
         >
-          {/* Left Column: Form Fields */}
-          <div className="flex flex-col gap-4 h-full">
+          {/* Column 1 & 2: Form Fields */}
+          <div className="md:col-span-2 flex flex-col gap-3">
             <h2 className="text-sm font-semibold text-gray-700">
               Guest Details & Payment
             </h2>
 
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                Scan or Enter RFID
-              </label>
-              <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block mb-1 text-xs text-gray-600">Guest Name</label>
+                <input
+                  type="text"
+                  value={guestName}
+                  readOnly
+                  className="w-full border border-gray-200 px-2 py-1.5 rounded bg-gray-50 text-sm text-gray-700 cursor-not-allowed"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-xs text-gray-600">RFID Tag</label>
                 <input
                   type="text"
                   value={rfid}
                   onChange={(e) => setRfid(e.target.value)}
-                  placeholder="Enter RFID tag"
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm focus:ring focus:ring-indigo-100"
+                  placeholder="Scan RFID tag"
+                  className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm"
                 />
-                <button
-                  type="button"
-                  onClick={() => showToast({ message: "Searching...", type: "info" })}
-                  className="px-4 py-2 rounded bg-black text-white font-semibold text-sm hover:bg-gray-800"
-                >
-                  Search
-                </button>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Guest Name</label>
-              <input
-                type="text"
-                value={guestName}
-                readOnly
-                className="w-full border border-gray-200 px-3 py-2 rounded bg-gray-50 text-sm text-gray-700 cursor-not-allowed"
-              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Gender</label>
+                <label className="block mb-1 text-xs text-gray-600">Gender</label>
                 <input
                   type="text"
                   value={gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : ""}
                   readOnly
-                  className="w-full border border-gray-200 px-3 py-2 rounded bg-gray-50 text-sm text-gray-700 cursor-not-allowed"
+                  className="w-full border border-gray-200 px-2 py-1.5 rounded bg-gray-50 text-sm text-gray-700 cursor-not-allowed"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Session Fee</label>
+                <label className="block mb-1 text-xs text-gray-600">Session Fee (₱)</label>
                 <input
                   type="text"
                   value={`₱${(sessionFee || 0).toFixed(2)}`}
                   readOnly
-                  className="w-full border border-gray-200 bg-gray-50 px-3 py-2 rounded text-sm text-gray-700"
+                  className="w-full border border-gray-200 bg-gray-50 px-2 py-1.5 rounded text-sm text-gray-700"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                Payment Method
-              </label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
-              >
-                <option value="">Select</option>
-                {paymentMethods.map((method) => (
-                  <option key={method.id} value={method.name.toLowerCase()}>
-                    {method.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {paymentMethod !== "cash" && paymentMethod !== "" && (
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
-                  {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)} Reference No.
-                </label>
-                <input
-                  type="text"
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+                <label className="block mb-1 text-xs text-gray-600">Payment Method</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
                   required
-                />
+                  className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm bg-white"
+                >
+                  <option value="">Select</option>
+                  {paymentMethods.map((method) => (
+                    <option key={method.id} value={method.name.toLowerCase()}>
+                      {method.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
+              {paymentMethod && paymentMethod.toLowerCase() !== "cash" && (
+                <div>
+                  <label className="block mb-1 text-xs text-gray-600">
+                    {paymentMethod} Reference
+                  </label>
+                  <input
+                    type="text"
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    required
+                    placeholder={`Enter ${paymentMethod} reference`}
+                    className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm"
+                  />
+                </div>
+              )}
+            </div>
 
-            <div className="bg-green-50 border border-green-200 rounded p-3">
+            <div className="bg-green-50 border border-green-200 rounded p-2">
               <p className="text-xs text-green-700 font-medium">
                 ✓ No key fob fee required for renewals
               </p>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-1/2 mt-4 px-4 py-2 rounded bg-black text-white font-semibold text-sm hover:bg-gray-800 disabled:opacity-50"
-            >
-              {loading ? "Processing..." : "Renew Day Pass"}
-            </button>
+            <div>
+              <button
+                type="submit"
+                disabled={loading || !guest}
+                className="w-1/2 mt-2 px-4 py-2 rounded bg-black text-white text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
+              >
+                {loading ? "Processing..." : "Renew Day Pass"}
+              </button>
+            </div>
           </div>
 
-          {/* Right Column: Guest ID Card (matches PrepaidTapUp style) */}
-          <div className="flex flex-col items-center gap-3 w-full">
-            <h2 className="text-sm font-semibold text-gray-700">Guest ID</h2>
-            <div className="bg-white border rounded-lg shadow w-3/4 max-w-sm">
-              <div className="bg-black h-16 flex items-center justify-center">
-                <h3 className="text-white font-semibold text-sm">DAY PASS GUEST ID</h3>
-              </div>
-              <div className="flex flex-col items-center p-4">
-                <div className="w-32 h-32 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden mb-3">
-                  {imagePreview ? (
-                    <img
-                      src={imagePreview}
-                      alt="Guest Photo"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-gray-400 text-4xl font-bold">
-                      {guestName
-                        ? guestName.charAt(0).toUpperCase()
-                        : "?"}
-                    </span>
-                  )}
+          {/* Column 3: Guest Photo */}
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-gray-700">Guest Photo</label>
+            
+            {/* Photo Display Box - ID Size (2:3 ratio like school ID) */}
+            <div className="w-40 h-52 border-2 border-gray-300 rounded bg-gray-50 overflow-hidden mx-auto">
+              {imagePreview ? (
+                <img
+                  src={imagePreview}
+                  alt="Guest"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <span className="text-gray-400 text-xs text-center px-2">
+                    {guestName ? guestName.charAt(0).toUpperCase() : "No Photo"}
+                  </span>
                 </div>
-                <h4 className="text-sm font-semibold text-gray-800 text-center">
-                  {guestName || "No Guest Loaded"}
-                </h4>
-                <p className="text-xs text-gray-600 mt-2">
-                  Valid Until:{" "}
-                  <span className="font-medium">Today 11:59 PM</span>
-                </p>
-              </div>
+              )}
+            </div>
+
+            <div className="text-center">
+              <p className="text-xs text-gray-500">
+                Valid Until: <span className="font-medium">Today 11:59 PM</span>
+              </p>
             </div>
           </div>
         </form>

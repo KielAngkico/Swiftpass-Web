@@ -180,12 +180,15 @@ case "rfid-registration-check":
   
   console.log(`✅ Added to globalEntryLogs for admin ${messageAdminId}`);
   return;
+// Inside handleWebSocketMessage function in WebSocketContext.jsx
+
 case "staff-scan":
   if (!msg.data) return;
 
   const { rfid_tag, status, location, full_name, system_type, reason, rfid_type, role, guest_data } = msg.data;
 
   console.log("📥 Received staff-scan message:", msg.data);
+  console.log("📸 Guest data received:", guest_data); // ✅ Debug log
 
   if (!rfid_tag || location !== "STAFF") {
     console.log("⚠️ Invalid staff-scan data");
@@ -222,56 +225,65 @@ case "staff-scan":
     return;
   }
 
-  // 🚦 NAVIGATION LOGIC - Fixed to prioritize role and status
+  // 🚦 NAVIGATION LOGIC
   console.log(`🔍 Navigation Check - Role: ${role}, Status: ${status}, RFID Type: ${rfid_type}`);
 
-  // ✅ NEW: Day Pass Renewal - Existing guest
+  // ✅ Day Pass Renewal - Existing guest (PRIORITY CHECK)
   if (status === "daypass_renewal") {
     console.log("🔄 Existing Day Pass - navigating to DayPassRenewal");
+    console.log("📦 Passing guest_data:", guest_data); // ✅ Debug log
+    
     customNavigate("/Staff/DayPassRenewal", {
       state: { 
         rfid_tag, 
         full_name,
-        guest_data,
+        guest_data, // ✅ This contains all guest info including photo
         system_type, 
         rfid_type, 
         role 
       },
     }, "staff");
+    return; // ✅ Exit early
   }
-  // DayPass: New registration (key_fob not assigned yet)
-  else if (role === "DayPass" || (rfid_type === "key_fob" && status !== "member_found")) {
+  
+  // ✅ DayPass: New registration (key_fob not assigned yet)
+  if (role === "DayPass" || (rfid_type === "key_fob" && status !== "member_found")) {
     console.log("🎟️ New Day Pass - navigating to PrepaidDayPass");
     customNavigate("/Staff/DayPass", { 
       state: { rfid_tag, system_type, rfid_type, role } 
     }, "staff");
+    return;
   } 
-  // Member Found: Navigate to MembershipTransactions (which routes to PrepaidTapUp or SubscriptionRenewal)
-  else if (status === "member_found") {
+  
+  // ✅ Member Found: Navigate to MembershipTransactions
+  if (status === "member_found") {
     console.log("💳 Registered Member - navigating to MembershipTransactions");
     customNavigate("/Staff/MembershipTransactions", {
       state: { rfid_tag, full_name, ...msg.data, system_type },
     }, "staff");
+    return;
   }
-  // New Member: Unregistered wristband or role is Member but not found
-  else if (role === "Member" || rfid_type === "wristband") {
+  
+  // ✅ New Member: Unregistered wristband or role is Member but not found
+  if (role === "Member" || rfid_type === "wristband") {
     console.log("🆕 New Wristband - navigating to AddMember.jsx");
     customNavigate("/Staff/AddMember", { 
       state: { rfid_tag, system_type, rfid_type, role } 
     }, "staff");
+    return;
   }
-  // Partner/Admin Card
-  else if (role === "Partner" || rfid_type === "card") {
+  
+  // ✅ Partner/Admin Card
+  if (role === "Partner" || rfid_type === "card") {
     console.log("🚫 Partner/Admin card detected");
     alert("This is a Partner card - for admin use only");
+    return;
   }
+  
   // Unknown
-  else {
-    console.log("⚠️ Unknown RFID type - no navigation");
-    console.log("Debug info:", { role, status, rfid_type, full_name });
-  }
-
-  return;
+  console.log("⚠️ Unknown RFID type - no navigation");
+  console.log("Debug info:", { role, status, rfid_type, full_name });
+  return; 
 
 default:
   console.log("Unknown WebSocket message type:", msg.type);

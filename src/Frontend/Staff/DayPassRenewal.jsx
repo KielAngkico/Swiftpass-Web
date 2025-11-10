@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import api from "../../api";
 import { useToast } from "../../components/ToastManager";
 import StaffSidebar from "../../components/StaffSidebar";
@@ -14,17 +15,20 @@ function formatDateToLocalString(date) {
   return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
 }
 
-const DayPassRenewal = ({ rfid_tag, staffUser }) => {
+const DayPassRenewal = ({ staffUser }) => {
+  const location = useLocation();
+  const { rfid_tag: scannedRfid, guest_data, full_name } = location.state || {};
+  
   const staffName = staffUser?.name || "";
   const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId;
 
-  const [rfid, setRfid] = useState(rfid_tag || "");
-  const [guest, setGuest] = useState(null);
-  const [guestName, setGuestName] = useState("");
-  const [gender, setGender] = useState("");
+  const [rfid, setRfid] = useState(scannedRfid || "");
+  const [guest, setGuest] = useState(guest_data || null);
+  const [guestName, setGuestName] = useState(full_name || guest_data?.guest_name || "");
+  const [gender, setGender] = useState(guest_data?.gender || "");
   const [mobileNumber, setMobileNumber] = useState("");
   const [email, setEmail] = useState("");
-  const [imagePreview, setImagePreview] = useState(null);
+  const [imagePreview, setImagePreview] = useState(guest_data?.profile_image_url || null);
 
   const [sessionFee, setSessionFee] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("");

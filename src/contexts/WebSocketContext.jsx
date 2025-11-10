@@ -99,22 +99,23 @@ case "rfid-registration-check":
       return;
     }
 
-    // ✅ RFID EXISTS → Go to ItemsInventory
+    // ✅ RFID EXISTS → Go to AddPartner
     if (is_registered) {
-      console.log("✅ RFID exists - navigating to ItemsInventory");
-      customNavigate("/SuperAdmin/ItemsInventory", {
+      console.log("✅ RFID exists - navigating to AddPartner");
+      customNavigate("/SuperAdmin/addClient", {
         state: { rfid_tag, is_registered: true },
       }, "superadmin");
     } 
-    // 🚀 RFID NOT FOUND → Go to AddPartner
+    // 🚫 RFID NOT FOUND → Go to ItemsInventory
     else {
-      console.log("🆕 RFID not registered - navigating to AddPartner");
-      customNavigate("/SuperAdmin/AddPartner", {
+      console.log("🆕 RFID not registered - navigating to ItemsInventory");
+      customNavigate("/SuperAdmin/ItemsInventory", {
         state: { rfid_tag, is_registered: false },
       }, "superadmin");
     }
   }
   return;
+
 
       case "rfid-replacement-scanned":
         if (msg.data?.rfid_tag) {

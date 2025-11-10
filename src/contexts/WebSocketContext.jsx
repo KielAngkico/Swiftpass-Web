@@ -99,14 +99,19 @@ case "rfid-registration-check":
       return;
     }
 
-    // ✅ Only if RFID exists, go straight to ItemsInventory
+    // ✅ RFID EXISTS → Go to ItemsInventory
     if (is_registered) {
       console.log("✅ RFID exists - navigating to ItemsInventory");
       customNavigate("/SuperAdmin/ItemsInventory", {
         state: { rfid_tag, is_registered: true },
       }, "superadmin");
-    } else {
-      console.log("⚠️ RFID not registered - staying on page (no ownership info)");
+    } 
+    // 🚀 RFID NOT FOUND → Go to AddPartner
+    else {
+      console.log("🆕 RFID not registered - navigating to AddPartner");
+      customNavigate("/SuperAdmin/AddPartner", {
+        state: { rfid_tag, is_registered: false },
+      }, "superadmin");
     }
   }
   return;

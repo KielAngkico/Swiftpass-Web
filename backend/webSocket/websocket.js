@@ -461,46 +461,55 @@ async function handleMessage(ws, message) {
 // ============= SUPERADMIN LOCATION =============
 if (location.toUpperCase() === "SUPERADMIN") {
   const allocation = await getRfidAllocation(rfid_tag);
-  
-  if (!allocation || !allocation.isValid) {
+
+  console.log("🔍 SUPERADMIN allocation check result:", allocation);
+
+  // ✅ RFID NOT FOUND -> Go to ADD PARTNER
+  if (!allocation) {
     broadcastToClients({
       type: "rfid-registration-check",
       data: {
         rfid_tag,
         is_registered: false,
-        error: allocation ? allocation.reason : "RFID not found",
+        next_action: "add_partner",
+        message: "RFID not found. Ready for new Partner registration.",
         timestamp: new Date().toISOString()
       }
     });
     return;
   }
 
-  // Check if it's a Partner RFID
-  if (allocation.role === 'Partner') {
+  // ✅ RFID FOUND -> Go to INVENTORY
+  if (allocation.isValid) {
     broadcastToClients({
       type: "rfid-registration-check",
       data: {
         rfid_tag,
         is_registered: true,
-        role: 'Partner',
-        timestamp: new Date().toISOString()
-      }
-    });
-  } else {
-    // Member or DayPass card
-    broadcastToClients({
-      type: "rfid-registration-check",
-      data: {
-        rfid_tag,
-        is_registered: true,
+        next_action: "open_inventory",
         role: allocation.role,
-        error: `This is a ${allocation.role} card, not for admin registration`,
+        admin_id: allocation.admin_id,
+        message: "RFID already registered. Opening inventory details.",
         timestamp: new Date().toISOString()
       }
     });
+    return;
   }
+
+  // ⚠️ If RFID exists but invalid status
+  broadcastToClients({
+    type: "rfid-registration-check",
+    data: {
+      rfid_tag,
+      is_registered: false,
+      next_action: "error",
+      message: allocation.reason || "Invalid RFID status",
+      timestamp: new Date().toISOString()
+    }
+  });
   return;
 }
+
 
     console.log("⚠️ Location not handled:", location);
 

@@ -75,7 +75,6 @@ if (allocation.role === 'DayPass') {
     if (imageUrl && !imageUrl.startsWith('http')) {
       imageUrl = `https://swiftpasstech.com/${imageUrl}`;
     }
-    console.log(`📸 Image URL: ${imageUrl}`);
     
     // Route to DayPassRenewal
     broadcastToClients({
@@ -88,6 +87,8 @@ if (allocation.role === 'DayPass') {
           id: guest.id,
           guest_name: guest.guest_name,
           gender: guest.gender,
+          mobile_number: guest.mobile_number, // ✅ Include mobile number
+          email: guest.email, 
           profile_image_url: imageUrl, // ✅ Full URL here
           rfid_tag: guest.rfid_tag,
           expires_at: guest.expires_at,

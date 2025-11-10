@@ -70,18 +70,25 @@ if (allocation.role === 'DayPass') {
     const guest = dayPassRows[0];
     console.log(`✅ Day Pass guest found: ${guest.guest_name}`);
     
-    // ✅ Route to DayPassRenewal with complete guest data
+    // ✅ FIX: Construct full image URL
+    let imageUrl = guest.profile_image_url;
+    if (imageUrl && !imageUrl.startsWith('http')) {
+      imageUrl = `https://swiftpasstech.com/${imageUrl}`;
+    }
+    console.log(`📸 Image URL: ${imageUrl}`);
+    
+    // Route to DayPassRenewal
     broadcastToClients({
       type: "staff-scan",
       data: {
         rfid_tag,
-        status: "daypass_renewal", // ✅ This triggers the renewal flow
+        status: "daypass_renewal",
         full_name: guest.guest_name,
         guest_data: {
           id: guest.id,
           guest_name: guest.guest_name,
           gender: guest.gender,
-          profile_image_url: guest.profile_image_url, // ✅ Include photo
+          profile_image_url: imageUrl, // ✅ Full URL here
           rfid_tag: guest.rfid_tag,
           expires_at: guest.expires_at,
           status: guest.status,

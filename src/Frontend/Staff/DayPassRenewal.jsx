@@ -20,8 +20,10 @@ const DayPassRenewal = ({ staffUser }) => {
   
   console.log("🎯 DayPassRenewal received:", { scannedRfid, guest_data, full_name });
   
-  const staffName = staffUser?.name || "";
-  const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId;
+  // ✅ Get authenticated user info
+  const [currentUser, setCurrentUser] = useState(null);
+  const staffName = staffUser?.name || currentUser?.name || "";
+  const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId || currentUser?.adminId || currentUser?.id;
 
   const [rfid, setRfid] = useState(scannedRfid || "");
   const [guest, setGuest] = useState(
@@ -33,12 +35,31 @@ const DayPassRenewal = ({ staffUser }) => {
   const [email, setEmail] = useState("");
   const [imagePreview, setImagePreview] = useState(guest_data?.profile_image_url || null);
 
-  const [sessionFee, setSessionFee] = useState(0); // ✅ Always initialize as 0
+  const [sessionFee, setSessionFee] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [reference, setReference] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
+
+  // ✅ Fetch current user from /api/me
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const { data } = await api.get('/api/me');
+        if (data?.authenticated && data?.user) {
+          setCurrentUser(data.user);
+          console.log("✅ Current user loaded:", data.user);
+        }
+      } catch (err) {
+        console.error("❌ Failed to fetch current user:", err);
+      }
+    };
+
+    if (!staffUser) {
+      fetchCurrentUser();
+    }
+  }, [staffUser]);
 
   // ✅ Update state when navigation state changes
   useEffect(() => {
@@ -51,7 +72,6 @@ const DayPassRenewal = ({ staffUser }) => {
       setGender(guest_data.gender || "");
       setImagePreview(guest_data.profile_image_url || null);
       
-      // ✅ Parse paid_amount safely
       const paidAmount = parseFloat(guest_data.paid_amount);
       if (!isNaN(paidAmount)) {
         setSessionFee(paidAmount);
@@ -67,14 +87,21 @@ const DayPassRenewal = ({ staffUser }) => {
   }, [scannedRfid, guest_data, full_name]);
 
   useEffect(() => {
-    if (!adminId) return;
+    if (!adminId) {
+      console.log("⏳ Waiting for adminId...");
+      return;
+    }
+
+    console.log("✅ Admin ID available:", adminId);
 
     const fetchPaymentMethods = async () => {
       try {
         const { data } = await api.get(`/api/payment-methods/${adminId}`);
+        console.log("💳 Payment methods fetched:", data);
         setPaymentMethods(data);
       } catch (err) {
         console.error("❌ Failed to fetch payment methods:", err);
+        showToast({ message: "Failed to load payment methods", type: "error" });
       }
     };
 
@@ -82,8 +109,8 @@ const DayPassRenewal = ({ staffUser }) => {
       try {
         const res = await api.get(`/api/session-fee?admin_id=${adminId}`);
         const fee = parseFloat(res.data.session_fee);
+        console.log("💰 Session fee fetched:", fee);
         
-        // ✅ Only set if not already set by guest_data
         if (!guest_data?.paid_amount && !isNaN(fee)) {
           setSessionFee(fee);
         }
@@ -94,16 +121,12 @@ const DayPassRenewal = ({ staffUser }) => {
 
     fetchPaymentMethods();
     
-    // ✅ Only fetch session fee if we don't have guest_data
     if (!guest_data?.paid_amount) {
       fetchSessionFee();
     }
-  }, [adminId, guest_data]);
+  }, [adminId, guest_data, showToast]);
 
-  // ✅ Removed automatic fetchGuest on rfid change to avoid overwriting navigation data
-  // Only allow manual RFID changes if user types a different one
   useEffect(() => {
-    // Only fetch if RFID was manually changed (not from navigation)
     if (rfid && rfid.length >= 8 && adminId && rfid !== scannedRfid) {
       fetchGuest();
     }
@@ -121,7 +144,6 @@ const DayPassRenewal = ({ staffUser }) => {
         setGender(data.gender || "");
         setImagePreview(data.profile_image_url || null);
         
-        // ✅ Parse paid_amount safely
         const paidAmount = parseFloat(data.paid_amount);
         if (!isNaN(paidAmount)) {
           setSessionFee(paidAmount);
@@ -201,6 +223,13 @@ const DayPassRenewal = ({ staffUser }) => {
           <p className="text-sm text-gray-500">
             Renew a guest's day pass using RFID. No key fob fee required.
           </p>
+          {/* ✅ Show current user info */}
+          {(staffUser || currentUser) && (
+            <p className="text-xs text-gray-600 mt-1">
+              Staff: <span className="font-medium">{staffName}</span> | 
+              Admin ID: <span className="font-medium">{adminId}</span>
+            </p>
+          )}
         </div>
 
         <form
@@ -261,25 +290,35 @@ const DayPassRenewal = ({ staffUser }) => {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block mb-1 text-xs text-gray-600">Payment Method</label>
+                <label className="block mb-1 text-xs text-gray-600">Payment Method *</label>
                 <select
                   value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  onChange={(e) => {
+                    console.log("Payment method selected:", e.target.value);
+                    setPaymentMethod(e.target.value);
+                  }}
                   required
                   className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm bg-white"
                 >
-                  <option value="">Select</option>
-                  {paymentMethods.map((method) => (
-                    <option key={method.id} value={method.name.toLowerCase()}>
-                      {method.name}
-                    </option>
-                  ))}
+                  <option value="">Select Payment Method</option>
+                  {paymentMethods.length === 0 ? (
+                    <option value="" disabled>Loading...</option>
+                  ) : (
+                    paymentMethods.map((method) => (
+                      <option key={method.id} value={method.name}>
+                        {method.name}
+                      </option>
+                    ))
+                  )}
                 </select>
+                {paymentMethods.length === 0 && (
+                  <p className="text-xs text-red-500 mt-1">⚠️ No payment methods available</p>
+                )}
               </div>
               {paymentMethod && paymentMethod.toLowerCase() !== "cash" && (
                 <div>
                   <label className="block mb-1 text-xs text-gray-600">
-                    {paymentMethod} Reference
+                    {paymentMethod} Reference *
                   </label>
                   <input
                     type="text"
@@ -302,8 +341,8 @@ const DayPassRenewal = ({ staffUser }) => {
             <div>
               <button
                 type="submit"
-                disabled={loading || !guest}
-                className="w-1/2 mt-2 px-4 py-2 rounded bg-black text-white text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
+                disabled={loading || !guest || !paymentMethod}
+                className="w-1/2 mt-2 px-4 py-2 rounded bg-black text-white text-sm font-medium hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Processing..." : "Renew Day Pass"}
               </button>
@@ -314,7 +353,6 @@ const DayPassRenewal = ({ staffUser }) => {
           <div className="flex flex-col gap-2">
             <label className="text-xs font-medium text-gray-700">Guest Photo</label>
             
-            {/* Photo Display Box - ID Size (2:3 ratio like school ID) */}
             <div className="w-40 h-52 border-2 border-gray-300 rounded bg-gray-50 overflow-hidden mx-auto">
               {imagePreview ? (
                 <img

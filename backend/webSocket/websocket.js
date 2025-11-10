@@ -458,6 +458,35 @@ async function handleMessage(ws, message) {
       console.log(`===== END STAFF SCAN =====\n`);
       return;
     }
+// ============= SUPERADMIN LOCATION =============
+if (location.toUpperCase() === "SUPERADMIN") {
+  console.log(`\n📍 ===== SUPERADMIN RFID SCAN =====`);
+  console.log(`   RFID Tag: ${rfid_tag}`);
+
+  try {
+    // ✅ Check if RFID exists in RegisteredRfid
+    const isRegistered = await isRfidRegistered(rfid_tag);
+    console.log(`   RFID Registered: ${isRegistered}`);
+
+    // ✅ Broadcast result to all SuperAdmin dashboards
+    broadcastToClients({
+      type: "rfid-registration-check",
+      data: {
+        rfid_tag,
+        is_registered: isRegistered,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    console.log("📡 Broadcasted SUPERADMIN RFID status to dashboards.");
+  } catch (err) {
+    console.error("❌ Error during SUPERADMIN scan:", err.message);
+    ws.send(JSON.stringify({ type: "error", message: "Failed to check RFID registration" }));
+  }
+
+  console.log(`===== END SUPERADMIN SCAN =====\n`);
+  return;
+}
 
     console.log("⚠️ Location not handled:", location);
 

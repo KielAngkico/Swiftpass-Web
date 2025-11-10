@@ -361,8 +361,6 @@ async function handleMessage(ws, message) {
     }
 
     console.log("✅ Authentication check passed");
-
-    // ... rest of your handleMessage code ...
     
     // ============= ENTRY/EXIT LOCATION =============
     if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
@@ -414,6 +412,38 @@ async function handleMessage(ws, message) {
       });
       
       console.log(`===== END ENTRY/EXIT SCAN =====\n`);
+      return;
+    }
+
+    // ============= STAFF LOCATION =============
+    if (location.toUpperCase() === "STAFF") {
+      console.log(`\n📍 ===== STAFF SCAN =====`);
+      console.log(`   RFID Tag: ${rfid_tag}`);
+      console.log(`   Scanner Admin ID: ${scanner_admin_id}`);
+
+      // ✅ Get RFID allocation first
+      console.log("🔍 Getting RFID allocation...");
+      const allocation = await getRfidAllocation(rfid_tag);
+      console.log("Allocation result:", allocation);
+      
+      // ✅ Use allocation's admin_id (the gym that owns this RFID)
+      const target_admin_id = allocation?.allocated_to_admin || scanner_admin_id;
+      
+      console.log(`   Target Admin ID: ${target_admin_id}`);
+      console.log(`   Role: ${allocation?.role || 'Unknown'}`);
+      console.log(`   RFID Type: ${allocation?.rfid_type || 'Unknown'}`);
+
+      // ✅ Call handleStaffScan from handlers.js
+      await handleStaffScan(rfid_tag, location, target_admin_id, allocation, {
+        isRfidRegistered,
+        getStaffByRfid,
+        getAdminByRfid,
+        getMemberByRfid,
+        broadcastToClients,
+        dbSuperAdmin
+      });
+      
+      console.log(`===== END STAFF SCAN =====\n`);
       return;
     }
 

@@ -86,45 +86,45 @@ const DayPassRenewal = ({ staffUser }) => {
     }
   }, [scannedRfid, guest_data, full_name]);
 
-  useEffect(() => {
-    if (!adminId) {
-      console.log("⏳ Waiting for adminId...");
-      return;
+useEffect(() => {
+  if (!adminId) {
+    console.log("⏳ Waiting for adminId...");
+    return;
+  }
+
+  console.log("✅ Admin ID available:", adminId);
+
+  const fetchPaymentMethods = async () => {
+    try {
+      const { data } = await api.get(`/api/payment-methods/${adminId}`);
+      console.log("💳 Payment methods fetched:", data);
+      setPaymentMethods(data);
+    } catch (err) {
+      console.error("❌ Failed to fetch payment methods:", err);
+      showToast({ message: "Failed to load payment methods", type: "error" });
     }
+  };
 
-    console.log("✅ Admin ID available:", adminId);
-
-    const fetchPaymentMethods = async () => {
-      try {
-        const { data } = await api.get(`/api/payment-methods/${adminId}`);
-        console.log("💳 Payment methods fetched:", data);
-        setPaymentMethods(data);
-      } catch (err) {
-        console.error("❌ Failed to fetch payment methods:", err);
-        showToast({ message: "Failed to load payment methods", type: "error" });
+  const fetchSessionFee = async () => {
+    try {
+      const res = await api.get(`/api/session-fee?admin_id=${adminId}`);
+      const fee = parseFloat(res.data.session_fee);
+      console.log("💰 Session fee fetched:", fee);
+      
+      if (!isNaN(fee)) {
+        setSessionFee(fee); // ✅ Always use latest DB fee
       }
-    };
-
-    const fetchSessionFee = async () => {
-      try {
-        const res = await api.get(`/api/session-fee?admin_id=${adminId}`);
-        const fee = parseFloat(res.data.session_fee);
-        console.log("💰 Session fee fetched:", fee);
-        
-        if (!guest_data?.paid_amount && !isNaN(fee)) {
-          setSessionFee(fee);
-        }
-      } catch (err) {
-        console.error("❌ Failed to fetch session fee:", err);
-      }
-    };
-
-    fetchPaymentMethods();
-    
-    if (!guest_data?.paid_amount) {
-      fetchSessionFee();
+    } catch (err) {
+      console.error("❌ Failed to fetch session fee:", err);
     }
-  }, [adminId, guest_data, showToast]);
+  };
+
+  // ✅ Always call both, no conditions
+  fetchPaymentMethods();
+  fetchSessionFee();
+
+}, [adminId, guest_data, showToast]);
+
 
   useEffect(() => {
     if (rfid && rfid.length >= 8 && adminId && rfid !== scannedRfid) {

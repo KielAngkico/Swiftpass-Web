@@ -3,8 +3,6 @@ const router = express.Router();
 const db = require("../db");
 const daypassUpload = require("../middleware/daypassUploads");
 
-console.log("🚀 DayPassGuests routes file loaded successfully");
-
 router.get("/session-fee", async (req, res) => {
   const { admin_id } = req.query;
 
@@ -160,7 +158,8 @@ router.post("/register-session", daypassUpload.single("guest_image"), async (req
   }
 });
 
-// ✅ DAY PASS RENEWAL ENDPOINT
+// Add this new endpoint after the existing /register-session route
+
 router.post("/renew-daypass", async (req, res) => {
   console.log("🔥🔥🔥 RENEW-DAYPASS ENDPOINT HIT!");
   console.log("Received renewal req.body:", req.body);
@@ -259,8 +258,8 @@ router.post("/renew-daypass", async (req, res) => {
     conn.release();
   }
 });
-
 router.get("/daypass-guest/:rfid", async (req, res) => {
+
   const { rfid } = req.params;
   const { admin_id } = req.query;
 
@@ -285,6 +284,5 @@ router.get("/daypass-guest/:rfid", async (req, res) => {
   }
 });
 
-console.log("✅ All DayPassGuests routes registered");
 
 module.exports = router;

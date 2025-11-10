@@ -326,15 +326,7 @@ return (
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block mb-1 text-xs text-gray-600">RFID Tag Fee (₱)</label>
-              <input
-                type="text"
-                value={`₱${(keyFobFee || 0).toFixed(2)}`}
-                readOnly
-                className="w-full border border-gray-200 bg-gray-50 px-2 py-1.5 rounded text-sm text-gray-700"
-              />
-            </div>
+
             <div>
               <label className="block mb-1 text-xs text-gray-600">Session Fee (₱)</label>
               <input

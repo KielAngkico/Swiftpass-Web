@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api";
-import { useToast } from "../../../components/ToastManager";
+import { useToast } from "../../components/ToastManager";
 
 function formatDateToLocalString(date) {
   const yyyy = date.getFullYear();

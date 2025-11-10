@@ -27,13 +27,27 @@ const MemberEntryBranch = () => {
     return `${IP}/uploads/members/${profileImageUrl}`;
   };
 
-  const fetchLogs = useCallback(async () => {
+const fetchLogs = useCallback(async () => {
     if (!user?.adminId) return;
     try {
       setLoading(true);
       const res = await api.get(`/api/staff-entry-logs/${user.adminId}`);
       console.log("📊 Fetched logs from API:", res.data);
-      setEntryLogs(res.data.recentEntryList || []);
+      
+      // ✅ Filter out Staff, Admin, and Partner entries
+      const filteredLogs = (res.data.recentEntryList || []).filter(log => {
+        const visitorType = log.visitor_type || log.role;
+        const shouldExclude = visitorType === "Staff" || visitorType === "Admin" || visitorType === "Partner";
+        
+        if (shouldExclude) {
+          console.log(`⏭️ Filtering out ${visitorType} entry:`, log.full_name);
+        }
+        
+        return !shouldExclude;
+      });
+      
+      console.log(`✅ Filtered logs: ${filteredLogs.length} members (excluded ${res.data.recentEntryList.length - filteredLogs.length} staff/admin/partner entries)`);
+      setEntryLogs(filteredLogs);
     } catch (err) {
       console.error("❌ Error fetching logs:", err);
       if (err.response?.status === 401) {

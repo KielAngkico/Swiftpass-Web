@@ -146,40 +146,42 @@ const handleRegistrationClick = (registration) => {
     }
   }, [location.state]);
 
-  useEffect(() => {
-    const handleSlotScan = () => {
-      if (!waitingForSlot) return;
+useEffect(() => {
+  const handleSlotScan = () => {
+    if (!waitingForSlot || !editingAdmin) return;
 
-      const scannedRfid = sessionStorage.getItem('pendingSlotRfid');
-      const scannedAt = sessionStorage.getItem('rfidScannedAt');
-      
-      if (scannedRfid && scannedAt) {
-        const scanAge = Date.now() - parseInt(scannedAt);
-        if (scanAge < 3000) {
-          console.log(`📨 RFID scanned for slot ${waitingForSlot}:`, scannedRfid);
-          
-          if (waitingForSlot === 1) {
-            setFormData((prev) => ({ ...prev, rfid_tag: scannedRfid }));
-            showToast({ message: "✅ RFID Slot 1 scanned!", type: "success" });
-          } else if (waitingForSlot === 2) {
-            setFormData((prev) => ({ ...prev, rfid_tag_2: scannedRfid }));
-            showToast({ message: "✅ RFID Slot 2 scanned!", type: "success" });
-          }
-          
-          setWaitingForSlot(null);
-          
-          sessionStorage.removeItem('pendingSlotRfid');
-          sessionStorage.removeItem('rfidScannedAt');
+    const scannedRfid = sessionStorage.getItem("pendingSlotRfid");
+    const scannedAt = sessionStorage.getItem("rfidScannedAt");
+
+    if (scannedRfid && scannedAt) {
+      const scanAge = Date.now() - parseInt(scannedAt, 10);
+      if (scanAge < 3000) {
+        console.log(`📨 RFID scanned for slot ${waitingForSlot}:`, scannedRfid);
+
+        // Update correct slot
+        if (waitingForSlot === 1) {
+          setFormData((prev) => ({ ...prev, rfid_tag: scannedRfid }));
+        } else if (waitingForSlot === 2) {
+          setFormData((prev) => ({ ...prev, rfid_tag_2: scannedRfid }));
         }
-      }
-    };
 
-    window.addEventListener('rfid-slot-scanned', handleSlotScan);
-    
-    return () => {
-      window.removeEventListener('rfid-slot-scanned', handleSlotScan);
-    };
-  }, [waitingForSlot]);
+        showToast({ message: `✅ RFID Slot ${waitingForSlot} scanned!`, type: "success" });
+        setWaitingForSlot(null);
+
+        // Clear sessionStorage
+        sessionStorage.removeItem("pendingSlotRfid");
+        sessionStorage.removeItem("rfidScannedAt");
+      }
+    }
+  };
+
+  window.addEventListener("rfid-slot-scanned", handleSlotScan);
+
+  return () => {
+    window.removeEventListener("rfid-slot-scanned", handleSlotScan);
+  };
+}, [waitingForSlot, editingAdmin]);
+
 
   const handleChange = (e) => {
     if (e.target.type === "file") {

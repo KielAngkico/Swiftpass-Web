@@ -216,67 +216,31 @@ if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
   const rfid1Changed = formData.rfid_tag !== originalRfid;
   const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
 
-  // Only update RFID slots that changed
   if ((rfid1Changed && formData.rfid_tag) || (rfid2Changed && formData.rfid_tag_2)) {
     await axios.put(`${API_URL}/api/update-admin-rfid/${editingAdmin.id}`, {
       new_rfid_tag: formData.rfid_tag || null,
       new_rfid_tag_2: formData.rfid_tag_2 || null,
-  });
+    });
+
+    showToast({ message: "RFID updated successfully!", type: "success" });
+
+    // Update the admins state locally
+    setAdmins(admins.map((admin) =>
+      admin.id === editingAdmin.id
+        ? { ...admin, rfid_tag: formData.rfid_tag, rfid_tag_2: formData.rfid_tag_2 }
+        : admin
+    ));
+
+    // Close modal and reset
+    setShowAddForm(false);
+    setEditingAdmin(null);
+    setOriginalRfid("");
+    setOriginalRfid2("");
+    setWaitingForSlot(null);
+    return; // stop here, no need to run full form update
+  }
 }
-
-
-  const formPayload = new FormData();
-  formPayload.append("admin_name", formData.admin_name);
-  formPayload.append("rfid_tag", formData.rfid_tag);
-  formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
-  formPayload.append("address", formData.address);
-  formPayload.append("email", formData.email);
-  formPayload.append("password", formData.password);
-  formPayload.append("gym_name", formData.gym_name);
-  formPayload.append("system_type", formData.system_type);
-  formPayload.append("package_id", formData.package_id || "");
-  formPayload.append("payment_method", formData.payment_method || "Cash");  // ← Add this
-  formPayload.append("reference_number", formData.reference_number || "");  // ← Add this
-
-          if (formData.password && formData.password.trim() !== "") {
-            formPayload.append("password", formData.password);
-          }
-
-          if (
-            formData.profile_image_url &&
-            typeof formData.profile_image_url !== "string"
-          ) {
-            formPayload.append("profile_image_url", formData.profile_image_url);
-          }
-
-          const response = await axios.put(
-            `${API_URL}/api/update-admin/${editingAdmin.id}`,
-            formPayload,
-            { headers: { "Content-Type": "multipart/form-data" } }
-          );
-
-          showToast({ message: "Partner updated successfully!", type: "success" });
-
-          setAdmins(
-            admins.map((admin) =>
-              admin.id === editingAdmin.id
-                ? {
-                    ...admin,
-                    admin_name: formData.admin_name,
-                    address: formData.address,
-                    email: formData.email,
-                    gym_name: formData.gym_name,
-                    system_type: formData.system_type,
-                    package_id: formData.package_id,
-                    profile_image_url:
-                      response.data.profile_image_url || admin.profile_image_url,
-                    rfid_tag: formData.rfid_tag,
-                    rfid_tag_2: formData.rfid_tag_2,
-                  }
-                : admin
-            )
-          );
-        } else {
+ else {
           const formPayload = new FormData();
           formPayload.append("admin_name", formData.admin_name);
           formPayload.append("rfid_tag", formData.rfid_tag);

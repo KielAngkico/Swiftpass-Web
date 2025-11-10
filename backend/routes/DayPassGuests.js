@@ -239,6 +239,7 @@ router.post("/renew-daypass", async (req, res) => {
   }
 });
 router.get("/daypass-guest/:rfid", async (req, res) => {
+
   const { rfid } = req.params;
   const { admin_id } = req.query;
 
@@ -262,4 +263,6 @@ router.get("/daypass-guest/:rfid", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+
 module.exports = router;

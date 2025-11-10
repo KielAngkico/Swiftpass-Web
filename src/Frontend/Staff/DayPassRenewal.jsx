@@ -213,6 +213,7 @@ useEffect(() => {
 
 return (
   <div className="min-h-screen w-full bg-white p-2">
+        <StaffSidebar/>
     <main className="max-w-screen-md mx-auto">
       <div className="mb-6">
         <h1 className="text-lg sm:text-xl font-semibold text-gray-800">

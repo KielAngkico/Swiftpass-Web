@@ -58,7 +58,7 @@ if (allocation.role === 'DayPass') {
   console.log("🔍 Checking if Day Pass guest exists...");
   
   const [dayPassRows] = await dbSuperAdmin.promise().query(
-    `SELECT id, guest_name, gender, profile_image_url, rfid_tag, expires_at, 
+    `SELECT id, guest_name, gender,mobile_number,email, profile_image_url, rfid_tag, expires_at, 
             status, system_type, staff_name, paid_amount, admin_id
      FROM DayPassGuests 
      WHERE rfid_tag = ? AND admin_id = ? AND status IN ('active', 'expired')
@@ -319,7 +319,7 @@ if (allocation.role === 'DayPass') {
 
     try {
       const [guestRows] = await dbSuperAdmin.promise().query(
-        `SELECT id, guest_name, gender, rfid_tag, system_type, expires_at, staff_name, paid_amount, admin_id, status
+        `SELECT id, guest_name, gender, mobile_number,email,profile_image_url,rfid_tag, system_type, expires_at, staff_name, paid_amount, admin_id, status
         FROM DayPassGuests
         WHERE rfid_tag = ? AND status = 'active' AND admin_id = ?
         LIMIT 1`,

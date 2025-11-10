@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api";
 import { useToast } from "../../components/ToastManager";
+import StaffSidebar from "../../components/StaffSidebar";
+
 
 function formatDateToLocalString(date) {
   const yyyy = date.getFullYear();
@@ -143,17 +145,19 @@ const DayPassRenewal = ({ rfid_tag, staffUser }) => {
     }
   };
 
-  return (
-    <div className="min-h-screen w-fit bg-white p-2">
-      <main className="max-w-screen-xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
-            Day Pass Renewal
-          </h1>
-          <p className="text-xs text-gray-500">
-            Renew a guest's day pass using RFID. No key fob fee required.
-          </p>
-        </div>
+return (
+  <div className="flex min-h-screen bg-gray-50">
+    <StaffSidebar />
+
+    <main className="flex-1 p-6 overflow-auto">
+      <div className="mb-6">
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
+          Day Pass Renewal
+        </h1>
+        <p className="text-sm text-gray-500">
+          Renew a guest's day pass using RFID. No key fob fee required.
+        </p>
+      </div>
 
         <form
           onSubmit={(e) => {

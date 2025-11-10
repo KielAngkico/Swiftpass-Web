@@ -223,13 +223,14 @@ router.post("/renew-daypass", async (req, res) => {
 
     console.log(`💰 Renewal Pricing: Session Fee = ${sessionFeeAmount}, No Key Fob Fee`);
 
-    // ✅ Update guest's expiry date AND status (extend to today 11:59 PM and reactivate)
+    // ✅ Update guest's expiry date, status, AND renewed_at
+    const now = new Date();
     await conn.query(
-      "UPDATE DayPassGuests SET expires_at = ?, admin_id = ?, status = 'active' WHERE id = ?",
-      [expires_at, admin_id, guestId]
+      "UPDATE DayPassGuests SET expires_at = ?, admin_id = ?, status = 'active', renewed_at = ? WHERE id = ?",
+      [expires_at, admin_id, now, guestId]
     );
 
-    console.log("✅ Guest expiry updated");
+    console.log("✅ Guest expiry and renewed_at updated");
 
     // ✅ Insert transaction record for the renewal
     await conn.query(
@@ -249,6 +250,7 @@ router.post("/renew-daypass", async (req, res) => {
       message: "Day pass renewed successfully",
       session_fee: sessionFeeAmount,
       expires_at: expires_at,
+      renewed_at: now,
     });
   } catch (error) {
     await conn.rollback();
@@ -258,6 +260,7 @@ router.post("/renew-daypass", async (req, res) => {
     conn.release();
   }
 });
+
 router.get("/daypass-guest/:rfid", async (req, res) => {
 
   const { rfid } = req.params;

@@ -12,7 +12,7 @@ const MemberEntryBranch = () => {
   const [lastEntry, setLastEntry] = useState(null); 
   const [lastExit, setLastExit] = useState(null);  
   const [loading, setLoading] = useState(true);
-  const processedIds = useRef(new Set());
+  const processedTimestamps = useRef(new Set()); // ✅ Changed from IDs to timestamps
 
   const getImageUrl = (profileImageUrl) => {
     if (!profileImageUrl) {
@@ -48,56 +48,59 @@ const MemberEntryBranch = () => {
     fetchLogs();
   }, [fetchLogs]);
 
-  // ✅ FIXED: Real-time WebSocket updates
+  // ✅ FIXED: Process globalEntryLogs with better deduplication
   useEffect(() => {
-    if (!globalEntryLogs?.length) return;
+    if (!globalEntryLogs || globalEntryLogs.length === 0) {
+      console.log("⏭️ No globalEntryLogs to process");
+      return;
+    }
 
-    console.log("🔄 Processing globalEntryLogs:", globalEntryLogs.length, "items");
+    console.log("🔄 globalEntryLogs updated, processing...", globalEntryLogs);
 
-    globalEntryLogs.forEach(incoming => {
-      // ✅ Handle both nested and flat data structures
-      const data = incoming?.data ? incoming.data : incoming;
-      
-      if (!data?.rfid_tag) {
-        console.log("⚠️ Skipping - no rfid_tag");
+    // Process each log entry
+    globalEntryLogs.forEach((logEntry) => {
+      if (!logEntry?.rfid_tag) {
+        console.log("⚠️ Skipping invalid log entry");
         return;
       }
 
-      // ✅ Create unique key for deduplication
-      const timestamp = data.timestamp || data.entry_time || data.exit_time || Date.now();
-      const logKey = `${data.rfid_tag}-${timestamp}`;
+      // ✅ Use a combination of RFID + timestamp + action for deduplication
+      const timestamp = logEntry.last_activity || logEntry.exit_time || logEntry.entry_time || Date.now();
+      const action = logEntry.action || (logEntry.exit_time ? 'exit' : 'entry');
+      const uniqueKey = `${logEntry.rfid_tag}-${timestamp}-${action}`;
       
-      if (processedIds.current.has(logKey)) {
-        console.log("⏭️ Already processed:", logKey);
+      if (processedTimestamps.current.has(uniqueKey)) {
+        console.log("⏭️ Already processed:", uniqueKey);
         return;
       }
-      processedIds.current.add(logKey);
 
-      console.log("📥 Processing real-time update:", data);
+      processedTimestamps.current.add(uniqueKey);
+      console.log("✅ Processing new log:", uniqueKey, logEntry);
 
-      // ✅ Determine if this is an entry or exit
-      const isEntry = data.status === "inside" || data.member_status === "inside" || data.action === "entry";
-      const isExit = data.status === "outside" || data.member_status === "outside" || data.action === "exit";
+      // ✅ Determine if entry or exit
+      const isEntry = logEntry.status === "inside" || logEntry.member_status === "inside" || logEntry.action === "entry";
+      const isExit = logEntry.status === "outside" || logEntry.member_status === "outside" || logEntry.action === "exit";
 
-      // ✅ Update Last Entry/Exit cards
+      // ✅ Update Last Entry/Exit cards (30-second display)
       if (isEntry) {
         const entryItem = {
-          id: data.id || `entry-${data.rfid_tag}-${Date.now()}`,
-          rfid_tag: data.rfid_tag,
-          full_name: data.full_name || "Unknown",
-          profile_image_url: getImageUrl(data.profile_image_url),
-          timestamp: data.entry_time || data.timestamp || new Date().toISOString(),
-          visitor_type: data.visitor_type || "Member",
-          system_type: data.system_type,
-          deducted_amount: data.deducted_amount,
+          id: logEntry.id || `entry-${logEntry.rfid_tag}-${Date.now()}`,
+          rfid_tag: logEntry.rfid_tag,
+          full_name: logEntry.full_name || "Unknown",
+          profile_image_url: getImageUrl(logEntry.profile_image_url),
+          timestamp: logEntry.entry_time || timestamp,
+          visitor_type: logEntry.visitor_type || "Member",
+          system_type: logEntry.system_type,
+          deducted_amount: logEntry.deducted_amount,
         };
 
-        console.log("✅ Setting last entry:", entryItem);
+        console.log("🟢 Setting last entry:", entryItem);
         setLastEntry(entryItem);
         
+        // Remove from exit if same person re-enters
         setLastExit(prev => {
-          if (prev?.rfid_tag === data.rfid_tag) {
-            console.log("🔄 Removing from exit card (re-entered)");
+          if (prev?.rfid_tag === logEntry.rfid_tag) {
+            console.log("🔄 Clearing exit card (member re-entered)");
             return null;
           }
           return prev;
@@ -105,41 +108,43 @@ const MemberEntryBranch = () => {
 
       } else if (isExit) {
         const exitItem = {
-          id: data.id || `exit-${data.rfid_tag}-${Date.now()}`,
-          rfid_tag: data.rfid_tag,
-          full_name: data.full_name || "Unknown",
-          profile_image_url: getImageUrl(data.profile_image_url),
-          timestamp: data.exit_time || data.timestamp || new Date().toISOString(),
-          visitor_type: data.visitor_type || "Member",
-          system_type: data.system_type,
+          id: logEntry.id || `exit-${logEntry.rfid_tag}-${Date.now()}`,
+          rfid_tag: logEntry.rfid_tag,
+          full_name: logEntry.full_name || "Unknown",
+          profile_image_url: getImageUrl(logEntry.profile_image_url),
+          timestamp: logEntry.exit_time || timestamp,
+          visitor_type: logEntry.visitor_type || "Member",
+          system_type: logEntry.system_type,
         };
 
-        console.log("✅ Setting last exit:", exitItem);
+        console.log("🔴 Setting last exit:", exitItem);
         setLastExit(exitItem);
         
+        // Remove from entry if same person exits
         setLastEntry(prev => {
-          if (prev?.rfid_tag === data.rfid_tag) {
-            console.log("🔄 Removing from entry card (exited)");
+          if (prev?.rfid_tag === logEntry.rfid_tag) {
+            console.log("🔄 Clearing entry card (member exited)");
             return null;
           }
           return prev;
         });
       }
 
-      // ✅ Update table logs - IMPROVED LOGIC
+      // ✅ Update main table logs
       setEntryLogs(prev => {
         const updated = [...prev];
-
-        // Try to find existing log by ID first
+        
+        // Find existing log by ID or RFID (for updates)
         let existingIndex = -1;
-        if (data.id) {
-          existingIndex = updated.findIndex(log => log.id === data.id);
+        
+        if (logEntry.id) {
+          existingIndex = updated.findIndex(log => log.id === logEntry.id);
         }
         
-        // If not found by ID, try by RFID and check if it's the most recent "inside" log
+        // If updating an exit, find the most recent "inside" log for this RFID
         if (existingIndex === -1 && isExit) {
           existingIndex = updated.findIndex(
-            log => log.rfid_tag === data.rfid_tag && 
+            log => log.rfid_tag === logEntry.rfid_tag && 
                    (log.status === "inside" || log.member_status === "inside") &&
                    !log.exit_time
           );
@@ -147,43 +152,44 @@ const MemberEntryBranch = () => {
 
         if (existingIndex !== -1) {
           // ✅ UPDATE existing log
-          console.log(`🔄 Updating existing log at index ${existingIndex}`);
+          console.log(`🔄 Updating log at index ${existingIndex}`);
           updated[existingIndex] = {
             ...updated[existingIndex],
-            id: data.id || updated[existingIndex].id,
-            full_name: data.full_name || updated[existingIndex].full_name,
-            profile_image_url: data.profile_image_url || updated[existingIndex].profile_image_url,
-            entry_time: data.entry_time || updated[existingIndex].entry_time,
-            exit_time: data.exit_time || updated[existingIndex].exit_time,
-            status: data.status || data.member_status || updated[existingIndex].status,
-            member_status: data.status || data.member_status || updated[existingIndex].member_status,
-            deducted_amount: data.deducted_amount ?? updated[existingIndex].deducted_amount,
-            current_balance: data.current_balance ?? updated[existingIndex].current_balance,
-            remaining_balance: data.remaining_balance ?? data.current_balance ?? updated[existingIndex].remaining_balance,
-            last_activity: data.timestamp || data.exit_time || data.entry_time || new Date().toISOString(),
-            visitor_type: data.visitor_type || updated[existingIndex].visitor_type,
-            system_type: data.system_type || updated[existingIndex].system_type,
+            id: logEntry.id || updated[existingIndex].id,
+            full_name: logEntry.full_name || updated[existingIndex].full_name,
+            profile_image_url: logEntry.profile_image_url || updated[existingIndex].profile_image_url,
+            entry_time: logEntry.entry_time || updated[existingIndex].entry_time,
+            exit_time: logEntry.exit_time || updated[existingIndex].exit_time,
+            status: logEntry.status || logEntry.member_status || updated[existingIndex].status,
+            member_status: logEntry.status || logEntry.member_status || updated[existingIndex].member_status,
+            deducted_amount: logEntry.deducted_amount ?? updated[existingIndex].deducted_amount,
+            current_balance: logEntry.current_balance ?? updated[existingIndex].current_balance,
+            remaining_balance: logEntry.remaining_balance ?? logEntry.current_balance ?? updated[existingIndex].remaining_balance,
+            last_activity: timestamp,
+            visitor_type: logEntry.visitor_type || updated[existingIndex].visitor_type,
+            system_type: logEntry.system_type || updated[existingIndex].system_type,
+            staff_name: logEntry.staff_name || updated[existingIndex].staff_name,
           };
         } else {
-          // ✅ ADD new log to the beginning
-          console.log(`➕ Adding new log for RFID: ${data.rfid_tag}`);
+          // ✅ ADD new log
+          console.log(`➕ Adding new log for RFID: ${logEntry.rfid_tag}`);
           const newLog = {
-            id: data.id || `temp-${data.rfid_tag}-${Date.now()}`,
-            rfid_tag: data.rfid_tag,
-            full_name: data.full_name || "Unknown",
-            profile_image_url: data.profile_image_url,
-            entry_time: (isEntry ? new Date().toISOString() : null) || data.entry_time,
-            exit_time: (isExit ? new Date().toISOString() : null) || data.exit_time,
-            status: data.status || data.member_status || (isEntry ? "inside" : "outside"),
-            member_status: data.status || data.member_status || (isEntry ? "inside" : "outside"),
-            visitor_type: data.visitor_type || "Member",
-            system_type: data.system_type,
-            deducted_amount: data.deducted_amount,
-            current_balance: data.current_balance,
-            remaining_balance: data.remaining_balance || data.current_balance,
-            subscription_expiry: data.subscription_expiry,
-            staff_name: data.staff_name,
-            last_activity: data.timestamp || data.entry_time || data.exit_time || new Date().toISOString(),
+            id: logEntry.id || `temp-${logEntry.rfid_tag}-${Date.now()}`,
+            rfid_tag: logEntry.rfid_tag,
+            full_name: logEntry.full_name || "Unknown",
+            profile_image_url: logEntry.profile_image_url,
+            entry_time: logEntry.entry_time,
+            exit_time: logEntry.exit_time,
+            status: logEntry.status || logEntry.member_status || (isEntry ? "inside" : "outside"),
+            member_status: logEntry.status || logEntry.member_status || (isEntry ? "inside" : "outside"),
+            visitor_type: logEntry.visitor_type || "Member",
+            system_type: logEntry.system_type,
+            deducted_amount: logEntry.deducted_amount,
+            current_balance: logEntry.current_balance,
+            remaining_balance: logEntry.remaining_balance || logEntry.current_balance,
+            subscription_expiry: logEntry.subscription_expiry,
+            staff_name: logEntry.staff_name,
+            last_activity: timestamp,
           };
           updated.unshift(newLog);
         }
@@ -196,7 +202,14 @@ const MemberEntryBranch = () => {
         });
       });
     });
-  }, [globalEntryLogs]);
+
+    // ✅ Clean up old timestamps (keep only last 100)
+    if (processedTimestamps.current.size > 100) {
+      const timestamps = Array.from(processedTimestamps.current);
+      processedTimestamps.current = new Set(timestamps.slice(-50));
+    }
+
+  }, [globalEntryLogs]); // ✅ This will trigger on every globalEntryLogs change
 
   // ✅ Clear last entry/exit after 30 seconds
   useEffect(() => {
@@ -271,7 +284,7 @@ const MemberEntryBranch = () => {
 
         {/* Last Entry/Exit Cards */}
         <div className="flex gap-4 mb-6">
-          {/* Last Entry Card - GREEN */}
+          {/* Last Entry Card */}
           <div className="flex-1 bg-green-50 p-4 rounded-lg shadow border-2 border-green-200">
             <div className="text-xs font-semibold text-green-800 mb-2 uppercase">
               Last Entry
@@ -318,7 +331,7 @@ const MemberEntryBranch = () => {
             )}
           </div>
 
-          {/* Last Exit Card - RED */}
+          {/* Last Exit Card */}
           <div className="flex-1 bg-red-50 p-4 rounded-lg shadow border-2 border-red-200">
             <div className="text-xs font-semibold text-red-800 mb-2 uppercase">
               Last Exit
@@ -440,23 +453,6 @@ const MemberEntryBranch = () => {
                           {log.system_type && (
                             <div className="text-[10px] text-gray-500 mt-1">
                               {log.system_type.replace("_", " ")}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-xs">
-                          {log.system_type === "prepaid_entry" && (
-                            <div className="text-[11px]">
-                              {log.deducted_amount && (
-                                <div className="text-red-600 font-medium">
-                                  -₱{log.deducted_amount}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {log.system_type === "subscription" && log.subscription_expiry && (
-                            <div className="text-[11px] text-gray-600">
-                              Expires:{" "}
-                              {new Date(log.subscription_expiry).toLocaleDateString()}
                             </div>
                           )}
                         </td>

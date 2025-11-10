@@ -214,39 +214,142 @@ const handleSubmit = async (e) => {
   e.preventDefault();
 
   try {
-    if (modalMode === "edit" && editingAdmin) {
-      // 1️⃣ Check if RFID changed
+    if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
       const rfid1Changed = formData.rfid_tag !== originalRfid;
       const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
 
       if ((rfid1Changed && formData.rfid_tag) || (rfid2Changed && formData.rfid_tag_2)) {
-        await axios.put(`${API_URL}/api/update-admin-rfid/${editingAdmin.id}`, {
-          new_rfid_tag: formData.rfid_tag || null,
-          new_rfid_tag_2: formData.rfid_tag_2 || null,
-        });
-        showToast({ message: "RFID updated successfully!", type: "success" });
+        try {
+          await axios.put(`${API_URL}/api/update-admin-rfid/${editingAdmin.id}`, {
+            new_rfid_tag: formData.rfid_tag || null,
+            new_rfid_tag_2: formData.rfid_tag_2 || null,
+          });
+        } catch (rfidError) {
+          showToast({ message: "Failed to update RFID tags.", type: "error" });
+        }
       }
 
-      // 2️⃣ Update other fields separately
-      const generalPayload = new FormData();
-      generalPayload.append("admin_name", formData.admin_name);
-      generalPayload.append("address", formData.address);
-      generalPayload.append("email", formData.email);
-      generalPayload.append("gym_name", formData.gym_name);
-      generalPayload.append("system_type", formData.system_type);
-      generalPayload.append("package_id", formData.package_id || "");
+      const formPayload = new FormData();
+      formPayload.append("admin_name", formData.admin_name);
+      formPayload.append("rfid_tag", formData.rfid_tag);
+      formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
+      formPayload.append("address", formData.address);
+      formPayload.append("email", formData.email);
+      formPayload.append("gym_name", formData.gym_name);
+      formPayload.append("system_type", formData.system_type);
+      formPayload.append("package_id", formData.package_id || "");
+      formPayload.append("payment_method", formData.payment_method || "Cash");
+      formPayload.append("reference_number", formData.reference_number || "");
+
+      if (formData.password && formData.password.trim() !== "") {
+        formPayload.append("password", formData.password);
+      }
 
       if (formData.profile_image_url && typeof formData.profile_image_url !== "string") {
-        generalPayload.append("profile_image_url", formData.profile_image_url);
+        formPayload.append("profile_image_url", formData.profile_image_url);
       }
 
-      await axios.put(`${API_URL}/api/update-admin-general/${editingAdmin.id}`, generalPayload, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      showToast({ message: "Partner information updated!", type: "success" });
+      const response = await axios.put(
+        `${API_URL}/api/update-admin/${editingAdmin.id}`,
+        formPayload,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+
+      showToast({ message: "Partner updated successfully!", type: "success" });
+
+      setAdmins(
+        admins.map((admin) =>
+          admin.id === editingAdmin.id
+            ? {
+                ...admin,
+                admin_name: formData.admin_name,
+                address: formData.address,
+                email: formData.email,
+                gym_name: formData.gym_name,
+                system_type: formData.system_type,
+                package_id: formData.package_id,
+                profile_image_url:
+                  response.data.profile_image_url || admin.profile_image_url,
+                rfid_tag: formData.rfid_tag,
+                rfid_tag_2: formData.rfid_tag_2,
+              }
+            : admin
+        )
+      );
+    } else {
+      const formPayload = new FormData();
+      formPayload.append("admin_name", formData.admin_name);
+      formPayload.append("rfid_tag", formData.rfid_tag);
+      formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
+      formPayload.append("address", formData.address);
+      formPayload.append("email", formData.email);
+      formPayload.append("password", formData.password);
+      formPayload.append("gym_name", formData.gym_name);
+      formPayload.append("system_type", formData.system_type);
+      formPayload.append("package_id", formData.package_id || "");
+
+      if (formData.profile_image_url) {
+        formPayload.append("profile_image_url", formData.profile_image_url);
+      }
+
+      const response = await axios.post(
+        `${API_URL}/api/add-client`,
+        formPayload,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+
+      showToast({ message: "Partner added successfully!", type: "success" });
+
+      if (modalMode === "registration" && editingAdmin?.registrationNumber) {
+        await axios.delete(`${API_URL}/api/pending-registrations/${editingAdmin.registrationNumber}`);
+        fetchPendingRegistrations();
+      }
+
+      setAdmins([
+        ...admins,
+        {
+          id: response.data.id,
+          admin_name: formData.admin_name,
+          address: formData.address,
+          email: formData.email,
+          gym_name: formData.gym_name,
+          system_type: formData.system_type,
+          package_id: formData.package_id,
+          profile_image_url: response.data.profile_image_url || null,
+          rfid_tag: formData.rfid_tag,
+          rfid_tag_2: formData.rfid_tag_2,
+          is_archived: 0,
+        },
+      ]);
     }
+
+    // Reset form
+    setShowAddForm(false);
+    setEditingAdmin(null);
+    setModalMode("add");
+    setWaitingForSlot(null);
+    setOriginalRfid("");
+    setOriginalRfid2("");
+    sessionStorage.removeItem('pendingSlotRfid');
+    sessionStorage.removeItem('rfidScannedAt');
+    setFormData({
+      admin_name: "",
+      address: "",
+      email: "",
+      password: "",
+      gym_name: "",
+      system_type: "",
+      package_id: "",
+      payment_method: "Cash",
+      reference_number: "",
+      profile_image_url: null,
+      rfid_tag: "",
+      rfid_tag_2: "",
+      packages: packages,
+      paymentOptions: paymentOptions,
+    });
   } catch (error) {
-    showToast({ message: "Failed to update partner. Please try again.", type: "error" });
+    showToast({ message: `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`, type: "error" });
   }
 };
 

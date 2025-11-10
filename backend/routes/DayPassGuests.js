@@ -271,7 +271,7 @@ router.get("/daypass-guest/:rfid", async (req, res) => {
 
   try {
     const [rows] = await db.promise().query(
-      `SELECT id, guest_name, gender, profile_image_url, rfid_tag, system_type, 
+      `SELECT id, guest_name, gender, mobile_number, email, profile_image_url, rfid_tag, system_type, 
               paid_amount, expires_at, status, staff_name, admin_id
        FROM DayPassGuests 
        WHERE rfid_tag = ? AND admin_id = ? AND status IN ('active', 'expired')

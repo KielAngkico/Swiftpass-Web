@@ -454,6 +454,31 @@ async function handleMessage(ws, message) {
         broadcastToClients,
         dbSuperAdmin
       });
+      // ✅ Send RFID info back to the dashboard for Add Employee form
+if (allocation && allocation.isValid) {
+  broadcastToClients({
+    type: "rfid-scanned-for-staff",
+    data: {
+      status: "success",
+      rfid_tag,
+      role: allocation.role?.toLowerCase() || "staff",
+      admin_id: target_admin_id,
+      location
+    }
+  });
+} else {
+  broadcastToClients({
+    type: "rfid-scanned-for-staff",
+    data: {
+      status: "error",
+      rfid_tag,
+      reason: allocation?.reason || "Invalid or unregistered RFID",
+      admin_id: target_admin_id,
+      location
+    }
+  });
+}
+
       
       console.log(`===== END STAFF SCAN =====\n`);
       return;

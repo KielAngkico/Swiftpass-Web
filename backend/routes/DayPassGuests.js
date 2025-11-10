@@ -3,6 +3,8 @@ const router = express.Router();
 const db = require("../db");
 const daypassUpload = require("../middleware/daypassUploads");
 
+console.log("🚀 DayPassGuests routes file loaded successfully");
+
 router.get("/session-fee", async (req, res) => {
   const { admin_id } = req.query;
 
@@ -158,9 +160,9 @@ router.post("/register-session", daypassUpload.single("guest_image"), async (req
   }
 });
 
-// Add this new endpoint after the existing /register-session route
-
+// ✅ DAY PASS RENEWAL ENDPOINT
 router.post("/renew-daypass", async (req, res) => {
+  console.log("🔥🔥🔥 RENEW-DAYPASS ENDPOINT HIT!");
   console.log("Received renewal req.body:", req.body);
 
   const conn = await db.promise().getConnection();
@@ -180,6 +182,15 @@ router.post("/renew-daypass", async (req, res) => {
       session_fee,
     } = req.body;
 
+    console.log("📋 Parsed data:", {
+      rfid_tag,
+      full_name,
+      admin_id,
+      staff_name,
+      payment_method,
+      expires_at
+    });
+
     // ✅ Verify the guest exists and is a prepaid_entry (day pass)
     const [guestRows] = await conn.query(
       "SELECT * FROM DayPassGuests WHERE rfid_tag = ? AND system_type = 'prepaid_entry' AND status = 'active'",
@@ -187,12 +198,15 @@ router.post("/renew-daypass", async (req, res) => {
     );
 
     if (guestRows.length === 0) {
+      console.log("❌ Guest not found with RFID:", rfid_tag);
       await conn.rollback();
       return res.status(404).json({ error: "Day pass guest not found" });
     }
 
     const guestId = guestRows[0].id;
     const guestName = guestRows[0].guest_name;
+
+    console.log("✅ Guest found:", { guestId, guestName });
 
     // ✅ Get Daily Session fee from AdminPricingOptions
     const [sessionRows] = await conn.query(
@@ -201,6 +215,7 @@ router.post("/renew-daypass", async (req, res) => {
     );
 
     if (sessionRows.length === 0) {
+      console.log("❌ No Daily Session pricing found for admin_id:", admin_id);
       await conn.rollback();
       return res.status(400).json({ error: "Daily Session pricing not found for this admin" });
     }
@@ -215,6 +230,8 @@ router.post("/renew-daypass", async (req, res) => {
       [expires_at, admin_id, guestId]
     );
 
+    console.log("✅ Guest expiry updated");
+
     // ✅ Insert transaction record for the renewal
     await conn.query(
       `INSERT INTO AdminTransactions
@@ -223,7 +240,11 @@ router.post("/renew-daypass", async (req, res) => {
       [admin_id, guestName, rfid_tag, sessionFeeAmount, payment_method, staff_name, cashless_reference || null]
     );
 
+    console.log("✅ Transaction recorded");
+
     await conn.commit();
+
+    console.log("✅ Day pass renewal completed successfully");
 
     return res.status(200).json({
       message: "Day pass renewed successfully",
@@ -232,14 +253,14 @@ router.post("/renew-daypass", async (req, res) => {
     });
   } catch (error) {
     await conn.rollback();
-    console.error("Error renewing day pass:", error);
+    console.error("❌ Error renewing day pass:", error);
     res.status(500).json({ error: "Server error" });
   } finally {
     conn.release();
   }
 });
-router.get("/daypass-guest/:rfid", async (req, res) => {
 
+router.get("/daypass-guest/:rfid", async (req, res) => {
   const { rfid } = req.params;
   const { admin_id } = req.query;
 
@@ -264,5 +285,6 @@ router.get("/daypass-guest/:rfid", async (req, res) => {
   }
 });
 
+console.log("✅ All DayPassGuests routes registered");
 
 module.exports = router;

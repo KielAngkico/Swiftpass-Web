@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAccessToken } from "../tokenMemory";
+import api from "../api"; // ✅ Import your API instance
 
 const WebSocketContext = createContext(null);
 
@@ -9,6 +10,7 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
   const ws = useRef(null);
   const [rfidData, setRfidData] = useState(null);
   const [globalEntryLogs, setGlobalEntryLogs] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null); // ✅ Store current user
   const lastProcessedRfid = useRef(null);
   const retryAttempts = useRef(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -23,6 +25,35 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
   const [pendingPartnerSlot, setPendingPartnerSlot] = useState(null);
   
   const socketUrl = import.meta.env.VITE_WS_URL || "ws://localhost:5000";
+
+  // ✅ Fetch current user from /api/me
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const { data } = await api.get('/api/me');
+        if (data?.authenticated && data?.user) {
+          setCurrentUser(data.user);
+          console.log("✅ Current user loaded in WebSocket context:", data.user);
+        }
+      } catch (err) {
+        console.error("❌ Failed to fetch current user in WebSocket context:", err);
+      }
+    };
+
+    fetchCurrentUser();
+
+    // ✅ Re-fetch user when auth changes
+    const handleAuthChange = () => {
+      console.log("🔄 Auth changed, re-fetching current user");
+      fetchCurrentUser();
+    };
+
+    window.addEventListener("auth-changed", handleAuthChange);
+
+    return () => {
+      window.removeEventListener("auth-changed", handleAuthChange);
+    };
+  }, []);
 
   const addOrUpdateStatusLog = (newLog) => {
     setGlobalEntryLogs((prev) => {
@@ -56,7 +87,7 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
 
       case "rfid-registration-check":
         if (msg.data?.rfid_tag) {
-          const { rfid_tag, is_registered } = msg.data;
+          const { rfid_tag, is_registered, error } = msg.data;
 
           console.log(`📡 RFID Check Result: ${rfid_tag}`);
           console.log(`   Is Registered: ${is_registered}`);
@@ -65,10 +96,16 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
           const isSuperAdminPage = currentPath.startsWith("/SuperAdmin");
 
           if (!isSuperAdminPage) {
-            console.log("Not on SuperAdmin page - no navigation");
+            console.log("Not on SuperAdmin page - ignoring RFID");
             return;
           }
 
+          if (error) {
+            alert(error);
+            return;
+          }
+
+          // ✅ NEW: Check if on AddClient page for slot selection
           const isOnAddClientPage = currentPath === "/SuperAdmin/AddClient";
 
           if (isOnAddClientPage) {
@@ -80,18 +117,21 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
             return;
           }
 
+          // ✅ RFID EXISTS → Go to AddPartner (open modal)
           if (is_registered) {
-            console.log("✅ Navigating to AddClient - modal will open");
+            console.log("✅ RFID exists - navigating to AddClient with modal");
             customNavigate("/SuperAdmin/AddClient", {
               state: { 
                 openModal: true, 
                 timestamp: Date.now() 
-              }
+              },
             }, "superadmin");
-          } else {
-            console.log("❌ Navigating to ItemsInventory for registration");
+          } 
+          // 🚫 RFID NOT FOUND → Go to ItemsInventory
+          else {
+            console.log("🆕 RFID not registered - navigating to ItemsInventory");
             customNavigate("/SuperAdmin/ItemsInventory", {
-              state: { rfid_tag, is_registered: false }
+              state: { rfid_tag, is_registered: false },
             }, "superadmin");
           }
         }
@@ -99,8 +139,8 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
 
       case "rfid-replacement-scanned":
         if (msg.data?.rfid_tag) {
-          console.log("📡 Replacement RFID Scanned:", msg.data.rfid_tag);
-          setReplacementScannedRfid(msg.data.rfid_tag);
+          console.log("📡 Replacement RFID Scanned:", msg.data);
+          setReplacementScannedRfid(msg.data);
         }
         return;
 
@@ -111,7 +151,7 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
 
       case "rfid-scanned-for-staff":
         if (msg.data?.rfid_tag) {
-          console.log("📡 RFID Scanned for Staff Registration:", msg.data.rfid_tag);
+          console.log("📡 RFID Scanned for Staff Registration:", msg.data);
 
           if (msg.data.status === "error") {
             console.log("❌ RFID Validation Error:", msg.data.reason);
@@ -122,7 +162,7 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
 
           if (msg.data.status === "success") {
             console.log("✅ RFID is valid for staff registration");
-            setScannedRfidForStaff(msg.data.rfid_tag);
+            setScannedRfidForStaff(msg.data);
           }
         }
         return;
@@ -136,6 +176,31 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
         if (!msg.data || msg.data.status === "unregistered") return;
         
         console.log("📥 Received member-update:", msg.data);
+        
+        // ✅ Skip Staff and Admin entries (they shouldn't show in member logs)
+        const visitorType = msg.data.visitor_type || msg.data.role;
+        if (visitorType === "Staff" || visitorType === "Admin" || visitorType === "Partner") {
+          console.log(`⏭️ Skipping ${visitorType} entry - not displaying in member logs`);
+          return;
+        }
+        
+        // ✅ Use currentUser from state (fetched from /api/me)
+        const currentUserAdminId = currentUser?.adminId;
+        const messageAdminId = msg.data.admin_id;
+        
+        console.log(`🔍 Admin ID Check:`, {
+          currentUserAdminId,
+          messageAdminId,
+          matches: currentUserAdminId === messageAdminId,
+          currentUser: currentUser,
+          visitorType: visitorType // Debug log
+        });
+        
+        // ✅ Skip if admin_id doesn't match (different gym)
+        if (messageAdminId && currentUserAdminId && messageAdminId !== currentUserAdminId) {
+          console.log(`⏭️ Skipping - message for admin ${messageAdminId}, current user is admin ${currentUserAdminId}`);
+          return;
+        }
         
         addOrUpdateStatusLog({
           id: msg.data.id, 
@@ -153,36 +218,32 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
           remaining_balance: msg.data.remaining_balance || msg.data.current_balance,
           subscription_expiry: msg.data.subscription_expiry,
           staff_name: msg.data.staff_name,
+          admin_id: msg.data.admin_id,
           action: msg.data.exit_time ? "exit" : "entry",
           last_activity: msg.data.exit_time || msg.data.entry_time || new Date().toISOString(),
         });
+        
+        console.log(`✅ Added to globalEntryLogs for admin ${messageAdminId}`);
         return;
 
       case "staff-scan":
         if (!msg.data) return;
 
-        // ✅ MODIFIED: Extract role from msg.data
-        const { rfid_tag, status, location, full_name, system_type, reason, role } = msg.data;
-        
-        console.log("📥 Received staff-scan message:", {
-          rfid_tag,
-          status,
-          location,
-          role,
-          partnerScanModeEnabled,
-          replacementScanModeEnabled
-        });
+        const { rfid_tag, status, location, full_name, system_type, reason, rfid_type, role, guest_data } = msg.data;
+
+        console.log("📥 Received staff-scan message:", msg.data);
+        console.log("📸 Guest data received:", guest_data);
 
         if (!rfid_tag || location !== "STAFF") {
-          console.log("⚠️ Invalid staff-scan data - missing rfid_tag or location");
+          console.log("⚠️ Invalid staff-scan data");
           return;
         }
 
-        // ✅ ADD THIS: Check if we're in partner scan mode FIRST
+        // ✅ NEW: Check if we're in partner scan mode FIRST
         if (partnerScanModeEnabled) {
           console.log("🔍 Partner scan mode active - checking RFID role");
           
-          if (role !== "partner") {
+          if (role !== "Partner") {
             console.log("❌ RFID is not a partner card");
             alert("This RFID is not assigned to a partner role. Please use a partner RFID card.");
             return;
@@ -209,7 +270,7 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
           return; // ✅ IMPORTANT: Return here to prevent normal staff-scan logic
         }
 
-        // ✅ EXISTING STAFF-SCAN LOGIC CONTINUES BELOW (unchanged)
+        // ✅ EXISTING STAFF-SCAN LOGIC CONTINUES BELOW
         if (rfid_tag === lastProcessedRfid.current) {
           console.log("⏭️ Skipping duplicate RFID scan");
           return;
@@ -217,48 +278,79 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
         lastProcessedRfid.current = rfid_tag;
         setTimeout(() => (lastProcessedRfid.current = null), 2000);
 
-        setRfidData({ ...msg.data, timestamp: new Date().toLocaleString() });
         sessionStorage.setItem("rfid_tag", rfid_tag);
         sessionStorage.setItem("system_type", system_type || "");
 
         const currentPath = window.location.pathname;
         const isStaffPage = currentPath.startsWith("/Staff");
-        
+
         if (!isStaffPage) {
           console.log("Admin viewing - RFID data stored but no navigation");
           return;
         }
 
         if (reason && reason.includes("not registered with SwiftPass")) {
-          console.log("❌ Unauthorized RFID - not registered with SwiftPass");
-          alert("This RFID is not registered with SwiftPass company. Please use an authorized RFID.");
+          alert("This RFID is not registered with SwiftPass company.");
           return;
         }
 
         if (reason && (reason.includes("Duplicate") || reason.includes("already assigned"))) {
-          console.log("❌ Duplicate RFID - already in use");
           alert(`Cannot use this RFID: ${reason}`);
           return;
         }
 
+        console.log(`🔍 Navigation Check - Role: ${role}, Status: ${status}, RFID Type: ${rfid_type}`);
+
+        if (status === "daypass_renewal") {
+          console.log("🔄 Existing Day Pass - navigating to DayPassRenewal");
+          console.log("📦 Passing guest_data:", guest_data);
+          
+          customNavigate("/Staff/DayPassRenewal", {
+            state: { 
+              rfid_tag, 
+              full_name,
+              guest_data,
+              system_type, 
+              rfid_type, 
+              role 
+            },
+          }, "staff");
+          return;
+        }
+        
+        if (role === "DayPass" || (rfid_type === "key_fob" && status !== "member_found")) {
+          console.log("🎟️ New Day Pass - navigating to PrepaidDayPass");
+          customNavigate("/Staff/DayPass", { 
+            state: { rfid_tag, system_type, rfid_type, role } 
+          }, "staff");
+          return;
+        } 
+        
         if (status === "member_found") {
-          console.log("✅ Member found - navigating to MembershipTransactions");
+          console.log("💳 Registered Member - navigating to MembershipTransactions");
           customNavigate("/Staff/MembershipTransactions", {
             state: { rfid_tag, full_name, ...msg.data, system_type },
           }, "staff");
-        } else if (status === "unregistered") {
-          const lastUnregistered = sessionStorage.getItem("lastUnregisteredRfid");
-          if (lastUnregistered === rfid_tag) {
-            console.log("✅ Second scan detected - navigating to DayPass");
-            sessionStorage.removeItem("lastUnregisteredRfid");
-            customNavigate("/Staff/DayPass", { state: { rfid_tag, system_type } }, "staff");
-          } else {
-            console.log("✅ First scan - navigating to AddMember");
-            sessionStorage.setItem("lastUnregisteredRfid", rfid_tag);
-            customNavigate("/Staff/AddMember", { state: { rfid_tag, system_type } }, "staff");
-          }
+          return;
         }
-        return;
+        
+        if (role === "Member" || rfid_type === "wristband") {
+          console.log("🆕 New Wristband - navigating to AddMember.jsx");
+          customNavigate("/Staff/AddMember", { 
+            state: { rfid_tag, system_type, rfid_type, role } 
+          }, "staff");
+          return;
+        }
+        
+        if (role === "Partner" || rfid_type === "card") {
+          console.log("🚫 Partner/Admin card detected");
+          alert("This is a Partner card - for admin use only");
+          return;
+        }
+        
+        console.log("⚠️ Unknown RFID type - no navigation");
+        console.log("Debug info:", { role, status, rfid_type, full_name });
+        return; 
 
       default:
         console.log("Unknown WebSocket message type:", msg.type);
@@ -335,7 +427,7 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
       ws.current?.close();
       window.removeEventListener("auth-changed", handleAuthChange);
     };
-  }, [navigate]);
+  }, [navigate, currentUser]); // ✅ Added currentUser as dependency
 
   const toggleScanMode = (enabled) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
@@ -416,6 +508,7 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
         enablePartnerScanMode,
         disablePartnerScanMode,
         clearScannedPartnerRfid,
+        currentUser, // ✅ Expose currentUser if needed
       }}
     >
       {children}

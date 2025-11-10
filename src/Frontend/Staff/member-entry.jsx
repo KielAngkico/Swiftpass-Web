@@ -12,6 +12,7 @@ const MemberEntryBranch = () => {
   const [lastEntry, setLastEntry] = useState(null); 
   const [lastExit, setLastExit] = useState(null);  
   const [loading, setLoading] = useState(true);
+  const processedIds = useRef(new Set()); // ✅ Track processed log IDs
 
   const getImageUrl = (profileImageUrl) => {
     if (!profileImageUrl) {
@@ -47,31 +48,48 @@ const MemberEntryBranch = () => {
     fetchLogs();
   }, [fetchLogs]);
 
+  // ✅ FIXED: Real-time WebSocket updates
   useEffect(() => {
     if (!globalEntryLogs?.length) return;
 
+    console.log("🔄 Processing globalEntryLogs:", globalEntryLogs.length, "items");
+
     globalEntryLogs.forEach(incoming => {
+      // ✅ Handle both nested and flat data structures
       const data = incoming?.data ? incoming.data : incoming;
-      if (!data?.rfid_tag) return;
+      
+      if (!data?.rfid_tag) {
+        console.log("⚠️ Skipping - no rfid_tag");
+        return;
+      }
 
-      console.log("Processing real-time update:", data);
+      // ✅ Skip if already processed (prevent duplicates)
+      const logKey = `${data.rfid_tag}-${data.timestamp || Date.now()}`;
+      if (processedIds.current.has(logKey)) {
+        console.log("⏭️ Already processed:", logKey);
+        return;
+      }
+      processedIds.current.add(logKey);
 
-      const isEntry = data.status === "inside";
-      const isExit = data.status === "outside";
+      console.log("📥 Processing real-time update:", data);
 
+      const isEntry = data.status === "inside" || data.member_status === "inside";
+      const isExit = data.status === "outside" || data.member_status === "outside";
+
+      // ✅ Update Last Entry/Exit cards
       if (isEntry) {
         const entryItem = {
           id: data.id || `entry-${data.rfid_tag}-${Date.now()}`,
           rfid_tag: data.rfid_tag,
           full_name: data.full_name || "Unknown",
           profile_image_url: getImageUrl(data.profile_image_url),
-          timestamp: data.timestamp || new Date().toISOString(),
-          visitor_type: data.visitor_type,
+          timestamp: data.timestamp || data.entry_time || new Date().toISOString(),
+          visitor_type: data.visitor_type || "Member",
           system_type: data.system_type,
           deducted_amount: data.deducted_amount,
         };
 
-        console.log("Setting last entry:", entryItem);
+        console.log("✅ Setting last entry:", entryItem);
         setLastEntry(entryItem);
         
         setLastExit(prev => {
@@ -83,57 +101,99 @@ const MemberEntryBranch = () => {
         });
 
       } else if (isExit) {
-         const exitItem = {
+        const exitItem = {
           id: data.id || `exit-${data.rfid_tag}-${Date.now()}`,
           rfid_tag: data.rfid_tag,
           full_name: data.full_name || "Unknown",
           profile_image_url: getImageUrl(data.profile_image_url),
-          timestamp: data.timestamp || new Date().toISOString(),
-          visitor_type: data.visitor_type,
+          timestamp: data.timestamp || data.exit_time || new Date().toISOString(),
+          visitor_type: data.visitor_type || "Member",
           system_type: data.system_type,
         };
 
-        console.log("Setting last exit:", exitItem);
+        console.log("✅ Setting last exit:", exitItem);
         setLastExit(exitItem);
         
-         setLastEntry(prev => {
+        setLastEntry(prev => {
           if (prev?.rfid_tag === data.rfid_tag) {
-            console.log("Removing from entry card (exited)");
+            console.log("🔄 Removing from entry card (exited)");
             return null;
           }
           return prev;
         });
       }
 
+      // ✅ Update table logs
       setEntryLogs(prev => {
         const updated = [...prev];
 
         if (data.id) {
+          // Check if log already exists
           const existingIndex = updated.findIndex(log => log.id === data.id);
+          
           if (existingIndex !== -1) {
+            // Update existing log
+            console.log(`🔄 Updating existing log ID: ${data.id}`);
             updated[existingIndex] = {
               ...updated[existingIndex],
               ...data,
               entry_time: data.entry_time || updated[existingIndex].entry_time,
               exit_time: data.exit_time || updated[existingIndex].exit_time,
-              status: data.status || updated[existingIndex].status,
-              member_status: data.status || updated[existingIndex].member_status,
+              status: data.status || data.member_status || updated[existingIndex].status,
+              member_status: data.status || data.member_status || updated[existingIndex].member_status,
               deducted_amount: data.deducted_amount ?? updated[existingIndex].deducted_amount,
               current_balance: data.current_balance ?? updated[existingIndex].current_balance,
               remaining_balance: data.remaining_balance ?? data.current_balance ?? updated[existingIndex].remaining_balance,
-              last_activity: data.timestamp || new Date().toISOString(),
+              last_activity: data.timestamp || data.exit_time || data.entry_time || new Date().toISOString(),
+              profile_image_url: data.profile_image_url || updated[existingIndex].profile_image_url,
             };
           } else {
+            // Add new log to the beginning
+            console.log(`➕ Adding new log ID: ${data.id}`);
             updated.unshift({
               id: data.id,
               rfid_tag: data.rfid_tag,
-              full_name: data.full_name,
+              full_name: data.full_name || "Unknown",
               profile_image_url: data.profile_image_url,
-              entry_time: data.entry_time || null,
-              exit_time: data.exit_time || null,
-              status: data.status || "outside",
-              member_status: data.status || "outside",
-              visitor_type: data.visitor_type,
+              entry_time: data.entry_time || (isEntry ? new Date().toISOString() : null),
+              exit_time: data.exit_time || (isExit ? new Date().toISOString() : null),
+              status: data.status || data.member_status || "outside",
+              member_status: data.status || data.member_status || "outside",
+              visitor_type: data.visitor_type || "Member",
+              system_type: data.system_type,
+              deducted_amount: data.deducted_amount,
+              current_balance: data.current_balance,
+              remaining_balance: data.remaining_balance || data.current_balance,
+              subscription_expiry: data.subscription_expiry,
+              staff_name: data.staff_name,
+              last_activity: data.timestamp || data.entry_time || data.exit_time || new Date().toISOString(),
+            });
+          }
+        } else {
+          // No ID - check by rfid_tag
+          const existingIndex = updated.findIndex(log => log.rfid_tag === data.rfid_tag);
+          
+          if (existingIndex !== -1) {
+            console.log(`🔄 Updating log by RFID: ${data.rfid_tag}`);
+            updated[existingIndex] = {
+              ...updated[existingIndex],
+              ...data,
+              status: data.status || data.member_status || updated[existingIndex].status,
+              member_status: data.status || data.member_status || updated[existingIndex].member_status,
+              last_activity: data.timestamp || new Date().toISOString(),
+            };
+          } else {
+            console.log(`➕ Adding new log by RFID: ${data.rfid_tag}`);
+            updated.unshift({
+              id: `temp-${data.rfid_tag}-${Date.now()}`,
+              rfid_tag: data.rfid_tag,
+              full_name: data.full_name || "Unknown",
+              profile_image_url: data.profile_image_url,
+              entry_time: isEntry ? new Date().toISOString() : null,
+              exit_time: isExit ? new Date().toISOString() : null,
+              status: data.status || data.member_status || "outside",
+              member_status: data.status || data.member_status || "outside",
+              visitor_type: data.visitor_type || "Member",
               system_type: data.system_type,
               deducted_amount: data.deducted_amount,
               current_balance: data.current_balance,
@@ -145,6 +205,7 @@ const MemberEntryBranch = () => {
           }
         }
 
+        // Sort by most recent activity
         return updated.sort((a, b) => {
           const timeA = new Date(a.last_activity || a.entry_time || a.exit_time || 0);
           const timeB = new Date(b.last_activity || b.entry_time || b.exit_time || 0);
@@ -154,6 +215,7 @@ const MemberEntryBranch = () => {
     });
   }, [globalEntryLogs, getImageUrl]);
 
+  // ✅ Clear last entry/exit after 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
@@ -224,7 +286,7 @@ const MemberEntryBranch = () => {
           </div>
         </div>
 
-        {/* ✅ FIXED: Recent Entry/Exit Cards */}
+        {/* Last Entry/Exit Cards */}
         <div className="flex gap-4 mb-6">
           {/* Last Entry Card - GREEN */}
           <div className="flex-1 bg-green-50 p-4 rounded-lg shadow border-2 border-green-200">
@@ -314,7 +376,7 @@ const MemberEntryBranch = () => {
           </div>
         </div>
 
-        {/* Table - Same as before */}
+        {/* Table */}
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="bg-gray-50 px-4 py-3 border-b">
             <h3 className="text-sm font-medium text-gray-800">All Member Sessions</h3>

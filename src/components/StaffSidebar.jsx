@@ -28,6 +28,7 @@ const StaffSidebar = () => {
         label: user.systemType === "subscription" ? "Renewal" : "Top Up",
         icon: <FiClipboard />,
       },
+      { path: "/Staff/DayPassRenewal", label: "Day Pass Renewal", icon: <FiUserPlus /> },
     { path: "/Staff/RfidReplacement", label: "Rfid Replacement", icon: <FiUserPlus /> },
     ];
   }, [user]);

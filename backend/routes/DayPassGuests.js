@@ -158,4 +158,85 @@ router.post("/register-session", daypassUpload.single("guest_image"), async (req
   }
 });
 
+// Add this new endpoint after the existing /register-session route
+
+router.post("/renew-daypass", async (req, res) => {
+  console.log("Received renewal req.body:", req.body);
+
+  const conn = await db.promise().getConnection();
+  
+  try {
+    await conn.beginTransaction();
+
+    const {
+      rfid_tag,
+      full_name,
+      admin_id,
+      staff_name,
+      system_type,
+      expires_at,
+      payment_method,
+      cashless_reference,
+      session_fee,
+    } = req.body;
+
+    // ✅ Verify the guest exists and is a prepaid_entry (day pass)
+    const [guestRows] = await conn.query(
+      "SELECT * FROM DayPassGuests WHERE rfid_tag = ? AND system_type = 'prepaid_entry' AND status = 'active'",
+      [rfid_tag]
+    );
+
+    if (guestRows.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ error: "Day pass guest not found" });
+    }
+
+    const guestId = guestRows[0].id;
+    const guestName = guestRows[0].guest_name;
+
+    // ✅ Get Daily Session fee from AdminPricingOptions
+    const [sessionRows] = await conn.query(
+      "SELECT amount_to_pay FROM AdminPricingOptions WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1 LIMIT 1",
+      [admin_id]
+    );
+
+    if (sessionRows.length === 0) {
+      await conn.rollback();
+      return res.status(400).json({ error: "Daily Session pricing not found for this admin" });
+    }
+    
+    const sessionFeeAmount = parseFloat(sessionRows[0].amount_to_pay);
+
+    console.log(`💰 Renewal Pricing: Session Fee = ${sessionFeeAmount}, No Key Fob Fee`);
+
+    // ✅ Update guest's expiry date (extend to today 11:59 PM)
+    await conn.query(
+      "UPDATE DayPassGuests SET expires_at = ?, admin_id = ? WHERE id = ?",
+      [expires_at, admin_id, guestId]
+    );
+
+    // ✅ Insert transaction record for the renewal
+    await conn.query(
+      `INSERT INTO AdminTransactions
+      (admin_id, member_name, rfid_tag, amount, payment_method, staff_name, transaction_type, transaction_date, cashless_reference)
+      VALUES (?, ?, ?, ?, ?, ?, 'day_pass_renewal', NOW(), ?)`,
+      [admin_id, guestName, rfid_tag, sessionFeeAmount, payment_method, staff_name, cashless_reference || null]
+    );
+
+    await conn.commit();
+
+    return res.status(200).json({
+      message: "Day pass renewed successfully",
+      session_fee: sessionFeeAmount,
+      expires_at: expires_at,
+    });
+  } catch (error) {
+    await conn.rollback();
+    console.error("Error renewing day pass:", error);
+    res.status(500).json({ error: "Server error" });
+  } finally {
+    conn.release();
+  }
+});
+
 module.exports = router;

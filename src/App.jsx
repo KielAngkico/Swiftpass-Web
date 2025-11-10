@@ -57,6 +57,7 @@ const DayPass = React.lazy(() => import("./Frontend/Staff/DayPass"));
 const AddMember = React.lazy(() => import("./Frontend/Staff/AddMember"));
 const MemberEntry = React.lazy(() => import("./Frontend/Staff/member-entry"));
 const MembershipTransactions = React.lazy(() => import("./Frontend/Staff/MembershipTransactions"));
+const DayPassRenewal = React.lazy(() => import("./Frontend/Staff/DayPassRenewal"));
 const RfidReplacement = React.lazy(() => import("./Frontend/Staff/RfidReplacement"));
 
 const AuthContext = createContext();
@@ -323,6 +324,7 @@ const AppRoutes = () => {
               <Route path="/Staff/AddMember" element={<AddMember />} />
               <Route path="/Staff/scan-rfid" element={<ScanRFID />} />
               <Route path="/Staff/MembershipTransactions" element={<MembershipTransactions />} />
+              <Route path="/Staff/DayPassRenewal" element={<DayPassRenewal />} />
               <Route path="/Staff/RfidReplacement" element={<RfidReplacement />} />
             </>
           )}

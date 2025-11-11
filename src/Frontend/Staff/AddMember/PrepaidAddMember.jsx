@@ -30,11 +30,16 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
   const [serverMessage, setServerMessage] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [membershipFee, setMembershipFee] = useState(0);
+  
+  // ✅ NEW: Pending registrations state
+  const [pendingRegistrations, setPendingRegistrations] = useState([]);
+  const [showRegistrations, setShowRegistrations] = useState(true);
+  const [isFromRegistration, setIsFromRegistration] = useState(false);
 
   const wsRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { showToast } = useToast();
+  const { showToast, showConfirm } = useToast();
 
   // Use the custom webcam hook
   const {
@@ -89,6 +94,77 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
     };
     fetchMembershipFee();
   }, [adminId]);
+
+  // ✅ NEW: Fetch pending registrations
+  useEffect(() => {
+    if (!adminId) return;
+    fetchPendingRegistrations();
+    const interval = setInterval(fetchPendingRegistrations, 30000);
+    return () => clearInterval(interval);
+  }, [adminId]);
+
+  const fetchPendingRegistrations = async () => {
+    try {
+      const { data } = await api.get('/api/pending-member-registrations');
+      // Filter by current admin_id
+      const filteredData = data.filter(reg => reg.admin_id === adminId);
+      setPendingRegistrations(filteredData);
+    } catch (error) {
+      console.error("Error fetching pending registrations:", error);
+    }
+  };
+
+  // ✅ NEW: Handle registration click
+  const handleRegistrationClick = (registration) => {
+    setFormData({
+      full_name: registration.full_name || "",
+      gender: registration.gender || "",
+      age: registration.age || "",
+      rfid_tag: rfid_tag || "",
+      phone_number: registration.phone_number || "",
+      address: "",
+      email: registration.email || "",
+      password: registration.password || "1234",
+      payment_method: "",
+      reference: "",
+      emergency_contact_person: registration.emergency_contact_person || "",
+      emergency_contact_number: registration.emergency_contact_number || "",
+      emergency_contact_relationship: registration.emergency_contact_relationship || "",
+    });
+    
+    setIsFromRegistration(registration.registration_number);
+    showToast({ message: "Registration loaded! Please assign RFID and complete payment.", type: "info" });
+  };
+
+  // ✅ NEW: Delete registration
+  const handleDeleteRegistration = async (registrationNumber, e) => {
+    e.stopPropagation();
+    showConfirm(
+      "Delete this registration request?",
+      async () => {
+        try {
+          await api.delete(`/api/pending-member-registrations/${registrationNumber}`);
+          fetchPendingRegistrations();
+          showToast({ message: "Registration deleted successfully!", type: "success" });
+        } catch (error) {
+          showToast({ message: "Failed to delete registration", type: "error" });
+        }
+      }
+    );
+  };
+
+  // ✅ NEW: Get time remaining
+  const getTimeRemaining = (createdAt) => {
+    const created = new Date(createdAt);
+    const expiresAt = new Date(created.getTime() + 60 * 60 * 1000);
+    const now = new Date();
+    const diff = expiresAt - now;
+    
+    if (diff <= 0) return "Expired";
+    
+    const minutes = Math.floor(diff / 60000);
+    return `${minutes} min left`;
+  };
  
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -154,6 +230,16 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
 
       showToast({ message: "Member added successfully!", type: "success" });
 
+      // ✅ NEW: Delete registration if it was from pending
+      if (isFromRegistration) {
+        try {
+          await api.delete(`/api/pending-member-registrations/${isFromRegistration}`);
+          fetchPendingRegistrations();
+        } catch (error) {
+          console.error("Failed to delete registration:", error);
+        }
+      }
+
       setFormData({
         full_name: "",
         gender: "",
@@ -171,6 +257,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
       });
       setSelectedImage(null);
       setImagePreview(null);
+      setIsFromRegistration(false);
 
     } catch (err) {
       console.error("❌ Error submitting form:", err);
@@ -197,6 +284,64 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
             Fill out the form to register a new prepaid member.
           </p>
         </div>
+
+        {/* ✅ NEW: Pending Registrations Section */}
+        {pendingRegistrations.length > 0 && (
+          <div className="mb-6 bg-gray-50 border border-gray-300 rounded-lg p-4">
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-800">
+                  Pending Registrations ({pendingRegistrations.length})
+                </h2>
+                <p className="text-xs text-gray-600">Click a registration to review and approve</p>
+              </div>
+              <button
+                onClick={() => setShowRegistrations(!showRegistrations)}
+                className="text-gray-700 hover:text-gray-900 text-xs font-medium underline"
+              >
+                {showRegistrations ? "Hide" : "Show"}
+              </button>
+            </div>
+
+            {showRegistrations && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {pendingRegistrations.map((registration) => (
+                  <div
+                    key={registration.registration_number}
+                    onClick={() => handleRegistrationClick(registration)}
+                    className="bg-white border border-gray-300 rounded-lg p-3 cursor-pointer hover:shadow-md hover:border-gray-500 transition-all"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="bg-gray-800 text-white px-2 py-1 rounded text-xs font-medium">
+                        {registration.registration_number}
+                      </span>
+                      <button
+                        onClick={(e) => handleDeleteRegistration(registration.registration_number, e)}
+                        className="text-gray-400 hover:text-red-600 text-sm font-bold"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    
+                    <h3 className="font-semibold text-base text-gray-900">
+                      {registration.full_name}
+                    </h3>
+                    
+                    <p className="text-xs text-gray-600 mt-1">
+                      {registration.email}
+                    </p>
+                    
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">
+                        Expires: {getTimeRemaining(registration.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <form
           onSubmit={handleSubmit}
@@ -242,9 +387,9 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
                 <input
                   type="text"
                   name="password"
-                  value="1234"
-                  readOnly
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-gray-100 text-gray-700 cursor-not-allowed"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-gray-100 text-gray-700"
                 />
               </div>
               <div>

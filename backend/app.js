@@ -11,6 +11,8 @@ const dbSuperAdmin = require('./db');
 const loginroute = require("./routes/login");
 const authRoute = require("./routes/auth");
 const PartnerRegistration = require("./routes/PartnerRegistration");
+const memberRegistration = require("./routes/memberRegistration");
+
 const partnerRfidsRoutes = require('./routes/partnerRfids');
 const SuperAdminTransactions = require('./routes/SuperAdminTransactions');
 
@@ -87,6 +89,8 @@ app.use("/uploads", express.static(path.join(__dirname, "..","public" ,"uploads"
 app.use("/api", loginroute);
 app.use("/api", authRoute);
 app.use("/api", PartnerRegistration);
+app.use("/api", memberRegistration);
+
 app.use("/api/partner-orders", partnerOrdersRoutes);
 app.use('/api/partner-rfids', partnerRfidsRoutes);
 app.use("/api", getExerciseLibrary);

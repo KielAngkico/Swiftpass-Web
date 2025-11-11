@@ -24,6 +24,8 @@ import { scheduleTokenRefresh } from "./api";
 import { ToastProvider } from "./components/ToastManager";
 
 import PartnerRegistration from "./Frontend/PartnerRegistrationForm";
+import DayPassRegistration from "./Frontend/DayPassRegistration"; 
+import MemberRegistration from "./Frontend/MemberRegistration"; s
 
 
 const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));
@@ -106,9 +108,8 @@ const AuthProvider = ({ children }) => {
 
 useEffect(() => {
   const checkAuth = async () => {
-    const publicPaths = ['/', '/partner-registration'];
+   const publicPaths = ['/', '/partner-registration', '/daypass-registration', '/member-registration'];
     const currentPath = window.location.pathname;
-    
     // Only skip auth check on public paths if user is not already logged in
     if (publicPaths.includes(currentPath) && !user) {
       console.log("🔓 Public page - skipping auth");
@@ -267,19 +268,21 @@ const AppRoutes = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  if (!user) {
-    return (
-      <ToastProvider>
-        <Suspense fallback={<p>Loading page...</p>}>
-          <Routes>
-            <Route path="/" element={<Homepage />} />
-            <Route path="/partner-registration" element={<PartnerRegistration />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
-      </ToastProvider>
-    );
-  }
+ if (!user) {
+  return (
+    <ToastProvider>
+      <Suspense fallback={<p>Loading page...</p>}>
+        <Routes>
+          <Route path="/" element={<Homepage />} />
+          <Route path="/partner-registration" element={<PartnerRegistration />} />
+          <Route path="/daypass-registration" element={<DayPassRegistration />} />
+          <Route path="/member-registration" element={<MemberRegistration />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </ToastProvider>
+  );
+}
 
   return (
     <ToastProvider>

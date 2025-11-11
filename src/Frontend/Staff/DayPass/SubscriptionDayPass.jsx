@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../../../api";
 import { useToast } from "../../../components/ToastManager";
+import { useWebcam } from "../../../hooks/useWebcam";
 
 function formatDateToLocalString(date) {
   const yyyy = date.getFullYear();
@@ -25,16 +26,34 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [cashlessRef, setCashlessRef] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId;
   const staffName = staffUser?.name || "";
   const { showToast } = useToast();
+
+  // Use the custom webcam hook
+  const {
+    isWebcamActive,
+    videoRef,
+    canvasRef,
+    startWebcam,
+    stopWebcam,
+    capturePhoto
+  } = useWebcam(showToast);
 
   const validateEmail = (email) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const validateMobile = (number) =>
     /^[0-9]{7,15}$/.test(number);
+
+  useEffect(() => {
+    if (rfid_tag) {
+      setRfid(rfid_tag);
+    }
+  }, [rfid_tag]);
 
   useEffect(() => {
     if (!adminId) return;
@@ -62,8 +81,8 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
       setLoadingCheck(true);
       try {
         const res = await api.get(`/api/session-fee?admin_id=${adminId}`);
-        setSessionFee(res.data.session_fee || 0);
-        setKeyFobFee(res.data.key_fob_fee || 0);
+        setSessionFee(parseFloat(res.data.session_fee) || 0);
+        setKeyFobFee(parseFloat(res.data.key_fob_fee) || 0);
       } catch (err) {
         console.error("❌ Failed to fetch fees:", err);
         setSessionFee(0);
@@ -76,26 +95,43 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
     fetchFees();
   }, [adminId]);
 
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
+      setSelectedImage(file);
+    }
+  };
+
+  const handleCapturePhoto = () => {
+    capturePhoto((file, preview) => {
+      setSelectedImage(file);
+      setImagePreview(preview);
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validateEmail(email)) {
-showToast({ message: "Please enter a valid email address.", type: "error" });
+      showToast({ message: "Please enter a valid email address.", type: "error" });
       return;
     }
 
     if (!validateMobile(mobileNumber)) {
-showToast({ message: "Please enter a valid mobile number (7-15 digits).", type: "error" });
+      showToast({ message: "Please enter a valid mobile number (7-15 digits).", type: "error" });
       return;
     }
 
-    if (paymentMethod === "Cashless" && cashlessRef.trim() === "") {
-showToast({ message: "Please enter your cashless payment reference number.", type: "error" });
+    if (paymentMethod && paymentMethod.toLowerCase() !== "cash" && cashlessRef.trim() === "") {
+      showToast({ message: "Please enter your cashless payment reference number.", type: "error" });
       return;
     }
 
     if (!adminId || !staffName) {
-showToast({ message: "Staff info missing. Please log in again.", type: "error" });
+      showToast({ message: "Staff info missing. Please log in again.", type: "error" });
       return;
     }
 
@@ -105,34 +141,42 @@ showToast({ message: "Staff info missing. Please log in again.", type: "error" }
       const expires_at = new Date();
       expires_at.setHours(23, 59, 59, 999);
 
-      const payload = {
-        guest_name: guestName,
-        gender,
-        rfid_tag: rfid,
-        system_type: "subscription",
-        staff_name: staffName,
-        admin_id: adminId,
-        mobile_number: mobileNumber,
-        email,
-        expires_at: formatDateToLocalString(expires_at),
-        payment_method: paymentMethod,
-        cashless_reference: paymentMethod === "Cashless" ? cashlessRef.trim() : "",
-        rfid_keyfob_fee: keyFobFee,
-      };
+      const formData = new FormData();
+      formData.append("guest_name", guestName);
+      formData.append("gender", gender);
+      formData.append("rfid_tag", rfid);
+      formData.append("system_type", "subscription");
+      formData.append("staff_name", staffName);
+      formData.append("admin_id", adminId);
+      formData.append("mobile_number", mobileNumber);
+      formData.append("email", email);
+      formData.append("expires_at", formatDateToLocalString(expires_at));
+      formData.append("payment_method", paymentMethod);
+      formData.append("cashless_reference", paymentMethod && paymentMethod.toLowerCase() !== "cash" ? cashlessRef.trim() : "");
+      formData.append("rfid_keyfob_fee", keyFobFee);
 
-      console.log("Submitting payload:", payload);
+      if (selectedImage) {
+        formData.append("guest_image", selectedImage);
+      }
 
-      await api.post("/api/register-session", payload);
+      console.log("📤 Sending FormData");
 
-showToast({ message: "Day pass session registered successfully!", type: "success" });
+      await api.post("/api/register-session", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      showToast({ message: "Day pass session registered successfully!", type: "success" });
       setGuestName("");
       setGender("");
       setMobileNumber("");
       setEmail("");
       setCashlessRef("");
+      setPaymentMethod("");
+      setSelectedImage(null);
+      setImagePreview(null);
     } catch (error) {
       console.error("Error registering session:", error);
-showToast({ message: "Failed to register day pass session. Please try again.", type: "error" });
+      showToast({ message: error.response?.data?.error || "Failed to register day pass session. Please try again.", type: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -150,10 +194,10 @@ showToast({ message: "Failed to register day pass session. Please try again.", t
           </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white rounded-lg shadow"
+        <div
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white rounded-lg shadow"
         >
+          {/* Column 1 & 2: Form Fields */}
           <div className="md:col-span-2 flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -223,6 +267,7 @@ showToast({ message: "Failed to register day pass session. Please try again.", t
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
+                  required
                   className="w-full border border-gray-300 px-2 py-1.5 rounded text-sm bg-white"
                 >
                   <option value="">Select</option>
@@ -255,8 +300,8 @@ showToast({ message: "Failed to register day pass session. Please try again.", t
               <div>
                 <label className="block mb-1 text-xs text-gray-600">RFID Tag Fee (₱)</label>
                 <input
-                  type="number"
-                  value={keyFobFee}
+                  type="text"
+                  value={`₱${(keyFobFee || 0).toFixed(2)}`}
                   readOnly
                   className="w-full border border-gray-200 bg-gray-50 px-2 py-1.5 rounded text-sm text-gray-700"
                 />
@@ -264,8 +309,8 @@ showToast({ message: "Failed to register day pass session. Please try again.", t
               <div>
                 <label className="block mb-1 text-xs text-gray-600">Session Fee (₱)</label>
                 <input
-                  type="number"
-                  value={sessionFee}
+                  type="text"
+                  value={`₱${(sessionFee || 0).toFixed(2)}`}
                   readOnly
                   className="w-full border border-gray-200 bg-gray-50 px-2 py-1.5 rounded text-sm text-gray-700"
                 />
@@ -274,7 +319,7 @@ showToast({ message: "Failed to register day pass session. Please try again.", t
 
             <div>
               <button
-                type="submit"
+                onClick={handleSubmit}
                 disabled={submitting || loadingCheck}
                 className="w-1/2 mt-2 px-4 py-2 rounded bg-black text-white text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
               >
@@ -282,7 +327,78 @@ showToast({ message: "Failed to register day pass session. Please try again.", t
               </button>
             </div>
           </div>
-        </form>
+
+          {/* Column 3: ID Photo (School ID Size) */}
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-gray-700">Guest Photo</label>
+            
+            {/* Photo Display Box - ID Size (2:3 ratio like school ID) */}
+            <div className="w-40 h-52 border-2 border-gray-300 rounded bg-gray-50 overflow-hidden mx-auto">
+              {isWebcamActive ? (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : imagePreview ? (
+                <img
+                  src={imagePreview}
+                  alt="Guest"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <span className="text-gray-400 text-xs text-center px-2">No Photo</span>
+                </div>
+              )}
+            </div>
+
+            {/* Hidden canvas */}
+            <canvas ref={canvasRef} className="hidden" />
+
+            {/* Control Buttons */}
+            <div className="flex flex-col gap-1.5">
+              {!isWebcamActive ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={startWebcam}
+                    className="w-full px-2 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
+                  >
+                    📷 Camera
+                  </button>
+                  <label className="w-full px-2 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 cursor-pointer text-center">
+                    📁 Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCapturePhoto}
+                    className="w-full px-2 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700"
+                  >
+                    📸 Capture
+                  </button>
+                  <button
+                    type="button"
+                    onClick={stopWebcam}
+                    className="w-full px-2 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700"
+                  >
+                    ✖ Cancel
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );

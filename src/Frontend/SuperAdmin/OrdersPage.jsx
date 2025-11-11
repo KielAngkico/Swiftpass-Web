@@ -408,9 +408,9 @@ const OrdersPage = () => {
       <SuperAdminSidebar />
       
       <main className="flex-1 p-4">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Partner Orders</h1>
-          <p className="text-gray-600 text-sm">Manage and process partner orders</p>
+        <div className="mb-4">
+          <h1 className="text-xl font-semibold text-gray-800 ">Partner Orders</h1>
+          <p className="text-gray-600 text-xs">Manage and process partner orders</p>
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">

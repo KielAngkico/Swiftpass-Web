@@ -95,26 +95,26 @@ const SuperAdminTransactions = () => {
   const orderPayments = filtered.filter(txn => txn.transaction_type === "Order Payment").length;
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-gray-50">
       <SuperAdminSidebar />
       
-      <main className="flex-1 p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Super Admin Transactions</h1>
-          <p className="text-sm text-gray-600">Overview of all admin transactions</p>
+      <main className="flex-1 p-4">
+        <div className="mb-4">
+          <h1 className="text-xl font-semibold text-gray-800">Transactions</h1>
+          <p className="text-xs text-gray-600">Overview of all admin transactions</p>
         </div>
 
         {/* KPI Boxes */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <KpiBox title="💰 Total Revenue" value={`₱${totalRevenue.toFixed(2)}`} color="text-green-600" />
-          <KpiBox title="📄 Total Transactions" value={totalTransactions} color="text-blue-600" />
-          <KpiBox title="💵 Cash Revenue" value={`₱${cashRevenue.toFixed(2)}`} color="text-teal-600" />
-          <KpiBox title="📲 GCash Revenue" value={`₱${gcashRevenue.toFixed(2)}`} color="text-purple-600" />
+          <KpiBox title="Total Revenue" value={`₱${totalRevenue.toFixed(2)}`} color="text-green-600" />
+          <KpiBox title="Total Transactions" value={totalTransactions} color="text-blue-600" />
+          <KpiBox title="Cash Revenue" value={`₱${cashRevenue.toFixed(2)}`} color="text-teal-600" />
+          <KpiBox title="GCash Revenue" value={`₱${gcashRevenue.toFixed(2)}`} color="text-purple-600" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-6">
-          <KpiBox title="📦 Package Purchases" value={packagePurchases} color="text-orange-600" />
-          <KpiBox title="🛒 Order Payments" value={orderPayments} color="text-indigo-600" />
+          <KpiBox title=" Package Purchases" value={packagePurchases} color="text-orange-600" />
+          <KpiBox title="Order Payments" value={orderPayments} color="text-indigo-600" />
         </div>
 
         {/* Filters */}
@@ -123,7 +123,7 @@ const SuperAdminTransactions = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <input
               type="text"
-              placeholder="🔍 Search Reference/Order/Transaction ID"
+              placeholder=" Search Reference/Order/Transaction ID"
               className="w-full p-2 border border-gray-300 rounded text-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}

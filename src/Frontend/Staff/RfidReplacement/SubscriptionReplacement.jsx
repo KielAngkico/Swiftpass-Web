@@ -3,17 +3,15 @@ import api from "../../../api";
 import { useWebSocket } from "../../../contexts/WebSocketContext";
 import { useToast } from "../../../components/ToastManager";
 
-
 const SubscriptionReplacement = ({ staffUser }) => {
   const { 
     replacementScannedRfid, 
     clearReplacementScannedRfid,
-    toggleReplacementScanMode  // ✅ ADD THIS
+    toggleReplacementScanMode
   } = useWebSocket();
   
   const [adminId, setAdminId] = useState(null);
   const [staffName, setStaffName] = useState("");
-
   const [members, setMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMember, setSelectedMember] = useState(null);
@@ -24,8 +22,7 @@ const SubscriptionReplacement = ({ staffUser }) => {
   const [reference, setReference] = useState("");
   const [loading, setLoading] = useState(false);
   const [scanActive, setScanActive] = useState(false);
-      const { showToast } = useToast();
-  
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -83,15 +80,35 @@ const SubscriptionReplacement = ({ staffUser }) => {
     fetchPaymentMethods();
   }, [adminId]);
 
+  // ✅ UPDATED: Handle replacement scan response
   useEffect(() => {
     if (replacementScannedRfid && scanActive) {
-      console.log(" RFID scanned from WebSocket:", replacementScannedRfid);
-      setNewRfidTag(replacementScannedRfid);
+      console.log("🔄 Replacement RFID scanned:", replacementScannedRfid);
+      
+      // Check if it's an error response
+      if (replacementScannedRfid.status === "error") {
+        showToast({ 
+          message: replacementScannedRfid.reason || "Invalid RFID for replacement", 
+          type: "error" 
+        });
+        setScanActive(false);
+        clearReplacementScannedRfid();
+        toggleReplacementScanMode(false);
+        return;
+      }
+      
+      // Success - set the RFID tag
+      const scannedTag = replacementScannedRfid.rfid_tag || replacementScannedRfid;
+      setNewRfidTag(scannedTag);
       setScanActive(false);
-showToast({ message: " RFID captured: " + replacementScannedRfid, type: "success" });
+      showToast({ 
+        message: `✅ RFID captured: ${scannedTag}`, 
+        type: "success" 
+      });
       clearReplacementScannedRfid();
+      toggleReplacementScanMode(false);
     }
-  }, [replacementScannedRfid, scanActive, clearReplacementScannedRfid]);
+  }, [replacementScannedRfid, scanActive, clearReplacementScannedRfid, showToast, toggleReplacementScanMode]);
 
   const fetchMember = async () => {
     if (!searchTerm) return;
@@ -112,30 +129,26 @@ showToast({ message: " RFID captured: " + replacementScannedRfid, type: "success
       } else if (filtered.length > 1) {
         setMembers(filtered);
         setSelectedMember(null);
-showToast({ message: `Found ${filtered.length} members. Please select one.`, type: "info" });
+        showToast({ message: `Found ${filtered.length} members. Please select one.`, type: "info" });
       } else {
         setSelectedMember(null);
-showToast({ message: "Member not found or not a subscription account.", type: "error" });
+        showToast({ message: "Member not found or not a subscription account.", type: "error" });
       }
     } catch (err) {
       console.error("❌ Error fetching member:", err);
-showToast({ message: "Error fetching member data.", type: "error" });
+      showToast({ message: "Error fetching member data.", type: "error" });
       setSelectedMember(null);
     } finally {
       setLoading(false);
     }
   };
 
-   const startScan = () => {
-    console.log(" Scan button clicked - activating replacement scan mode");
-    
-     toggleReplacementScanMode(true);
-    
-     setScanActive(true);
+  const startScan = () => {
+    console.log("🔄 Starting replacement scan mode");
+    toggleReplacementScanMode(true);
+    setScanActive(true);
     setNewRfidTag("");
-showToast({ message: "scanning active - tap RFID tag now", type: "info" });
-    
-    console.log("Replacement scan mode activation sent to backend");
+    showToast({ message: "🔍 Scanning active - tap new RFID tag now", type: "info" });
   };
 
   const handleRfidInputChange = (e) => {
@@ -143,7 +156,7 @@ showToast({ message: "scanning active - tap RFID tag now", type: "info" });
     setNewRfidTag(value);
     if (value.length > 0 && scanActive) {
       setScanActive(false);
-showToast({ message: "RFID captured: " + value, type: "success" });
+      showToast({ message: "✅ RFID captured: " + value, type: "success" });
       toggleReplacementScanMode(false);
     }
   };
@@ -152,22 +165,22 @@ showToast({ message: "RFID captured: " + value, type: "success" });
     e.preventDefault();
 
     if (!selectedMember || !newRfidTag || !paymentMethod || !replacementFee) {
-showToast({ message: "Please complete all required fields.", type: "error" });
+      showToast({ message: "Please complete all required fields.", type: "error" });
       return;
     }
 
     if (!staffName || !adminId) {
-showToast({ message: "Missing staff or admin information.", type: "error" });
+      showToast({ message: "Missing staff or admin information.", type: "error" });
       return;
     }
 
     if (paymentMethod.toLowerCase() !== "cash" && !reference.trim()) {
-showToast({ message: `Please enter ${paymentMethod} reference number.`, type: "error" });
+      showToast({ message: `Please enter ${paymentMethod} reference number.`, type: "error" });
       return;
     }
 
     if (newRfidTag.trim() === selectedMember.rfid_tag) {
-showToast({ message: "New RFID tag must be different from the current one.", type: "error" });
+      showToast({ message: "New RFID tag must be different from the current one.", type: "error" });
       return;
     }
 
@@ -184,7 +197,7 @@ showToast({ message: "New RFID tag must be different from the current one.", typ
 
       await api.put(`/api/replace-member-rfid/${selectedMember.id}`, payload);
 
-showToast({ message: "RFID replaced successfully!", type: "success" });
+      showToast({ message: "✅ RFID replaced successfully!", type: "success" });
       setSelectedMember(null);
       setSearchTerm("");
       setNewRfidTag("");
@@ -192,15 +205,23 @@ showToast({ message: "RFID replaced successfully!", type: "success" });
       setReference("");
       setMembers([]);
       setScanActive(false);
-      
       toggleReplacementScanMode(false);
     } catch (err) {
       console.error("Failed to replace RFID:", err);
-showToast({ message: err.response?.data?.message || "Failed to replace RFID.", type: "error" });
+      showToast({ message: err.response?.data?.message || "Failed to replace RFID.", type: "error" });
     } finally {
       setLoading(false);
     }
   };
+
+  // ✅ Handle scan cancellation when component unmounts or scan is cancelled
+  useEffect(() => {
+    return () => {
+      if (scanActive) {
+        toggleReplacementScanMode(false);
+      }
+    };
+  }, [scanActive, toggleReplacementScanMode]);
 
   return (
     <div className="min-h-screen w-fit bg-white p-2">
@@ -372,7 +393,6 @@ showToast({ message: err.response?.data?.message || "Failed to replace RFID.", t
             >
               {loading ? "Processing..." : "Confirm Replacement"}
             </button>
-
           </div>
 
           <div className="flex flex-col items-center gap-3 w-80">

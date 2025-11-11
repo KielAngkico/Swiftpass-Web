@@ -323,7 +323,7 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
                 disabled={submitting || loadingCheck}
                 className="w-1/2 mt-2 px-4 py-2 rounded bg-black text-white text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
               >
-                {submitting ? "Submitting..." : "Add Member"}
+                {submitting ? "Submitting..." : "Add Guestsr"}
               </button>
             </div>
           </div>

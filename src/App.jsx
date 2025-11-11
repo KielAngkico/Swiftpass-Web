@@ -25,7 +25,7 @@ import { ToastProvider } from "./components/ToastManager";
 
 import PartnerRegistration from "./Frontend/PartnerRegistrationForm";
 import DayPassRegistration from "./Frontend/DayPassRegistration"; 
-import MemberRegistration from "./Frontend/MemberRegistration"; s
+import MemberRegistration from "./Frontend/MemberRegistration"; 
 
 
 const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));

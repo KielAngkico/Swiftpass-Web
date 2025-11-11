@@ -49,8 +49,9 @@ router.get("/available-inventory", async (req, res) => {
     res.status(500).json({ error: "Server error", details: err.message });
   }
 });
+
 // ========================================
-// CREATE NEW ORDER (Partner) - Updated to use inventory prices
+// CREATE NEW ORDER (Partner)
 // ========================================
 router.post("/create", async (req, res) => {
   const conn = await db.promise().getConnection();
@@ -59,7 +60,6 @@ router.post("/create", async (req, res) => {
 
     const { admin_id, items, notes } = req.body;
 
-    // Validate
     if (!admin_id || !items || items.length === 0) {
       await conn.rollback();
       return res.status(400).json({ error: "Admin ID and items are required" });
@@ -87,11 +87,9 @@ router.post("/create", async (req, res) => {
         });
       }
 
-      // Override with actual selling price from inventory
       item.unit_price = inventoryItem.selling_price;
     }
 
-    // Calculate total from inventory prices
     const total_amount = items.reduce((sum, item) => {
       return sum + (item.quantity * item.unit_price);
     }, 0);
@@ -139,38 +137,7 @@ router.post("/create", async (req, res) => {
 });
 
 // ========================================
-// MARK AS RECEIVED (Partner) - Updated flow
-// ========================================
-// --- Partner clicks "Received" ---
-router.put("/:id/receive", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const [result] = await query(`
-      UPDATE PartnerOrders
-      SET status = 'received',
-          received_at = NOW()
-      WHERE id = ? AND status = 'delivering'
-    `, [id]);
-
-    if (result.affectedRows === 0) {
-      const [[order]] = await query(`SELECT id, status FROM PartnerOrders WHERE id = ?`, [id]);
-      if (!order) return res.status(404).json({ error: "Order not found" });
-      return res.status(400).json({
-        error: `Order cannot be marked as received (current status: ${order.status})`,
-      });
-    }
-
-    res.json({ message: "Order marked as received successfully." });
-  } catch (err) {
-    console.error("Receive order error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-
-// ========================================
-// COMPLETE ORDER WITH PAYMENT (SuperAdmin) - New endpoint
+// COMPLETE ORDER WITH PAYMENT (SuperAdmin) - SIMPLIFIED
 // ========================================
 router.put("/:id/complete-with-payment", async (req, res) => {
   const conn = await db.promise().getConnection();
@@ -183,13 +150,13 @@ router.put("/:id/complete-with-payment", async (req, res) => {
     // Get order details
     const [[order]] = await conn.query(`
       SELECT * FROM PartnerOrders 
-      WHERE id = ? AND status = 'received'
+      WHERE id = ? AND status = 'processing'
     `, [id]);
 
     if (!order) {
       await conn.rollback();
       return res.status(404).json({ 
-        error: "Order not found or not in received status" 
+        error: "Order not found or not in processing status" 
       });
     }
 
@@ -227,12 +194,12 @@ router.put("/:id/complete-with-payment", async (req, res) => {
     }
 
     // Create SuperAdmin transaction
-// Create SuperAdmin transaction
-const [txnResult] = await conn.query(`
-  INSERT INTO SuperAdminTransactions 
-  (admin_id, order_id, transaction_type, amount, payment_method, reference_number)
-  VALUES (?, ?, 'Order Payment', ?, ?, ?)
-`, [order.admin_id, id, order.total_amount, payment_method, reference_number || null]);
+    const [txnResult] = await conn.query(`
+      INSERT INTO SuperAdminTransactions 
+      (admin_id, order_id, transaction_type, amount, payment_method, reference_number)
+      VALUES (?, ?, 'Order Payment', ?, ?, ?)
+    `, [order.admin_id, id, order.total_amount, payment_method, reference_number || null]);
+    
     const transaction_id = txnResult.insertId;
 
     // Get order items for transaction details
@@ -302,9 +269,9 @@ router.get("/payment-options", async (req, res) => {
   }
 });
 
-// Keep existing endpoints: /all, /:id, /process, /ship, /cancel, /allocated-rfids
-// (Previous implementations remain the same)
-
+// ========================================
+// GET PARTNER ORDERS
+// ========================================
 router.get("/partner/:admin_id", async (req, res) => {
   try {
     const { admin_id } = req.params;
@@ -329,8 +296,6 @@ router.get("/partner/:admin_id", async (req, res) => {
         po.payment_status,
         po.notes,
         po.processed_at,
-        po.shipped_at,
-        po.received_at,
         po.completed_at
       FROM PartnerOrders po
       ${whereClause}
@@ -364,6 +329,9 @@ router.get("/partner/:admin_id", async (req, res) => {
   }
 });
 
+// ========================================
+// GET ALL ORDERS (SuperAdmin)
+// ========================================
 router.get("/all", async (req, res) => {
   try {
     const { status } = req.query;
@@ -382,8 +350,6 @@ router.get("/all", async (req, res) => {
         po.payment_status,
         po.notes,
         po.processed_at,
-        po.shipped_at,
-        po.received_at,
         po.completed_at,
         po.admin_id,
         aa.gym_name,
@@ -422,6 +388,9 @@ router.get("/all", async (req, res) => {
   }
 });
 
+// ========================================
+// PROCESS ORDER (Allocate Inventory)
+// ========================================
 router.put("/:id/process", async (req, res) => {
   const conn = await db.promise().getConnection();
   try {
@@ -457,7 +426,6 @@ router.put("/:id/process", async (req, res) => {
         if (item.item_type === 'partner_rfid') rfidRole = 'Partner';
         else if (item.item_type === 'daypass_rfid') rfidRole = 'DayPass';
 
-        // Check RegisteredRfid table (source of truth for RFIDs)
         const [availableRfids] = await conn.query(`
           SELECT id, rfid_tag FROM RegisteredRfid 
           WHERE status = 'in_stock' 
@@ -470,12 +438,12 @@ router.put("/:id/process", async (req, res) => {
             item: item.item_name,
             requested: remainingQty,
             allocated: 0,
-            error: `No ${rfidRole} RFIDs available in RegisteredRfid table`
+            error: `No ${rfidRole} RFIDs available`
           });
           continue;
         }
 
-        // Allocate RFIDs in RegisteredRfid table
+        // Allocate RFIDs
         for (const rfid of availableRfids) {
           await conn.query(`
             UPDATE RegisteredRfid 
@@ -487,8 +455,7 @@ router.put("/:id/process", async (req, res) => {
           `, [order.admin_id, id, rfid.id]);
         }
 
-        // Update SuperAdminInventory (sync the count)
-        // Use simple deduction without safety check since RegisteredRfid is the source of truth
+        // Update inventory count
         await conn.query(`
           UPDATE SuperAdminInventory 
           SET quantity = GREATEST(0, quantity - ?),
@@ -496,7 +463,7 @@ router.put("/:id/process", async (req, res) => {
           WHERE name = ?
         `, [availableRfids.length, item.item_name]);
 
-        // Update order item status
+        // Update order item
         const newAllocated = item.allocated_quantity + availableRfids.length;
         const newStatus = newAllocated >= item.quantity ? 'fully_allocated' : 'partially_allocated';
 
@@ -516,50 +483,28 @@ router.put("/:id/process", async (req, res) => {
         });
 
       } else {
-        // ===== NON-RFID ITEMS (PCB, locks, buttons, etc.) =====
+        // ===== NON-RFID ITEMS =====
         const [[inventoryItem]] = await conn.query(`
           SELECT id, name, quantity FROM SuperAdminInventory 
           WHERE name = ?
         `, [item.item_name]);
 
-        if (!inventoryItem) {
+        if (!inventoryItem || inventoryItem.quantity < remainingQty) {
           allocationResults.push({
             item: item.item_name,
             requested: remainingQty,
             allocated: 0,
-            error: `Item not found in inventory`
+            error: `Insufficient stock (Available: ${inventoryItem?.quantity || 0})`
           });
           continue;
         }
 
-        if (inventoryItem.quantity < remainingQty) {
-          allocationResults.push({
-            item: item.item_name,
-            requested: remainingQty,
-            allocated: 0,
-            error: `Insufficient stock (Available: ${inventoryItem.quantity})`
-          });
-          continue;
-        }
-
-        // Safe deduction for physical items (WITH check)
-        const [deductResult] = await conn.query(`
+        await conn.query(`
           UPDATE SuperAdminInventory 
           SET quantity = quantity - ?,
               updated_at = NOW()
-          WHERE id = ?
-            AND quantity >= ?
+          WHERE id = ? AND quantity >= ?
         `, [remainingQty, inventoryItem.id, remainingQty]);
-
-        if (deductResult.affectedRows === 0) {
-          allocationResults.push({
-            item: item.item_name,
-            requested: remainingQty,
-            allocated: 0,
-            error: `Inventory depleted during processing (concurrent order detected)`
-          });
-          continue;
-        }
 
         await conn.query(`
           UPDATE PartnerOrderItems 
@@ -572,8 +517,7 @@ router.put("/:id/process", async (req, res) => {
           item: item.item_name,
           type: 'Inventory',
           requested: remainingQty,
-          allocated: remainingQty,
-          remaining_stock: inventoryItem.quantity - remainingQty
+          allocated: remainingQty
         });
       }
     }
@@ -600,28 +544,10 @@ router.put("/:id/process", async (req, res) => {
     conn.release();
   }
 });
-router.put("/:id/ship", async (req, res) => {
-  try {
-    const { id } = req.params;
 
-    const [result] = await query(`
-      UPDATE PartnerOrders 
-      SET status = 'delivering',
-          shipped_at = NOW()
-      WHERE id = ? AND status = 'processing'
-    `, [id]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Order not found or not in processing status" });
-    }
-
-    res.json({ message: "Order marked as delivering" });
-  } catch (err) {
-    console.error("Ship order error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
+// ========================================
+// CANCEL ORDER
+// ========================================
 router.put("/:id/cancel", async (req, res) => {
   const conn = await db.promise().getConnection();
   try {
@@ -645,12 +571,12 @@ router.put("/:id/cancel", async (req, res) => {
     }
 
     const [orderItems] = await conn.query(`
-      SELECT item_name, item_type, allocated_quantity 
+      SELECT item_name, allocated_quantity 
       FROM PartnerOrderItems 
       WHERE order_id = ? AND allocated_quantity > 0
     `, [id]);
 
-    // 🔥 Restore inventory for ALL items (including RFIDs)
+    // Restore inventory
     for (const item of orderItems) {
       await conn.query(`
         UPDATE SuperAdminInventory 
@@ -660,7 +586,7 @@ router.put("/:id/cancel", async (req, res) => {
       `, [item.allocated_quantity, item.item_name]);
     }
 
-    // Release RFIDs back to in_stock
+    // Release RFIDs
     await conn.query(`
       UPDATE RegisteredRfid 
       SET status = 'in_stock',
@@ -689,6 +615,9 @@ router.put("/:id/cancel", async (req, res) => {
   }
 });
 
+// ========================================
+// GET ALLOCATED RFIDs
+// ========================================
 router.get("/:id/allocated-rfids", async (req, res) => {
   try {
     const { id } = req.params;

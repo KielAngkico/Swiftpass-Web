@@ -128,7 +128,6 @@ router.get("/pending-registrations", async (req, res) => {
   }
 });
 
-// --- Get Single Registration by Number ---
 router.get("/pending-registrations/:registration_number", async (req, res) => {
   try {
     const { registration_number } = req.params;
@@ -154,7 +153,6 @@ router.get("/pending-registrations/:registration_number", async (req, res) => {
   }
 });
 
-// --- Delete/Reject Registration ---
 router.delete("/pending-registrations/:registration_number", async (req, res) => {
   try {
     const { registration_number } = req.params;
@@ -178,7 +176,6 @@ router.delete("/pending-registrations/:registration_number", async (req, res) =>
   }
 });
 
-// --- Auto-cleanup Expired Registrations (optional cron job) ---
 router.post("/cleanup-expired-registrations", async (req, res) => {
   try {
     const [result] = await query(`
@@ -197,7 +194,6 @@ router.post("/cleanup-expired-registrations", async (req, res) => {
   }
 });
 
-// --- Update Registration Status (when approved/converted to partner) ---
 router.put("/pending-registrations/:registration_number/approve", async (req, res) => {
   try {
     const { registration_number } = req.params;

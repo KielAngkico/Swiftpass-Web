@@ -475,7 +475,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
                     name="emergency_contact_relationship"
                     value={formData.emergency_contact_relationship}
                     onChange={handleChange}
-                    placeholder="e.g., Mother, Father, Spouse"
+                    placeholder="Relationship"
                     className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
                   />
                 </div>

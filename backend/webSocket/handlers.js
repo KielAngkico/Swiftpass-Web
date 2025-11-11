@@ -529,10 +529,13 @@ async function handleMember(member, rfid_tag, location) {
     let logId = null;
 
     if (isEntry) {
+      // ✅ Tailgate check
       if (isCurrentlyInside) {
         reason = "Already inside";
         accessGranted = false;
-      } else if (admin.system_type === "prepaid_entry") {
+      } 
+      // ✅ Prepaid Entry System
+      else if (admin.system_type === "prepaid_entry") {
         const [pricingRows] = await dbSuperAdmin.promise().query(
           `SELECT amount_to_pay FROM AdminPricingOptions
           WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1
@@ -626,22 +629,47 @@ async function handleMember(member, rfid_tag, location) {
             }
           }
         }
-      } else {
-        accessGranted = true;
-        try {
-          const [logResult] = await dbSuperAdmin.promise().query(
-            `INSERT INTO AdminEntryLogs
-            (rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, member_status, entry_time, location)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [rfid_tag, member.full_name, member.admin_id, staff_name, "Member", admin.system_type, "inside", new Date(), location]
-          );
-          logId = logResult.insertId;
-          console.log(`💾 Subscription entry logged with ID: ${logId}`);
-        } catch (logError) {
-          console.error("❌ Subscription entry log failed:", logError.message);
+      } 
+      // ✅ Subscription System - NOW WITH EXPIRY CHECK
+      else {
+        // ✅ NEW: Check subscription expiry
+        if (member.subscription_expiry) {
+          const expiryDate = new Date(member.subscription_expiry);
+          const now = new Date();
+          
+          if (expiryDate < now) {
+            reason = "Subscription expired";
+            accessGranted = false;
+            console.log(`❌ Subscription expired for ${member.full_name} on ${expiryDate.toISOString()}`);
+          } else {
+            accessGranted = true;
+            console.log(`✅ Subscription valid until ${expiryDate.toISOString()}`);
+          }
+        } else {
+          // If no expiry date set, grant access (backward compatibility)
+          accessGranted = true;
+          console.log(`⚠️ No subscription expiry set for ${member.full_name}`);
+        }
+
+        // ✅ Only log entry if access granted
+        if (accessGranted) {
+          try {
+            const [logResult] = await dbSuperAdmin.promise().query(
+              `INSERT INTO AdminEntryLogs
+              (rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, member_status, entry_time, location)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [rfid_tag, member.full_name, member.admin_id, staff_name, "Member", admin.system_type, "inside", new Date(), location]
+            );
+            logId = logResult.insertId;
+            console.log(`💾 Subscription entry logged with ID: ${logId}`);
+          } catch (logError) {
+            console.error("❌ Subscription entry log failed:", logError.message);
+          }
         }
       }
-    } else {
+    } 
+    // ✅ EXIT Logic
+    else {
       if (!isCurrentlyInside) {
         reason = "Not inside - cannot exit";
         accessGranted = false;
@@ -669,7 +697,7 @@ async function handleMember(member, rfid_tag, location) {
     const broadcastData = {
       type: "member-update",
       data: {
-        id: logId || lastLog?.id, // ✅ Always include ID
+        id: logId || lastLog?.id,
         rfid_tag,
         full_name: member.full_name,
         profile_image_url: member.profile_image_url,
@@ -685,7 +713,7 @@ async function handleMember(member, rfid_tag, location) {
         exit_time: !isEntry && accessGranted ? new Date().toISOString() : (lastLog?.exit_time ? new Date(lastLog.exit_time).toISOString() : null),
         location,
         admin_id: member.admin_id,
-        action: isEntry ? "entry" : "exit", // ✅ Add action field
+        action: isEntry ? "entry" : "exit",
         last_activity: (isEntry && accessGranted) ? new Date().toISOString() : 
                       (!isEntry && accessGranted) ? new Date().toISOString() : 
                       (lastLog?.exit_time ? new Date(lastLog.exit_time).toISOString() : 

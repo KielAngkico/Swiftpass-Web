@@ -143,16 +143,13 @@ const SubscriptionReplacement = ({ staffUser }) => {
     }
   };
 
-const startScan = () => {
-  if (!scanActive) {
+  const startScan = () => {
     console.log("🔄 Starting replacement scan mode");
     toggleReplacementScanMode(true);
     setScanActive(true);
     setNewRfidTag("");
     showToast({ message: "🔍 Scanning active - tap new RFID tag now", type: "info" });
-  }
-};
-
+  };
 
   const handleRfidInputChange = (e) => {
     const value = e.target.value;

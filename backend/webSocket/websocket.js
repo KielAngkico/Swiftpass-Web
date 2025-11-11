@@ -250,15 +250,24 @@ if (data.type === "member-update") {
     }
     
     // ✅ NEW: Send to Arduino clients at the same location
-    if (client.clientType === "arduino") {
-      // Send to ENTRY/EXIT arduinos regardless of admin_id (they need to control door/buzzer)
-      if (["ENTRY", "EXIT"].includes(client.location?.toUpperCase()) && 
-          client.location?.toUpperCase() === messageLocation?.toUpperCase()) {
-        client.send(JSON.stringify(data));
-        sentCount++;
-        console.log(`   ✅ Sent to Arduino at ${client.location}`);
-      }
-    }
+// ✅ NEW: Send to Arduino clients at the same location
+if (client.clientType === "arduino") {
+  // ✅ Send to ENTRY/EXIT arduinos matching the location
+  if (["ENTRY", "EXIT"].includes(client.location?.toUpperCase()) && 
+      client.location?.toUpperCase() === messageLocation?.toUpperCase()) {
+    client.send(JSON.stringify(data));
+    sentCount++;
+    console.log(`   ✅ Sent to Arduino at ${client.location}`);
+  }
+  
+  // ✅ ALSO send to LOCK arduino for ALL entry/exit events
+  if (client.location?.toUpperCase() === "LOCK" && 
+      ["ENTRY", "EXIT"].includes(messageLocation?.toUpperCase())) {
+    client.send(JSON.stringify(data));
+    sentCount++;
+    console.log(`   ✅ Sent to LOCK Arduino`);
+  }
+}
   });
 
   if (sentCount === 0) {

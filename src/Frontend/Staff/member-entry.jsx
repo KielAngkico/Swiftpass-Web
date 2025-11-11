@@ -32,7 +32,6 @@ const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get(`/api/staff-entry-logs/${user.adminId}`);
-      console.log("📊 Fetched logs from API:", res.data);
       
       // ✅ Filter out Staff, Admin, and Partner entries
       const filteredLogs = (res.data.recentEntryList || []).filter(log => {
@@ -40,16 +39,14 @@ const fetchLogs = useCallback(async () => {
         const shouldExclude = visitorType === "Staff" || visitorType === "Admin" || visitorType === "Partner";
         
         if (shouldExclude) {
-          console.log(`⏭️ Filtering out ${visitorType} entry:`, log.full_name);
         }
         
         return !shouldExclude;
       });
       
-      console.log(`✅ Filtered logs: ${filteredLogs.length} members (excluded ${res.data.recentEntryList.length - filteredLogs.length} staff/admin/partner entries)`);
       setEntryLogs(filteredLogs);
     } catch (err) {
-      console.error("❌ Error fetching logs:", err);
+      console.error("Error fetching logs:", err);
       if (err.response?.status === 401) {
         window.location.href = "/login";
       }
@@ -65,16 +62,13 @@ const fetchLogs = useCallback(async () => {
   // ✅ FIXED: Process globalEntryLogs with better deduplication
   useEffect(() => {
     if (!globalEntryLogs || globalEntryLogs.length === 0) {
-      console.log("⏭️ No globalEntryLogs to process");
       return;
     }
 
-    console.log("🔄 globalEntryLogs updated, processing...", globalEntryLogs);
 
     // Process each log entry
     globalEntryLogs.forEach((logEntry) => {
       if (!logEntry?.rfid_tag) {
-        console.log("⚠️ Skipping invalid log entry");
         return;
       }
 
@@ -84,12 +78,10 @@ const fetchLogs = useCallback(async () => {
       const uniqueKey = `${logEntry.rfid_tag}-${timestamp}-${action}`;
       
       if (processedTimestamps.current.has(uniqueKey)) {
-        console.log("⏭️ Already processed:", uniqueKey);
         return;
       }
 
       processedTimestamps.current.add(uniqueKey);
-      console.log("✅ Processing new log:", uniqueKey, logEntry);
 
       // ✅ Determine if entry or exit
       const isEntry = logEntry.status === "inside" || logEntry.member_status === "inside" || logEntry.action === "entry";
@@ -108,13 +100,11 @@ const fetchLogs = useCallback(async () => {
           deducted_amount: logEntry.deducted_amount,
         };
 
-        console.log("🟢 Setting last entry:", entryItem);
         setLastEntry(entryItem);
         
         // Remove from exit if same person re-enters
         setLastExit(prev => {
           if (prev?.rfid_tag === logEntry.rfid_tag) {
-            console.log("🔄 Clearing exit card (member re-entered)");
             return null;
           }
           return prev;
@@ -131,13 +121,11 @@ const fetchLogs = useCallback(async () => {
           system_type: logEntry.system_type,
         };
 
-        console.log("🔴 Setting last exit:", exitItem);
         setLastExit(exitItem);
         
         // Remove from entry if same person exits
         setLastEntry(prev => {
           if (prev?.rfid_tag === logEntry.rfid_tag) {
-            console.log("🔄 Clearing entry card (member exited)");
             return null;
           }
           return prev;
@@ -166,7 +154,6 @@ const fetchLogs = useCallback(async () => {
 
         if (existingIndex !== -1) {
           // ✅ UPDATE existing log
-          console.log(`🔄 Updating log at index ${existingIndex}`);
           updated[existingIndex] = {
             ...updated[existingIndex],
             id: logEntry.id || updated[existingIndex].id,
@@ -186,7 +173,6 @@ const fetchLogs = useCallback(async () => {
           };
         } else {
           // ✅ ADD new log
-          console.log(`➕ Adding new log for RFID: ${logEntry.rfid_tag}`);
           const newLog = {
             id: logEntry.id || `temp-${logEntry.rfid_tag}-${Date.now()}`,
             rfid_tag: logEntry.rfid_tag,
@@ -233,7 +219,6 @@ const fetchLogs = useCallback(async () => {
 
       setLastEntry(prev => {
         if (prev && new Date(prev.timestamp).getTime() < thirtySecondsAgo) {
-          console.log("⏰ Clearing last entry (30s passed)");
           return null;
         }
         return prev;
@@ -241,7 +226,6 @@ const fetchLogs = useCallback(async () => {
 
       setLastExit(prev => {
         if (prev && new Date(prev.timestamp).getTime() < thirtySecondsAgo) {
-          console.log("⏰ Clearing last exit (30s passed)");
           return null;
         }
         return prev;
@@ -335,7 +319,7 @@ const fetchLogs = useCallback(async () => {
             ) : (
               <div className="flex items-center gap-4">
                 <div className="w-20 h-20 rounded-lg bg-gray-200 flex items-center justify-center border-2 border-gray-300">
-                  <span className="text-3xl text-gray-400">👤</span>
+                  <span className="text-3xl text-gray-400"></span>
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-400">N/A</p>

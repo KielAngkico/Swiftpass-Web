@@ -437,6 +437,7 @@ async function handleMessage(ws, message) {
     }
 
     // ============= STAFF LOCATION =============
+// ============= STAFF LOCATION =============
 if (location.toUpperCase() === "STAFF") {
   console.log(`\n📍 ===== STAFF SCAN =====`);
   console.log(`   RFID Tag: ${rfid_tag}`);
@@ -446,7 +447,7 @@ if (location.toUpperCase() === "STAFF") {
   const allocation = await getRfidAllocation(rfid_tag);
   const targetAdminId = allocation?.allocated_to_admin || scanner_admin_id;
 
-  // ✅ CHECK IF REPLACEMENT SCAN MODE IS ACTIVE for target admin
+  // ✅ CHECK REPLACEMENT MODE FIRST (BEFORE handleStaffScan)
   if (targetAdminId && adminScanModes.replacement && adminScanModes.replacement[targetAdminId]) {
     console.log("🔄 REPLACEMENT SCAN MODE ACTIVE for Admin:", targetAdminId);
 
@@ -464,7 +465,8 @@ if (location.toUpperCase() === "STAFF") {
           admin_id: targetAdminId
         }
       });
-      return;
+      console.log(`===== END REPLACEMENT SCAN =====\n`);
+      return; // ✅ STOP HERE - don't continue to normal staff scan
     }
 
     // Check if RFID is already assigned
@@ -489,11 +491,12 @@ if (location.toUpperCase() === "STAFF") {
           admin_id: targetAdminId
         }
       });
-      return;
+      console.log(`===== END REPLACEMENT SCAN =====\n`);
+      return; // ✅ STOP HERE
     }
 
     // ✅ RFID valid and available for replacement
-    console.log("✅ RFID valid for replacement");
+    console.log("✅ RFID valid for replacement - sending to frontend");
     broadcastToClients({
       type: "rfid-replacement-scanned",
       data: {
@@ -506,12 +509,13 @@ if (location.toUpperCase() === "STAFF") {
     });
 
     console.log(`===== END REPLACEMENT SCAN =====\n`);
-    return;
+    return; // ✅ CRITICAL: Return here to prevent normal staff scan flow
   }
 
-  // Normal STAFF scan mode (existing flow)
-  console.log("🔍 Normal STAFF scan mode");
+  // ✅ Normal STAFF scan mode (only reaches here if NOT in replacement mode)
+  console.log("🔍 Normal STAFF scan mode - not in replacement mode");
   const normalAdminId = targetAdminId;
+  
   await handleStaffScan(rfid_tag, location, normalAdminId, allocation, {
     isRfidRegistered,
     getStaffByRfid,
@@ -521,6 +525,7 @@ if (location.toUpperCase() === "STAFF") {
     dbSuperAdmin
   });
 
+  // Send scan result for normal staff registration
   if (allocation && allocation.isValid) {
     broadcastToClients({
       type: "rfid-scanned-for-staff",

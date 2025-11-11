@@ -215,13 +215,12 @@ const SubscriptionReplacement = ({ staffUser }) => {
   };
 
   // ✅ Handle scan cancellation when component unmounts or scan is cancelled
-  useEffect(() => {
-    return () => {
-      if (scanActive) {
-        toggleReplacementScanMode(false);
-      }
-    };
-  }, [scanActive, toggleReplacementScanMode]);
+useEffect(() => {
+  return () => {
+    console.log("🧹 Component unmounting - disabling replacement scan mode");
+    toggleReplacementScanMode(false);
+  };
+}, []); // ✅ Empty dependency array - only runs on unmount
 
   return (
     <div className="min-h-screen w-fit bg-white p-2">

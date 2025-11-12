@@ -83,8 +83,8 @@ const PrepaidReplacement = ({ staffUser }) => {
 
   useEffect(() => {
     if (replacementScannedRfid && scanActive) {
-      console.log("📡 RFID scanned from WebSocket:", replacementScannedRfid);
-      setNewRfidTag(replacementScannedRfid);
+const scannedTag = replacementScannedRfid.rfid_tag || replacementScannedRfid;
+setNewRfidTag(scannedTag);
       setScanActive(false);
       showToast({ message: "✅ RFID captured: " + replacementScannedRfid, type: "success" });
       clearReplacementScannedRfid();

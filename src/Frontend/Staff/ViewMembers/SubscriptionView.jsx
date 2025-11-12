@@ -136,13 +136,16 @@ const SubscriptionView = () => {
                   key={member.rfid_tag || index}
                   className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
                 >
-                  <td className="px-2 py-1">
-                    <img
-                      src={`https://swiftpasstech.com/${member.profile_image_url || "uploads/members/default.jpg"}`}
-                      alt={member.full_name}
-                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
-                    />
-                  </td>
+  <td className="px-2 py-1">
+  <img
+    src={member.profile_image_url || member.member_image || `https://swiftpasstech.com/uploads/members/default.jpg`}
+    alt={member.full_name}
+    className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
+    onError={(e) => {
+      e.currentTarget.src = `https://swiftpasstech.com/uploads/members/default.jpg`;
+    }}
+  />
+</td>
                   <td className="px-2 py-1 font-medium">{member.full_name}</td>
                   <td className="px-2 py-1">{member.phone_number}</td>
                   <td className="px-2 py-1">

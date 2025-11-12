@@ -277,38 +277,90 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
   [admin_id, system_type, ...entryParams]
 );
 
-    const [topMembers] = await dbSuperAdmin.promise().query(
-      `SELECT
-         e.full_name,
-         e.rfid_tag,
-         COUNT(*) AS login_count
-       FROM AdminEntryLogs e
-       WHERE e.admin_id = ? 
-         AND e.system_type = ?
-         AND (e.visitor_type IS NULL OR e.visitor_type != 'Day Pass')
-       GROUP BY e.rfid_tag, e.full_name
-       ORDER BY login_count DESC
-       LIMIT 3`,
-      [admin_id, system_type]
-    );
+const [topMembers] = await dbSuperAdmin.promise().query(
+  `SELECT
+     e.full_name,
+     e.rfid_tag,
+     m.profile_image_url,
+     COUNT(*) AS login_count
+   FROM AdminEntryLogs e
+   LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
+   WHERE e.admin_id = ? 
+     AND e.system_type = ?
+     AND (e.visitor_type IS NULL OR e.visitor_type != 'Day Pass')
+   GROUP BY e.rfid_tag, e.full_name, m.profile_image_url
+   ORDER BY login_count DESC
+   LIMIT 3`,
+  [admin_id, system_type]
+);
 
-    const responseData = {
-      active_members_inside: Number(activeResult[0]?.count) || 0,
-      prepaid_revenue: Number(revenueResult[0]?.total) || 0,
-      total_logins: Number(loginResult[0]?.count) || 0,
-      most_active_members: topMembers || [],
-      peak_hour: peakHourFormatted,
-      scans_by_hour: scanChart,
-      topups_vs_deductions: { topups, deductions },
-      swiftpass_commission: isPrepaid
-        ? {
-            scans: scanCount,
-            rate: 1,
-            total: totalCommission,
-          }
-        : null,
-      recent_events: recentEvents || [],
-    };
+// ✅ Add this: Construct full URLs for top members
+const baseURL = `${req.protocol}://${req.get("host")}`;
+const topMembersWithImages = topMembers.map(member => {
+  let imageUrl = member.profile_image_url;
+  
+  if (imageUrl && !imageUrl.startsWith('http')) {
+    imageUrl = `${baseURL}/${imageUrl}`;
+    
+    // Encode URL to handle spaces and special characters
+    try {
+      const url = new URL(imageUrl);
+      const pathParts = url.pathname.split('/');
+      const encodedParts = pathParts.map(part => encodeURIComponent(part));
+      url.pathname = encodedParts.join('/');
+      imageUrl = url.toString();
+    } catch (e) {
+      console.error('URL encoding error:', e);
+    }
+  }
+  
+  return {
+    ...member,
+    profile_image_url: imageUrl || `${baseURL}/uploads/members/default.jpg`
+  };
+});
+
+// ✅ Also fix recent_events images
+const recentEventsWithImages = recentEvents.map(event => {
+  let imageUrl = event.profile_image_url;
+  
+  if (imageUrl && !imageUrl.startsWith('http')) {
+    imageUrl = `${baseURL}/${imageUrl}`;
+    
+    try {
+      const url = new URL(imageUrl);
+      const pathParts = url.pathname.split('/');
+      const encodedParts = pathParts.map(part => encodeURIComponent(part));
+      url.pathname = encodedParts.join('/');
+      imageUrl = url.toString();
+    } catch (e) {
+      console.error('URL encoding error:', e);
+    }
+  }
+  
+  return {
+    ...event,
+    profile_image_url: imageUrl || `${baseURL}/uploads/members/default.jpg`
+  };
+});
+
+const responseData = {
+  active_members_inside: Number(activeResult[0]?.count) || 0,
+  prepaid_revenue: Number(revenueResult[0]?.total) || 0,
+  total_logins: Number(loginResult[0]?.count) || 0,
+  most_active_members: topMembersWithImages, // ✅ Use the version with full URLs
+  peak_hour: peakHourFormatted,
+  scans_by_hour: scanChart,
+  topups_vs_deductions: { topups, deductions },
+  swiftpass_commission: isPrepaid
+    ? {
+        scans: scanCount,
+        rate: 1,
+        total: totalCommission,
+      }
+    : null,
+  recent_events: recentEventsWithImages, // ✅ Use the version with full URLs
+};
 
     console.log("🚀 Final backend response:", responseData);
     res.json(responseData);

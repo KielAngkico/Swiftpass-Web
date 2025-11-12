@@ -272,23 +272,22 @@ showToast({ message: "Failed to generate PDF", type: "error" });
                 loginData.map((log, i) => (
                   <tr key={log.id || i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                     <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">
-                      {log.profile_image_url ? (
-                        <img
-                        src={`${import.meta.env.VITE_IP}/${log.profile_image_url || "uploads/members/default.jpg"}`}
-                        alt={log.full_name}
-                        onError={(e) => {
-                          e.target.src = `${import.meta.env.VITE_IP}/uploads/members/default.jpg`;
-                        }}
-                        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
-                      />
-
-                      ) : (
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-200 flex items-center justify-center text-[8px] sm:text-xs text-gray-500">
-                          {log.full_name ? log.full_name.charAt(0).toUpperCase() : "?"}
-                        </div>
-                      )}
-                    </td>
+<td className="px-2 py-1">
+  {log.profile_image_url ? (
+    <img
+      src={log.profile_image_url}
+      alt={log.full_name}
+      onError={(e) => {
+        e.target.src = `${import.meta.env.VITE_IP}/uploads/members/default.jpg`;
+      }}
+      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
+    />
+  ) : (
+    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-200 flex items-center justify-center text-[8px] sm:text-xs text-gray-500">
+      {log.full_name ? log.full_name.charAt(0).toUpperCase() : "?"}
+    </div>
+  )}
+</td>
                     <td className="px-2 py-1 font-medium">{log.full_name}</td>
                     <td className="px-2 py-1 font-mono">{log.rfid_tag}</td>
                     <td className="px-2 py-1">

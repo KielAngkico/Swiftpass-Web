@@ -310,304 +310,151 @@ const OrdersPage = () => {
           </div>
         </div>
 
-        {/* Orders Table */}
-        <div className="bg-white rounded shadow overflow-hidden">
-          <div className="overflow-x-auto max-h-[500px] overflow-y-auto text-xs">
-            <table className="min-w-full text-left">
-              <thead className="bg-gray-700 text-white uppercase text-xs sticky top-0">
-                <tr>
-                  <th className="px-2 py-1">#</th>
-                  <th className="px-2 py-1">Order No.</th>
-                  <th className="px-2 py-1">Gym</th>
-                  <th className="px-2 py-1">Type</th>
-                  <th className="px-2 py-1">Amount</th>
-                  <th className="px-2 py-1">Payment</th>
-                  <th className="px-2 py-1">Status</th>
-                  <th className="px-2 py-1">Date</th>
-                  <th className="px-2 py-1">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="9" className="text-center py-8">
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="animate-spin h-5 w-5 border-2 border-indigo-600 border-t-transparent rounded-full" />
-                        <span className="text-gray-600">Loading orders...</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : filteredOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan="9" className="text-center py-8 text-gray-500">
-                      No orders found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredOrders.map((order, i) => (
-                    <tr key={order.id} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                      <td className="px-2 py-2">{i + 1}</td>
-                      <td className="px-2 py-2 font-mono font-medium">{order.order_number}</td>
-                      <td className="px-2 py-2">
-                        <div className="font-medium">{order.gym_name}</div>
-                        <div className="text-xs text-gray-500">{order.admin_name}</div>
-                      </td>
-                      <td className="px-2 py-2">
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
-                          {order.order_type === 'initial_package' ? 'Initial' : 'Reorder'}
-                        </span>
-                      </td>
-                      <td className="px-2 py-2 font-semibold">₱{order.total_amount.toLocaleString()}</td>
-                      <td className="px-2 py-2">{getPaymentBadge(order.payment_status)}</td>
-                      <td className="px-2 py-2">{getStatusBadge(order.status)}</td>
-                      <td className="px-2 py-2 text-xs">{formatDate(order.order_date)}</td>
-                      <td className="px-2 py-2">
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleViewDetails(order)}
-                            className="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs"
-                            title="View Details"
-                          >
-                            View
-                          </button>
-
-                          {order.status === 'pending' && (
-                            <button
-                              onClick={() => handleProcessOrder(order.id)}
-                              disabled={processingOrderId === order.id}
-                              className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 text-xs"
-                              title="Process Order"
-                            >
-                              {processingOrderId === order.id ? '...' : 'Process'}
-                            </button>
-                          )}
-
-                          {order.status === 'processing' && (
-                            <button
-                              onClick={() => handleShipOrder(order.id)}
-                              className="px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 text-xs"
-                              title="Ship Order"
-                            >
-                              Ship
-                            </button>
-                          )}
-
-                          {order.status === 'received' && (
-                            <button
-                              onClick={() => handleOpenCompleteModal(order)}
-                              className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
-                              title="Complete Order"
-                            >
-                              Complete
-                            </button>
-                          )}
-
-                          {(order.status === 'pending' || order.status === 'processing') && (
-                            <button
-                              onClick={() => handleCancelOrder(order.id)}
-                              className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs"
-                              title="Cancel Order"
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        {/* Orders Grid */}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin h-6 w-6 border-2 border-indigo-600 border-t-transparent rounded-full" />
+            <span className="ml-2 text-sm text-gray-600">Loading orders...</span>
           </div>
-        </div>
-
-        {/* Payment Modal */}
-        {showPaymentModal && selectedOrder && (
-          <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg w-full max-w-md shadow-xl">
-              <div className="border-b px-4 py-3">
-                <h2 className="text-lg font-semibold">Complete Order</h2>
-                <p className="text-xs text-gray-500">{selectedOrder.order_number}</p>
-              </div>
-
-              <div className="p-4">
-                {selectedOrder.order_type === 'initial_package' ? (
-                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
-                    <p className="font-medium text-blue-900 mb-1">Initial Package Order</p>
-                    <p className="text-xs text-blue-700">
-                      Payment was already recorded at signup. Click "Complete" to finalize.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mb-4 p-3 bg-gray-50 rounded">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-sm text-gray-600">Partner:</span>
-                        <span className="text-sm font-medium">{selectedOrder.gym_name}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Total Amount:</span>
-                        <span className="text-xl font-bold text-green-600">
-                          ₱{selectedOrder.total_amount.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mb-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Payment Method *
-                      </label>
-                      <select
-                        value={paymentData.payment_method}
-                        onChange={(e) => setPaymentData({ ...paymentData, payment_method: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        required
-                      >
-                        <option value="">Select payment method</option>
-                        {paymentOptions.map((option) => (
-                          <option key={option.id} value={option.payment_method}>
-                            {option.payment_method}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {paymentData.payment_method && paymentData.payment_method.toLowerCase() !== 'cash' && (
-                      <div className="mb-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Reference Number *
-                        </label>
-                        <input
-                          type="text"
-                          value={paymentData.reference_number}
-                          onChange={(e) => setPaymentData({ ...paymentData, reference_number: e.target.value })}
-                          placeholder="Enter reference number"
-                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                          required
-                        />
-                      </div>
-                    )}
-
-                    <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-                      Make sure you've received the payment before completing.
-                    </div>
-                  </>
-                )}
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowPaymentModal(false);
-                      setSelectedOrder(null);
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 text-sm"
-                    disabled={completingOrder}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCompleteOrder}
-                    disabled={completingOrder}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm disabled:bg-green-400"
-                  >
-                    {completingOrder ? 'Completing...' : 'Complete Order'}
-                  </button>
-                </div>
-              </div>
-            </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded shadow-sm">
+            <p className="text-sm text-gray-500">No orders found</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {statusFilter !== 'all' || searchTerm 
+                ? 'Try adjusting your filters' 
+                : 'Orders will appear here when partners create them'}
+            </p>
           </div>
-        )}
-
-        {/* Details Modal */}
-        {showDetailsModal && selectedOrder && (
-          <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
-              <div className="sticky top-0 bg-white border-b px-4 py-3 flex justify-between items-center">
-                <div>
-                  <h2 className="text-lg font-semibold">{selectedOrder.order_number}</h2>
-                  <p className="text-xs text-gray-500">{selectedOrder.gym_name}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowDetailsModal(false);
-                    setSelectedOrder(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600 text-xl"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="p-4 space-y-4">
-                <div className="grid grid-cols-2 gap-3 text-sm">
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {filteredOrders.map((order) => (
+              <div key={order.id} className="bg-white rounded border border-gray-200 shadow-sm p-3">
+                {/* Header */}
+                <div className="flex justify-between items-start mb-2">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Status</p>
-                    {getStatusBadge(selectedOrder.status)}
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Payment</p>
-                    {getPaymentBadge(selectedOrder.payment_status)}
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Type</p>
-                    <p className="font-medium">{selectedOrder.order_type === 'initial_package' ? 'Initial Package' : 'Reorder'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Total</p>
-                    <p className="font-bold">₱{selectedOrder.total_amount.toLocaleString()}</p>
-                  </div>
-                </div>
-
-                <div className="border-t pt-3">
-                  <h3 className="font-semibold text-sm mb-2">Timeline</h3>
-                  <div className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Ordered:</span>
-                      <span>{formatDate(selectedOrder.order_date)}</span>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-sm font-bold text-gray-900">{order.order_number}</h3>
+                      <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                        {order.order_type === 'initial_package' ? 'Initial' : 'Reorder'}
+                      </span>
                     </div>
-                    {selectedOrder.processed_at && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Processed:</span>
-                        <span>{formatDate(selectedOrder.processed_at)}</span>
-                      </div>
-                    )}
-                    {selectedOrder.shipped_at && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Shipped:</span>
-                        <span>{formatDate(selectedOrder.shipped_at)}</span>
-                      </div>
-                    )}
-                    {selectedOrder.completed_at && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Completed:</span>
-                        <span>{formatDate(selectedOrder.completed_at)}</span>
-                      </div>
-                    )}
+                    <p className="text-xs font-medium text-gray-700">{order.gym_name}</p>
+                    <p className="text-xs text-gray-500">{order.admin_name}</p>
+                  </div>
+                  {getStatusBadge(order.status)}
+                </div>
+
+                {/* Info */}
+                <div className="space-y-1 mb-2 pb-2 border-b">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">Amount:</span>
+                    <span className="font-semibold">₱{order.total_amount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">Payment:</span>
+                    {getPaymentBadge(order.payment_status)}
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">Date:</span>
+                    <span>{formatDate(order.order_date)}</span>
                   </div>
                 </div>
 
-                <div className="border-t pt-3">
-                  <h3 className="font-semibold text-sm mb-2">Order Items</h3>
-                  <div className="space-y-2">
-                    {selectedOrder.items?.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded text-sm">
-                        <div>
-                          <p className="font-medium">{item.item_name}</p>
-                          <p className="text-xs text-gray-500">₱{item.unit_price.toLocaleString()} each</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold">{item.allocated_quantity}/{item.quantity}</p>
-                          <p className="text-xs text-gray-500">₱{item.subtotal.toLocaleString()}</p>
-                        </div>
+                {/* Items Preview */}
+                <div className="mb-2">
+                  <p className="text-xs text-gray-500 mb-1">Items ({order.items?.length || 0}):</p>
+                  <div className="space-y-1">
+                    {order.items?.slice(0, 2).map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-xs">
+                        <span className="text-gray-700 truncate">{item.item_name}</span>
+                        <span className="text-gray-600 ml-2">
+                          {item.allocated_quantity}/{item.quantity}
+                        </span>
                       </div>
                     ))}
+                    {order.items?.length > 2 && (
+                      <p className="text-xs text-gray-500 italic">
+                        +{order.items.length - 2} more
+                      </p>
+                    )}
                   </div>
                 </div>
+
+                {/* Actions */}
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleViewDetails(order)}
+                    className="flex-1 bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 text-xs font-medium"
+                  >
+                    View
+                  </button>
+
+                  {order.status === 'pending' && (
+                    <button
+                      onClick={() => handleProcessOrder(order.id)}
+                      disabled={processingOrderId === order.id}
+                      className="flex-1 bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:bg-blue-400 text-xs font-medium"
+                    >
+                      {processingOrderId === order.id ? '...' : 'Process'}
+                    </button>
+                  )}
+
+                  {order.status === 'processing' && (
+                    <button
+                      onClick={() => handleShipOrder(order.id)}
+                      className="flex-1 bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 text-xs font-medium"
+                    >
+                      Ship
+                    </button>
+                  )}
+
+                  {order.status === 'received' && (
+                    <button
+                      onClick={() => handleOpenCompleteModal(order)}
+                      className="flex-1 bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 text-xs font-medium"
+                    >
+                      Complete
+                    </button>
+                  )}
+
+                  {(order.status === 'pending' || order.status === 'processing') && (
+                    <button
+                      onClick={() => handleCancelOrder(order.id)}
+                      className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs font-medium"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         )}
+
+        <PaymentModal
+          order={selectedOrder}
+          paymentOptions={paymentOptions}
+          paymentData={paymentData}
+          setPaymentData={setPaymentData}
+          onComplete={handleCompleteOrder}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedOrder(null);
+          }}
+          completingOrder={completingOrder}
+          show={showPaymentModal}
+        />
+
+        <OrderDetailsModal
+          order={selectedOrder}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setSelectedOrder(null);
+          }}
+          getStatusBadge={getStatusBadge}
+          getPaymentBadge={getPaymentBadge}
+          show={showDetailsModal}
+        />
       </main>
     </div>
   );

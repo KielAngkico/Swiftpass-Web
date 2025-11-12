@@ -37,7 +37,7 @@ const OrderDetailsModal = ({ order, onClose, getStatusBadge, getPaymentBadge, sh
   if (!order) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="sticky top-0 bg-white border-b px-4 py-3 flex justify-between items-center">
           <div>

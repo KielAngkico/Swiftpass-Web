@@ -9,7 +9,6 @@ const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -31,7 +30,7 @@ const OrdersPage = () => {
 
   useEffect(() => {
     filterOrders();
-  }, [statusFilter, searchTerm, orders]);
+  }, [statusFilter, orders]);
 
   const fetchOrders = async () => {
     try {
@@ -68,32 +67,21 @@ const OrdersPage = () => {
       filtered = filtered.filter(order => order.status === statusFilter);
     }
 
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(order => 
-        order.gym_name?.toLowerCase().includes(term) ||
-        order.order_number?.toLowerCase().includes(term) ||
-        order.admin_name?.toLowerCase().includes(term)
-      );
-    }
-
     setFilteredOrders(filtered);
   };
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      pending: { color: 'bg-yellow-100 text-yellow-700', label: 'Pending' },
-      processing: { color: 'bg-blue-100 text-blue-700', label: 'Processing' },
-      delivering: { color: 'bg-purple-100 text-purple-700', label: 'Delivering' },
-      received: { color: 'bg-orange-100 text-orange-700', label: 'Received' },
-      completed: { color: 'bg-green-100 text-green-700', label: 'Completed' },
-      cancelled: { color: 'bg-red-100 text-red-700', label: 'Cancelled' }
+      pending: { color: 'bg-gray-100 text-gray-800', label: 'Pending' },
+      processing: { color: 'bg-gray-100 text-gray-800', label: 'Processing' },
+      completed: { color: 'bg-gray-100 text-gray-800', label: 'Completed' },
+      cancelled: { color: 'bg-gray-100 text-gray-800', label: 'Cancelled' }
     };
 
     const config = statusConfig[status] || statusConfig.pending;
 
     return (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${config.color}`}>
+      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${config.color}`}>
         {config.label}
       </span>
     );
@@ -101,11 +89,11 @@ const OrdersPage = () => {
 
   const getPaymentBadge = (paymentStatus) => {
     return paymentStatus === 'paid' ? (
-      <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+      <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded text-xs font-semibold">
         Paid
       </span>
     ) : (
-      <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+      <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded text-xs font-semibold">
         Unpaid
       </span>
     );
@@ -128,24 +116,6 @@ const OrdersPage = () => {
           });
         } finally {
           setProcessingOrderId(null);
-        }
-      }
-    );
-  };
-
-  const handleShipOrder = async (orderId) => {
-    showConfirm(
-      'Mark this order as delivering?',
-      async () => {
-        try {
-          await api.put(`/api/partner-orders/${orderId}/ship`);
-          showToast({ message: 'Order marked as delivering!', type: 'success' });
-          fetchOrders();
-        } catch (error) {
-          showToast({ 
-            message: error.response?.data?.error || 'Failed to ship order', 
-            type: 'error' 
-          });
         }
       }
     );
@@ -244,6 +214,13 @@ const OrdersPage = () => {
     });
   };
 
+  const KPI = ({ title, value }) => (
+    <div className="bg-white p-2 rounded shadow text-center">
+      <p className="text-gray-500 text-xs">{title}</p>
+      <p className="font-bold text-gray-900 text-base">{value}</p>
+    </div>
+  );
+
   return (
     <div className="flex min-h-screen">
       <SuperAdminSidebar />
@@ -254,74 +231,43 @@ const OrdersPage = () => {
           <p className="text-xs text-gray-500">Manage and process partner orders</p>
         </div>
 
-        {/* Filters */}
+        {/* Filter */}
         <div className="bg-white p-2 rounded shadow-sm mb-3">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2">
             <label className="text-xs text-gray-600">Filter:</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-500"
             >
               <option value="all">All Orders</option>
               <option value="pending">Pending</option>
               <option value="processing">Processing</option>
-              <option value="delivering">Delivering</option>
-              <option value="received">Received</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
-
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by gym, order number..."
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 flex-1"
-            />
           </div>
+        </div>
 
-          {/* Status Summary */}
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-2 border-t">
-            <div className="text-center">
-              <p className="text-lg font-bold text-yellow-600">{orders.filter(o => o.status === 'pending').length}</p>
-              <p className="text-xs text-gray-600">Pending</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-bold text-blue-600">{orders.filter(o => o.status === 'processing').length}</p>
-              <p className="text-xs text-gray-600">Processing</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-bold text-purple-600">{orders.filter(o => o.status === 'delivering').length}</p>
-              <p className="text-xs text-gray-600">Delivering</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-bold text-orange-600">{orders.filter(o => o.status === 'received').length}</p>
-              <p className="text-xs text-gray-600">Received</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-bold text-green-600">{orders.filter(o => o.status === 'completed').length}</p>
-              <p className="text-xs text-gray-600">Completed</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-bold text-red-600">{orders.filter(o => o.status === 'cancelled').length}</p>
-              <p className="text-xs text-gray-600">Cancelled</p>
-            </div>
-          </div>
+        {/* KPI Summary */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <KPI title="Pending" value={orders.filter(o => o.status === 'pending').length} />
+          <KPI title="Processing" value={orders.filter(o => o.status === 'processing').length} />
+          <KPI title="Completed" value={orders.filter(o => o.status === 'completed').length} />
         </div>
 
         {/* Orders Grid */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin h-6 w-6 border-2 border-indigo-600 border-t-transparent rounded-full" />
+            <div className="animate-spin h-6 w-6 border-2 border-gray-900 border-t-transparent rounded-full" />
             <span className="ml-2 text-sm text-gray-600">Loading orders...</span>
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="text-center py-12 bg-white rounded shadow-sm">
             <p className="text-sm text-gray-500">No orders found</p>
             <p className="text-xs text-gray-400 mt-1">
-              {statusFilter !== 'all' || searchTerm 
-                ? 'Try adjusting your filters' 
+              {statusFilter !== 'all' 
+                ? 'Try adjusting your filter' 
                 : 'Orders will appear here when partners create them'}
             </p>
           </div>
@@ -348,7 +294,7 @@ const OrdersPage = () => {
                 <div className="space-y-1 mb-2 pb-2 border-b">
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-600">Amount:</span>
-                    <span className="font-semibold">₱{order.total_amount.toLocaleString()}</span>
+                    <span className="font-semibold text-gray-900">₱{order.total_amount.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-600">Payment:</span>
@@ -356,7 +302,7 @@ const OrdersPage = () => {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-600">Date:</span>
-                    <span>{formatDate(order.order_date)}</span>
+                    <span className="text-gray-700">{formatDate(order.order_date)}</span>
                   </div>
                 </div>
 
@@ -390,40 +336,38 @@ const OrdersPage = () => {
                   </button>
 
                   {order.status === 'pending' && (
-                    <button
-                      onClick={() => handleProcessOrder(order.id)}
-                      disabled={processingOrderId === order.id}
-                      className="flex-1 bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:bg-blue-400 text-xs font-medium"
-                    >
-                      {processingOrderId === order.id ? '...' : 'Process'}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleProcessOrder(order.id)}
+                        disabled={processingOrderId === order.id}
+                        className="flex-1 bg-gray-900 text-white px-2 py-1 rounded hover:bg-gray-800 disabled:bg-gray-400 text-xs font-medium"
+                      >
+                        {processingOrderId === order.id ? '...' : 'Process'}
+                      </button>
+                      <button
+                        onClick={() => handleCancelOrder(order.id)}
+                        className="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </>
                   )}
 
                   {order.status === 'processing' && (
-                    <button
-                      onClick={() => handleShipOrder(order.id)}
-                      className="flex-1 bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 text-xs font-medium"
-                    >
-                      Ship
-                    </button>
-                  )}
-
-                  {order.status === 'received' && (
-                    <button
-                      onClick={() => handleOpenCompleteModal(order)}
-                      className="flex-1 bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 text-xs font-medium"
-                    >
-                      Complete
-                    </button>
-                  )}
-
-                  {(order.status === 'pending' || order.status === 'processing') && (
-                    <button
-                      onClick={() => handleCancelOrder(order.id)}
-                      className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs font-medium"
-                    >
-                      Cancel
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleOpenCompleteModal(order)}
+                        className="flex-1 bg-gray-900 text-white px-2 py-1 rounded hover:bg-gray-800 text-xs font-medium"
+                      >
+                        Complete
+                      </button>
+                      <button
+                        onClick={() => handleCancelOrder(order.id)}
+                        className="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

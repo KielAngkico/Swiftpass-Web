@@ -17,13 +17,33 @@ router.get("/get-members", async (req, res) => {
         "SELECT * FROM MembersAccounts WHERE admin_id = ? ORDER BY created_at DESC",
         [admin_id]
       );
+    
     const baseURL = `${req.protocol}://${req.get("host")}`;
-const membersWithPhotos = members.map((m) => ({
-  ...m,
-  member_image: m.profile_image_url
-    ? `${baseURL}/${m.profile_image_url}`
-    : `${baseURL}/uploads/members/default.jpg`,
-}));
+    
+    const membersWithPhotos = members.map((m) => {
+      let imageUrl = m.profile_image_url
+        ? `${baseURL}/${m.profile_image_url}`
+        : `${baseURL}/uploads/members/default.jpg`;
+      
+      // ✅ Encode URL to handle spaces and special characters
+      if (m.profile_image_url) {
+        try {
+          const url = new URL(imageUrl);
+          const pathParts = url.pathname.split('/');
+          const encodedParts = pathParts.map(part => encodeURIComponent(part));
+          url.pathname = encodedParts.join('/');
+          imageUrl = url.toString();
+        } catch (e) {
+          console.error('URL encoding error:', e);
+        }
+      }
+      
+      return {
+        ...m,
+        member_image: imageUrl,
+        profile_image_url: imageUrl, // ✅ Add both for consistency
+      };
+    });
 
     res.status(200).json({
       members: membersWithPhotos,

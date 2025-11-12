@@ -381,7 +381,7 @@ showToast({ message: `✅ RFID captured: ${scannedTag}`, type: "success" });    
               </div>
               <div className="flex flex-col items-center p-4">
                 <div className="w-32 h-32 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden mb-3">
-                  {selectedMember?.member_imgael ? (
+                  {selectedMember?.member_image ? (
                     <img
                       src={selectedMember.member_image}
                       alt="Member Photo"

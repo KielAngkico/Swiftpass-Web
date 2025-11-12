@@ -86,8 +86,7 @@ const SubscriptionAnalytical = () => {
           params.end_date = endDate;
         }
 
-        const { data } = await api.get("/api/analytics", { params });
-        setAnalyticsData(data);
+const { data } = await api.get("/api/subscription-activity-analytics", { params });        setAnalyticsData(data);
         setError(null);
       } catch (err) {
         console.error("Failed to load analytics:", err);

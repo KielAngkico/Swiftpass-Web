@@ -39,7 +39,61 @@ router.get("/subscription-activity-analytics", async (req, res) => {
     queryParams.push(start_date, end_date);
   }
 
+  // For transaction queries
+  let txnDateCondition = "1=1";
+  let txnParams = [admin_id];
+  
+  if (filter_type === "today") {
+    txnDateCondition = "DATE(transaction_date) = CURDATE()";
+  } else if (filter_type === "custom" && start_date && end_date) {
+    txnDateCondition = "DATE(transaction_date) BETWEEN ? AND ?";
+    txnParams.push(start_date, end_date);
+  }
+
   try {
+    const baseURL = `${req.protocol}://${req.get("host")}`;
+
+    // ✅ Total Revenue
+    const [revenueResult] = await dbSuperAdmin.promise().query(
+      `SELECT IFNULL(SUM(amount), 0) AS total
+       FROM AdminTransactions
+       WHERE admin_id = ?
+         AND transaction_type IN ('new_membership', 'renewal')
+         AND ${txnDateCondition}`,
+      txnParams
+    );
+
+    // ✅ Members Currently Inside
+    const [membersInsideResult] = await dbSuperAdmin.promise().query(
+      `SELECT COUNT(*) AS count
+       FROM AdminEntryLogs
+       WHERE admin_id = ?
+         AND system_type = 'subscription'
+         AND member_status = 'inside'
+         AND visitor_type = 'Member'`,
+      [admin_id]
+    );
+
+    // ✅ Day Pass Guests Currently Inside
+    const [dayPassInsideResult] = await dbSuperAdmin.promise().query(
+      `SELECT COUNT(*) AS count
+       FROM AdminEntryLogs
+       WHERE admin_id = ?
+         AND member_status = 'inside'
+         AND visitor_type = 'Day Pass'`,
+      [admin_id]
+    );
+
+    // ✅ Total Transactions
+    const [transactionsResult] = await dbSuperAdmin.promise().query(
+      `SELECT COUNT(*) AS count
+       FROM AdminTransactions
+       WHERE admin_id = ?
+         AND ${txnDateCondition}`,
+      txnParams
+    );
+
+    // ✅ Total Logins
     const [loginResult] = await dbSuperAdmin.promise().query(
       `SELECT COUNT(*) AS count
        FROM AdminEntryLogs
@@ -49,6 +103,7 @@ router.get("/subscription-activity-analytics", async (req, res) => {
       queryParams
     );
 
+    // ✅ Peak Hour
     const [peakResult] = await dbSuperAdmin.promise().query(
       `SELECT HOUR(entry_time) AS hour, COUNT(*) AS count
        FROM AdminEntryLogs
@@ -65,56 +120,190 @@ router.get("/subscription-activity-analytics", async (req, res) => {
       ? `${peakResult[0].hour}:00–${peakResult[0].hour + 1}:00`
       : "—";
 
- const [recentEvents] = await dbSuperAdmin.promise().query(
-  `SELECT 
-     e.id,
-     e.full_name,
-     e.rfid_tag,
-     e.visitor_type,
-     e.entry_time,
-     e.exit_time,
-     e.member_status AS status,
-     m.profile_image_url
-   FROM AdminEntryLogs e
-   LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
-   WHERE e.admin_id = ?
-     AND e.system_type = 'subscription'
-     AND ${entryDateCondition}
-   ORDER BY e.entry_time DESC
-   LIMIT 50`,
-  queryParams
-);
+    // ✅ Revenue Card (Cash vs Cashless)
+    const [cashRevenue] = await dbSuperAdmin.promise().query(
+      `SELECT IFNULL(SUM(amount), 0) AS total
+       FROM AdminTransactions
+       WHERE admin_id = ?
+         AND payment_method = 'cash'
+         AND ${txnDateCondition}`,
+      txnParams
+    );
 
-// ✅ Add full URL encoding
-const baseURL = `${req.protocol}://${req.get("host")}`;
-const recentEventsWithImages = recentEvents.map(event => {
-  let imageUrl = event.profile_image_url;
-  
-  if (imageUrl && !imageUrl.startsWith('http')) {
-    imageUrl = `${baseURL}/${imageUrl}`;
-    
-    try {
-      const url = new URL(imageUrl);
-      const pathParts = url.pathname.split('/');
-      const encodedParts = pathParts.map(part => encodeURIComponent(part));
-      url.pathname = encodedParts.join('/');
-      imageUrl = url.toString();
-    } catch (e) {
-      console.error('URL encoding error:', e);
-    }
-  }
-  
-  return {
-    ...event,
-    profile_image_url: imageUrl || `${baseURL}/uploads/members/default.jpg`
-  };
-});
+    const [cashlessRevenue] = await dbSuperAdmin.promise().query(
+      `SELECT IFNULL(SUM(amount), 0) AS total
+       FROM AdminTransactions
+       WHERE admin_id = ?
+         AND payment_method != 'cash'
+         AND ${txnDateCondition}`,
+      txnParams
+    );
 
-const responseData = {
-  total_logins: Number(loginResult[0]?.count) || 0,
-  peak_hour: peakHourFormatted,
-  recent_events: recentEventsWithImages, // ✅ Use encoded version
-};
+    // ✅ Transaction Type Breakdown
+    const [transactionTypes] = await dbSuperAdmin.promise().query(
+      `SELECT transaction_type, IFNULL(SUM(amount), 0) AS amount
+       FROM AdminTransactions
+       WHERE admin_id = ?
+         AND ${txnDateCondition}
+       GROUP BY transaction_type`,
+      txnParams
+    );
+
+    // ✅ Peak Hour Analysis (24 hours)
+    const [peakHourAnalysis] = await dbSuperAdmin.promise().query(
+      `SELECT HOUR(entry_time) AS hour, COUNT(*) AS count
+       FROM AdminEntryLogs
+       WHERE admin_id = ?
+         AND system_type = 'subscription'
+         AND ${entryDateCondition}
+       GROUP BY hour
+       ORDER BY hour ASC`,
+      queryParams
+    );
+
+    // ✅ Revenue by Membership Type
+    const [revenueByType] = await dbSuperAdmin.promise().query(
+      `SELECT plan_name, IFNULL(SUM(amount), 0) AS revenue
+       FROM AdminTransactions
+       WHERE admin_id = ?
+         AND transaction_type IN ('new_membership', 'renewal')
+         AND ${txnDateCondition}
+       GROUP BY plan_name`,
+      txnParams
+    );
+
+    // ✅ Currently Inside
+    const [currentlyInside] = await dbSuperAdmin.promise().query(
+      `SELECT 
+         e.full_name AS name,
+         e.rfid_tag AS rfidTag,
+         e.visitor_type AS visitorType,
+         e.entry_time AS entryTime
+       FROM AdminEntryLogs e
+       WHERE e.admin_id = ?
+         AND e.member_status = 'inside'
+       ORDER BY e.entry_time DESC`,
+      [admin_id]
+    );
+
+    // ✅ Top 3 Members with Images
+    const [topMembers] = await dbSuperAdmin.promise().query(
+      `SELECT
+         e.full_name AS name,
+         e.rfid_tag AS rfidTag,
+         m.profile_image_url,
+         COUNT(*) AS visitCount
+       FROM AdminEntryLogs e
+       LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
+       WHERE e.admin_id = ?
+         AND e.system_type = 'subscription'
+         AND (e.visitor_type IS NULL OR e.visitor_type = 'Member')
+       GROUP BY e.rfid_tag, e.full_name, m.profile_image_url
+       ORDER BY visitCount DESC
+       LIMIT 3`,
+      [admin_id]
+    );
+
+    // ✅ Encode top member images
+    const topMembersWithImages = topMembers.map(member => {
+      let imageUrl = member.profile_image_url;
+      
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        imageUrl = `${baseURL}/${imageUrl}`;
+        
+        try {
+          const url = new URL(imageUrl);
+          const pathParts = url.pathname.split('/');
+          const encodedParts = pathParts.map(part => encodeURIComponent(part));
+          url.pathname = encodedParts.join('/');
+          imageUrl = url.toString();
+        } catch (e) {
+          console.error('URL encoding error:', e);
+        }
+      }
+      
+      return {
+        ...member,
+        profile_image_url: imageUrl || `${baseURL}/uploads/members/default.jpg`
+      };
+    });
+
+    // ✅ Recent Events with Images
+    const [recentEvents] = await dbSuperAdmin.promise().query(
+      `SELECT 
+         e.id,
+         e.full_name,
+         e.rfid_tag,
+         e.visitor_type,
+         e.entry_time,
+         e.exit_time,
+         e.member_status AS status,
+         m.profile_image_url
+       FROM AdminEntryLogs e
+       LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
+       WHERE e.admin_id = ?
+         AND e.system_type = 'subscription'
+         AND ${entryDateCondition}
+       ORDER BY e.entry_time DESC
+       LIMIT 50`,
+      queryParams
+    );
+
+    const recentEventsWithImages = recentEvents.map(event => {
+      let imageUrl = event.profile_image_url;
+      
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        imageUrl = `${baseURL}/${imageUrl}`;
+        
+        try {
+          const url = new URL(imageUrl);
+          const pathParts = url.pathname.split('/');
+          const encodedParts = pathParts.map(part => encodeURIComponent(part));
+          url.pathname = encodedParts.join('/');
+          imageUrl = url.toString();
+        } catch (e) {
+          console.error('URL encoding error:', e);
+        }
+      }
+      
+      return {
+        ...event,
+        profile_image_url: imageUrl || `${baseURL}/uploads/members/default.jpg`
+      };
+    });
+
+    // ✅ Format response to match frontend expectations
+    const responseData = {
+      summary: {
+        totalRevenue: Number(revenueResult[0]?.total) || 0,
+        membersInside: Number(membersInsideResult[0]?.count) || 0,
+        dayPassInside: Number(dayPassInsideResult[0]?.count) || 0,
+        totalTransactions: Number(transactionsResult[0]?.count) || 0,
+        peakHour: peakHourFormatted
+      },
+      revenueCard: {
+        labels: ["Cash", "Cashless"],
+        values: [
+          Number(cashRevenue[0]?.total) || 0,
+          Number(cashlessRevenue[0]?.total) || 0
+        ]
+      },
+      transactionTypeBreakdown: {
+        labels: transactionTypes.map(t => t.transaction_type),
+        amounts: transactionTypes.map(t => Number(t.amount) || 0)
+      },
+      peakHourAnalysis: {
+        labels: peakHourAnalysis.map(p => `${p.hour}:00`),
+        values: peakHourAnalysis.map(p => Number(p.count) || 0)
+      },
+      revenueByMembershipType: {
+        labels: revenueByType.map(r => r.plan_name),
+        values: revenueByType.map(r => Number(r.revenue) || 0)
+      },
+      currentlyInside: currentlyInside,
+      topMembers: topMembersWithImages,
+      recent_events: recentEventsWithImages
+    };
 
     console.log("🚀 Subscription activity response:", responseData);
     res.json(responseData);

@@ -212,7 +212,7 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
         admin_id: staffMember.admin_id,
         timestamp: new Date().toISOString()
       }
-    }, true); // ✅ Pass 'true' to send only to Arduino
+    }); // ✅ Pass 'true' to send only to Arduino
     
     console.log(`⏭️ Staff access granted - Arduino notified, dashboard NOT notified`);
     console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
@@ -237,7 +237,7 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
         admin_id: target_admin_id,
         timestamp: new Date().toISOString()
       }
-    }, true); // ✅ Pass 'true' to send only to Arduino
+    }); // ✅ Pass 'true' to send only to Arduino
     
     console.log(`⏭️ Admin access granted - Arduino notified, dashboard NOT notified`);
     console.log(`===== END HANDLE ENTRY/EXIT =====\n`);

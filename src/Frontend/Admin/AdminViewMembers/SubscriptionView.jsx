@@ -24,6 +24,7 @@ const SubscriptionView = () => {
     const { showToast } = useToast(); // ;
   
 
+
   useEffect(() => {
     const fetchUserAndMembers = async () => {
       try {
@@ -218,13 +219,14 @@ showToast({ message: "Failed to generate PDF", type: "error" });
                 >
                   <td className="px-2 py-1">{index + 1}</td>
                   <td className="px-2 py-1">
-                    <img
-                      src={`https://swiftpasstech.com/${
-                        member.profile_image_url || "default-profile.png"
-                      }`}
-                      alt={member.full_name}
-                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
-                    />
+ <img
+  src={member.profile_image_url || member.member_image || `https://swiftpasstech.com/uploads/members/default.jpg`}
+  alt={member.full_name}
+  className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border"
+  onError={(e) => {
+    e.currentTarget.src = `https://swiftpasstech.com/uploads/members/default.jpg`;
+  }}
+/>
                   </td>
                   <td className="px-2 py-1 font-medium">{member.full_name}</td>
                   <td className="px-2 py-1">{member.phone_number}</td>

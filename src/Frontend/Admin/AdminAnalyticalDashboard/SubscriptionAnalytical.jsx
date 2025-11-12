@@ -356,11 +356,14 @@ showToast({ message: "Failed to generate PDF", type: "error" });
                     }`}
                   >
                                       <div className="text-2xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</div>
-                  <img
-                      src={`https://swiftpasstech.com/${member.profile_image_url || "uploads/members/default.jpg"}`}
-                    alt={member.full_name}
-                    className="w-16 h-16 object-cover rounded-full border"
-                  />
+<img
+  src={member.profile_image_url || `https://swiftpasstech.com/uploads/members/default.jpg`}
+  alt={member.full_name}
+  className="w-16 h-16 object-cover rounded-full border"
+  onError={(e) => {
+    e.currentTarget.src = `https://swiftpasstech.com/uploads/members/default.jpg`;
+  }}
+/>
 
                     <p className="font-semibold text-sm">{member.name}</p>
                     <p className="text-[10px]">Visits: {member.visitCount}</p>

@@ -65,31 +65,56 @@ router.get("/subscription-activity-analytics", async (req, res) => {
       ? `${peakResult[0].hour}:00–${peakResult[0].hour + 1}:00`
       : "—";
 
-    const [recentEvents] = await dbSuperAdmin.promise().query(
-      `SELECT 
-         e.id,
-         e.full_name,
-         e.rfid_tag,
-         e.visitor_type,
-         e.entry_time,
-         e.exit_time,
-         e.member_status AS status,
-         m.profile_image_url
-       FROM AdminEntryLogs e
-       LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
-       WHERE e.admin_id = ?
-         AND e.system_type = 'subscription'
-         AND ${entryDateCondition}
-       ORDER BY e.entry_time DESC
-       LIMIT 50`,
-      queryParams
-    );
+ const [recentEvents] = await dbSuperAdmin.promise().query(
+  `SELECT 
+     e.id,
+     e.full_name,
+     e.rfid_tag,
+     e.visitor_type,
+     e.entry_time,
+     e.exit_time,
+     e.member_status AS status,
+     m.profile_image_url
+   FROM AdminEntryLogs e
+   LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
+   WHERE e.admin_id = ?
+     AND e.system_type = 'subscription'
+     AND ${entryDateCondition}
+   ORDER BY e.entry_time DESC
+   LIMIT 50`,
+  queryParams
+);
 
-    const responseData = {
-      total_logins: Number(loginResult[0]?.count) || 0,
-      peak_hour: peakHourFormatted,
-      recent_events: recentEvents || [],
-    };
+// ✅ Add full URL encoding
+const baseURL = `${req.protocol}://${req.get("host")}`;
+const recentEventsWithImages = recentEvents.map(event => {
+  let imageUrl = event.profile_image_url;
+  
+  if (imageUrl && !imageUrl.startsWith('http')) {
+    imageUrl = `${baseURL}/${imageUrl}`;
+    
+    try {
+      const url = new URL(imageUrl);
+      const pathParts = url.pathname.split('/');
+      const encodedParts = pathParts.map(part => encodeURIComponent(part));
+      url.pathname = encodedParts.join('/');
+      imageUrl = url.toString();
+    } catch (e) {
+      console.error('URL encoding error:', e);
+    }
+  }
+  
+  return {
+    ...event,
+    profile_image_url: imageUrl || `${baseURL}/uploads/members/default.jpg`
+  };
+});
+
+const responseData = {
+  total_logins: Number(loginResult[0]?.count) || 0,
+  peak_hour: peakHourFormatted,
+  recent_events: recentEventsWithImages, // ✅ Use encoded version
+};
 
     console.log("🚀 Subscription activity response:", responseData);
     res.json(responseData);

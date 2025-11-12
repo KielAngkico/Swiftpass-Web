@@ -86,8 +86,7 @@ const PrepaidReplacement = ({ staffUser }) => {
 const scannedTag = replacementScannedRfid.rfid_tag || replacementScannedRfid;
 setNewRfidTag(scannedTag);
       setScanActive(false);
-      showToast({ message: "✅ RFID captured: " + replacementScannedRfid, type: "success" });
-      clearReplacementScannedRfid();
+showToast({ message: `✅ RFID captured: ${scannedTag}`, type: "success" });      clearReplacementScannedRfid();
     }
   }, [replacementScannedRfid, scanActive, clearReplacementScannedRfid, showToast]);
 

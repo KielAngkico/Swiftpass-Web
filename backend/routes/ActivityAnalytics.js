@@ -228,27 +228,26 @@ router.get("/subscription-activity-analytics", async (req, res) => {
       };
     });
 
-    // ✅ Recent Events with Images
-    const [recentEvents] = await dbSuperAdmin.promise().query(
-      `SELECT 
-         e.id,
-         e.full_name,
-         e.rfid_tag,
-         e.visitor_type,
-         e.entry_time,
-         e.exit_time,
-         e.member_status AS status,
-         m.profile_image_url
-       FROM AdminEntryLogs e
-       LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
-       WHERE e.admin_id = ?
-         AND e.system_type = 'subscription'
-         AND ${entryDateCondition}
-       ORDER BY e.entry_time DESC
-       LIMIT 50`,
-      queryParams
-    );
-
+  const [recentEvents] = await dbSuperAdmin.promise().query(
+  `SELECT 
+     e.id,
+     e.full_name,
+     e.rfid_tag,
+     e.visitor_type,
+     e.entry_time,
+     e.exit_time,
+     e.member_status AS status,
+     COALESCE(m.profile_image_url, d.profile_image_url) AS profile_image_url
+   FROM AdminEntryLogs e
+   LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
+   LEFT JOIN DayPassGuests d ON e.rfid_tag = d.rfid_tag AND e.admin_id = d.admin_id
+   WHERE e.admin_id = ?
+     AND e.system_type = 'subscription'
+     AND ${entryDateCondition}
+   ORDER BY e.entry_time DESC
+   LIMIT 50`,
+  queryParams
+);
     const recentEventsWithImages = recentEvents.map(event => {
       let imageUrl = event.profile_image_url;
       
@@ -480,9 +479,10 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
      e.entry_time AS time,
      e.exit_time,
      e.member_status AS status,
-     m.profile_image_url
+     COALESCE(m.profile_image_url, d.profile_image_url) AS profile_image_url
    FROM AdminEntryLogs e
    LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
+   LEFT JOIN DayPassGuests d ON e.rfid_tag = d.rfid_tag AND e.admin_id = d.admin_id
    WHERE e.admin_id = ?
      AND e.system_type = ?
      AND ${entryDateCondition}

@@ -347,57 +347,57 @@ const MemberRegistration = () => {
             className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-4 pb-3 border-b">
-              <h2 className="text-xl font-bold text-gray-800">Terms and Conditions</h2>
-              <button 
-                onClick={() => setShowTerms(false)} 
-                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              <div className="flex justify-between items-center mb-4 pb-3 border-b">
+                <h2 className="text-xl font-bold text-gray-800">Terms and Conditions</h2>
+                <button 
+                  onClick={() => setShowTerms(false)} 
+                  className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div 
+                ref={termsContentRef}
+                onScroll={handleTermsScroll}
+                className="space-y-4 text-sm text-gray-700 overflow-y-auto flex-1 pr-2"
+                style={{ maxHeight: 'calc(85vh - 200px)' }}
               >
-                ×
-              </button>
-            </div>
-            
-            <div 
-              ref={termsContentRef}
-              onScroll={handleTermsScroll}
-              className="space-y-4 text-sm text-gray-700 overflow-y-auto flex-1 pr-2"
-              style={{ maxHeight: 'calc(85vh - 200px)' }}
-            >
-              <section>
-                <h3 className="font-bold text-base mb-2">1. Membership Agreement</h3>
-                <p>By registering as a member, you agree to abide by the gym's rules and regulations. You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.</p>
-              </section>
-              
-              <section>
-                <h3 className="font-bold text-base mb-2">2. Facility Usage</h3>
-                <p>Members must follow all posted rules and staff instructions when using gym facilities. Improper use of equipment or failure to follow safety guidelines may result in membership suspension or termination.</p>
-              </section>
-              
-              <section>
-                <h3 className="font-bold text-base mb-2">3. Personal Information</h3>
-                <p>We collect and process your personal data in accordance with data protection laws. Your information will be used for membership management and may be shared with the gym you're registering with.</p>
-              </section>
-              
-              <section>
-                <h3 className="font-bold text-base mb-2">4. Payment and Fees</h3>
-                <p>Membership fees and payment terms are set by the individual gym. You agree to pay all applicable fees according to your selected membership plan. Late payments may result in access restrictions.</p>
-              </section>
-              
-              <section>
-                <h3 className="font-bold text-base mb-2">5. Health and Safety</h3>
-                <p>You confirm that you are physically fit to use gym facilities. You agree to inform staff of any health conditions that may affect your ability to exercise safely. The gym is not liable for injuries resulting from improper equipment use.</p>
-              </section>
+                <section>
+                  <h3 className="font-bold text-base mb-2">1. Account Registration</h3>
+                  <p>By registering as a partner, you agree to provide accurate, current, and complete information about your gym and maintain the confidentiality of your account credentials. You are responsible for all activities that occur under your account.</p>
+                </section>
+                
+                <section>
+                  <h3 className="font-bold text-base mb-2">2. Service Usage</h3>
+                  <p>SwiftPass Tech provides gym management software designed to streamline your operations. You agree to use the service in compliance with all applicable laws and regulations. Any misuse of the platform may result in account suspension or termination.</p>
+                </section>
+                
+                <section>
+                  <h3 className="font-bold text-base mb-2">3. Data Privacy</h3>
+                  <p>We collect and process your data in accordance with our Privacy Policy and applicable data protection laws. You retain ownership of your gym's data, including member information. We implement industry-standard security measures to protect your data.</p>
+                </section>
+                
+                <section>
+                  <h3 className="font-bold text-base mb-2">4. Payment Terms</h3>
+                  <p>Subscription fees are charged based on your selected plan. Payment is due at the beginning of each billing cycle. We reserve the right to modify pricing with 30 days advance notice. Failure to pay may result in service suspension.</p>
+                </section>
+                
+                <section>
+                  <h3 className="font-bold text-base mb-2">5. Service Availability</h3>
+                  <p>We strive to maintain 99.9% uptime for our services. However, we do not guarantee uninterrupted service and are not liable for any downtime due to maintenance, technical issues, or circumstances beyond our control.</p>
+                </section>
 
-              <section>
-                <h3 className="font-bold text-base mb-2">6. Cancellation Policy</h3>
-                <p>Membership cancellation policies vary by gym. Please contact your gym directly for their specific cancellation terms and procedures.</p>
-              </section>
+                <section>
+                  <h3 className="font-bold text-base mb-2">6. Intellectual Property</h3>
+                  <p>All content, features, and functionality of SwiftPass Tech are owned by us and protected by intellectual property laws. You may not reproduce, distribute, or create derivative works without our explicit permission.</p>
+                </section>
 
-              <section>
-                <h3 className="font-bold text-base mb-2">7. Code of Conduct</h3>
-                <p>Members must treat staff and other members with respect. Harassment, inappropriate behavior, or damage to gym property will result in immediate membership termination without refund.</p>
-              </section>
-            </div>
+                <section>
+                  <h3 className="font-bold text-base mb-2">7. Termination</h3>
+                  <p>Either party may terminate this agreement with 30 days written notice. Upon termination, you will have 60 days to export your data before it is permanently deleted from our servers.</p>
+                </section>
+              </div>
 
             <div className="mt-4 pt-4 border-t">
               <label className="flex items-start cursor-pointer mb-4">

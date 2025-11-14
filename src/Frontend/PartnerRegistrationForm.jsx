@@ -372,7 +372,7 @@ import React, { useState, useRef, useEffect } from 'react';
               onClick={(e) => e.stopPropagation()}
             >
 <div className="flex justify-between items-center mb-4 pb-3 border-b">
-                <h2 className="text-xl font-bold text-gray-800">Terms and Conditions</h2>
+                <h2 className="text-xl font-bold text-gray-800">SwiftPass Partner Terms and Conditions</h2>
                 <button 
                   onClick={() => setShowTerms(false)} 
                   className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
@@ -388,53 +388,48 @@ import React, { useState, useRef, useEffect } from 'react';
                 style={{ maxHeight: 'calc(85vh - 200px)' }}
               >
                 <section>
-                  <h3 className="font-bold text-base mb-2">1. Membership Registration</h3>
-                  <p>All members are required to complete the official registration form accurately. Any false or misleading information may result in suspension or termination of membership privileges.</p>
+                  <h3 className="font-bold text-base mb-2">1. Partner Registration</h3>
+                  <p>Provide accurate gym information and keep your account credentials secure. You are responsible for all activities under your account.</p>
                 </section>
                 
                 <section>
-                  <h3 className="font-bold text-base mb-2">2. Account Verification</h3>
-                  <p>Membership accounts will only be activated after verification by the gym administrator. Members must present a valid ID upon registration and during card replacement requests.</p>
+                  <h3 className="font-bold text-base mb-2">2. Service Usage</h3>
+                  <p>Use SwiftPass gym management software (member registration, access control, payments, assessments) in compliance with all applicable laws. Misuse may result in account termination.</p>
                 </section>
                 
                 <section>
-                  <h3 className="font-bold text-base mb-2">3. RFID Card or Tag Ownership</h3>
-                  <p>Each member is issued a unique RFID card, tag, or wristband upon successful registration. The RFID is non-transferable and must be used only by the registered member.</p>
+                  <h3 className="font-bold text-base mb-2">3. Data Ownership</h3>
+                  <p>You own all your gym's data (members, attendance, transactions). We protect it according to the Data Privacy Act of 2012 with industry-standard security.</p>
                 </section>
                 
                 <section>
-                  <h3 className="font-bold text-base mb-2">4. Lost or Damaged RFID Policy</h3>
-                  <p>In the event of a lost or damaged RFID card, tag, or wristband, the member must immediately report it to the gym staff for replacement. A gym replacement fee will be charged for each new RFID issued, as determined by the gym administration.</p>
+                  <h3 className="font-bold text-base mb-2">4. RFID System Requirements</h3>
+                  <p>All RFID cards, tags, and wristbands must be registered in the SwiftPass system to function. Only SwiftPass-authorized RFIDs will be recognized by the access control system. All RFID equipment must be sourced from SwiftPass Tech to ensure compatibility and system integrity.</p>
+                </section>
+
+                <section>
+                  <h3 className="font-bold text-base mb-2">5. Subscription & Payment</h3>
+                  <p>Pay subscription fees at the start of each billing cycle. We may adjust pricing with 30 days notice.</p>
                 </section>
                 
                 <section>
-                  <h3 className="font-bold text-base mb-2">5. Unauthorized Use of RFID</h3>
-                  <p>Members are strictly prohibited from lending or sharing their RFID with others. The RFID remains active and functional as long as the membership is valid. Unauthorized use by another person will result in account suspension or membership termination.</p>
+                  <h3 className="font-bold text-base mb-2">6. Subscription Expiration</h3>
+                  <p>When your subscription expires, you will not be able to access your account and data until renewal.</p>
                 </section>
 
                 <section>
-                  <h3 className="font-bold text-base mb-2">6. Payment Policy</h3>
-                  <p>All payments for memberships, renewals, and RFID replacements must be processed through the gym's official payment channels (cash, bank deposit, or approved third-party apps). The SwiftPass system does not currently support online payment transactions.</p>
+                  <h3 className="font-bold text-base mb-2">7. Grace Period & Data Deletion</h3>
+                  <p>You have 30 days after expiration to renew your subscription and restore access. If not renewed within 30 days, all your gym data will be permanently deleted and cannot be recovered.</p>
                 </section>
 
                 <section>
-                  <h3 className="font-bold text-base mb-2">7. Attendance and Access</h3>
-                  <p>RFID cards or tags must be tapped at the access terminal upon entering and exiting the gym premises. Failure to tap may result in attendance discrepancies and access restrictions.</p>
+                  <h3 className="font-bold text-base mb-2">8. Equipment Responsibility</h3>
+                  <p>You are responsible for maintaining SwiftPass hardware (RFID readers, terminals). Report damage immediately; replacement fees may apply.</p>
                 </section>
 
                 <section>
-                  <h3 className="font-bold text-base mb-2">8. Data Privacy and Security</h3>
-                  <p>The SwiftPass system ensures that all personal data and fitness information are securely stored and used solely for gym management and monitoring purposes, in compliance with the Data Privacy Act of 2012.</p>
-                </section>
-
-                <section>
-                  <h3 className="font-bold text-base mb-2">9. System Downtime and Internet Dependency</h3>
-                  <p>In cases of internet interruption or system maintenance, gym entry may temporarily rely on manual verification. Members are expected to cooperate during such instances.</p>
-                </section>
-
-                <section>
-                  <h3 className="font-bold text-base mb-2">10. Acceptance of Terms</h3>
-                  <p>By registering and using the SwiftPass system, the member acknowledges and agrees to abide by these Terms and Conditions. The gym and system administrators reserve the right to amend these terms with proper notice.</p>
+                  <h3 className="font-bold text-base mb-2">9. Acceptance</h3>
+                  <p>By using SwiftPass, you agree to these terms. We may update them with 30 days notice via email.</p>
                 </section>
               </div>
 

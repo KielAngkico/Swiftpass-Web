@@ -448,7 +448,7 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
           reason: reason || (accessGranted ? (isEntry ? "Entry granted" : "Exit granted") : "Access denied"),
           entry_time: entryTime ? (entryTime instanceof Date ? entryTime.toISOString() : new Date(entryTime).toISOString()) : null,
           exit_time: exitTime ? (exitTime instanceof Date ? exitTime.toISOString() : new Date(exitTime).toISOString()) : null,
-          deducted_amount: guest.paid_amount,
+          deducted_amount: null,
           staff_name: guest.staff_name,
           location,
           admin_id: guest.admin_id,

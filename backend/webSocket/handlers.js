@@ -1,7 +1,6 @@
 async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers) {
   const { isRfidRegistered, getStaffByRfid, getAdminByRfid, getMemberByRfid, broadcastToClients, dbSuperAdmin } = helpers;
 
-  // Check if RFID is registered in RegisteredRfid
   const isRegistered = await isRfidRegistered(rfid_tag);
   if (!isRegistered) {
     broadcastToClients({
@@ -18,7 +17,6 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
     return;
   }
 
-  // Validate allocation
   if (!allocation || !allocation.isValid) {
     broadcastToClients({
       type: "staff-scan",
@@ -34,7 +32,6 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
     return;
   }
 
-  // Check allocation matches the admin
   if (allocation.allocated_to_admin !== admin_id) {
     broadcastToClients({
       type: "staff-scan",
@@ -50,7 +47,6 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
     return;
   }
 
-  // Check if DayPass RFID is already registered in DayPassGuests
   if (allocation.role === 'DayPass') {
     console.log("🔍 Checking if Day Pass guest exists...");
     
@@ -106,7 +102,6 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
     console.log("⚠️ Day Pass RFID not assigned yet - route to new registration");
   }
 
-  // Check for duplicates in StaffAccounts
   const staffMember = await getStaffByRfid(rfid_tag, admin_id);
   if (staffMember) {
     broadcastToClients({
@@ -123,7 +118,6 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
     return;
   }
 
-  // Check for duplicates in AdminAccounts
   const adminMember = await getAdminByRfid(rfid_tag);
   if (adminMember) {
     broadcastToClients({
@@ -140,7 +134,6 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
     return;
   }
 
-  // Check for duplicates in MembersAccounts
   const memberCheck = await getMemberByRfid(rfid_tag, admin_id);
   if (memberCheck) {
     broadcastToClients({
@@ -157,7 +150,6 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
     return;
   }
 
-  // All checks passed - RFID is ready for registration
   broadcastToClients({
     type: "staff-scan",
     data: {
@@ -173,7 +165,6 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
   });
 }
 
-// ============= ENTRY/EXIT HANDLER =============
 async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers) {
   const { 
     isRfidRegistered, 
@@ -193,14 +184,12 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
 
   const target_admin_id = admin_id;
 
-  // Check for staff member
   console.log(`🔍 Checking StaffAccounts for admin ${target_admin_id}...`);
   const staffMember = await getStaffByRfid(rfid_tag, target_admin_id);
   if (staffMember) {
     console.log(`✅ Staff Found: ${staffMember.staff_name}`);
     await logStaffActivity(rfid_tag, staffMember, location, location.toUpperCase());
 
-    // ✅ Send to Arduino ONLY (not to dashboard)
     broadcastToClients({
       type: "member-update",
       data: {
@@ -212,20 +201,18 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
         admin_id: staffMember.admin_id,
         timestamp: new Date().toISOString()
       }
-    }); // ✅ Pass 'true' to send only to Arduino
+    }); 
     
     console.log(`⏭️ Staff access granted - Arduino notified, dashboard NOT notified`);
     console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
     return;
   }
 
-  // Check for admin member
   console.log(`🔍 Checking AdminAccounts...`);
   const adminMember = await getAdminByRfid(rfid_tag);
   if (adminMember) {
     console.log(`✅ Admin Found: ${adminMember.admin_name}`);
     
-    // ✅ Send to Arduino ONLY (not to dashboard)
     broadcastToClients({
       type: "member-update",
       data: {
@@ -237,14 +224,12 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
         admin_id: target_admin_id,
         timestamp: new Date().toISOString()
       }
-    }); // ✅ Pass 'true' to send only to Arduino
-    
+    }); 
     console.log(`⏭️ Admin access granted - Arduino notified, dashboard NOT notified`);
     console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
     return;
   }
 
-  // Check for member
   if (allocation.role === 'Member') {
     console.log(`🔍 Checking MembersAccounts for admin ${target_admin_id}...`);
     const [memberRows] = await dbSuperAdmin.promise().query(
@@ -287,7 +272,6 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
     }
   }
 
-  // Check for DayPass guest
   if (allocation.role === 'DayPass') {
     console.log(`🔍 Checking DayPassGuests for admin ${target_admin_id}...`);
     await handleDayPassGuest(rfid_tag, location, target_admin_id);
@@ -295,7 +279,6 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
     return;
   }
 
-  // RFID is allocated but not assigned to anyone yet
   console.log(`⚠️ RFID allocated but not assigned to any member/staff`);
   broadcastToClients({
     type: "member-update",
@@ -312,8 +295,6 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
   console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
 }
 
-// ============= DAY PASS GUEST HANDLER =============
-// ✅ FIXED: Now returns complete data for frontend table updates
 async function handleDayPassGuest(rfid_tag, location, admin_id) {
   const dbSuperAdmin = require("../db");
   const { broadcastToClients } = require("./websocket");
@@ -352,7 +333,6 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
 
     console.log(`✅ DayPass guest found: ${guest.guest_name}`);
 
-    // Check expiration
     if (guest.expires_at && new Date(guest.expires_at) < now) {
       console.log(`❌ DayPass expired for ${guest.guest_name}`);
       broadcastToClients({
@@ -373,11 +353,9 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
       return;
     }
 
-    // Handle ENTRY or EXIT
     if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
       const isEntry = location.toUpperCase() === "ENTRY";
 
-      // Get last log
       const [lastLogRows] = await dbSuperAdmin.promise().query(
         `SELECT id, member_status, entry_time, exit_time
          FROM AdminEntryLogs
@@ -393,7 +371,6 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
       let reason = "";
       let logId = null;
 
-      // Entry/Exit logic
       if (isEntry && isCurrentlyInside) {
         reason = "Already inside";
         accessGranted = false;
@@ -408,7 +385,6 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
       const entryTime = accessGranted && isEntry ? new Date() : (lastLog.entry_time || null);
       const exitTime = accessGranted && !isEntry ? new Date() : (lastLog.exit_time || null);
 
-      // Update database
       if (accessGranted) {
         if (isEntry) {
           const [result] = await dbSuperAdmin.promise().query(
@@ -433,11 +409,10 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
         }
       }
 
-      // ✅ FIXED: Broadcast with COMPLETE data including id, entry_time, exit_time
       const broadcastData = {
         type: "member-update",
         data: {
-          id: logId || lastLog.id, // ✅ Always include ID
+          id: logId || lastLog.id,
           rfid_tag,
           full_name: guest.guest_name,
           profile_image_url: guest.profile_image_url,
@@ -452,7 +427,7 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
           staff_name: guest.staff_name,
           location,
           admin_id: guest.admin_id,
-          action: isEntry ? "entry" : "exit", // ✅ Add action field
+          action: isEntry ? "entry" : "exit", 
           last_activity: (isEntry ? entryTime : exitTime) ? 
             ((isEntry ? entryTime : exitTime) instanceof Date ? 
               (isEntry ? entryTime : exitTime).toISOString() : 
@@ -484,7 +459,6 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
   }
 }
 
-// ============= MEMBER HANDLER =============
 async function handleMember(member, rfid_tag, location) {
   const dbSuperAdmin = require("../db");
   const { broadcastToClients } = require("./websocket");
@@ -529,12 +503,10 @@ async function handleMember(member, rfid_tag, location) {
     let logId = null;
 
     if (isEntry) {
-      // ✅ Tailgate check
       if (isCurrentlyInside) {
         reason = "Already inside";
         accessGranted = false;
       } 
-      // ✅ Prepaid Entry System
       else if (admin.system_type === "prepaid_entry") {
         const [pricingRows] = await dbSuperAdmin.promise().query(
           `SELECT amount_to_pay FROM AdminPricingOptions
@@ -630,9 +602,7 @@ async function handleMember(member, rfid_tag, location) {
           }
         }
       } 
-      // ✅ Subscription System - NOW WITH EXPIRY CHECK
       else {
-        // ✅ NEW: Check subscription expiry
         if (member.subscription_expiry) {
           const expiryDate = new Date(member.subscription_expiry);
           const now = new Date();
@@ -646,12 +616,10 @@ async function handleMember(member, rfid_tag, location) {
             console.log(`✅ Subscription valid until ${expiryDate.toISOString()}`);
           }
         } else {
-          // If no expiry date set, grant access (backward compatibility)
           accessGranted = true;
           console.log(`⚠️ No subscription expiry set for ${member.full_name}`);
         }
 
-        // ✅ Only log entry if access granted
         if (accessGranted) {
           try {
             const [logResult] = await dbSuperAdmin.promise().query(
@@ -668,7 +636,6 @@ async function handleMember(member, rfid_tag, location) {
         }
       }
     } 
-    // ✅ EXIT Logic
     else {
       if (!isCurrentlyInside) {
         reason = "Not inside - cannot exit";

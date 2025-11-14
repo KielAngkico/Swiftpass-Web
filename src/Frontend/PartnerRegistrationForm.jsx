@@ -282,54 +282,51 @@ import React, { useState, useRef, useEffect } from 'react';
                     ))}
                   </select>
                 </div>
+{selectedPackage && (
+  <div className="bg-white border-2 border-black rounded-lg p-4">
+    <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      </svg>
+      {selectedPackage.name} Package
+    </h3>
+    
+    <div className="mb-4 pb-3 border-b border-gray-300">
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-sm font-medium text-gray-700">Price:</span>
+        <span className="text-xl font-bold text-blue-600">
+          ₱{parseFloat(selectedPackage.price).toLocaleString('en-PH', {minimumFractionDigits: 2})}
+        </span>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="text-sm font-medium text-gray-700">Duration:</span>
+        <span className="text-sm font-semibold text-gray-800">{selectedPackage.duration_days} days</span>
+      </div>
+    </div>
 
-                {selectedPackage && (
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
-                    <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                      </svg>
-                      {selectedPackage.name} Package
-                    </h3>
-                    
-                    <div className="mb-4 pb-3 border-b border-blue-200">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-sm font-medium text-gray-700">Price:</span>
-                        <span className="text-xl font-bold text-blue-600">
-                          ₱{parseFloat(selectedPackage.price).toLocaleString('en-PH', {minimumFractionDigits: 2})}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">Duration:</span>
-                        <span className="text-sm font-semibold text-gray-800">{selectedPackage.duration_days} days</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Included Items:
-                      </h4>
-                      <ul className="space-y-1.5">
-                        {selectedPackage.items.map((item, index) => (
-                          <li key={index} className="flex items-center justify-between text-xs bg-white rounded-md p-2 shadow-sm">
-                            <span className="text-gray-700 flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                              {item.item_name}
-                            </span>
-                            <span className="font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
-                              {item.quantity} {item.quantity > 1 ? 'pcs' : 'pc'}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-
-                  </div>
-                )}
+    <div>
+      <h4 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Included Items:
+      </h4>
+      <ul className="space-y-1.5">
+        {selectedPackage.items.map((item, index) => (
+          <li key={index} className="flex items-center justify-between text-xs bg-white border-2 border-black rounded-md p-2">
+            <span className="text-gray-700 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+              {item.item_name}
+            </span>
+            <span className="font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+              {item.quantity} {item.quantity > 1 ? 'pcs' : 'pc'}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+)}
               </div>
             </div>
 

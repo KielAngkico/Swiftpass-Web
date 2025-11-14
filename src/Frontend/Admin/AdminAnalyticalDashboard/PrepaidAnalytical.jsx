@@ -142,6 +142,8 @@ const PrepaidAnalytical = ({ adminUser }) => {
       return {
         totalRevenue: 0,
         membersInside: 0,
+        dayPassInside: 0,
+        totalInside: 0,
         totalLogins: 0,
         totalTransactions: 0,
         peakHour: "—",
@@ -149,15 +151,26 @@ const PrepaidAnalytical = ({ adminUser }) => {
         scansByHour: { labels: [], values: [] },
         currentlyInside: [],
         topMembers: [],
-       transaction_breakdown: {},
+        transaction_breakdown: {},
       };
     }
 
     const scanLabels = analyticsData.scans_by_hour?.map(s => `${s.hour}:00`) || [];
+    const currentlyInside = analyticsData.currently_inside || [];
+    
+    // Separate members and day pass guests
+    const members = currentlyInside.filter(person => 
+      !person.visitor_type || person.visitor_type !== 'Day Pass'
+    );
+    const dayPass = currentlyInside.filter(person => 
+      person.visitor_type === 'Day Pass'
+    );
 
     return {
       totalRevenue: analyticsData.prepaid_revenue || 0,
-      membersInside: analyticsData.active_members_inside || 0,
+      membersInside: members.length,
+      dayPassInside: dayPass.length,
+      totalInside: currentlyInside.length,
       totalLogins: analyticsData.total_logins || 0,
       totalTransactions: (analyticsData.topups_vs_deductions?.topups || 0) + (analyticsData.topups_vs_deductions?.deductions || 0),
       peakHour: analyticsData.peak_hour || "—",
@@ -169,10 +182,9 @@ const PrepaidAnalytical = ({ adminUser }) => {
         labels: scanLabels,
         values: padDataArray(scanLabels, analyticsData.scans_by_hour?.map(s => s.count) || []),
       },
-      currentlyInside: analyticsData.currently_inside || [],
+      currentlyInside: currentlyInside,
       topMembers: analyticsData.most_active_members || [],
-          transaction_breakdown: analyticsData.transaction_breakdown || {},
-
+      transaction_breakdown: analyticsData.transaction_breakdown || {},
     };
   }, [analyticsData]);
 
@@ -201,21 +213,22 @@ const PrepaidAnalytical = ({ adminUser }) => {
     },
   };
 
-const topupsVsDeductionsData = {
-  labels: Object.keys(sampleData.transaction_breakdown || {}),
-  datasets: [{
-    data: Object.values(sampleData.transaction_breakdown || {}),
-    backgroundColor: [
-      "#10B981", // green
-      "#F59E0B", // orange
-      "#3B82F6", // blue
-      "#EF4444", // red
-      "#8B5CF6", // purple
-      "#EC4899", // pink
-    ],
-    borderWidth: 0,
-  }],
-};
+  const topupsVsDeductionsData = {
+    labels: Object.keys(sampleData.transaction_breakdown || {}),
+    datasets: [{
+      data: Object.values(sampleData.transaction_breakdown || {}),
+      backgroundColor: [
+        "#10B981", // green
+        "#F59E0B", // orange
+        "#3B82F6", // blue
+        "#EF4444", // red
+        "#8B5CF6", // purple
+        "#EC4899", // pink
+      ],
+      borderWidth: 0,
+    }],
+  };
+
   const scansByHourData = {
     labels: sampleData.scansByHour.labels,
     datasets: [{
@@ -313,9 +326,10 @@ const topupsVsDeductionsData = {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
         <KpiCard title="Total Revenue" value={`₱${sampleData.totalRevenue.toLocaleString()}`} color="text-green-600" />
         <KpiCard title="Members Inside" value={sampleData.membersInside} color="text-blue-600" />
+        <KpiCard title="Day Pass Inside" value={sampleData.dayPassInside} color="text-indigo-600" />
         <KpiCard title="Total Logins" value={sampleData.totalLogins} color="text-purple-600" />
         <KpiCard title="Total Transactions" value={sampleData.totalTransactions} color="text-amber-600" />
         <KpiCard title="Peak Hour" value={sampleData.peakHour} color="text-gray-700" />
@@ -340,16 +354,14 @@ const topupsVsDeductionsData = {
                     }`}
                   >
                     <div className="text-2xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</div>
-<img
-  src={member.profile_image_url || `https://swiftpasstech.com/uploads/members/default.jpg`}
-  alt={member.full_name}
-  className="w-16 h-16 object-cover rounded-full border"
-  onError={(e) => {
-    e.currentTarget.src = `https://swiftpasstech.com/uploads/members/default.jpg`;
-  }}
-/>
-
-
+                    <img
+                      src={member.profile_image_url || `https://swiftpasstech.com/uploads/members/default.jpg`}
+                      alt={member.full_name}
+                      className="w-16 h-16 object-cover rounded-full border"
+                      onError={(e) => {
+                        e.currentTarget.src = `https://swiftpasstech.com/uploads/members/default.jpg`;
+                      }}
+                    />
                     <p className="font-semibold text-sm">{member.full_name}</p>
                     <p className="text-[10px]">Visits: {member.login_count}</p>
                     <p className="text-[10px] italic text-gray-500">{member.rfid_tag}</p>
@@ -388,25 +400,38 @@ const topupsVsDeductionsData = {
         <div className="lg:w-[40%] w-full">
           <div className="bg-white rounded-md shadow-sm p-3 h-full">
             <h2 className="text-sm font-semibold text-gray-800 mb-2">
-              👥 Currently Inside ({sampleData.currentlyInside.length})
+              👥 Currently Inside ({sampleData.totalInside})
+              <span className="text-xs text-gray-600 ml-2">
+                • Members: {sampleData.membersInside} • Day Pass: {sampleData.dayPassInside}
+              </span>
             </h2>
             <div className="overflow-y-auto max-h-[250px]">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-white">
                   <tr className="border-b border-gray-200">
                     <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Name</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Type</th>
                     <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">RFID</th>
                     <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Entry</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sampleData.currentlyInside.length > 0 ? (
-                    sampleData.currentlyInside.map((member, idx) => (
+                    sampleData.currentlyInside.map((person, idx) => (
                       <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                        <td className="py-2 px-3 text-xs text-gray-800">{member.full_name}</td>
-                        <td className="py-2 px-3 text-xs text-gray-600">{member.rfid_tag}</td>
+                        <td className="py-2 px-3 text-xs text-gray-800">{person.full_name}</td>
+                        <td className="py-2 px-3 text-xs">
+                          <span className={`inline-block px-2 py-1 rounded text-[10px] font-medium ${
+                            person.visitor_type === 'Day Pass' 
+                              ? 'bg-indigo-100 text-indigo-700' 
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {person.visitor_type === 'Day Pass' ? 'Day Pass' : 'Member'}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-xs text-gray-600">{person.rfid_tag}</td>
                         <td className="py-2 px-3 text-xs text-gray-600">
-                          {new Date(member.entry_time).toLocaleString("en-US", {
+                          {new Date(person.entry_time).toLocaleString("en-US", {
                             month: "short",
                             day: "numeric",
                             hour: "2-digit",
@@ -417,7 +442,7 @@ const topupsVsDeductionsData = {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="3" className="py-4 text-center text-gray-500 text-xs">
+                      <td colSpan="4" className="py-4 text-center text-gray-500 text-xs">
                         No one is currently inside
                       </td>
                     </tr>

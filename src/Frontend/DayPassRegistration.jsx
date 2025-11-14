@@ -327,14 +327,6 @@ import React, { useState, useRef, useEffect } from 'react';
                       </ul>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-blue-200">
-                      <p className="text-xs text-gray-600 flex items-start gap-2">
-                        <svg className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>This package includes all necessary hardware and RFID cards to get your gym started with SwiftPass Tech.</span>
-                      </p>
-                    </div>
                   </div>
                 )}
               </div>

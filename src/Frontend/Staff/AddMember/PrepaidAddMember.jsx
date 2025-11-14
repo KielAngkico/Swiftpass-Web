@@ -581,10 +581,10 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
                     onClick={startWebcam}
                     className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700"
                   >
-                    📷 Open Camera
+                     Open Camera
                   </button>
                   <label className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700 cursor-pointer text-center">
-                    📁 Upload
+                     Upload
                     <input
                       type="file"
                       accept="image/*"

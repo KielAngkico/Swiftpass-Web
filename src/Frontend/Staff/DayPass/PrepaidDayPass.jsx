@@ -367,10 +367,10 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
                     onClick={startWebcam}
                     className="w-full px-2 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
                   >
-                    📷 Camera
+                     Camera
                   </button>
                   <label className="w-full px-2 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 cursor-pointer text-center">
-                    📁 Upload
+                    Upload
                     <input
                       type="file"
                       accept="image/*"

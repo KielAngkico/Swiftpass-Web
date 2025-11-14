@@ -149,6 +149,7 @@ const PrepaidAnalytical = ({ adminUser }) => {
         scansByHour: { labels: [], values: [] },
         currentlyInside: [],
         topMembers: [],
+       transaction_breakdown: {},
       };
     }
 
@@ -170,6 +171,8 @@ const PrepaidAnalytical = ({ adminUser }) => {
       },
       currentlyInside: analyticsData.currently_inside || [],
       topMembers: analyticsData.most_active_members || [],
+          transaction_breakdown: analyticsData.transaction_breakdown || {},
+
     };
   }, [analyticsData]);
 
@@ -198,15 +201,21 @@ const PrepaidAnalytical = ({ adminUser }) => {
     },
   };
 
-  const topupsVsDeductionsData = {
-    labels: ["Top-Ups", "Session Deductions"],
-    datasets: [{
-      data: [sampleData.topupsVsDeductions.topups, sampleData.topupsVsDeductions.deductions],
-      backgroundColor: ["#10B981", "#F59E0B"],
-      borderWidth: 0,
-    }],
-  };
-
+const topupsVsDeductionsData = {
+  labels: Object.keys(sampleData.transaction_breakdown || {}),
+  datasets: [{
+    data: Object.values(sampleData.transaction_breakdown || {}),
+    backgroundColor: [
+      "#10B981", // green
+      "#F59E0B", // orange
+      "#3B82F6", // blue
+      "#EF4444", // red
+      "#8B5CF6", // purple
+      "#EC4899", // pink
+    ],
+    borderWidth: 0,
+  }],
+};
   const scansByHourData = {
     labels: sampleData.scansByHour.labels,
     datasets: [{

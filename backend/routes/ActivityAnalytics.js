@@ -347,9 +347,9 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
   };
 
   const txnDateConditions = {
-    today: "DATE(t.transaction_date) = CURDATE()",
-    yesterday: "DATE(t.transaction_date) = CURDATE() - INTERVAL 1 DAY",
-    "last-7-days": "DATE(t.transaction_date) BETWEEN CURDATE() - INTERVAL 7 DAY AND CURDATE()",
+    today: "DATE(transaction_date) = CURDATE()",
+    yesterday: "DATE(transaction_date) = CURDATE() - INTERVAL 1 DAY",
+    "last-7-days": "DATE(transaction_date) BETWEEN CURDATE() - INTERVAL 7 DAY AND CURDATE()",
   };
 
   let entryDateCondition = "1=1";
@@ -364,7 +364,7 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
   let txnDateCondition = "1=1";
   let txnParams = [];
   if (start_date && end_date) {
-    txnDateCondition = "DATE(t.transaction_date) BETWEEN ? AND ?";
+    txnDateCondition = "DATE(transaction_date) BETWEEN ? AND ?";
     txnParams = [start_date, end_date];
   } else if (range && txnDateConditions[range]) {
     txnDateCondition = txnDateConditions[range];
@@ -391,8 +391,8 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
        WHERE a.system_type = ?
          AND t.admin_id = ?
          AND t.transaction_type IN (?)
-         AND ${txnDateCondition}`,
-      [system_type, admin_id, transactionFilter, ...txnParams]
+         AND DATE(t.transaction_date) = CURDATE()`,
+      [system_type, admin_id, transactionFilter]
     );
 
     const [loginResult] = await dbSuperAdmin.promise().query(
@@ -432,26 +432,29 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
     );
 
     const [actionCounts] = await dbSuperAdmin.promise().query(
-      `SELECT t.transaction_type, COUNT(*) AS count
-       FROM AdminTransactions t
-       JOIN AdminAccounts a ON a.id = t.admin_id
-       WHERE a.system_type = ?
-         AND t.admin_id = ?
-         AND t.transaction_type IN (?)
-         AND ${txnDateCondition}
-       GROUP BY t.transaction_type`,
-      [system_type, admin_id, transactionFilter, ...txnParams]
+      `SELECT transaction_type, COUNT(*) AS count
+       FROM (
+         SELECT transaction_type, transaction_date
+         FROM AdminTransactions
+         WHERE admin_id = ?
+           AND ${txnDateCondition}
+         UNION ALL
+         SELECT transaction_type, timestamp AS transaction_date
+         FROM AdminMembersTransactions
+         WHERE admin_id = ?
+           AND ${txnDateCondition}
+       ) AS combined
+       GROUP BY transaction_type`,
+      [admin_id, ...txnParams, admin_id, ...txnParams]
     );
 
-    let topups = 0;
-    let deductions = 0;
-    if (isPrepaid) {
-      topups = actionCounts.find(a => a.transaction_type === "Tapup")?.count || 0;
-      deductions = actionCounts.find(a => a.transaction_type === "session_fee")?.count || 0;
-    } else {
-      topups = actionCounts.find(a => a.transaction_type === "renewal")?.count || 0;
-      deductions = actionCounts.find(a => a.transaction_type === "new_membership")?.count || 0;
-    }
+    let transactionBreakdown = {};
+    actionCounts.forEach(row => {
+      transactionBreakdown[row.transaction_type] = row.count;
+    });
+
+    let topups = transactionBreakdown['Tapup'] || transactionBreakdown['top_up'] || 0;
+    let deductions = transactionBreakdown['session_fee'] || 0;
 
     let totalCommission = 0;
     let scanCount = 0;
@@ -463,118 +466,116 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
          WHERE a.system_type = ?
            AND t.admin_id = ?
            AND t.transaction_type = 'session_fee'
-           AND ${txnDateCondition}`,
-        [system_type, admin_id, ...txnParams]
+           AND DATE(t.transaction_date) = CURDATE()`,
+        [system_type, admin_id]
       );
       scanCount = sessionScanCount[0]?.scans || 0;
       totalCommission = scanCount * 1;
     }
 
- const [recentEvents] = await dbSuperAdmin.promise().query(
-  `SELECT
-     e.id,
-     e.full_name AS name,
-     e.rfid_tag AS rfid,
-     e.visitor_type,
-     e.entry_time AS time,
-     e.exit_time,
-     e.member_status AS status,
-     COALESCE(m.profile_image_url, d.profile_image_url) AS profile_image_url
-   FROM AdminEntryLogs e
-   LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
-   LEFT JOIN DayPassGuests d ON e.rfid_tag = d.rfid_tag AND e.admin_id = d.admin_id
-   WHERE e.admin_id = ?
-     AND e.system_type = ?
-     AND ${entryDateCondition}
-   ORDER BY e.entry_time DESC
-   LIMIT 50`,
-  [admin_id, system_type, ...entryParams]
-);
+    const [recentEvents] = await dbSuperAdmin.promise().query(
+      `SELECT
+         e.id,
+         e.full_name AS name,
+         e.rfid_tag AS rfid,
+         e.visitor_type,
+         e.entry_time AS time,
+         e.exit_time,
+         e.member_status AS status,
+         COALESCE(m.profile_image_url, d.profile_image_url) AS profile_image_url
+       FROM AdminEntryLogs e
+       LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
+       LEFT JOIN DayPassGuests d ON e.rfid_tag = d.rfid_tag AND e.admin_id = d.admin_id
+       WHERE e.admin_id = ?
+         AND e.system_type = ?
+         AND ${entryDateCondition}
+       ORDER BY e.entry_time DESC
+       LIMIT 50`,
+      [admin_id, system_type, ...entryParams]
+    );
 
-const [topMembers] = await dbSuperAdmin.promise().query(
-  `SELECT
-     e.full_name,
-     e.rfid_tag,
-     m.profile_image_url,
-     COUNT(*) AS login_count
-   FROM AdminEntryLogs e
-   LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
-   WHERE e.admin_id = ? 
-     AND e.system_type = ?
-     AND (e.visitor_type IS NULL OR e.visitor_type != 'Day Pass')
-   GROUP BY e.rfid_tag, e.full_name, m.profile_image_url
-   ORDER BY login_count DESC
-   LIMIT 3`,
-  [admin_id, system_type]
-);
+    const [topMembers] = await dbSuperAdmin.promise().query(
+      `SELECT
+         e.full_name,
+         e.rfid_tag,
+         m.profile_image_url,
+         COUNT(*) AS login_count
+       FROM AdminEntryLogs e
+       LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
+       WHERE e.admin_id = ? 
+         AND e.system_type = ?
+         AND (e.visitor_type IS NULL OR e.visitor_type != 'Day Pass')
+       GROUP BY e.rfid_tag, e.full_name, m.profile_image_url
+       ORDER BY login_count DESC
+       LIMIT 3`,
+      [admin_id, system_type]
+    );
 
-// ✅ Add this: Construct full URLs for top members
-const baseURL = `${req.protocol}://${req.get("host")}`;
-const topMembersWithImages = topMembers.map(member => {
-  let imageUrl = member.profile_image_url;
-  
-  if (imageUrl && !imageUrl.startsWith('http')) {
-    imageUrl = `${baseURL}/${imageUrl}`;
-    
-    // Encode URL to handle spaces and special characters
-    try {
-      const url = new URL(imageUrl);
-      const pathParts = url.pathname.split('/');
-      const encodedParts = pathParts.map(part => encodeURIComponent(part));
-      url.pathname = encodedParts.join('/');
-      imageUrl = url.toString();
-    } catch (e) {
-      console.error('URL encoding error:', e);
-    }
-  }
-  
-  return {
-    ...member,
-    profile_image_url: imageUrl || `${baseURL}/uploads/members/default.jpg`
-  };
-});
-
-// ✅ Also fix recent_events images
-const recentEventsWithImages = recentEvents.map(event => {
-  let imageUrl = event.profile_image_url;
-  
-  if (imageUrl && !imageUrl.startsWith('http')) {
-    imageUrl = `${baseURL}/${imageUrl}`;
-    
-    try {
-      const url = new URL(imageUrl);
-      const pathParts = url.pathname.split('/');
-      const encodedParts = pathParts.map(part => encodeURIComponent(part));
-      url.pathname = encodedParts.join('/');
-      imageUrl = url.toString();
-    } catch (e) {
-      console.error('URL encoding error:', e);
-    }
-  }
-  
-  return {
-    ...event,
-    profile_image_url: imageUrl || `${baseURL}/uploads/members/default.jpg`
-  };
-});
-
-const responseData = {
-  active_members_inside: Number(activeResult[0]?.count) || 0,
-  prepaid_revenue: Number(revenueResult[0]?.total) || 0,
-  total_logins: Number(loginResult[0]?.count) || 0,
-  most_active_members: topMembersWithImages, // ✅ Use the version with full URLs
-  peak_hour: peakHourFormatted,
-  scans_by_hour: scanChart,
-  topups_vs_deductions: { topups, deductions },
-  swiftpass_commission: isPrepaid
-    ? {
-        scans: scanCount,
-        rate: 1,
-        total: totalCommission,
+    const baseURL = `${req.protocol}://${req.get("host")}`;
+    const topMembersWithImages = topMembers.map(member => {
+      let imageUrl = member.profile_image_url;
+      
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        imageUrl = `${baseURL}/${imageUrl}`;
+        
+        try {
+          const url = new URL(imageUrl);
+          const pathParts = url.pathname.split('/');
+          const encodedParts = pathParts.map(part => encodeURIComponent(part));
+          url.pathname = encodedParts.join('/');
+          imageUrl = url.toString();
+        } catch (e) {
+          console.error('URL encoding error:', e);
+        }
       }
-    : null,
-  recent_events: recentEventsWithImages, // ✅ Use the version with full URLs
-};
+      
+      return {
+        ...member,
+        profile_image_url: imageUrl || `${baseURL}/uploads/members/default.jpg`
+      };
+    });
+
+    const recentEventsWithImages = recentEvents.map(event => {
+      let imageUrl = event.profile_image_url;
+      
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        imageUrl = `${baseURL}/${imageUrl}`;
+        
+        try {
+          const url = new URL(imageUrl);
+          const pathParts = url.pathname.split('/');
+          const encodedParts = pathParts.map(part => encodeURIComponent(part));
+          url.pathname = encodedParts.join('/');
+          imageUrl = url.toString();
+        } catch (e) {
+          console.error('URL encoding error:', e);
+        }
+      }
+      
+      return {
+        ...event,
+        profile_image_url: imageUrl || `${baseURL}/uploads/members/default.jpg`
+      };
+    });
+
+    const responseData = {
+      active_members_inside: Number(activeResult[0]?.count) || 0,
+      prepaid_revenue: Number(revenueResult[0]?.total) || 0,
+      total_logins: Number(loginResult[0]?.count) || 0,
+      most_active_members: topMembersWithImages,
+      peak_hour: peakHourFormatted,
+      scans_by_hour: scanChart,
+      transaction_breakdown: transactionBreakdown,
+      topups_vs_deductions: { topups, deductions },
+      swiftpass_commission: isPrepaid
+        ? {
+            scans: scanCount,
+            rate: 1,
+            total: totalCommission,
+          }
+        : null,
+      recent_events: recentEventsWithImages,
+    };
 
     console.log("🚀 Final backend response:", responseData);
     res.json(responseData);

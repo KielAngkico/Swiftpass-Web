@@ -312,7 +312,6 @@ router.get("/subscription-activity-analytics", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
 router.get("/prepaid-activity-analytics", async (req, res) => {
   console.log("Received query params:", req.query);
   const { admin_id, range, system_type = "prepaid_entry", start_date, end_date } = req.query;
@@ -494,6 +493,25 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
       [admin_id, system_type, ...entryParams]
     );
 
+    // NEW QUERY: Get currently inside members
+    const [currentlyInside] = await dbSuperAdmin.promise().query(
+      `SELECT
+         e.full_name,
+         e.rfid_tag,
+         e.visitor_type,
+         e.entry_time,
+         COALESCE(m.profile_image_url, d.profile_image_url) AS profile_image_url
+       FROM AdminEntryLogs e
+       LEFT JOIN MembersAccounts m ON e.rfid_tag = m.rfid_tag AND e.admin_id = m.admin_id
+       LEFT JOIN DayPassGuests d ON e.rfid_tag = d.rfid_tag AND e.admin_id = d.admin_id
+       WHERE e.admin_id = ?
+         AND e.system_type = ?
+         AND e.member_status = 'inside'
+         AND e.exit_time IS NULL
+       ORDER BY e.entry_time DESC`,
+      [admin_id, system_type]
+    );
+
     const [topMembers] = await dbSuperAdmin.promise().query(
       `SELECT
          e.full_name,
@@ -512,6 +530,7 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
     );
 
     const baseURL = `${req.protocol}://${req.get("host")}`;
+    
     const topMembersWithImages = topMembers.map(member => {
       let imageUrl = member.profile_image_url;
       
@@ -558,6 +577,30 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
       };
     });
 
+    // Format currently inside with images
+    const currentlyInsideWithImages = currentlyInside.map(person => {
+      let imageUrl = person.profile_image_url;
+      
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        imageUrl = `${baseURL}/${imageUrl}`;
+        
+        try {
+          const url = new URL(imageUrl);
+          const pathParts = url.pathname.split('/');
+          const encodedParts = pathParts.map(part => encodeURIComponent(part));
+          url.pathname = encodedParts.join('/');
+          imageUrl = url.toString();
+        } catch (e) {
+          console.error('URL encoding error:', e);
+        }
+      }
+      
+      return {
+        ...person,
+        profile_image_url: imageUrl || `${baseURL}/uploads/members/default.jpg`
+      };
+    });
+
     const responseData = {
       active_members_inside: Number(activeResult[0]?.count) || 0,
       prepaid_revenue: Number(revenueResult[0]?.total) || 0,
@@ -567,6 +610,7 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
       scans_by_hour: scanChart,
       transaction_breakdown: transactionBreakdown,
       topups_vs_deductions: { topups, deductions },
+      currently_inside: currentlyInsideWithImages, // ADDED THIS
       swiftpass_commission: isPrepaid
         ? {
             scans: scanCount,

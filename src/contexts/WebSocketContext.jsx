@@ -225,134 +225,106 @@ setScannedRfidForStaff(msg.data.rfid_tag);
         
         console.log(`✅ Added to globalEntryLogs for admin ${messageAdminId}`);
         return;
+case "staff-scan":
+  if (!msg.data) return;
 
-      case "staff-scan":
-        if (!msg.data) return;
+  const { rfid_tag, status, location, full_name, reason, rfid_type, role, guest_data } = msg.data;
 
-        const { rfid_tag, status, location, full_name, system_type, reason, rfid_type, role, guest_data } = msg.data;
+  console.log("📥 Received staff-scan message:", msg.data);
 
-        console.log("📥 Received staff-scan message:", msg.data);
-        console.log("📸 Guest data received:", guest_data);
+  if (!rfid_tag || location !== "STAFF") {
+    console.log("⚠️ Invalid staff-scan data");
+    return;
+  }
 
-        if (!rfid_tag || location !== "STAFF") {
-          console.log("⚠️ Invalid staff-scan data");
-          return;
-        }
+  // Partner scan mode check
+  if (partnerScanModeEnabled) {
+    if (role !== "Partner") {
+      alert("This RFID is not assigned to a partner role. Please use a partner RFID card.");
+      return;
+    }
+    if (reason && (reason.includes("not registered with SwiftPass") || 
+                   reason.includes("Duplicate") || 
+                   reason.includes("already assigned"))) {
+      alert(`Cannot use this RFID: ${reason}`);
+      return;
+    }
+    console.log("✅ Valid partner RFID scanned:", rfid_tag);
+    setScannedRfidForPartner({ rfid_tag, slot: pendingPartnerSlot });
+    return;
+  }
 
-        // ✅ NEW: Check if we're in partner scan mode FIRST
-        if (partnerScanModeEnabled) {
-          console.log("🔍 Partner scan mode active - checking RFID role");
-          
-          if (role !== "Partner") {
-            console.log("❌ RFID is not a partner card");
-            alert("This RFID is not assigned to a partner role. Please use a partner RFID card.");
-            return;
-          }
+  // Duplicate check
+  if (rfid_tag === lastProcessedRfid.current) {
+    console.log("⏭️ Skipping duplicate RFID scan");
+    return;
+  }
+  lastProcessedRfid.current = rfid_tag;
+  setTimeout(() => (lastProcessedRfid.current = null), 2000);
 
-          if (reason && reason.includes("not registered with SwiftPass")) {
-            console.log("❌ Unauthorized RFID - not registered with SwiftPass");
-            alert("This RFID is not registered with SwiftPass company. Please use an authorized RFID.");
-            return;
-          }
+  sessionStorage.setItem("rfid_tag", rfid_tag);
 
-          if (reason && (reason.includes("Duplicate") || reason.includes("already assigned"))) {
-            console.log("❌ Duplicate RFID - already in use");
-            alert(`Cannot use this RFID: ${reason}`);
-            return;
-          }
+  const currentPath = window.location.pathname;
+  if (!currentPath.startsWith("/Staff")) {
+    console.log("Not on Staff page - no navigation");
+    return;
+  }
 
-          // Valid partner RFID scanned
-          console.log("✅ Valid partner RFID scanned:", rfid_tag);
-          setScannedRfidForPartner({
-            rfid_tag: rfid_tag,
-            slot: pendingPartnerSlot
-          });
-          return; // ✅ IMPORTANT: Return here to prevent normal staff-scan logic
-        }
+  // Handle errors
+  if (reason && (reason.includes("not registered with SwiftPass") || 
+                 reason.includes("Duplicate") || 
+                 reason.includes("already assigned"))) {
+    alert(reason);
+    return;
+  }
 
-        // ✅ EXISTING STAFF-SCAN LOGIC CONTINUES BELOW
-        if (rfid_tag === lastProcessedRfid.current) {
-          console.log("⏭️ Skipping duplicate RFID scan");
-          return;
-        }
-        lastProcessedRfid.current = rfid_tag;
-        setTimeout(() => (lastProcessedRfid.current = null), 2000);
+  console.log(`🔍 Navigation - Role: ${role}, Status: ${status}`);
 
-        sessionStorage.setItem("rfid_tag", rfid_tag);
-        sessionStorage.setItem("system_type", system_type || "");
+  // Partner card - block
+  if (role === "Partner") {
+    alert("This is a Partner card - for admin use only");
+    return;
+  }
 
-        const currentPath = window.location.pathname;
-        const isStaffPage = currentPath.startsWith("/Staff");
+  // DayPass renewal (existing guest)
+  if (status === "daypass_renewal") {
+    console.log("🔄 Existing Day Pass - navigating to DayPassRenewal");
+    customNavigate("/Staff/DayPassRenewal", {
+      state: { rfid_tag, full_name, guest_data, rfid_type, role }
+    }, "staff");
+    return;
+  }
 
-        if (!isStaffPage) {
-          console.log("Admin viewing - RFID data stored but no navigation");
-          return;
-        }
+  // DayPass new registration
+  if (role === "DayPass") {
+    console.log("🎟️ New Day Pass - navigating to DayPass");
+    customNavigate("/Staff/DayPass", {
+      state: { rfid_tag, rfid_type, role }
+    }, "staff");
+    return;
+  }
 
-        if (reason && reason.includes("not registered with SwiftPass")) {
-          alert("This RFID is not registered with SwiftPass company.");
-          return;
-        }
+  // Member found (existing)
+  if (status === "member_found") {
+    console.log("💳 Registered Member - navigating to MembershipTransactions");
+    customNavigate("/Staff/MembershipTransactions", {
+      state: { rfid_tag, full_name, ...msg.data }
+    }, "staff");
+    return;
+  }
 
-        if (reason && (reason.includes("Duplicate") || reason.includes("already assigned"))) {
-          alert(`Cannot use this RFID: ${reason}`);
-          return;
-        }
+  // Member new registration
+  if (role === "Member") {
+    console.log("🆕 New Member - navigating to AddMember");
+    customNavigate("/Staff/AddMember", {
+      state: { rfid_tag, rfid_type, role }
+    }, "staff");
+    return;
+  }
 
-        console.log(`🔍 Navigation Check - Role: ${role}, Status: ${status}, RFID Type: ${rfid_type}`);
-
-        if (status === "daypass_renewal") {
-          console.log("🔄 Existing Day Pass - navigating to DayPassRenewal");
-          console.log("📦 Passing guest_data:", guest_data);
-          
-          customNavigate("/Staff/DayPassRenewal", {
-            state: { 
-              rfid_tag, 
-              full_name,
-              guest_data,
-              system_type, 
-              rfid_type, 
-              role 
-            },
-          }, "staff");
-          return;
-        }
-        
-        if (role === "DayPass" || (rfid_type === "key_fob" && status !== "member_found")) {
-          console.log("🎟️ New Day Pass - navigating to PrepaidDayPass");
-          customNavigate("/Staff/DayPass", { 
-            state: { rfid_tag, system_type, rfid_type, role } 
-          }, "staff");
-          return;
-        } 
-        
-        if (status === "member_found") {
-          console.log("💳 Registered Member - navigating to MembershipTransactions");
-          customNavigate("/Staff/MembershipTransactions", {
-            state: { rfid_tag, full_name, ...msg.data, system_type },
-          }, "staff");
-          return;
-        }
-        
-        if (role === "Member" || rfid_type === "wristband") {
-          console.log("🆕 New Wristband - navigating to AddMember.jsx");
-          customNavigate("/Staff/AddMember", { 
-            state: { rfid_tag, system_type, rfid_type, role } 
-          }, "staff");
-          return;
-        }
-        
-        if (role === "Partner" || rfid_type === "card") {
-          console.log("🚫 Partner/Admin card detected");
-          alert("This is a Partner card - for admin use only");
-          return;
-        }
-        
-        console.log("⚠️ Unknown RFID type - no navigation");
-        console.log("Debug info:", { role, status, rfid_type, full_name });
-        return; 
-
-      default:
+  console.log("⚠️ Unknown RFID configuration:", { role, status, rfid_type });
+  return;
+	default:
         console.log("Unknown WebSocket message type:", msg.type);
         break;
     }

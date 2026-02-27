@@ -22,18 +22,12 @@ router.post("/partner-registration", upload.single("profile_image_url"), async (
       email,
       password,
       address,
-      system_type,
-      package_id  // ← Added package_id
+      system_type
     } = req.body;
 
     // Validate required fields
     if (!gym_name || !admin_name || !email || !password || !address || !system_type) {
       return res.status(400).json({ error: "All required fields must be filled" });
-    }
-
-    // Validate package_id is provided
-    if (!package_id) {
-      return res.status(400).json({ error: "Please select a package" });
     }
 
     // Check if email already exists in AdminAccounts
@@ -48,14 +42,14 @@ router.post("/partner-registration", upload.single("profile_image_url"), async (
 
     // Check if email already has a pending registration
     const [[existingReg]] = await query(
-      `SELECT registration_number FROM partner_registrations
-       WHERE email = ? AND status = 'pending'
+      `SELECT registration_number FROM partner_registrations 
+       WHERE email = ? AND status = 'pending' 
        AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)`,
       [email]
     );
 
     if (existingReg) {
-      return res.status(400).json({
+      return res.status(400).json({ 
         error: "You already have a pending registration",
         registration_number: existingReg.registration_number
       });
@@ -64,21 +58,20 @@ router.post("/partner-registration", upload.single("profile_image_url"), async (
     const registrationNumber = generateRegistrationNumber();
     const imagePath = req.file ? `/uploads/partners/${req.file.filename}` : null;
 
-    // Insert into partner_registrations table (WITH package_id)
+    // Insert into partner_registrations table (NO package_id!)
     await query(`
       INSERT INTO partner_registrations
-      (registration_number, gym_name, admin_name, email, password, address,
-       system_type, package_id, profile_image_url, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+      (registration_number, gym_name, admin_name, email, password, address, 
+       system_type, profile_image_url, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
     `, [
       registrationNumber,
       gym_name,
       admin_name,
       email,
-      password, // Store plain password for admin to process
+      password,
       address,
       system_type,
-      package_id,  // ← Added
       imagePath
     ]);
 
@@ -96,29 +89,23 @@ router.post("/partner-registration", upload.single("profile_image_url"), async (
 // --- Get Pending Registrations ---
 router.get("/pending-registrations", async (req, res) => {
   try {
-    // Get all pending registrations that haven't expired (within 1 hour)
     const [registrations] = await query(`
-      SELECT
-        pr.id,
-        pr.registration_number,
-        pr.gym_name,
-        pr.admin_name,
-        pr.email,
-        pr.password,
-        pr.address,
-        pr.system_type,
-        pr.package_id,
-        pr.profile_image_url,
-        pr.status,
-        pr.created_at,
-        sp.name as package_name,
-        sp.price as package_price,
-        sp.duration_days as package_duration
-      FROM partner_registrations pr
-      LEFT JOIN SubscriptionPackages sp ON pr.package_id = sp.id
-      WHERE pr.status = 'pending'
-        AND pr.created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
-      ORDER BY pr.created_at DESC
+      SELECT 
+        id,
+        registration_number,
+        gym_name,
+        admin_name,
+        email,
+        password,
+        address,
+        system_type,
+        profile_image_url,
+        status,
+        created_at
+      FROM partner_registrations
+      WHERE status = 'pending'
+        AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
+      ORDER BY created_at DESC
     `);
 
     res.json(registrations);
@@ -128,18 +115,14 @@ router.get("/pending-registrations", async (req, res) => {
   }
 });
 
+// --- Get Single Registration by Number ---
 router.get("/pending-registrations/:registration_number", async (req, res) => {
   try {
     const { registration_number } = req.params;
 
     const [[registration]] = await query(`
-      SELECT pr.*,
-             sp.name as package_name,
-             sp.price as package_price,
-             sp.duration_days as package_duration
-      FROM partner_registrations pr
-      LEFT JOIN SubscriptionPackages sp ON pr.package_id = sp.id
-      WHERE pr.registration_number = ? AND pr.status = 'pending'
+      SELECT * FROM partner_registrations
+      WHERE registration_number = ? AND status = 'pending'
     `, [registration_number]);
 
     if (!registration) {
@@ -153,6 +136,7 @@ router.get("/pending-registrations/:registration_number", async (req, res) => {
   }
 });
 
+// --- Delete/Reject Registration ---
 router.delete("/pending-registrations/:registration_number", async (req, res) => {
   try {
     const { registration_number } = req.params;
@@ -166,9 +150,9 @@ router.delete("/pending-registrations/:registration_number", async (req, res) =>
       return res.status(404).json({ error: "Registration not found" });
     }
 
-    res.json({
-      success: true,
-      message: "Registration deleted successfully"
+    res.json({ 
+      success: true, 
+      message: "Registration deleted successfully" 
     });
   } catch (err) {
     console.error("Delete registration error:", err);
@@ -176,6 +160,7 @@ router.delete("/pending-registrations/:registration_number", async (req, res) =>
   }
 });
 
+// --- Auto-cleanup Expired Registrations ---
 router.post("/cleanup-expired-registrations", async (req, res) => {
   try {
     const [result] = await query(`
@@ -184,7 +169,7 @@ router.post("/cleanup-expired-registrations", async (req, res) => {
         AND created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)
     `);
 
-    res.json({
+    res.json({ 
       message: "Cleanup completed",
       deleted_count: result.affectedRows
     });
@@ -194,6 +179,7 @@ router.post("/cleanup-expired-registrations", async (req, res) => {
   }
 });
 
+// --- Update Registration Status ---
 router.put("/pending-registrations/:registration_number/approve", async (req, res) => {
   try {
     const { registration_number } = req.params;
@@ -208,38 +194,13 @@ router.put("/pending-registrations/:registration_number/approve", async (req, re
       return res.status(404).json({ error: "Registration not found" });
     }
 
-    res.json({
-      success: true,
-      message: "Registration approved"
+    res.json({ 
+      success: true, 
+      message: "Registration approved" 
     });
   } catch (err) {
     console.error("Approve registration error:", err);
     res.status(500).json({ error: "Server error" });
-  }
-});
-
-router.get("/subscription-packages-with-items", async (req, res) => {
-  try {
-    const [packages] = await query(`
-      SELECT id, name, description, price, duration_days, created_at
-      FROM SubscriptionPackages
-      ORDER BY price ASC, duration_days ASC
-    `);
-
-    for (let pkg of packages) {
-      const [items] = await query(`
-        SELECT item_name, quantity
-        FROM PackageItems
-        WHERE package_id = ?
-        ORDER BY id ASC
-      `, [pkg.id]);
-      pkg.items = items;
-    }
-
-    res.json(packages);
-  } catch (err) {
-    console.error("Get packages with items error:", err);
-    res.status(500).json({ error: "Failed to fetch packages" });
   }
 });
 

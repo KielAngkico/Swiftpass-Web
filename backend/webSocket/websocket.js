@@ -18,8 +18,19 @@ let connectedClients = [];
 let adminScanModes = {};
 
 function setupWebSocket(server) {
-  const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ noServer: true });
 
+server.on('upgrade', (request, socket, head) => {
+  const pathname = new URL(request.url, 'http://localhost').pathname;
+  
+if (pathname === '/ws' || pathname === '/ws/' || pathname === '/arduino-ws') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+});
   wss.on("connection", (ws) => {
     const authTimeout = setTimeout(() => {
       if (!ws.clientType) ws.close();
@@ -349,6 +360,20 @@ async function handleMessage(ws, message) {
       });
       return;
     }
+    if (parsed.type === "toggle-partner-slot-mode") {
+      console.log("📍 Handling toggle-partner-slot-mode");
+      if (parsed.enabled) {
+        adminScanModes.partnerSlot = {
+          admin_id: parsed.admin_id,
+          slot: parsed.slot
+        };
+        console.log(`🔄 Partner slot mode ENABLED for admin ${parsed.admin_id}, slot ${parsed.slot}`);
+      } else {
+        delete adminScanModes.partnerSlot;
+        console.log("🔄 Partner slot mode DISABLED");
+      }
+      return;
+    }
 
     // ✅ ADD THIS CHECK - Is this an RFID scan?
     const { rfid_tag, location } = parsed;
@@ -622,10 +647,55 @@ if (location.toUpperCase() === "STAFF") {
 // ============= SUPERADMIN LOCATION =============
 if (location.toUpperCase() === "SUPERADMIN") {
   const allocation = await getRfidAllocation(rfid_tag);
-
   console.log("🔍 SUPERADMIN allocation check result:", allocation);
 
-  // ✅ RFID NOT FOUND -> Go to ADD PARTNER
+  // ✅ NEW: Check if waiting for partner slot scan
+  if (adminScanModes.partnerSlot) {
+    const { admin_id: targetAdminId, slot } = adminScanModes.partnerSlot;
+
+    if (!allocation) {
+      broadcastToClients({
+        type: "partner-slot-scan-result",
+        data: { status: "error", slot, reason: "RFID not registered in SwiftPass inventory", admin_id: targetAdminId }
+      });
+      return;
+    }
+
+    if (allocation.role !== 'Partner') {
+      broadcastToClients({
+        type: "partner-slot-scan-result",
+        data: { status: "error", slot, reason: "This is not a Partner card", admin_id: targetAdminId }
+      });
+      return;
+    }
+
+    if (allocation.allocated_to_admin && allocation.allocated_to_admin !== targetAdminId) {
+      broadcastToClients({
+        type: "partner-slot-scan-result",
+        data: { status: "error", slot, reason: "This card belongs to a different partner", admin_id: targetAdminId }
+      });
+      return;
+    }
+
+    if (allocation.status === 'in_use') {
+      broadcastToClients({
+        type: "partner-slot-scan-result",
+        data: { status: "error", slot, reason: "This card is already assigned to a slot", admin_id: targetAdminId }
+      });
+      return;
+    }
+
+    // ✅ Valid partner card
+    console.log(`✅ Valid partner card for slot ${slot}:`, rfid_tag);
+    broadcastToClients({
+      type: "partner-slot-scan-result",
+      data: { status: "success", slot, rfid_tag, admin_id: targetAdminId }
+    });
+    delete adminScanModes.partnerSlot; // Auto-clear after successful scan
+    return;
+  }
+
+  // ✅ RFID NOT FOUND -> Go to INVENTORY (register new)
   if (!allocation) {
     broadcastToClients({
       type: "rfid-registration-check",
@@ -671,9 +741,7 @@ if (location.toUpperCase() === "SUPERADMIN") {
   return;
 }
 
-
-    console.log("⚠️ Location not handled:", location);
-
+console.log("⚠️ Location not handled:", location);
   } catch (err) {
     console.error("❌ Message error:", err.message);
     console.error("Stack trace:", err.stack);

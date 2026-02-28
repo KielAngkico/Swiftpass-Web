@@ -75,16 +75,16 @@ const upload = require("../middleware/upload");
       emergency_contact_person || null, emergency_contact_number || null, emergency_contact_relationship || null
     ]);
     const memberId = insertResult.insertId;
-    await dbSuperAdmin.promise().query(
+await dbSuperAdmin.promise().query(
   `UPDATE RegisteredRfid 
    SET assigned_to_id = ?,
        assigned_to_name = ?,
+       assigned_to_type = 'Member',
        status = 'in_use',
        assignment_date = NOW()
    WHERE rfid_tag = ? AND role = 'Member'`,
   [memberId, full_name, rfid_tag]
 );
-
      const insertTransactionSql = `
       INSERT INTO AdminTransactions
       (admin_id, member_id, member_name, rfid_tag, amount, payment_method, reference, staff_name, transaction_type, plan_name)
@@ -177,16 +177,16 @@ router.post("/add-subscription-member", upload.single("member_image"), async (re
       emergency_contact_person || null, emergency_contact_number || null, emergency_contact_relationship || null
     ]);
     const memberId = memberInsertResult.insertId;
-    await dbSuperAdmin.promise().query(
+await dbSuperAdmin.promise().query(
   `UPDATE RegisteredRfid 
    SET assigned_to_id = ?,
        assigned_to_name = ?,
+       assigned_to_type = 'Member',
        status = 'in_use',
        assignment_date = NOW()
    WHERE rfid_tag = ? AND role = 'Member'`,
   [memberId, full_name, rfid_tag]
 );
-
     const insertTxnSql = `
       INSERT INTO AdminTransactions
       (admin_id, member_id, member_name, rfid_tag, amount, payment_method, reference, staff_name,

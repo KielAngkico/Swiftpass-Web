@@ -6,6 +6,7 @@ import ViewPartnerModal from "../../components/Modals/ViewPartnerModal";
 import { API_URL } from "../../config";
 import { useLocation } from "react-router-dom";
 import { useToast } from "../../components/ToastManager";
+import { useWebSocket } from "../../contexts/WebSocketContext";
 
 const AddClient = () => {
   const location = useLocation();
@@ -17,29 +18,36 @@ const AddClient = () => {
   const [originalRfid2, setOriginalRfid2] = useState("");
   const [pendingRegistrations, setPendingRegistrations] = useState([]);
   const [showRegistrations, setShowRegistrations] = useState(true);
-  
-  // ✅ FIX: Include packages in initial state
-const [formData, setFormData] = useState({
-  admin_name: "",
-  address: "",
-  email: "",
-  password: "",
-  gym_name: "",
-  system_type: "",
-  package_id: "",
-  payment_method: "Cash",  // ← Add this
-  reference_number: "",     // ← Add this
-  profile_image_url: null,
-  rfid_tag: "",
-  rfid_tag_2: "",
-  packages: [],
-});
-  
+
+  const [formData, setFormData] = useState({
+    admin_name: "",
+    address: "",
+    email: "",
+    password: "",
+    gym_name: "",
+    system_type: "",
+    package_id: "",
+    payment_method: "Cash",
+    reference_number: "",
+    profile_image_url: null,
+    rfid_tag: "",
+    rfid_tag_2: "",
+    packages: [],
+  });
+
   const [admins, setAdmins] = useState([]);
   const [packages, setPackages] = useState([]);
   const [paymentOptions, setPaymentOptions] = useState([]);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const { showToast, showConfirm } = useToast();
+
+  // ✅ WebSocket for RFID scanning
+  const {
+    scannedRfidForPartner,
+    enablePartnerScanMode,
+    disablePartnerScanMode,
+    clearScannedPartnerRfid
+  } = useWebSocket();
 
   const fetchPackages = async () => {
     try {
@@ -51,14 +59,16 @@ const [formData, setFormData] = useState({
       showToast({ message: "Failed to load packages", type: "error" });
     }
   };
-const fetchPaymentOptions = async () => {
-  try {
-    const response = await axios.get(`${API_URL}/api/payment-options`);
-    setPaymentOptions(response.data);
-  } catch (error) {
-    console.error("Failed to fetch payment options:", error);
-  }
-};
+
+  const fetchPaymentOptions = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/payment-options`);
+      setPaymentOptions(response.data);
+    } catch (error) {
+      console.error("Failed to fetch payment options:", error);
+    }
+  };
+
   useEffect(() => {
     const fetchAdmins = async () => {
       try {
@@ -70,16 +80,16 @@ const fetchPaymentOptions = async () => {
     };
     fetchAdmins();
     fetchPackages();
-      fetchPaymentOptions();
+    fetchPaymentOptions();
   }, []);
 
-useEffect(() => {
-  setFormData(prev => ({ 
-    ...prev, 
-    packages,
-    paymentOptions  // ← Add this
-  }));
-}, [packages, paymentOptions]);  // ← Add paymentOptions dependency
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      packages,
+      paymentOptions
+    }));
+  }, [packages, paymentOptions]);
 
   useEffect(() => {
     fetchPendingRegistrations();
@@ -96,25 +106,24 @@ useEffect(() => {
     }
   };
 
-  // ✅ FIX: Include packages when populating from registration
-const handleRegistrationClick = (registration) => {
-  setFormData({
-    admin_name: registration.admin_name || "",
-    address: registration.address || "",
-    email: registration.email || "",
-    password: registration.password || "",
-    gym_name: registration.gym_name || "",
-    system_type: registration.system_type || "",
-    package_id: registration.package_id || "",
-    payment_method: "Cash",      // ← Add this
-    reference_number: "",         // ← Add this
-    profile_image_url: registration.profile_image_url ? `${API_URL}${registration.profile_image_url}` : null,
-    rfid_tag: "",
-    rfid_tag_2: "",
-    packages: packages,
-    paymentOptions: paymentOptions,  // ← Add this
-  });
-    
+  const handleRegistrationClick = (registration) => {
+    setFormData({
+      admin_name: registration.admin_name || "",
+      address: registration.address || "",
+      email: registration.email || "",
+      password: registration.password || "",
+      gym_name: registration.gym_name || "",
+      system_type: registration.system_type || "",
+      package_id: registration.package_id || "",
+      payment_method: "Cash",
+      reference_number: "",
+      profile_image_url: registration.profile_image_url ? `${API_URL}${registration.profile_image_url}` : null,
+      rfid_tag: "",
+      rfid_tag_2: "",
+      packages: packages,
+      paymentOptions: paymentOptions,
+    });
+
     setModalMode("registration");
     setEditingAdmin({ registrationNumber: registration.registration_number });
     setShowAddForm(true);
@@ -141,45 +150,31 @@ const handleRegistrationClick = (registration) => {
       console.log("📨 Opening Add Partner modal (from RFID scan)");
       setShowAddForm(true);
       setModalMode("add");
-      
+
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
+  // ✅ Handle scanned partner RFID from WebSocket
   useEffect(() => {
-    const handleSlotScan = () => {
-      if (!waitingForSlot) return;
+    if (scannedRfidForPartner && waitingForSlot) {
+      const { rfid_tag, slot } = scannedRfidForPartner;
 
-      const scannedRfid = sessionStorage.getItem('pendingSlotRfid');
-      const scannedAt = sessionStorage.getItem('rfidScannedAt');
-      
-      if (scannedRfid && scannedAt) {
-        const scanAge = Date.now() - parseInt(scannedAt);
-        if (scanAge < 3000) {
-          console.log(`📨 RFID scanned for slot ${waitingForSlot}:`, scannedRfid);
-          
-          if (waitingForSlot === 1) {
-            setFormData((prev) => ({ ...prev, rfid_tag: scannedRfid }));
-            showToast({ message: "✅ RFID Slot 1 scanned!", type: "success" });
-          } else if (waitingForSlot === 2) {
-            setFormData((prev) => ({ ...prev, rfid_tag_2: scannedRfid }));
-            showToast({ message: "✅ RFID Slot 2 scanned!", type: "success" });
-          }
-          
-          setWaitingForSlot(null);
-          
-          sessionStorage.removeItem('pendingSlotRfid');
-          sessionStorage.removeItem('rfidScannedAt');
-        }
+      console.log(`📨 Partner RFID scanned for slot ${slot}:`, rfid_tag);
+
+      if (slot === 1) {
+        setFormData((prev) => ({ ...prev, rfid_tag: rfid_tag }));
+        showToast({ message: "✅ RFID Slot 1 scanned!", type: "success" });
+      } else if (slot === 2) {
+        setFormData((prev) => ({ ...prev, rfid_tag_2: rfid_tag }));
+        showToast({ message: "✅ RFID Slot 2 scanned!", type: "success" });
       }
-    };
 
-    window.addEventListener('rfid-slot-scanned', handleSlotScan);
-    
-    return () => {
-      window.removeEventListener('rfid-slot-scanned', handleSlotScan);
-    };
-  }, [waitingForSlot]);
+      setWaitingForSlot(null);
+      disablePartnerScanMode();
+      clearScannedPartnerRfid();
+    }
+  }, [scannedRfidForPartner, waitingForSlot]);
 
   const handleChange = (e) => {
     if (e.target.type === "file") {
@@ -191,15 +186,18 @@ const handleRegistrationClick = (registration) => {
 
   const handleScanSlot = (slotNumber) => {
     setWaitingForSlot(slotNumber);
-    showToast({ 
-      message: `🔄 Waiting for RFID Slot ${slotNumber}... Please scan now`, 
+    enablePartnerScanMode(slotNumber);
+
+    showToast({
+      message: `🔄 Waiting for RFID Slot ${slotNumber}... Please scan now`,
       type: "info",
       duration: 5000
     });
-    
+
     setTimeout(() => {
       setWaitingForSlot((current) => {
         if (current === slotNumber) {
+          disablePartnerScanMode();
           showToast({ message: "⏱️ Scan timeout - please try again", type: "warning" });
           return null;
         }
@@ -208,114 +206,111 @@ const handleRegistrationClick = (registration) => {
     }, 10000);
   };
 
-    const handleSubmit = async (e) => {
-      e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-      try {
-if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
-  const rfid1Changed = formData.rfid_tag !== originalRfid;
-  const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
+    try {
+      if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
+        const rfid1Changed = formData.rfid_tag !== originalRfid;
+        const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
 
-  if ((rfid1Changed && formData.rfid_tag) || (rfid2Changed && formData.rfid_tag_2)) {
-    await axios.put(`${API_URL}/api/update-admin-rfid/${editingAdmin.id}`, {
-      new_rfid_tag: formData.rfid_tag || null,
-      new_rfid_tag_2: formData.rfid_tag_2 || null,
-    });
+        if ((rfid1Changed && formData.rfid_tag) || (rfid2Changed && formData.rfid_tag_2)) {
+          await axios.put(`${API_URL}/api/update-admin-rfid/${editingAdmin.id}`, {
+            new_rfid_tag: formData.rfid_tag || null,
+            new_rfid_tag_2: formData.rfid_tag_2 || null,
+          });
 
-    showToast({ message: "RFID updated successfully!", type: "success" });
+          showToast({ message: "RFID updated successfully!", type: "success" });
 
-    // Update the admins state locally
-    setAdmins(admins.map((admin) =>
-      admin.id === editingAdmin.id
-        ? { ...admin, rfid_tag: formData.rfid_tag, rfid_tag_2: formData.rfid_tag_2 }
-        : admin
-    ));
+          setAdmins(admins.map((admin) =>
+            admin.id === editingAdmin.id
+              ? { ...admin, rfid_tag: formData.rfid_tag, rfid_tag_2: formData.rfid_tag_2 }
+              : admin
+          ));
 
-    // Close modal and reset
-    setShowAddForm(false);
-    setEditingAdmin(null);
-    setOriginalRfid("");
-    setOriginalRfid2("");
-    setWaitingForSlot(null);
-    return; // stop here, no need to run full form update
-  }
-}
- else {
-          const formPayload = new FormData();
-          formPayload.append("admin_name", formData.admin_name);
-          formPayload.append("rfid_tag", formData.rfid_tag);
-          formPayload.append("rfid_tag_2", formData.rfid_tag_2 || "");
-          formPayload.append("address", formData.address);
-          formPayload.append("email", formData.email);
-          formPayload.append("password", formData.password);
-          formPayload.append("gym_name", formData.gym_name);
-          formPayload.append("system_type", formData.system_type);
-          formPayload.append("package_id", formData.package_id || "");
+          setShowAddForm(false);
+          setEditingAdmin(null);
+          setOriginalRfid("");
+          setOriginalRfid2("");
+          setWaitingForSlot(null);
+          disablePartnerScanMode();
+          return;
+        }
+      } else {
+        const formPayload = new FormData();
+        formPayload.append("admin_name", formData.admin_name);
+        formPayload.append("address", formData.address);
+        formPayload.append("email", formData.email);
+        formPayload.append("password", formData.password);
+        formPayload.append("gym_name", formData.gym_name);
+        formPayload.append("system_type", formData.system_type);
+        formPayload.append("package_id", formData.package_id || "");
+        formPayload.append("payment_method", formData.payment_method || "Cash");
+        formPayload.append("reference_number", formData.reference_number || "");
 
-          if (formData.profile_image_url) {
-            formPayload.append("profile_image_url", formData.profile_image_url);
-          }
-
-          const response = await axios.post(
-            `${API_URL}/api/add-client`,
-            formPayload,
-            { headers: { "Content-Type": "multipart/form-data" } }
-          );
-
-          showToast({ message: "Partner added successfully!", type: "success" });
-
-          if (modalMode === "registration" && editingAdmin?.registrationNumber) {
-            await axios.delete(`${API_URL}/api/pending-registrations/${editingAdmin.registrationNumber}`);
-            fetchPendingRegistrations();
-          }
-
-          setAdmins([
-            ...admins,
-            {
-              id: response.data.id,
-              admin_name: formData.admin_name,
-              address: formData.address,
-              email: formData.email,
-              gym_name: formData.gym_name,
-              system_type: formData.system_type,
-              package_id: formData.package_id,
-              profile_image_url: response.data.profile_image_url || null,
-              rfid_tag: formData.rfid_tag,
-              rfid_tag_2: formData.rfid_tag_2,
-              is_archived: 0,
-            },
-          ]);
+        if (formData.profile_image_url) {
+          formPayload.append("profile_image_url", formData.profile_image_url);
         }
 
-        setShowAddForm(false);
-        setEditingAdmin(null);
-        setModalMode("add");
-        setWaitingForSlot(null);
-        setOriginalRfid("");
-        setOriginalRfid2("");
-        sessionStorage.removeItem('pendingSlotRfid');
-        sessionStorage.removeItem('rfidScannedAt');
-        // ✅ FIX: Keep packages when resetting
-  setFormData({
-    admin_name: "",
-    address: "",
-    email: "",
-    password: "",
-    gym_name: "",
-    system_type: "",
-    package_id: "",
-    payment_method: "Cash",      // ← Add this
-    reference_number: "",         // ← Add this
-    profile_image_url: null,
-    rfid_tag: "",
-    rfid_tag_2: "",
-    packages: packages,
-    paymentOptions: paymentOptions,  // ← Add this
-  });
-      } catch (error) {
-        showToast({ message: `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`, type: "error" });
+        const response = await axios.post(
+          `${API_URL}/api/add-client`,
+          formPayload,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
+
+        showToast({ message: "Partner added successfully!", type: "success" });
+
+        if (modalMode === "registration" && editingAdmin?.registrationNumber) {
+          await axios.delete(`${API_URL}/api/pending-registrations/${editingAdmin.registrationNumber}`);
+          fetchPendingRegistrations();
+        }
+
+        setAdmins([
+          ...admins,
+          {
+            id: response.data.id,
+            admin_name: formData.admin_name,
+            address: formData.address,
+            email: formData.email,
+            gym_name: formData.gym_name,
+            system_type: formData.system_type,
+            package_id: formData.package_id,
+            profile_image_url: response.data.profile_image_url || null,
+            rfid_tag: null,
+            rfid_tag_2: null,
+            is_archived: 0,
+          },
+        ]);
       }
-    };
+
+      setShowAddForm(false);
+      setEditingAdmin(null);
+      setModalMode("add");
+      setWaitingForSlot(null);
+      setOriginalRfid("");
+      setOriginalRfid2("");
+      disablePartnerScanMode();
+      
+      setFormData({
+        admin_name: "",
+        address: "",
+        email: "",
+        password: "",
+        gym_name: "",
+        system_type: "",
+        package_id: "",
+        payment_method: "Cash",
+        reference_number: "",
+        profile_image_url: null,
+        rfid_tag: "",
+        rfid_tag_2: "",
+        packages: packages,
+        paymentOptions: paymentOptions,
+      });
+    } catch (error) {
+      showToast({ message: `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`, type: "error" });
+    }
+  };
 
   const handleEdit = (admin) => {
     setEditingAdmin(admin);
@@ -330,13 +325,13 @@ if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
       gym_name: admin.gym_name,
       system_type: admin.system_type,
       package_id: admin.package_id || "",
-      payment_method: "Cash",      // ← Add this
-      reference_number: "",         // ← Add this
+      payment_method: "Cash",
+      reference_number: "",
       profile_image_url: admin.profile_image_url ? `${API_URL}${admin.profile_image_url}` : null,
       rfid_tag: admin.rfid_tag || "",
       rfid_tag_2: admin.rfid_tag_2 || "",
       packages: packages,
-      paymentOptions: paymentOptions,  // ← Add this
+      paymentOptions: paymentOptions,
     });
     setShowAddForm(true);
   };
@@ -344,7 +339,7 @@ if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
   const handleArchive = async (id, isArchived) => {
     const endpoint = isArchived ? "restore-admin" : "archive-admin";
     const action = isArchived ? "restore" : "archive";
-    
+
     showConfirm(
       `Are you sure you want to ${action} this partner?`,
       async () => {
@@ -386,7 +381,6 @@ if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
     );
   };
 
-  // ✅ FIX: Keep packages when closing modal
   const handleCloseModal = () => {
     setShowAddForm(false);
     setEditingAdmin(null);
@@ -394,8 +388,8 @@ if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
     setWaitingForSlot(null);
     setOriginalRfid("");
     setOriginalRfid2("");
-    sessionStorage.removeItem('pendingSlotRfid');
-    sessionStorage.removeItem('rfidScannedAt');
+    disablePartnerScanMode();
+    
     setFormData({
       admin_name: "",
       address: "",
@@ -404,10 +398,13 @@ if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
       gym_name: "",
       system_type: "",
       package_id: "",
+      payment_method: "Cash",
+      reference_number: "",
       profile_image_url: null,
       rfid_tag: "",
       rfid_tag_2: "",
-      packages: packages, // ← Added
+      packages: packages,
+      paymentOptions: paymentOptions,
     });
   };
 
@@ -416,9 +413,9 @@ if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
     const expiresAt = new Date(created.getTime() + 60 * 60 * 1000);
     const now = new Date();
     const diff = expiresAt - now;
-    
+
     if (diff <= 0) return "Expired";
-    
+
     const minutes = Math.floor(diff / 60000);
     return `${minutes} min left`;
   };
@@ -473,11 +470,11 @@ if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
                         ×
                       </button>
                     </div>
-                    
+
                     <h3 className="font-semibold text-base text-gray-900">
                       {registration.gym_name}
                     </h3>
-                    
+
                     <div className="mt-2 pt-2 border-t border-gray-200">
                       <p className="text-xs text-gray-500">
                         Expires: {getTimeRemaining(registration.created_at)}

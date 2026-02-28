@@ -41,7 +41,6 @@ const getItemType = (itemName) => {
   return 'other';
 };
 
-// REPLACE YOUR ENTIRE router.post("/add-client", ...) with this:
 router.post("/add-client", upload.single("profile_image_url"), async (req, res) => {
   const conn = await db.promise().getConnection();
   try {
@@ -72,6 +71,7 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
       }
     }
 
+    // ✅ FIXED: Insert with actual RFID values, not NULL
     const [result] = await conn.query(`
       INSERT INTO AdminAccounts
       (admin_name, email, password, address, gym_name, system_type,
@@ -79,16 +79,43 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
        subscription_start_date, subscription_end_date, is_archived)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
     `, [admin_name, email, hashedPassword, address, gym_name,
-      system_type, imagePath,null,null,
+      system_type, imagePath, rfid_tag || null, rfid_tag_2 || null,
       pkgId, startDate, endDate]);
 
     const admin_id = result.insertId;
+
+    // ✅ Update RegisteredRfid for slot 1
+    if (rfid_tag && rfid_tag.trim() !== "") {
+      await conn.query(
+        `UPDATE RegisteredRfid 
+         SET assigned_to_id = ?,
+             assigned_to_name = ?,
+             assigned_to_type = 'Admin',
+             status = 'in_use',
+             assignment_date = NOW()
+         WHERE rfid_tag = ? AND role = 'Partner'`,
+        [admin_id, admin_name, rfid_tag]
+      );
+    }
+
+    // ✅ Update RegisteredRfid for slot 2
+    if (rfid_tag_2 && rfid_tag_2.trim() !== "") {
+      await conn.query(
+        `UPDATE RegisteredRfid 
+         SET assigned_to_id = ?,
+             assigned_to_name = ?,
+             assigned_to_type = 'Admin',
+             status = 'in_use',
+             assignment_date = NOW()
+         WHERE rfid_tag = ? AND role = 'Partner'`,
+        [admin_id, admin_name, rfid_tag_2]
+      );
+    }
 
     await conn.query(`INSERT INTO AdminPaymentMethods (admin_id, name, is_default, is_enabled)
                  VALUES (?, 'Cash', 1, 1)`, [admin_id]);
 
     await insertDefaultPricing(conn, admin_id, system_type);
-
 if (pkgId && pkgPrice > 0) {
   const { payment_method, reference_number } = req.body;
   

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import api from "../../api";
 import SuperAdminSidebar from "../../components/SuperAdminSidebar";
@@ -328,6 +329,7 @@ const ItemsInventory = () => {
                           value={editForm.name}
                           onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                           className="w-full px-1 py-1 border rounded text-xs"
+			  disable={item.is_deletable === 0}
                         />
                       ) : (
                         item.name
@@ -366,7 +368,8 @@ const ItemsInventory = () => {
                           value={editForm.quantity}
                           onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
                           className="w-full px-1 py-1 border rounded text-xs"
-                        />
+			disabled={item.is_deletable === 0}                       
+ />
                       ) : (
                         item.quantity
                       )}

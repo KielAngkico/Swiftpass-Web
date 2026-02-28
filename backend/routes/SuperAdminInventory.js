@@ -72,50 +72,43 @@ router.post("/inventory", (req, res) => {
 
 router.put("/inventory/:id", (req, res) => {
   const { name, purchase_price, selling_price, quantity } = req.body;
-  
-  let updates = [];
-  let values = [];
-  
-  if (name !== undefined) {
-    updates.push("name = ?");
-    values.push(name);
-  }
-  if (purchase_price !== undefined) {
-    updates.push("purchase_price = ?");
-    values.push(purchase_price);
-  }
-  if (selling_price !== undefined) {
-    updates.push("selling_price = ?");
-    values.push(selling_price);
-  }
-  if (quantity !== undefined) {
-    updates.push("quantity = ?");
-    values.push(quantity);
-  }
-  
-  if (updates.length === 0) {
-    return res.status(400).json({ message: "No fields to update" });
-  }
-  
-  values.push(req.params.id);
-  
-  db.query(
-    `UPDATE SuperAdminInventory SET ${updates.join(", ")} WHERE id = ?`,
-    values,
-    (err) => {
+
+  db.query("SELECT is_deletable FROM SuperAdminInventory WHERE id = ?", [req.params.id], (err, results) => {
+    if (err) return res.status(500).json({ error: err });
+    if (!results.length) return res.status(404).json({ message: "Item not found" });
+
+    const isFixed = results[0].is_deletable === 0;
+
+    let updates = [];
+    let values = [];
+
+    // Fixed items: only allow price edits
+    if (!isFixed && name !== undefined) { updates.push("name = ?"); values.push(name); }
+    if (purchase_price !== undefined) { updates.push("purchase_price = ?"); values.push(purchase_price); }
+    if (selling_price !== undefined) { updates.push("selling_price = ?"); values.push(selling_price); }
+    if (!isFixed && quantity !== undefined) { updates.push("quantity = ?"); values.push(quantity); }
+
+    if (updates.length === 0) return res.status(400).json({ message: "No fields to update" });
+
+    values.push(req.params.id);
+    db.query(`UPDATE SuperAdminInventory SET ${updates.join(", ")} WHERE id = ?`, values, (err) => {
       if (err) return res.status(500).json({ error: err });
       res.json({ success: true });
-    }
-  );
-});
-
-router.delete("/inventory/:id", (req, res) => {
-  db.query("DELETE FROM SuperAdminInventory WHERE id = ?", [req.params.id], (err) => {
-    if (err) return res.status(500).json({ error: err });
-    res.json({ success: true });
+    });
   });
 });
+router.delete("/inventory/:id", (req, res) => {
+  db.query("SELECT is_deletable FROM SuperAdminInventory WHERE id = ?", [req.params.id], (err, results) => {
+    if (err) return res.status(500).json({ error: err });
+    if (!results.length) return res.status(404).json({ message: "Item not found" });
+    if (results[0].is_deletable === 0) return res.status(403).json({ message: "This item cannot be deleted" });
 
+    db.query("DELETE FROM SuperAdminInventory WHERE id = ?", [req.params.id], (err) => {
+      if (err) return res.status(500).json({ error: err });
+      res.json({ success: true });
+    });
+  });
+});
 router.get("/rfid", (req, res) => {
   const query = `
     SELECT 

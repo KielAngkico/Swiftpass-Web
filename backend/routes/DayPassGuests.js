@@ -124,17 +124,17 @@ router.post("/register-session", daypassUpload.single("guest_image"), async (req
       );
     }
 
-    // ✅ UPDATE RegisteredRfid table
-    await conn.query(
-      `UPDATE RegisteredRfid 
-       SET assigned_to_id = ?,
-           assigned_to_name = ?,
-           status = 'in_use',
-           assignment_date = NOW()
-       WHERE rfid_tag = ? AND role = 'DayPass'`,
-      [guestId, guest_name, rfid_tag]
-    );
-
+// ✅ UPDATE RegisteredRfid table
+await conn.query(
+  `UPDATE RegisteredRfid 
+   SET assigned_to_id = ?,
+       assigned_to_name = ?,
+       assigned_to_type = 'DayPass',
+       status = 'in_use',
+       assignment_date = NOW()
+   WHERE rfid_tag = ? AND role = 'DayPass'`,
+  [guestId, guest_name, rfid_tag]
+);
     // Insert transaction
     await conn.query(
       `INSERT INTO AdminTransactions

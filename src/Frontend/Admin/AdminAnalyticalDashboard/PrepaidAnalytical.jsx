@@ -95,7 +95,7 @@ const PrepaidAnalytical = ({ adminUser }) => {
         setError(null);
       } catch (err) {
         console.error("Failed to load analytics:", err);
-        setError("Failed to load analytics");
+        setToast({message: "Failed to load analytics", type: "error"});
         setAnalyticsData(null);
       } finally {
         setLoading(false);
@@ -244,7 +244,6 @@ const PrepaidAnalytical = ({ adminUser }) => {
   };
 
   if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-600">Loading analytics...</div>;
-  if (error) return <div className="flex items-center justify-center min-h-screen text-red-600">Error: {error}</div>;
 
   const today = new Date().toISOString().split("T")[0];
 

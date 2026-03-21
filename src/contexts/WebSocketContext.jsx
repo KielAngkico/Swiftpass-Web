@@ -149,6 +149,25 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
         console.log("🔄 Replacement scan mode:", msg.data?.enabled ? "ENABLED" : "DISABLED");
         return;
 
+
+case "partner-slot-scan-result":
+  if (!msg.data) return;
+  console.log("📡 Partner slot scan result:", msg.data);
+
+  if (msg.data.status === "error") {
+    window.dispatchEvent(new CustomEvent('partner-slot-error', { 
+      detail: { reason: msg.data.reason } 
+    }));
+    return;
+  }
+
+  if (msg.data.status === "success") {
+    setScannedRfidForPartner({ 
+      rfid_tag: msg.data.rfid_tag, 
+      slot: msg.data.slot 
+    });
+  }
+  return;
       case "rfid-scanned-for-staff":
         if (msg.data?.rfid_tag) {
           console.log("📡 RFID Scanned for Staff Registration:", msg.data);
@@ -426,18 +445,31 @@ case "staff-scan":
   };
 
   // ✅ ADD THESE THREE NEW FUNCTIONS FOR PARTNER SCANNING
-  const enablePartnerScanMode = (slot) => {
-    console.log(`🔄 Enabling partner scan mode for slot ${slot}`);
-    setPartnerScanModeEnabled(true);
-    setPendingPartnerSlot(slot);
-  };
+const enablePartnerScanMode = (slot, adminId) => {
+  console.log(`🔄 Enabling partner scan mode for slot ${slot}`);
+  setPartnerScanModeEnabled(true);
+  setPendingPartnerSlot(slot);
+  if (ws.current?.readyState === WebSocket.OPEN) {
+    ws.current.send(JSON.stringify({
+      type: "toggle-partner-slot-mode",
+      enabled: true,
+      admin_id: adminId,
+      slot: slot
+    }));
+  }
+};
 
-  const disablePartnerScanMode = () => {
-    console.log("🔄 Disabling partner scan mode");
-    setPartnerScanModeEnabled(false);
-    setPendingPartnerSlot(null);
-  };
-
+const disablePartnerScanMode = () => {
+  console.log("🔄 Disabling partner scan mode");
+  setPartnerScanModeEnabled(false);
+  setPendingPartnerSlot(null);
+  if (ws.current?.readyState === WebSocket.OPEN) {
+    ws.current.send(JSON.stringify({
+      type: "toggle-partner-slot-mode",
+      enabled: false
+    }));
+  }
+};
   const clearScannedPartnerRfid = () => {
     console.log("🧹 Clearing scanned partner RFID");
     setScannedRfidForPartner(null);

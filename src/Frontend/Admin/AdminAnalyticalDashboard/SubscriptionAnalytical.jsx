@@ -90,7 +90,7 @@ const { data } = await api.get("/api/subscription-activity-analytics", { params 
         setError(null);
       } catch (err) {
         console.error("Failed to load analytics:", err);
-        setError("Failed to load analytics");
+  showToast({ message: "Failed to load analytics", type: "error" });
         setAnalyticsData(null);
       } finally {
         setLoading(false);
@@ -244,7 +244,6 @@ showToast({ message: "Failed to generate PDF", type: "error" });
   };
 
   if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-600">Loading analytics...</div>;
-  if (error) return <div className="flex items-center justify-center min-h-screen text-red-600">Error: {error}</div>;
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -364,8 +363,8 @@ showToast({ message: "Failed to generate PDF", type: "error" });
   }}
 />
 
-                    <p className="font-semibold text-sm">{member.name}</p>
-                    <p className="text-[10px]">Visits: {member.visitCount}</p>
+                    <p className="font-semibold text-sm">{member.full_name}</p>
+                    <p className="text-[10px]">Visits: {member.login_count}</p>
                     <p className="text-[10px] italic text-gray-500">{member.rfidTag}</p>
                   </div>
                 ) : (
@@ -443,7 +442,7 @@ showToast({ message: "Failed to generate PDF", type: "error" });
                   {sampleData.currentlyInside.length > 0 ? (
                     sampleData.currentlyInside.map((member, idx) => (
                       <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                        <td className="py-2 px-3 text-xs text-gray-800">{member.name}</td>
+                        <td className="py-2 px-3 text-xs text-gray-800">{member.full_name}</td>
                         <td className="py-2 px-3 text-xs text-gray-600">{member.rfidTag}</td>
                         <td className="py-2 px-3">
                           <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-medium ${
@@ -451,7 +450,7 @@ showToast({ message: "Failed to generate PDF", type: "error" });
                               ? "bg-blue-100 text-blue-700" 
                               : "bg-amber-100 text-amber-700"
                           }`}>
-                            {member.visitorType}
+                            {member.visitor_type}
                           </span>
                         </td>
                         <td className="py-2 px-3 text-xs text-gray-600">

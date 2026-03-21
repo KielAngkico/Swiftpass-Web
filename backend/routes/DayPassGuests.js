@@ -67,8 +67,7 @@ router.post("/register-session", daypassUpload.single("guest_image"), async (req
       rfid_keyfob_fee,
     } = req.body;
 
-    const profileImage = req.file ? `uploads/daypass/${req.file.filename}` : null;
-
+const profileImage = req.file ? `https://swiftpasstech.com/uploads/daypass/${req.file.filename}` : null;
     // ✅ FIXED: Get Daily Session fee from AdminPricingOptions instead of AdminAccounts
     const [sessionRows] = await conn.query(
       "SELECT amount_to_pay FROM AdminPricingOptions WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1 LIMIT 1",

@@ -98,12 +98,12 @@ const PrepaidActAnalytics = () => {
           
           setLoginData(mappedData);
         }
-      } catch (err) {
-        console.error("Failed to load analytics:", err);
-        setError("Failed to load analytics");
-        setLoginData([]);
-        setTotalLogins(0);
-        setPeakHour("—");
+} catch (err) {
+  console.error("Failed to load analytics:", err);
+  showToast({ message: "Failed to load analytics", type: "error" });
+  setLoginData([]);
+  setTotalLogins(0);
+  setPeakHour("—");
       } finally {
         setLoading(false);
       }
@@ -169,13 +169,6 @@ const PrepaidActAnalytics = () => {
     return <p className="text-xs text-gray-500">No admin user data available</p>;
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-red-500">{error}</p>
-      </div>
-    );
-  }
 
   const membersInside = loginData.filter((l) => l.status === "inside").length;
 

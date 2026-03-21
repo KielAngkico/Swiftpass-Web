@@ -96,7 +96,16 @@ const AddClient = () => {
     const interval = setInterval(fetchPendingRegistrations, 30000);
     return () => clearInterval(interval);
   }, []);
+useEffect(() => {
+  const handlePartnerSlotError = (e) => {
+    showToast({ message: `❌ ${e.detail.reason}`, type: "error" });
+    setWaitingForSlot(null);
+    disablePartnerScanMode();
+  };
 
+  window.addEventListener('partner-slot-error', handlePartnerSlotError);
+  return () => window.removeEventListener('partner-slot-error', handlePartnerSlotError);
+}, []);
   const fetchPendingRegistrations = async () => {
     try {
       const response = await axios.get(`${API_URL}/api/pending-registrations`);
@@ -184,28 +193,27 @@ const AddClient = () => {
     }
   };
 
-  const handleScanSlot = (slotNumber) => {
-    setWaitingForSlot(slotNumber);
-    enablePartnerScanMode(slotNumber);
+const handleScanSlot = (slotNumber) => {
+  setWaitingForSlot(slotNumber);
+  enablePartnerScanMode(slotNumber, editingAdmin?.id); // ← pass adminId
 
-    showToast({
-      message: `🔄 Waiting for RFID Slot ${slotNumber}... Please scan now`,
-      type: "info",
-      duration: 5000
+  showToast({
+    message: `🔄 Waiting for RFID Slot ${slotNumber}... Scan the Partner card`,
+    type: "info",
+    duration: 5000
+  });
+
+  setTimeout(() => {
+    setWaitingForSlot((current) => {
+      if (current === slotNumber) {
+        disablePartnerScanMode();
+        showToast({ message: "⏱️ Scan timeout - please try again", type: "warning" });
+        return null;
+      }
+      return current;
     });
-
-    setTimeout(() => {
-      setWaitingForSlot((current) => {
-        if (current === slotNumber) {
-          disablePartnerScanMode();
-          showToast({ message: "⏱️ Scan timeout - please try again", type: "warning" });
-          return null;
-        }
-        return current;
-      });
-    }, 10000);
-  };
-
+  }, 10000);
+};
   const handleSubmit = async (e) => {
     e.preventDefault();
 

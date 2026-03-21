@@ -228,7 +228,7 @@ async function validateScanModeRfid(rfidTag, requestingAdminId) {
         return {
           valid: false,
           reason: 'This Partner RFID is allocated to another gym',
-          silent: true // Don't broadcast to non-owner
+          silent: true
         };
       }
     }
@@ -239,6 +239,27 @@ async function validateScanModeRfid(rfidTag, requestingAdminId) {
         valid: false,
         reason: `This ${allocation.role} RFID is allocated to a different gym`,
         silent: false
+      };
+    }
+
+    // ✅ NEW: Check if already assigned to a staff member
+    const [staffRows] = await dbSuperAdmin.promise().query(
+      `SELECT staff_name FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ? LIMIT 1`,
+      [rfidTag, requestingAdminId]
+    );
+
+    if (staffRows.length > 0) {
+      return {
+        valid: false,
+        reason: `RFID already assigned to Staff: ${staffRows[0].staff_name}`
+      };
+    }
+
+    // ✅ NEW: Check if status is already 'in_use'
+    if (allocation.status === 'in_use') {
+      return {
+        valid: false,
+        reason: 'This RFID card is already in use'
       };
     }
 
@@ -255,7 +276,6 @@ async function validateScanModeRfid(rfidTag, requestingAdminId) {
     };
   }
 }
-
 /**
  * Check if RFID exists in RegisteredRfid table (for SuperAdmin check)
  * @param {string} rfidTag - The RFID tag

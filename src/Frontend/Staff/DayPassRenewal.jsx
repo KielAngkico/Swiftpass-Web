@@ -74,8 +74,9 @@ const DayPassRenewal = ({ staffUser }) => {
       setImagePreview(guest_data.profile_image_url || null);
           setEmail(guest_data.email || "");
     setMobileNumber(guest_data.mobile_number || "");
+     
       
-      const paidAmount = parseFloat(guest_data.paid_amount);
+const paidAmount = parseFloat(guest_data.paid_amount);
       if (!isNaN(paidAmount)) {
         setSessionFee(paidAmount);
       }

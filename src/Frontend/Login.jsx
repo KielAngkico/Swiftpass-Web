@@ -117,15 +117,10 @@ const Login = ({ closeModal }) => {
 
       const data = await response.json();
 
-      if (response.ok) {
-        if (data.requiresOTP) {
-          setShowOTPVerification(true);
-          showNotification(data.message || "Verification code sent to your email", "success");
-          setResendTimer(60);
-        } else if (data.accessToken) {
-          await handleSuccessfulLogin(data);
-        }
-      } else {
+if (response.ok && data.success) {
+  await handleSuccessfulLogin(data);
+}
+ else {
         showNotification(data.message || "Invalid email or password");
       }
     } catch (err) {

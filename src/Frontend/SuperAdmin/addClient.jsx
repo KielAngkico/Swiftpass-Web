@@ -416,18 +416,17 @@ const handleScanSlot = (slotNumber) => {
     });
   };
 
-  const getTimeRemaining = (createdAt) => {
-    const created = new Date(createdAt);
-    const expiresAt = new Date(created.getTime() + 60 * 60 * 1000);
-    const now = new Date();
-    const diff = expiresAt - now;
+const getTimeRemaining = (createdAt) => {
+  const created = new Date(createdAt); // ISO format parses fine as-is
+  const expiresAt = new Date(created.getTime() + 60 * 60 * 1000);
+  const now = new Date();
+  const diff = expiresAt - now;
 
-    if (diff <= 0) return "Expired";
+  if (diff <= 0) return "Expired";
 
-    const minutes = Math.floor(diff / 60000);
-    return `${minutes} min left`;
-  };
-
+  const minutes = Math.floor(diff / 60000);
+  return `${minutes} min left`;
+};
   return (
     <div className="flex min-h-screen bg-gray-50">
       <SuperAdminSidebar />
@@ -482,12 +481,15 @@ const handleScanSlot = (slotNumber) => {
                     <h3 className="font-semibold text-base text-gray-900">
                       {registration.gym_name}
                     </h3>
-
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                      <p className="text-xs text-gray-500">
-                        Expires: {getTimeRemaining(registration.created_at)}
-                      </p>
-                    </div>
+<div className="mt-2 pt-2 border-t border-gray-200">
+  {getTimeRemaining(registration.created_at) === "Expired" ? (
+    <p className="text-xs text-red-500 font-medium">Expired</p>
+  ) : (
+    <p className="text-xs text-gray-500">
+      Expires in: {getTimeRemaining(registration.created_at)}
+    </p>
+  )}
+</div>
                   </div>
                 ))}
               </div>

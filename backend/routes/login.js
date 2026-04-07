@@ -87,33 +87,61 @@ router.post("/login", async (req, res) => {
       }
     }
 
-    if (!user) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
-    }
+if (!user) {
+  return res.status(401).json({ success: false, message: "Invalid email or password" });
+}
 
-    const otp = generateOTP();
-    otpLoginSessions[email] = {
-      otp,
-      userId: user.id,
-      role: user.role,
-      systemType: user.systemType || user.system_type || null,
-      adminId: user.role === "admin" ? user.id : user.role === "staff" ? user.admin_id : null,
-      name: user.name,
-      createdAt: Date.now(),
-      userData: user,
-    };
+// REPLACED: no more OTP, issue tokens directly
+const accessToken = jwt.sign(
+  {
+    id: user.id,
+    role: user.role,
+    systemType: user.systemType || user.system_type || null,
+    adminId: user.role === "admin" ? user.id : user.role === "staff" ? user.admin_id : null,
+    name: user.name,
+  },
+  process.env.JWT_SECRET,
+  { expiresIn: "3m" }
+);
 
-    await sendOTPEmail(email, otp, user.name);
+const refreshToken = jwt.sign(
+  { id: user.id, role: user.role },
+  process.env.JWT_REFRESH_SECRET,
+  { expiresIn: "1d" }
+);
 
-    res.json({
-      message: "Credentials verified. Check your email for the verification code.",
-      requiresOTP: true,
-      success: true,
-    });
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
+res.cookie("accessToken", accessToken, {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+  maxAge: 3 * 60 * 1000,
+  path: "/",
+});
+
+res.cookie("refreshToken", refreshToken, {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+  path: "/",
+});
+
+return res.json({
+  success: true,
+  message: "Login successful",
+  accessToken,
+  user: {
+    id: user.id,
+    role: user.role,
+    systemType: user.systemType || user.system_type || null,
+    adminId: user.role === "admin" ? user.id : user.role === "staff" ? user.admin_id : null,
+    name: user.name,
+  },
+});
+
+} catch (error) {
+  console.error("Login error:", error);
+  res.status(500).json({ success: false, message: "Internal server error" });
+}
 });
 
 router.post("/verify-login-otp", async (req, res) => {

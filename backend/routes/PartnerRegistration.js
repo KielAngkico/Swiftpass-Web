@@ -204,4 +204,30 @@ router.put("/pending-registrations/:registration_number/approve", async (req, re
   }
 });
 
+
+// --- Get Subscription Packages with Items ---
+router.get("/subscription-packages-with-items", async (req, res) => {
+  try {
+    const [packages] = await query(`
+      SELECT id, name, description, price, duration_days, created_at
+      FROM SubscriptionPackages
+      ORDER BY price ASC
+    `);
+
+    const [items] = await query(`
+      SELECT package_id, item_name, quantity
+      FROM PackageItems
+    `);
+
+    const result = packages.map(pkg => ({
+      ...pkg,
+      items: items.filter(item => item.package_id === pkg.id)
+    }));
+
+    res.json(result);
+  } catch (err) {
+    console.error("Fetch packages error:", err);
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+});
 module.exports = router;

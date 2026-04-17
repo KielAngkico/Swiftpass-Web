@@ -98,7 +98,7 @@ router.get("/me", (req, res) => {
         const rows = await query(
           `SELECT id, admin_name AS name, age, email, address, gym_name, 
                   system_type, profile_image_url, session_fee, status, created_at 
-           FROM adminaccounts WHERE id = ?`,
+           FROM AdminAccounts WHERE id = ?`,
           [user.id]
         );
         if (rows.length) {
@@ -126,7 +126,7 @@ router.get("/me", (req, res) => {
                   s.contact_number, s.profile_image_url, s.status, s.created_at,
                   s.admin_id, a.gym_name, a.admin_name AS admin_name
            FROM staffaccounts s
-           LEFT JOIN adminaccounts a ON s.admin_id = a.id
+           LEFT JOIN AdminAccounts a ON s.admin_id = a.id
            WHERE s.id = ?`,
           [user.id]
         );

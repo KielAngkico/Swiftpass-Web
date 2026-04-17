@@ -81,7 +81,7 @@ router.get("/me", (req, res) => {
       if (user.role === "superadmin") {
         const rows = await query(
           `SELECT id, superadmin_name AS name, email, created_at 
-           FROM superadminaccounts WHERE id = ?`,
+           FROM SuperAdminAccounts WHERE id = ?`,
           [user.id]
         );
         if (rows.length) {

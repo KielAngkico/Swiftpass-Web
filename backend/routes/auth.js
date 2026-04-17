@@ -125,7 +125,7 @@ router.get("/me", (req, res) => {
           `SELECT s.id, s.staff_name AS name, s.age, s.email, s.address, 
                   s.contact_number, s.profile_image_url, s.status, s.created_at,
                   s.admin_id, a.gym_name, a.admin_name AS admin_name
-           FROM Staffaccounts s
+           FROM StaffAccounts s
            LEFT JOIN AdminAccounts a ON s.admin_id = a.id
            WHERE s.id = ?`,
           [user.id]

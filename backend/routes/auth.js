@@ -58,26 +58,110 @@ router.get("/me", (req, res) => {
 
   if (!token) {
     console.log("❌ /me - No access token cookie found");
-    return refreshTokenHandler(req, res); 
+    return refreshTokenHandler(req, res);
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
     if (err) {
       console.log("❌ /me - Access token invalid/expired", err.message);
-      return refreshTokenHandler(req, res); 
+      return refreshTokenHandler(req, res);
     }
 
-    console.log("✅ /me - Access token valid for user:", user.id);
-    res.json({
-      authenticated: true,
-      user: {
-        id: user.id,
-        role: user.role,
-        systemType: user.systemType,
-        adminId: user.adminId,
-        name: user.name,
-      },
-    });
+    try {
+      const query = (sql, params) =>
+        new Promise((resolve, reject) => {
+          dbSuperAdmin.query(sql, params, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+          });
+        });
+
+      let userData = null;
+
+      if (user.role === "superadmin") {
+        const rows = await query(
+          `SELECT id, superadmin_name AS name, email, created_at 
+           FROM superadminaccounts WHERE id = ?`,
+          [user.id]
+        );
+        if (rows.length) {
+          userData = {
+            id: rows[0].id,
+            name: rows[0].name,
+            email: rows[0].email,
+            created_at: rows[0].created_at,
+            role: "superadmin",
+          };
+        }
+
+      } else if (user.role === "admin") {
+        const rows = await query(
+          `SELECT id, admin_name AS name, age, email, address, gym_name, 
+                  system_type, profile_image_url, session_fee, status, created_at 
+           FROM adminaccounts WHERE id = ?`,
+          [user.id]
+        );
+        if (rows.length) {
+          userData = {
+            id: rows[0].id,
+            name: rows[0].name,
+            age: rows[0].age,
+            email: rows[0].email,
+            address: rows[0].address,
+            gym_name: rows[0].gym_name,
+            system_type: rows[0].system_type,
+            profile_image_url: rows[0].profile_image_url,
+            session_fee: rows[0].session_fee,
+            status: rows[0].status,
+            created_at: rows[0].created_at,
+            role: "admin",
+            adminId: user.adminId,
+            systemType: user.systemType,
+          };
+        }
+
+      } else if (user.role === "staff") {
+        const rows = await query(
+          `SELECT s.id, s.staff_name AS name, s.age, s.email, s.address, 
+                  s.contact_number, s.profile_image_url, s.status, s.created_at,
+                  s.admin_id, a.gym_name, a.admin_name AS admin_name
+           FROM staffaccounts s
+           LEFT JOIN adminaccounts a ON s.admin_id = a.id
+           WHERE s.id = ?`,
+          [user.id]
+        );
+        if (rows.length) {
+          userData = {
+            id: rows[0].id,
+            name: rows[0].name,
+            age: rows[0].age,
+            email: rows[0].email,
+            address: rows[0].address,
+            contact_number: rows[0].contact_number,
+            profile_image_url: rows[0].profile_image_url,
+            status: rows[0].status,
+            created_at: rows[0].created_at,
+            admin_id: rows[0].admin_id,
+            gym_name: rows[0].gym_name,
+            admin_name: rows[0].admin_name,
+            role: "staff",
+            adminId: user.adminId,
+            systemType: user.systemType,
+          };
+        }
+      }
+
+      if (!userData) {
+        return res.status(404).json({ authenticated: false, message: "User not found" });
+      }
+
+      console.log("✅ /me - User data fetched for:", userData.name);
+      res.json({ authenticated: true, user: userData });
+
+    } catch (error) {
+      console.error("❌ /me - DB error:", error);
+      res.status(500).json({ authenticated: false, message: "Server error" });
+    }
   });
 });
 router.get("/gym-info/:adminId", (req, res) => {

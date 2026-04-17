@@ -24,8 +24,10 @@ export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
   const [scannedRfidForPartner, setScannedRfidForPartner] = useState(null);
   const [pendingPartnerSlot, setPendingPartnerSlot] = useState(null);
   
-  const socketUrl = import.meta.env.VITE_WS_URL || "ws://localhost:5000";
-
+const socketBaseUrl = import.meta.env.VITE_WS_URL || "ws://localhost:5000";
+  const socketUrl = socketBaseUrl.endsWith('/') 
+  ? `${socketBaseUrl}ws` 
+  : `${socketBaseUrl}/ws`;
   // ✅ Fetch current user from /api/me
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -349,16 +351,28 @@ case "staff-scan":
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
+    let isMounted = true;
+    let retryTimeout = null;
+
     const connectWebSocket = () => {
-      const token = getAccessToken();
-      if (!token) {
-        console.log("No access token available for WebSocket connection");
+      if (!isMounted) return;
+
+      // ✅ Stop if already open or connecting
+      if (
+        ws.current?.readyState === WebSocket.OPEN ||
+        ws.current?.readyState === WebSocket.CONNECTING
+      ) return;
+
+      // ✅ Hard stop after max retries
+      if (retryAttempts.current > 5) {
+        console.error("❌ Max reconnection attempts reached");
         return;
       }
 
-      if (ws.current?.readyState === WebSocket.OPEN) {
-        console.log("✅ WebSocket already connected");
+      const token = getAccessToken();
+      if (!token) {
+        console.log("No access token — skipping WebSocket connection");
         return;
       }
 
@@ -366,9 +380,10 @@ case "staff-scan":
       ws.current = new WebSocket(socketUrl);
 
       ws.current.onopen = () => {
+        if (!isMounted) return;
         console.log("✅ WebSocket connected, sending authentication");
         ws.current.send(JSON.stringify({ type: "auth-dashboard", token }));
-        retryAttempts.current = 0;
+        retryAttempts.current = 0; // reset on success
       };
 
       ws.current.onmessage = (event) => {
@@ -381,45 +396,56 @@ case "staff-scan":
       };
 
       ws.current.onclose = () => {
+        if (!isMounted) return;
         console.log("🔌 WebSocket disconnected");
         setIsAuthenticated(false);
         setScanModeEnabled(false);
         setReplacementScanModeEnabled(false);
-        setPartnerScanModeEnabled(false); // ✅ ADD THIS
-        
+        setPartnerScanModeEnabled(false);
+
         retryAttempts.current++;
+
         if (retryAttempts.current <= 5) {
           const delay = retryAttempts.current * 2000;
           console.log(`🔄 Reconnecting in ${delay}ms (attempt ${retryAttempts.current}/5)`);
-          setTimeout(connectWebSocket, delay);
+          retryTimeout = setTimeout(connectWebSocket, delay);
         } else {
-          console.error("❌ Max reconnection attempts reached");
+          console.error("❌ Max reconnection attempts reached — giving up");
+          // ✅ No more retries, period
         }
       };
 
-      ws.current.onerror = (error) => {
-        console.error("❌ WebSocket error:", error);
-        setIsAuthenticated(false);
-      };
+ ws.current.onerror = (error) => {
+  // If the socket is already closing or closed, 
+  // the error is likely just from the page refreshing.
+  if (ws.current && (ws.current.readyState === WebSocket.CLOSING || ws.current.readyState === WebSocket.CLOSED)) {
+    return; 
+  }
+
+  console.error("❌ WebSocket error:", error);
+  setIsAuthenticated(false);
+};
     };
 
     connectWebSocket();
 
     const handleAuthChange = () => {
       console.log("🔄 Auth changed, reconnecting WebSocket");
+      retryAttempts.current = 0; // reset retries on fresh login
       setIsAuthenticated(false);
+      ws.current?.close();
       connectWebSocket();
     };
 
     window.addEventListener("auth-changed", handleAuthChange);
 
     return () => {
-      console.log("🧹 Cleaning up WebSocket connection");
+      isMounted = false;
+      clearTimeout(retryTimeout);     // ✅ Cancel any pending retry
       ws.current?.close();
       window.removeEventListener("auth-changed", handleAuthChange);
     };
-  }, [navigate, currentUser]); // ✅ Added currentUser as dependency
-
+  }, [navigate]); // ✅ Removed currentUser — was causing reconnects on every user fetch
   const toggleScanMode = (enabled) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
       ws.current.send(JSON.stringify({

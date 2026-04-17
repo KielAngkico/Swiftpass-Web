@@ -47,13 +47,24 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
     await conn.beginTransaction();
 
     const {
-      admin_name, email, password, address, gym_name,
+      admin_name, email, password, address, gym_name, gym_code,
       system_type, package_id, rfid_tag, rfid_tag_2,
     } = req.body;
 
     if (!password) {
       await conn.rollback();
       return res.status(400).json({ error: "Password is required" });
+
+    }
+
+        if (gym_code) {
+      const [[existing]] = await conn.query(
+        `SELECT id FROM AdminAccounts WHERE gym_code = ?`, [gym_code]
+      );
+      if (existing) {
+        await conn.rollback();
+        return res.status(400).json({ error: "Gym code already taken. Choose a different one." });
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -70,15 +81,16 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
         endDate = new Date(Date.now() + pkg.duration_days * 86400000);
       }
     }
+    
 
     // ✅ FIXED: Insert with actual RFID values, not NULL
     const [result] = await conn.query(`
       INSERT INTO AdminAccounts
-      (admin_name, email, password, address, gym_name, system_type,
+      (admin_name, email, password, address, gym_name, gym_code, system_type,
        profile_image_url, rfid_tag, rfid_tag_2, package_id,
        subscription_start_date, subscription_end_date, is_archived)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `, [admin_name, email, hashedPassword, address, gym_name,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+    `, [admin_name, email, hashedPassword, address, gym_name,gym_code,
       system_type, imagePath, rfid_tag || null, rfid_tag_2 || null,
       pkgId, startDate, endDate]);
 

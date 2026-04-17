@@ -105,10 +105,10 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
 
   const fetchPendingRegistrations = async () => {
     try {
-      const { data } = await api.get('/api/pending-member-registrations');
-      // Filter by current admin_id
-      const filteredData = data.filter(reg => reg.admin_id === adminId);
-      setPendingRegistrations(filteredData);
+const { data } = await api.get('/api/pending-member-registrations', {
+  params: { admin_id: adminId, system_type: 'prepaid_entry' }
+});
+setPendingRegistrations(data);
     } catch (error) {
       console.error("Error fetching pending registrations:", error);
     }

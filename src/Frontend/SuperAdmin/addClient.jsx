@@ -25,6 +25,7 @@ const AddClient = () => {
     email: "",
     password: "",
     gym_name: "",
+    gym_code: "",
     system_type: "",
     package_id: "",
     payment_method: "Cash",
@@ -115,28 +116,41 @@ useEffect(() => {
     }
   };
 
-  const handleRegistrationClick = (registration) => {
-    setFormData({
-      admin_name: registration.admin_name || "",
-      address: registration.address || "",
-      email: registration.email || "",
-      password: registration.password || "",
-      gym_name: registration.gym_name || "",
-      system_type: registration.system_type || "",
-      package_id: registration.package_id || "",
-      payment_method: "Cash",
-      reference_number: "",
-      profile_image_url: registration.profile_image_url ? `${API_URL}${registration.profile_image_url}` : null,
-      rfid_tag: "",
-      rfid_tag_2: "",
-      packages: packages,
-      paymentOptions: paymentOptions,
-    });
+const handleRegistrationClick = async (registration) => {
+  let imageFile = null;
 
-    setModalMode("registration");
-    setEditingAdmin({ registrationNumber: registration.registration_number });
-    setShowAddForm(true);
-  };
+  if (registration.profile_image_url) {
+    try {
+      const response = await fetch(`${API_URL}${registration.profile_image_url}`);
+      const blob = await response.blob();
+      const filename = registration.profile_image_url.split("/").pop();
+      imageFile = new File([blob], filename, { type: blob.type });
+    } catch (err) {
+      console.error("Failed to fetch registration image:", err);
+    }
+  }
+
+  setFormData({
+    admin_name: registration.admin_name || "",
+    address: registration.address || "",
+    email: registration.email || "",
+    password: registration.password || "",
+    gym_name: registration.gym_name || "",
+    system_type: registration.system_type || "",
+    package_id: registration.package_id || "",
+    payment_method: "Cash",
+    reference_number: "",
+    profile_image_url: imageFile, // ✅ File object, not a URL string
+    rfid_tag: "",
+    rfid_tag_2: "",
+    packages: packages,
+    paymentOptions: paymentOptions,
+  });
+
+  setModalMode("registration");
+  setEditingAdmin({ registrationNumber: registration.registration_number });
+  setShowAddForm(true);
+};
 
   const handleDeleteRegistration = async (registrationNumber, e) => {
     e.stopPropagation();
@@ -185,13 +199,15 @@ useEffect(() => {
     }
   }, [scannedRfidForPartner, waitingForSlot]);
 
-  const handleChange = (e) => {
-    if (e.target.type === "file") {
-      setFormData({ ...formData, [e.target.name]: e.target.files[0] });
-    } else {
-      setFormData({ ...formData, [e.target.name]: e.target.value });
-    }
-  };
+const handleChange = (e) => {
+  if (e.target.type === "file") {
+    setFormData({ ...formData, [e.target.name]: e.target.files[0] });
+  } else if (e.target.name === "gym_code") {
+    setFormData({ ...formData, gym_code: e.target.value.toUpperCase() });
+  } else {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  }
+};
 
 const handleScanSlot = (slotNumber) => {
   setWaitingForSlot(slotNumber);
@@ -251,6 +267,7 @@ const handleScanSlot = (slotNumber) => {
         formPayload.append("email", formData.email);
         formPayload.append("password", formData.password);
         formPayload.append("gym_name", formData.gym_name);
+        formPayload.append("gym_code", formData.gym_code || "");
         formPayload.append("system_type", formData.system_type);
         formPayload.append("package_id", formData.package_id || "");
         formPayload.append("payment_method", formData.payment_method || "Cash");
@@ -281,6 +298,7 @@ const handleScanSlot = (slotNumber) => {
             address: formData.address,
             email: formData.email,
             gym_name: formData.gym_name,
+            gym_code: "",
             system_type: formData.system_type,
             package_id: formData.package_id,
             profile_image_url: response.data.profile_image_url || null,
@@ -331,6 +349,7 @@ const handleScanSlot = (slotNumber) => {
       email: admin.email,
       password: "",
       gym_name: admin.gym_name,
+      gym_code: admin.gym_code || "",
       system_type: admin.system_type,
       package_id: admin.package_id || "",
       payment_method: "Cash",

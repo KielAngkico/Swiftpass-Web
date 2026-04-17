@@ -47,6 +47,15 @@ const MemberRegistration = () => {
       setSelectedGym(gym);
     }
   };
+  if (name === 'gym_code_input') {
+    const gym = gyms.find(g => g.gym_code === value.toUpperCase());
+    setSelectedGym(gym || null);
+    setFormData(prev => ({
+      ...prev,
+      gym_code_input: value.toUpperCase(),
+      admin_id: gym ? gym.id : ''
+    }));
+  }
 
   const handleTermsScroll = (e) => {
     const element = e.target;
@@ -66,39 +75,50 @@ const MemberRegistration = () => {
     }
   }, [showTerms]);
 
-  const handleSubmit = async () => {
-    if (!termsAccepted) {
-      alert('Please accept the terms and conditions');
+const handleSubmit = async () => {
+  if (!termsAccepted) {
+    alert('Please accept the terms and conditions');
+    return;
+  }
+
+  const gymCode = formData.gym_code_input?.trim().toUpperCase();
+  if (!gymCode) {
+    alert('Please enter a gym code');
+    return;
+  }
+
+  try {
+    // ✅ Validate gym code first
+    const gymRes = await fetch(`${API_URL}/api/gym-by-code/${gymCode}`);
+    const gymData = await gymRes.json();
+
+    if (!gymRes.ok) {
+      alert('Gym code not found. Please check and try again.');
       return;
     }
 
-    if (!formData.admin_id) {
-      alert('Please select a gym');
-      return;
-    }
+    // ✅ Now submit with the resolved admin_id
+    const response = await fetch(`${API_URL}/api/member-registration`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...formData,
+        admin_id: gymData.id
+      })
+    });
 
-    try {
-      const response = await fetch(`${API_URL}/api/member-registration`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-      
-      const data = await response.json();
+    const data = await response.json();
 
-      if (response.ok) {
-        setRegistrationNumber(data.registration_number);
-        setSubmitStatus('success');
-      } else {
-        alert(data.error || 'Registration failed');
-      }
-    } catch (error) {
-      console.error('Fetch error:', error);
-      alert(`Network error: ${error.message}. Please check console for details.`);
+    if (response.ok) {
+      setRegistrationNumber(data.registration_number);
+      setSubmitStatus('success');
+    } else {
+      alert(data.error || 'Registration failed');
     }
-  };
+  } catch (error) {
+    alert(`Network error: ${error.message}`);
+  }
+};
 
   if (submitStatus === 'success') {
     return (
@@ -214,24 +234,20 @@ const MemberRegistration = () => {
               </div>
             </div>
 
-            {/* Right Column */}
+           {/* Right Column */}
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Gym *</label>
-                <select 
-                  name="admin_id" 
-                  value={formData.admin_id} 
+                <label className="block text-sm font-medium text-gray-700 mb-2">Gym Code *</label>
+                <input
+                  type="text"
+                  name="gym_code_input"
+                  value={formData.gym_code_input || ''}
                   onChange={handleChange}
-                  className="w-full p-3 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                  placeholder="Enter gym code (e.g. AFTS)"
+                  maxLength={10}
+                  className="w-full p-3 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
                   required
-                >
-                  <option value="">-- Select Gym --</option>
-                  {gyms.map((gym) => (
-                    <option key={gym.id} value={gym.id}>
-                      {gym.gym_name} - {gym.address}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               {selectedGym && (

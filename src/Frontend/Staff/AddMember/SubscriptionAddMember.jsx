@@ -103,12 +103,10 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
 
   const fetchPendingRegistrations = async () => {
     try {
-      const { data } = await api.get('/api/pending-member-registrations');
-      // Filter by current admin_id and system_type
-      const filteredData = data.filter(
-        reg => reg.admin_id === adminId && reg.system_type === 'subscription'
-      );
-      setPendingRegistrations(filteredData);
+const { data } = await api.get('/api/pending-member-registrations', {
+  params: { admin_id: adminId, system_type: 'subscription' }
+});
+setPendingRegistrations(data);
     } catch (error) {
       console.error("Error fetching pending registrations:", error);
     }

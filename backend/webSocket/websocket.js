@@ -21,13 +21,19 @@ function setupWebSocket(server) {
 const wss = new WebSocket.Server({ noServer: true });
 
 server.on('upgrade', (request, socket, head) => {
-  const pathname = new URL(request.url, 'http://localhost').pathname;
+  const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
   
-if (pathname === '/ws' || pathname === '/ws/' || pathname === '/arduino-ws') {
+  // Log the connection attempt so you can see it in your terminal
+  console.log(`🔍 WebSocket upgrade attempt for path: ${pathname}`);
+
+  const allowedPaths = ['/ws', '/ws/', '/arduino-ws'];
+
+  if (allowedPaths.includes(pathname)) {
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit('connection', ws, request);
     });
   } else {
+    console.log(`🚫 Rejected connection at: ${pathname}`);
     socket.destroy();
   }
 });

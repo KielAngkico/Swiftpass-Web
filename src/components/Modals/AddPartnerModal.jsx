@@ -70,6 +70,23 @@ const AddPartnerModal = ({
                   required
                 />
               </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Gym Code
+                </label>
+                <input
+                  type="text"
+                  name="gym_code"
+                  value={formData.gym_code}
+                  onChange={onFormChange}
+                  maxLength={10}
+                  placeholder="e.g. AFTS"
+                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+                <p className="text-xs text-gray-400 mt-1">Short unique code (max 10 chars)</p>
+              </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">

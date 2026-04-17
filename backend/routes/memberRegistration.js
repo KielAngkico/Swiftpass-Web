@@ -28,7 +28,42 @@ router.get("/available-gyms", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch gyms" });
   }
 });
+router.get("/available-gyms", async (req, res) => {
+  try {
+    const [gyms] = await query(`
+      SELECT id, gym_name, admin_name, address, system_type, gym_code
+      FROM AdminAccounts
+      WHERE is_archived = 0 AND status = 'active'
+      ORDER BY gym_name ASC
+    `);
+    res.json(gyms);
+  } catch (err) {
+    console.error("Get gyms error:", err);
+    res.status(500).json({ error: "Failed to fetch gyms" });
+  }
+});
 
+// --- Lookup Gym by Code ---
+router.get("/gym-by-code/:gym_code", async (req, res) => {
+  try {
+    const { gym_code } = req.params;
+
+    const [[gym]] = await query(`
+      SELECT id, gym_name, admin_name, address, system_type, gym_code
+      FROM AdminAccounts
+      WHERE gym_code = ? AND is_archived = 0 AND status = 'active'
+    `, [gym_code.toUpperCase()]);
+
+    if (!gym) {
+      return res.status(404).json({ error: "Gym code not found" });
+    }
+
+    res.json(gym);
+  } catch (err) {
+    console.error("Gym lookup error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 // --- Member Registration Form Submission ---
 router.post("/member-registration", async (req, res) => {
   try {
@@ -110,34 +145,39 @@ router.post("/member-registration", async (req, res) => {
 });
 
 // --- Get Pending Member Registrations ---
+// --- Get Pending Member Registrations ---
 router.get("/pending-member-registrations", async (req, res) => {
   try {
-    const [registrations] = await query(`
+    const { admin_id, system_type } = req.query;
+
+    let sql = `
       SELECT
-        mr.id,
-        mr.registration_number,
-        mr.full_name,
-        mr.gender,
-        mr.age,
-        mr.phone_number,
-        mr.email,
-        mr.password,
-        mr.emergency_contact_person,
-        mr.emergency_contact_number,
-        mr.emergency_contact_relationship,
-        mr.admin_id,
-        mr.status,
-        mr.created_at,
-        aa.gym_name,
-        aa.admin_name,
-        aa.system_type
+        mr.id, mr.registration_number, mr.full_name, mr.gender, mr.age,
+        mr.phone_number, mr.email, mr.password,
+        mr.emergency_contact_person, mr.emergency_contact_number,
+        mr.emergency_contact_relationship, mr.admin_id, mr.status, mr.created_at,
+        aa.gym_name, aa.admin_name, aa.system_type
       FROM member_registrations mr
       INNER JOIN AdminAccounts aa ON mr.admin_id = aa.id
       WHERE mr.status = 'pending'
         AND mr.created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
-      ORDER BY mr.created_at DESC
-    `);
+    `;
 
+    const params = [];
+
+    if (admin_id) {
+      sql += ` AND mr.admin_id = ?`;
+      params.push(admin_id);
+    }
+
+    if (system_type) {
+      sql += ` AND aa.system_type = ?`;
+      params.push(system_type);
+    }
+
+    sql += ` ORDER BY mr.created_at DESC`;
+
+    const [registrations] = await query(sql, params);
     res.json(registrations);
   } catch (err) {
     console.error("Fetch member registrations error:", err);

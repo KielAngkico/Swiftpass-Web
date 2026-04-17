@@ -27,6 +27,8 @@ import PartnerRegistration from "./Frontend/PartnerRegistrationForm";
 import DayPassRegistration from "./Frontend/DayPassRegistration"; 
 import MemberRegistration from "./Frontend/MemberRegistration"; 
 
+const MyProfile = React.lazy(() => import("./Frontend/myProfile"));
+
 
 const AddClient = React.lazy(() => import("./Frontend/SuperAdmin/addClient"));
 const ExerciseLibrary = React.lazy(() => import("./Frontend/SuperAdmin/ExerciseLibrary"));
@@ -199,6 +201,7 @@ useEffect(() => {
 };
 
 const WebSocketWrapper = ({ children }) => {
+   const { user } = useAuth();
   const navigate = useNavigate();
 
   const customNavigate = (path, options, role) => {
@@ -331,7 +334,7 @@ const AppRoutes = () => {
               <Route path="/Staff/RfidReplacement" element={<RfidReplacement />} />
             </>
           )}
-
+          <Route path="/SuperAdmin/MyProfile" element={<MyProfile />} />
           <Route
             path="*"
             element={

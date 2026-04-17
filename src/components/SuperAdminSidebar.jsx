@@ -29,7 +29,8 @@ const SuperAdminSidebar = () => {
       { path: "/SuperAdmin/SplitLibrary", label: "Workout Split Library", icon: <FiPackage /> },
       { path: "/SuperAdmin/FoodLibrary", label: "Food Library", icon: <FiPackage /> },
       { path: "/SuperAdmin/ItemsInventory", label: "Invetory", icon: <FiPackage /> },
-            { path: "/SuperAdmin/PricingManagement", label: "Pricing Management", icon: <FiPackage /> },
+      { path: "/SuperAdmin/PricingManagement", label: "Pricing Management", icon: <FiPackage /> },
+      
     ];
   }, [user]);
 

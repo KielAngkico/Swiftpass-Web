@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import api from "../../api";
 import SuperAdminSidebar from "../../components/SuperAdminSidebar";
@@ -19,6 +18,10 @@ const ItemsInventory = () => {
   const [scanValue, setScanValue] = useState("");
   const [rfidError, setRfidError] = useState(null);
   const { showToast, showConfirm } = useToast();
+  const [inventoryPage, setInventoryPage] = useState(1);
+const [rfidPage, setRfidPage] = useState(1);
+const inventoryPerPage = 10;
+const rfidPerPage = 10;
 
   const rfidOptions = [
     { label: "Partner/Staff - Card", rfid_type: "card", role: "Partner", inventory_item: "Partner/Staff - Card" },
@@ -81,7 +84,7 @@ const ItemsInventory = () => {
     }
 
     try {
-      const response = await api.post("/api/rfid", { 
+      const response = await api.post("/api/rfid", {
         rfid_tag: tag,
         rfid_type: selectedRfidOption.rfid_type,
         role: selectedRfidOption.role
@@ -92,9 +95,9 @@ const ItemsInventory = () => {
       await fetchItems();
 
       if (!rfidTag) setScanValue("");
-      showToast({ 
-        message: `RFID registered successfully! Warehouse #: ${response.data.warehouse_number}`, 
-        type: "success" 
+      showToast({
+        message: `RFID registered successfully! Warehouse #: ${response.data.warehouse_number}`,
+        type: "success"
       });
     } catch (error) {
       console.error("Failed to add RFID:", error.response?.data || error.message);
@@ -182,8 +185,7 @@ const ItemsInventory = () => {
     if (location.state?.rfid_tag) {
       console.log("📍 RFID from navigation state:", location.state.rfid_tag);
       rfidTagToUse = location.state.rfid_tag;
-    }
-    else if (rfidData?.rfid_tag && rfidData?.type === "rfid-registration-check") {
+    } else if (rfidData?.rfid_tag && rfidData?.type === "rfid-registration-check") {
       console.log("📡 RFID from WebSocket:", rfidData.rfid_tag);
       rfidTagToUse = rfidData.rfid_tag;
     }
@@ -197,296 +199,437 @@ const ItemsInventory = () => {
   const filteredItems = items.filter((it) =>
     it.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+const inventoryTotalPages = Math.ceil(filteredItems.length / inventoryPerPage);
+const inventoryStartIndex = (inventoryPage - 1) * inventoryPerPage;
+const currentInventoryItems = filteredItems.slice(inventoryStartIndex, inventoryStartIndex + inventoryPerPage);
 
+const rfidTotalPages = Math.ceil(rfids.length / rfidPerPage);
+const rfidStartIndex = (rfidPage - 1) * rfidPerPage;
+const currentRfids = rfids.slice(rfidStartIndex, rfidStartIndex + rfidPerPage);
+
+const PaginationBar = ({ page, totalPages, onPageChange }) => (
+  <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100 bg-white">
+    <span className="text-xs text-gray-400">
+      Page {page} of {Math.max(totalPages, 1)}
+    </span>
+    <div className="flex items-center gap-1.5">
+      <button
+        onClick={() => onPageChange(page - 1)}
+        disabled={page === 1}
+        className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Previous
+      </button>
+      {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => i + 1)
+        .filter(p => p === 1 || p === Math.max(totalPages, 1) || Math.abs(p - page) <= 1)
+        .reduce((acc, p, idx, arr) => {
+          if (idx > 0 && p - arr[idx - 1] > 1) acc.push("...");
+          acc.push(p);
+          return acc;
+        }, [])
+        .map((p, idx) =>
+          p === "..." ? (
+            <span key={`ellipsis-${idx}`} className="px-2 text-xs text-gray-400">...</span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => onPageChange(p)}
+              className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors border ${
+                page === p
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              {p}
+            </button>
+          )
+        )}
+      <button
+        onClick={() => onPageChange(page + 1)}
+        disabled={page >= Math.max(totalPages, 1)}
+        className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+);
   if (!user) return <div>Checking authentication...</div>;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       <SuperAdminSidebar />
 
-      <main className="flex-1 p-5">
-        <div className="mb-4">
-          <h1 className="text-2xl font-semibold text-gray-800">
-            Inventory Management
-          </h1>
-          <p className="text-gray-600 text-xs">Manage items and RFID tags</p>
+      <main className="flex-1 min-w-0 p-6">
+
+        {/* Page header */}
+        <div className="mb-5">
+          <h1 className="text-xl font-semibold text-gray-900">Inventory Management</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Manage items and RFID tags</p>
         </div>
 
-        <div className="flex gap-2 mb-5 items-center">
-          <div className="flex gap-2 bg-white p-2 rounded-md shadow-sm">
-            <input
-              type="text"
-              placeholder="Item Name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-32 px-2 py-1 border border-gray-300 rounded text-xs"
-              required
-            />
-            <input
-              type="number"
-              step="0.01"
-              placeholder="Purchase"
-              value={form.purchase_price}
-              onChange={(e) =>
-                setForm({ ...form, purchase_price: e.target.value })
-              }
-              className="w-20 px-2 py-1 border border-gray-300 rounded text-xs"
-              required
-            />
-            <input
-              type="number"
-              step="0.01"
-              placeholder="Selling"
-              value={form.selling_price}
-              onChange={(e) =>
-                setForm({ ...form, selling_price: e.target.value })
-              }
-              className="w-20 px-2 py-1 border border-gray-300 rounded text-xs"
-              required
-            />
-            <input
-              type="number"
-              placeholder="Qty"
-              value={form.quantity}
-              onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-              className="w-14 px-2 py-1 border border-gray-300 rounded text-xs"
-              min="1"
-              required
-            />
-            <button
-              onClick={addManualItem}
-              className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 text-xs whitespace-nowrap"
+        {/* ── Two-column layout ── */}
+        <div className="flex items-start gap-5">
+
+          {/* Left column: Add Item form + Add RFID form */}
+          <div className="w-72 flex-shrink-0 flex flex-col gap-4">
+
+            {/* Add Item form */}
+            <form
+              onSubmit={addManualItem}
+              className="bg-white border border-gray-200 rounded-xl p-4"
             >
-              Add Item
-            </button>
-          </div>
+              <h2 className="text-sm font-medium text-gray-900 mb-3 pb-3 border-b border-gray-100">
+                Add item
+              </h2>
 
-          <div className="flex gap-2 bg-white p-2 rounded-md shadow-sm">
-            <select
-              value={JSON.stringify(selectedRfidOption)}
-              onChange={(e) => setSelectedRfidOption(JSON.parse(e.target.value))}
-              className="w-40 px-2 py-1 border border-gray-300 rounded text-xs"
-            >
-              {rfidOptions.map((option, idx) => (
-                <option key={idx} value={JSON.stringify(option)}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              value={scanValue}
-              onChange={(e) => setScanValue(e.target.value)}
-              placeholder="Scan RFID..."
-              className="w-32 px-2 py-1 border border-gray-300 rounded text-xs"
-              autoFocus
-            />
-            <button
-              onClick={() => addScannedItem()}
-              className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 text-xs whitespace-nowrap"
-            >
-              Add RFID
-            </button>
-          </div>
-        </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Item name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Gym Towel"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
 
-        <div className="bg-white rounded-md shadow-sm p-2 overflow-auto max-h-[60vh] mb-5">
-          <div className="font-semibold mb-2 text-xs flex justify-between items-center">
-            <span>Inventory</span>
-            <input
-              type="text"
-              placeholder="Search items..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="px-2 py-1 border border-gray-300 rounded text-xs w-40"
-            />
-          </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Purchase price (₱)</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={form.purchase_price}
+                      onChange={(e) => {
+                        if (/^\d*\.?\d*$/.test(e.target.value)) setForm({ ...form, purchase_price: e.target.value });
+                      }}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Selling price (₱)</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={form.selling_price}
+                      onChange={(e) => {
+                        if (/^\d*\.?\d*$/.test(e.target.value)) setForm({ ...form, selling_price: e.target.value });
+                      }}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
 
-          {loading ? (
-            <p className="text-xs">Loading...</p>
-          ) : filteredItems.length === 0 ? (
-            <p className="text-xs">No items found</p>
-          ) : (
-            <table className="w-full border-collapse text-xs">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="p-2 border">#</th>
-                  <th className="p-2 border">Name</th>
-                  <th className="p-2 border">Purchase Price</th>
-                  <th className="p-2 border">Selling Price</th>
-                  <th className="p-2 border">Quantity</th>
-                  <th className="p-2 border">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="p-2 border text-center">{index + 1}</td>
-                    <td className="p-2 border">
-                      {editingItem === item.id ? (
-                        <input
-                          type="text"
-                          value={editForm.name}
-                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                          className="w-full px-1 py-1 border rounded text-xs"
-			  disable={item.is_deletable === 0}
-                        />
-                      ) : (
-                        item.name
-                      )}
-                    </td>
-                    <td className="p-2 border text-center">
-                      {editingItem === item.id ? (
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={editForm.purchase_price}
-                          onChange={(e) => setEditForm({ ...editForm, purchase_price: e.target.value })}
-                          className="w-full px-1 py-1 border rounded text-xs"
-                        />
-                      ) : (
-                        `₱${item.purchase_price}`
-                      )}
-                    </td>
-                    <td className="p-2 border text-center">
-                      {editingItem === item.id ? (
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={editForm.selling_price}
-                          onChange={(e) => setEditForm({ ...editForm, selling_price: e.target.value })}
-                          className="w-full px-1 py-1 border rounded text-xs"
-                        />
-                      ) : (
-                        `₱${item.selling_price}`
-                      )}
-                    </td>
-                    <td className="p-2 border text-center">
-                      {editingItem === item.id ? (
-                        <input
-                          type="number"
-                          value={editForm.quantity}
-                          onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
-                          className="w-full px-1 py-1 border rounded text-xs"
-			disabled={item.is_deletable === 0}                       
- />
-                      ) : (
-                        item.quantity
-                      )}
-                    </td>
-                    <td className="p-2 border flex justify-center gap-2">
-                      {editingItem === item.id ? (
-                        <>
-                          <button
-                            onClick={() => saveEdit(item.id)}
-                            className="bg-green-500 text-white px-2 py-1 rounded-md text-xs hover:bg-green-600"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            className="bg-gray-500 text-white px-2 py-1 rounded-md text-xs hover:bg-gray-600"
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => startEdit(item)}
-                            className="bg-blue-500 text-white px-2 py-1 rounded-md text-xs hover:bg-blue-600"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => deleteItem(item.id, item.name)}
-                            className="bg-red-500 text-white px-2 py-1 rounded-md text-xs hover:bg-red-600"
-                          >
-                            Delete
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Quantity</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="1"
+                    value={form.quantity}
+                    onChange={(e) => {
+                      if (/^\d*$/.test(e.target.value)) setForm({ ...form, quantity: e.target.value });
+                    }}
+                    onBlur={() => { if (!form.quantity || form.quantity < 1) setForm({ ...form, quantity: 1 }); }}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+              </div>
 
-        <div className="bg-white rounded-md shadow-sm">
-          <div className="p-2 border-b font-semibold text-xs">
-            <span>Registered RFIDs ({rfids.length})</span>
-          </div>
+              <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+                >
+                  Add item
+                </button>
+              </div>
+            </form>
 
-          {rfidError && (
-            <div className="p-2 bg-red-50 text-red-700 text-xs border-b border-red-200">
-              {rfidError}
+            {/* Add RFID form */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <h2 className="text-sm font-medium text-gray-900 mb-3 pb-3 border-b border-gray-100">
+                Register RFID
+              </h2>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">RFID type</label>
+                  <select
+                    value={JSON.stringify(selectedRfidOption)}
+                    onChange={(e) => setSelectedRfidOption(JSON.parse(e.target.value))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  >
+                    {rfidOptions.map((option, idx) => (
+                      <option key={idx} value={JSON.stringify(option)}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">RFID tag</label>
+                  <input
+                    type="text"
+                    value={scanValue}
+                    onChange={(e) => setScanValue(e.target.value)}
+                    placeholder="Scan or enter RFID..."
+                    autoFocus
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                <button
+                  onClick={() => addScannedItem()}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+                >
+                  Register RFID
+                </button>
+              </div>
             </div>
-          )}
+          </div>
 
-          <div className="overflow-auto max-h-[400px]">
-            {rfids.length === 0 ? (
-              <p className="text-xs p-2">No RFIDs registered</p>
-            ) : (
-              <table className="w-full border-collapse text-xs">
-                <thead className="bg-gray-900 text-white sticky top-0">
-                  <tr>
-                    <th className="p-2 border border-gray-700">#</th>
-                    <th className="p-2 border border-gray-700">Warehouse #</th>
-                    <th className="p-2 border border-gray-700">RFID Tag / Type</th>
-                    <th className="p-2 border border-gray-700">Role</th>
-                    <th className="p-2 border border-gray-700">Status</th>
-                    <th className="p-2 border border-gray-700">Allocated To</th>
-                    <th className="p-2 border border-gray-700">Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rfids.map((rfid, index) => (
-                    <tr key={rfid.id} className="hover:bg-gray-50">
-                      <td className="p-2 border text-center">{index + 1}</td>
-                      <td className="p-2 border">
-                        <div className="font-mono font-bold text-blue-700">
-                          {rfid.warehouse_number || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="p-2 border">
-                        <div className="font-mono">{rfid.rfid_tag}</div>
-                        <div className="text-[10px] text-gray-500 mt-1">
-                          {rfid.rfid_type || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="p-2 border text-center">
-                        <span className="inline-block px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
-                          {rfid.role || 'N/A'}
-                        </span>
-                      </td>
-                      <td className="p-2 border text-center">
-                        <span className={`inline-block px-2 py-1 rounded text-xs ${
-                          rfid.status === 'in_stock' ? 'bg-green-100 text-green-800' :
-                          rfid.status === 'allocated' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {rfid.status || 'N/A'}
-                        </span>
-                      </td>
-                      <td className="p-2 border text-center">
-                        {rfid.allocated_to_admin ? (
-                          <span className="text-blue-600 font-medium">
-                            {rfid.gym_name || `Admin #${rfid.allocated_to_admin}`}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="p-2 border">
-                        {new Date(rfid.created_at).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          {/* Right column: Inventory table + RFID table */}
+          <div className="flex-1 min-w-0 flex flex-col gap-4">
+
+            {/* Inventory table */}
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="flex justify-between items-center px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900">Inventory</span>
+                  <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
+                    {filteredItems.length} {filteredItems.length === 1 ? "item" : "items"}
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search items..."
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setInventoryPage(1); }}
+                  className="border border-black rounded-lg px-3 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-40"
+                />
+              </div>
+
+              <div className="overflow-auto max-h-[40vh]">
+                {loading ? (
+                  <p className="text-xs text-gray-500 p-4">Loading...</p>
+                ) : filteredItems.length === 0 ? (
+                  <p className="text-xs text-gray-400 p-4 text-center">No items found</p>
+                ) : (
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0">
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">#</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Name</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Purchase price</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Selling price</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Quantity</th>
+                        <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                    {currentInventoryItems.map((item, index) => (
+                      <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 text-xs text-gray-400">{inventoryStartIndex + index + 1}</td>
+
+                          <td className="px-4 py-3 text-xs font-medium text-gray-800">
+                            {editingItem === item.id ? (
+                              <input
+                                type="text"
+                                value={editForm.name}
+                                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                disabled={item.is_deletable === 0}
+                                className="w-full border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                            ) : item.name}
+                          </td>
+
+                          <td className="px-4 py-3 text-xs text-gray-800">
+                            {editingItem === item.id ? (
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={editForm.purchase_price}
+                                onChange={(e) => {
+                                  if (/^\d*\.?\d*$/.test(e.target.value)) setEditForm({ ...editForm, purchase_price: e.target.value });
+                                }}
+                                className="w-full border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                            ) : `₱${item.purchase_price}`}
+                          </td>
+
+                          <td className="px-4 py-3 text-xs text-gray-800">
+                            {editingItem === item.id ? (
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={editForm.selling_price}
+                                onChange={(e) => {
+                                  if (/^\d*\.?\d*$/.test(e.target.value)) setEditForm({ ...editForm, selling_price: e.target.value });
+                                }}
+                                className="w-full border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                            ) : `₱${item.selling_price}`}
+                          </td>
+
+                          <td className="px-4 py-3 text-xs text-gray-800">
+                            {editingItem === item.id ? (
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={editForm.quantity}
+                                disabled={item.is_deletable === 0}
+                                onChange={(e) => {
+                                  if (/^\d*$/.test(e.target.value)) setEditForm({ ...editForm, quantity: e.target.value });
+                                }}
+                                className="w-full border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                            ) : item.quantity}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <div className="flex gap-2 justify-end">
+                              {editingItem === item.id ? (
+                                <>
+                                  <button
+                                    onClick={() => saveEdit(item.id)}
+                                    className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[13px] font-medium transition-colors"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={cancelEdit}
+                                    className="px-3 py-1.5 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => startEdit(item)}
+                                    className="px-3 py-1.5 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => deleteItem(item.id, item.name)}
+                                    className="px-3 py-1.5 bg-white text-red-500 border border-red-100 hover:bg-red-50 rounded-lg text-[13px] font-medium transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+</table>
+                )}
+              </div>
+              <PaginationBar
+                page={inventoryPage}
+                totalPages={inventoryTotalPages}
+                onPageChange={setInventoryPage}
+              />
+            </div>
+
+            {/* RFID table */}
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="flex justify-between items-center px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                <span className="text-sm font-medium text-gray-900">Registered RFIDs</span>
+                <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
+                  {rfids.length} {rfids.length === 1 ? "tag" : "tags"}
+                </span>
+              </div>
+
+              {rfidError && (
+                <div className="px-4 py-2 bg-red-50 text-red-600 text-xs border-b border-red-100">
+                  {rfidError}
+                </div>
+              )}
+
+              <div className="overflow-auto max-h-[400px]">
+                {rfids.length === 0 ? (
+                  <p className="text-xs text-gray-400 p-4 text-center">No RFIDs registered</p>
+                ) : (
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0">
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">#</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Warehouse #</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">RFID tag / type</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Role</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Status</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Allocated to</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Created at</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {rfids.map((rfid, index) => (
+                        <tr key={rfid.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 text-xs text-gray-400">{index + 1}</td>
+
+                          <td className="px-4 py-3">
+                            <span className="font-mono font-medium text-blue-600 text-xs">
+                              {rfid.warehouse_number || "N/A"}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <p className="font-mono text-xs text-gray-800">{rfid.rfid_tag}</p>
+                            <p className="text-[11px] text-gray-400 mt-0.5">{rfid.rfid_type || "N/A"}</p>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <span className="text-xs bg-gray-50 text-gray-600 border border-gray-200 rounded-full px-2.5 py-0.5">
+                              {rfid.role || "N/A"}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <span className={`text-xs rounded-full px-2.5 py-0.5 border ${
+                              rfid.status === "in_stock"
+                                ? "bg-green-50 text-green-700 border-green-100"
+                                : rfid.status === "allocated"
+                                ? "bg-yellow-50 text-yellow-700 border-yellow-100"
+                                : "bg-gray-50 text-gray-500 border-gray-200"
+                            }`}>
+                              {rfid.status || "N/A"}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            {rfid.allocated_to_admin ? (
+                              <span className="text-xs font-medium text-blue-600">
+                                {rfid.gym_name || `Admin #${rfid.allocated_to_admin}`}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
+
+                          <td className="px-4 py-3 text-xs text-gray-400">
+                            {new Date(rfid.created_at).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
           </div>
         </div>
       </main>

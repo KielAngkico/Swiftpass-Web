@@ -20,7 +20,7 @@ const OrdersPage = () => {
     reference_number: ''
   });
   const [completingOrder, setCompletingOrder] = useState(false);
-  
+
   const { showToast, showConfirm } = useToast();
 
   useEffect(() => {
@@ -50,9 +50,9 @@ const OrdersPage = () => {
       const { data } = await api.get('/api/partner-orders/payment-options');
       setPaymentOptions(data);
       if (data.length > 0) {
-        setPaymentData(prev => ({ 
-          ...prev, 
-          payment_method: data.find(opt => opt.is_default)?.payment_method || data[0].payment_method 
+        setPaymentData(prev => ({
+          ...prev,
+          payment_method: data.find(opt => opt.is_default)?.payment_method || data[0].payment_method
         }));
       }
     } catch (error) {
@@ -62,26 +62,22 @@ const OrdersPage = () => {
 
   const filterOrders = () => {
     let filtered = orders;
-
     if (statusFilter !== 'all') {
       filtered = filtered.filter(order => order.status === statusFilter);
     }
-
     setFilteredOrders(filtered);
   };
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      pending: { color: 'bg-gray-100 text-gray-800', label: 'Pending' },
-      processing: { color: 'bg-gray-100 text-gray-800', label: 'Processing' },
-      completed: { color: 'bg-gray-100 text-gray-800', label: 'Completed' },
-      cancelled: { color: 'bg-gray-100 text-gray-800', label: 'Cancelled' }
+      pending: { class: 'bg-gray-100 text-gray-500 border-gray-200', label: 'Pending' },
+      processing: { class: 'bg-blue-50 text-blue-700 border-blue-100', label: 'Processing' },
+      completed: { class: 'bg-green-50 text-green-700 border-green-100', label: 'Completed' },
+      cancelled: { class: 'bg-red-50 text-red-600 border-red-100', label: 'Cancelled' }
     };
-
     const config = statusConfig[status] || statusConfig.pending;
-
     return (
-      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${config.color}`}>
+      <span className={`text-[11px] border rounded-full px-2.5 py-0.5 font-medium ${config.class}`}>
         {config.label}
       </span>
     );
@@ -89,11 +85,11 @@ const OrdersPage = () => {
 
   const getPaymentBadge = (paymentStatus) => {
     return paymentStatus === 'paid' ? (
-      <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded text-xs font-semibold">
+      <span className="text-[11px] bg-green-50 text-green-700 border border-green-100 rounded-full px-2.5 py-0.5 font-medium">
         Paid
       </span>
     ) : (
-      <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded text-xs font-semibold">
+      <span className="text-[11px] bg-gray-50 text-gray-500 border border-gray-200 rounded-full px-2.5 py-0.5 font-medium">
         Unpaid
       </span>
     );
@@ -110,9 +106,9 @@ const OrdersPage = () => {
           fetchOrders();
         } catch (error) {
           console.error('Process order error:', error);
-          showToast({ 
-            message: error.response?.data?.error || 'Failed to process order', 
-            type: 'error' 
+          showToast({
+            message: error.response?.data?.error || 'Failed to process order',
+            type: 'error'
           });
         } finally {
           setProcessingOrderId(null);
@@ -132,7 +128,6 @@ const OrdersPage = () => {
 
   const handleCompleteOrder = async (e) => {
     e.preventDefault();
-    
     if (!selectedOrder) return;
 
     if (selectedOrder.order_type !== 'initial_package') {
@@ -140,7 +135,6 @@ const OrdersPage = () => {
         showToast({ message: 'Please select a payment method', type: 'error' });
         return;
       }
-
       if (paymentData.payment_method.toLowerCase() !== 'cash' && !paymentData.reference_number.trim()) {
         showToast({ message: 'Reference number is required for non-cash payments', type: 'error' });
         return;
@@ -149,22 +143,15 @@ const OrdersPage = () => {
 
     try {
       setCompletingOrder(true);
-      
       const { data } = await api.put(
         `/api/partner-orders/${selectedOrder.id}/complete-with-payment`,
         paymentData
       );
 
       if (data.skipped_payment) {
-        showToast({ 
-          message: 'Order completed! (Payment already recorded at signup)', 
-          type: 'success' 
-        });
+        showToast({ message: 'Order completed! (Payment already recorded at signup)', type: 'success' });
       } else {
-        showToast({ 
-          message: `Order completed! Payment recorded: ₱${data.amount_paid.toLocaleString()}`, 
-          type: 'success' 
-        });
+        showToast({ message: `Order completed! Payment recorded: ₱${data.amount_paid.toLocaleString()}`, type: 'success' });
       }
 
       setShowPaymentModal(false);
@@ -172,9 +159,9 @@ const OrdersPage = () => {
       fetchOrders();
     } catch (error) {
       console.error('Complete order error:', error);
-      showToast({ 
-        message: error.response?.data?.error || 'Failed to complete order', 
-        type: 'error' 
+      showToast({
+        message: error.response?.data?.error || 'Failed to complete order',
+        type: 'error'
       });
     } finally {
       setCompletingOrder(false);
@@ -190,16 +177,16 @@ const OrdersPage = () => {
           showToast({ message: 'Order cancelled successfully!', type: 'success' });
           fetchOrders();
         } catch (error) {
-          showToast({ 
-            message: error.response?.data?.error || 'Failed to cancel order', 
-            type: 'error' 
+          showToast({
+            message: error.response?.data?.error || 'Failed to cancel order',
+            type: 'error'
           });
         }
       }
     );
   };
 
-  const handleViewDetails = async (order) => {
+  const handleViewDetails = (order) => {
     setSelectedOrder(order);
     setShowDetailsModal(true);
   };
@@ -214,123 +201,119 @@ const OrdersPage = () => {
     });
   };
 
-  const KPI = ({ title, value }) => (
-    <div className="bg-white p-2 rounded shadow text-center">
-      <p className="text-gray-500 text-xs">{title}</p>
-      <p className="font-bold text-gray-900 text-base">{value}</p>
-    </div>
-  );
+  const tabs = [
+    { value: 'all', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'processing', label: 'Processing' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ];
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-gray-50">
       <SuperAdminSidebar />
-      
-      <main className="flex-1 bg-white p-2">
-        <div className="mb-3">
-          <h1 className="text-lg sm:text-xl font-semibold">Partner Orders</h1>
-          <p className="text-xs text-gray-500">Manage and process partner orders</p>
+
+      <div className="flex-1 min-w-0 p-6">
+        <div className="mb-5">
+          <h1 className="text-xl font-semibold text-gray-900">Partner Orders</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Manage and process partner orders</p>
         </div>
 
-        {/* Filter */}
-        <div className="bg-white p-2 rounded shadow-sm mb-3">
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-600">Filter:</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-500"
-            >
-              <option value="all">All Orders</option>
-              <option value="pending">Pending</option>
-              <option value="processing">Processing</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1">
+            <p className="text-xs text-gray-500">Pending</p>
+            <p className="text-base font-semibold text-gray-900">{orders.filter(o => o.status === 'pending').length}</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1">
+            <p className="text-xs text-gray-500">Processing</p>
+            <p className="text-base font-semibold text-blue-600">{orders.filter(o => o.status === 'processing').length}</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1">
+            <p className="text-xs text-gray-500">Completed</p>
+            <p className="text-base font-semibold text-green-700">{orders.filter(o => o.status === 'completed').length}</p>
           </div>
         </div>
 
-        {/* KPI Summary */}
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          <KPI title="Pending" value={orders.filter(o => o.status === 'pending').length} />
-          <KPI title="Processing" value={orders.filter(o => o.status === 'processing').length} />
-          <KPI title="Completed" value={orders.filter(o => o.status === 'completed').length} />
+        <div className="bg-gray-100 border border-gray-200 rounded-lg p-1 w-fit mb-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setStatusFilter(tab.value)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                statusFilter === tab.value
+                  ? 'bg-white text-gray-900 border border-gray-200 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Orders Grid */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin h-6 w-6 border-2 border-gray-900 border-t-transparent rounded-full" />
-            <span className="ml-2 text-sm text-gray-600">Loading orders...</span>
+            <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
+            <span className="ml-2 text-xs text-gray-400">Loading orders...</span>
           </div>
         ) : filteredOrders.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded shadow-sm">
-            <p className="text-sm text-gray-500">No orders found</p>
-            <p className="text-xs text-gray-400 mt-1">
-              {statusFilter !== 'all' 
-                ? 'Try adjusting your filter' 
-                : 'Orders will appear here when partners create them'}
+          <div className="bg-white border border-gray-200 rounded-xl text-center py-12">
+            <p className="text-xs font-medium text-gray-500">No orders found</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {statusFilter !== 'all' ? 'Try adjusting your filter' : 'Orders will appear here when partners create them'}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {filteredOrders.map((order) => (
-              <div key={order.id} className="bg-white rounded border border-gray-200 shadow-sm p-3">
-                {/* Header */}
-                <div className="flex justify-between items-start mb-2">
+              <div key={order.id} className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col">
+                <div className="flex justify-between items-start mb-3">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-bold text-gray-900">{order.order_number}</h3>
-                      <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <p className="text-xs font-medium text-gray-900">{order.order_number}</p>
+                      <span className="text-[11px] bg-gray-50 text-gray-500 border border-gray-200 rounded-full px-2 py-0.5">
                         {order.order_type === 'initial_package' ? 'Initial' : 'Reorder'}
                       </span>
                     </div>
                     <p className="text-xs font-medium text-gray-700">{order.gym_name}</p>
-                    <p className="text-xs text-gray-500">{order.admin_name}</p>
+                    <p className="text-xs text-gray-400">{order.admin_name}</p>
                   </div>
                   {getStatusBadge(order.status)}
                 </div>
 
-                {/* Info */}
-                <div className="space-y-1 mb-2 pb-2 border-b">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Amount:</span>
-                    <span className="font-semibold text-gray-900">₱{order.total_amount.toLocaleString()}</span>
+                <div className="space-y-1.5 mb-3 pb-3 border-b border-gray-100">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-400">Amount</span>
+                    <span className="text-xs font-medium text-gray-900">₱{order.total_amount.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Payment:</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-400">Payment</span>
                     {getPaymentBadge(order.payment_status)}
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Date:</span>
-                    <span className="text-gray-700">{formatDate(order.order_date)}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-400">Date</span>
+                    <span className="text-xs text-gray-500">{formatDate(order.order_date)}</span>
                   </div>
                 </div>
 
-                {/* Items Preview */}
-                <div className="mb-2">
-                  <p className="text-xs text-gray-500 mb-1">Items ({order.items?.length || 0}):</p>
+                <div className="mb-3">
+                  <p className="text-xs text-gray-400 mb-1.5">Items ({order.items?.length || 0})</p>
                   <div className="space-y-1">
                     {order.items?.slice(0, 2).map((item, idx) => (
-                      <div key={idx} className="flex justify-between text-xs">
-                        <span className="text-gray-700 truncate">{item.item_name}</span>
-                        <span className="text-gray-600 ml-2">
-                          {item.allocated_quantity}/{item.quantity}
-                        </span>
+                      <div key={idx} className="flex justify-between">
+                        <span className="text-xs text-gray-700 truncate">{item.item_name}</span>
+                        <span className="text-xs text-gray-400 ml-2">{item.allocated_quantity}/{item.quantity}</span>
                       </div>
                     ))}
                     {order.items?.length > 2 && (
-                      <p className="text-xs text-gray-500 italic">
-                        +{order.items.length - 2} more
-                      </p>
+                      <p className="text-xs text-gray-400">+{order.items.length - 2} more</p>
                     )}
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex gap-1">
+                <div className="flex gap-1.5 mt-auto pt-2.5 border-t border-gray-100">
                   <button
                     onClick={() => handleViewDetails(order)}
-                    className="flex-1 bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 text-xs font-medium"
+                    className="flex-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
                   >
                     View
                   </button>
@@ -340,13 +323,13 @@ const OrdersPage = () => {
                       <button
                         onClick={() => handleProcessOrder(order.id)}
                         disabled={processingOrderId === order.id}
-                        className="flex-1 bg-gray-900 text-white px-2 py-1 rounded hover:bg-gray-800 disabled:bg-gray-400 text-xs font-medium"
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
                       >
-                        {processingOrderId === order.id ? '...' : 'Process'}
+                        {processingOrderId === order.id ? 'Processing...' : 'Process'}
                       </button>
                       <button
                         onClick={() => handleCancelOrder(order.id)}
-                        className="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs font-medium"
+                        className="bg-white text-red-500 border border-red-100 hover:bg-red-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
                       >
                         Cancel
                       </button>
@@ -357,13 +340,13 @@ const OrdersPage = () => {
                     <>
                       <button
                         onClick={() => handleOpenCompleteModal(order)}
-                        className="flex-1 bg-gray-900 text-white px-2 py-1 rounded hover:bg-gray-800 text-xs font-medium"
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
                       >
                         Complete
                       </button>
                       <button
                         onClick={() => handleCancelOrder(order.id)}
-                        className="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs font-medium"
+                        className="bg-white text-red-500 border border-red-100 hover:bg-red-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
                       >
                         Cancel
                       </button>
@@ -399,7 +382,7 @@ const OrdersPage = () => {
           getPaymentBadge={getPaymentBadge}
           show={showDetailsModal}
         />
-      </main>
+      </div>
     </div>
   );
 };

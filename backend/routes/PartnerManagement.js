@@ -581,4 +581,56 @@ router.get("/payment-options", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+router.put("/update-admin/:id", upload.single("profile_image_url"), async (req, res) => {
+  const conn = await db.promise().getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const { id } = req.params;
+    const { admin_name, email, address, gym_name, gym_code, system_type, password } = req.body;
+
+    const [[admin]] = await conn.query(`SELECT * FROM AdminAccounts WHERE id = ?`, [id]);
+    if (!admin) {
+      await conn.rollback();
+      return res.status(404).json({ error: "Admin not found" });
+    }
+
+    // Check gym_code uniqueness (excluding self)
+    if (gym_code) {
+      const [[existing]] = await conn.query(
+        `SELECT id FROM AdminAccounts WHERE gym_code = ? AND id != ?`, [gym_code, id]
+      );
+      if (existing) {
+        await conn.rollback();
+        return res.status(400).json({ error: "Gym code already taken." });
+      }
+    }
+
+    const imagePath = req.file
+      ? `/uploads/partners/${req.file.filename}`
+      : admin.profile_image_url;
+
+    let hashedPassword = admin.password;
+    if (password && password.trim() !== "") {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
+
+    await conn.query(`
+      UPDATE AdminAccounts
+      SET admin_name = ?, email = ?, address = ?, gym_name = ?,
+          gym_code = ?, system_type = ?, password = ?, profile_image_url = ?
+      WHERE id = ?
+    `, [admin_name, email, address, gym_name, gym_code, system_type, hashedPassword, imagePath, id]);
+
+    await conn.commit();
+    res.json({ message: "Admin updated successfully", profile_image_url: imagePath });
+  } catch (err) {
+    await conn.rollback();
+    console.error("Update admin error:", err);
+    res.status(500).json({ error: "Server error", details: err.message });
+  } finally {
+    conn.release();
+  }
+});
 module.exports = router;

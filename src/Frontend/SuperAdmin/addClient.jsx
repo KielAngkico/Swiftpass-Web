@@ -42,7 +42,6 @@ const AddClient = () => {
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const { showToast, showConfirm } = useToast();
 
-  // ✅ WebSocket for RFID scanning
   const {
     scannedRfidForPartner,
     enablePartnerScanMode,
@@ -53,10 +52,8 @@ const AddClient = () => {
   const fetchPackages = async () => {
     try {
       const response = await axios.get(`${API_URL}/api/subscription-packages`);
-      console.log("📦 Fetched packages:", response.data);
       setPackages(response.data);
     } catch (error) {
-      console.error("Failed to fetch packages:", error);
       showToast({ message: "Failed to load packages", type: "error" });
     }
   };
@@ -85,11 +82,7 @@ const AddClient = () => {
   }, []);
 
   useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      packages,
-      paymentOptions
-    }));
+    setFormData(prev => ({ ...prev, packages, paymentOptions }));
   }, [packages, paymentOptions]);
 
   useEffect(() => {
@@ -97,16 +90,17 @@ const AddClient = () => {
     const interval = setInterval(fetchPendingRegistrations, 30000);
     return () => clearInterval(interval);
   }, []);
-useEffect(() => {
-  const handlePartnerSlotError = (e) => {
-    showToast({ message: `❌ ${e.detail.reason}`, type: "error" });
-    setWaitingForSlot(null);
-    disablePartnerScanMode();
-  };
 
-  window.addEventListener('partner-slot-error', handlePartnerSlotError);
-  return () => window.removeEventListener('partner-slot-error', handlePartnerSlotError);
-}, []);
+  useEffect(() => {
+    const handlePartnerSlotError = (e) => {
+      showToast({ message: e.detail.reason, type: "error" });
+      setWaitingForSlot(null);
+      disablePartnerScanMode();
+    };
+    window.addEventListener('partner-slot-error', handlePartnerSlotError);
+    return () => window.removeEventListener('partner-slot-error', handlePartnerSlotError);
+  }, []);
+
   const fetchPendingRegistrations = async () => {
     try {
       const response = await axios.get(`${API_URL}/api/pending-registrations`);
@@ -116,227 +110,216 @@ useEffect(() => {
     }
   };
 
-const handleRegistrationClick = async (registration) => {
-  let imageFile = null;
-
-  if (registration.profile_image_url) {
-    try {
-      const response = await fetch(`${API_URL}${registration.profile_image_url}`);
-      const blob = await response.blob();
-      const filename = registration.profile_image_url.split("/").pop();
-      imageFile = new File([blob], filename, { type: blob.type });
-    } catch (err) {
-      console.error("Failed to fetch registration image:", err);
+  const handleRegistrationClick = async (registration) => {
+    let imageFile = null;
+    if (registration.profile_image_url) {
+      try {
+        const response = await fetch(`${API_URL}${registration.profile_image_url}`);
+        const blob = await response.blob();
+        const filename = registration.profile_image_url.split("/").pop();
+        imageFile = new File([blob], filename, { type: blob.type });
+      } catch (err) {
+        console.error("Failed to fetch registration image:", err);
+      }
     }
-  }
 
-  setFormData({
-    admin_name: registration.admin_name || "",
-    address: registration.address || "",
-    email: registration.email || "",
-    password: registration.password || "",
-    gym_name: registration.gym_name || "",
-    system_type: registration.system_type || "",
-    package_id: registration.package_id || "",
-    payment_method: "Cash",
-    reference_number: "",
-    profile_image_url: imageFile, // ✅ File object, not a URL string
-    rfid_tag: "",
-    rfid_tag_2: "",
-    packages: packages,
-    paymentOptions: paymentOptions,
-  });
+setFormData({
+  admin_name: registration.admin_name || "",
+  address: registration.address || "",
+  email: registration.email || "",
+  password: registration.password || "pass123",
+  gym_name: registration.gym_name || "",
+  gym_code: registration.gym_code || "",
+  system_type: registration.system_type || "",
+  package_id: registration.package_id ? String(registration.package_id) : "",  // ← ensure it's a string
+  payment_method: "Cash",
+  reference_number: "",
+  profile_image_url: imageFile,
+  rfid_tag: "",
+  rfid_tag_2: "",
+  packages: packages,        // ← make sure these are passed
+  paymentOptions: paymentOptions,
+});
 
-  setModalMode("registration");
-  setEditingAdmin({ registrationNumber: registration.registration_number });
-  setShowAddForm(true);
-};
+    setModalMode("registration");
+    setEditingAdmin({ registrationNumber: registration.registration_number });
+    setShowAddForm(true);
+  };
 
   const handleDeleteRegistration = async (registrationNumber, e) => {
     e.stopPropagation();
-    showConfirm(
-      "Delete this registration request?",
-      async () => {
-        try {
-          await axios.delete(`${API_URL}/api/pending-registrations/${registrationNumber}`);
-          fetchPendingRegistrations();
-          showToast({ message: "Registration deleted successfully!", type: "success" });
-        } catch (error) {
-          showToast({ message: "Failed to delete registration", type: "error" });
-        }
+    showConfirm("Delete this registration request?", async () => {
+      try {
+        await axios.delete(`${API_URL}/api/pending-registrations/${registrationNumber}`);
+        fetchPendingRegistrations();
+        showToast({ message: "Registration deleted successfully!", type: "success" });
+      } catch (error) {
+        showToast({ message: "Failed to delete registration", type: "error" });
       }
-    );
+    });
   };
 
   useEffect(() => {
     if (location.state?.openModal) {
-      console.log("📨 Opening Add Partner modal (from RFID scan)");
       setShowAddForm(true);
       setModalMode("add");
-
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
-  // ✅ Handle scanned partner RFID from WebSocket
   useEffect(() => {
     if (scannedRfidForPartner && waitingForSlot) {
       const { rfid_tag, slot } = scannedRfidForPartner;
-
-      console.log(`📨 Partner RFID scanned for slot ${slot}:`, rfid_tag);
-
       if (slot === 1) {
         setFormData((prev) => ({ ...prev, rfid_tag: rfid_tag }));
-        showToast({ message: "✅ RFID Slot 1 scanned!", type: "success" });
+        showToast({ message: "RFID Slot 1 scanned successfully", type: "success" });
       } else if (slot === 2) {
         setFormData((prev) => ({ ...prev, rfid_tag_2: rfid_tag }));
-        showToast({ message: "✅ RFID Slot 2 scanned!", type: "success" });
+        showToast({ message: "RFID Slot 2 scanned successfully", type: "success" });
       }
-
       setWaitingForSlot(null);
       disablePartnerScanMode();
       clearScannedPartnerRfid();
     }
   }, [scannedRfidForPartner, waitingForSlot]);
 
-const handleChange = (e) => {
-  if (e.target.type === "file") {
-    setFormData({ ...formData, [e.target.name]: e.target.files[0] });
-  } else if (e.target.name === "gym_code") {
-    setFormData({ ...formData, gym_code: e.target.value.toUpperCase() });
-  } else {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  }
-};
-
-const handleScanSlot = (slotNumber) => {
-  setWaitingForSlot(slotNumber);
-  enablePartnerScanMode(slotNumber, editingAdmin?.id); // ← pass adminId
-
-  showToast({
-    message: `🔄 Waiting for RFID Slot ${slotNumber}... Scan the Partner card`,
-    type: "info",
-    duration: 5000
-  });
-
-  setTimeout(() => {
-    setWaitingForSlot((current) => {
-      if (current === slotNumber) {
-        disablePartnerScanMode();
-        showToast({ message: "⏱️ Scan timeout - please try again", type: "warning" });
-        return null;
-      }
-      return current;
-    });
-  }, 10000);
-};
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    try {
-      if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
-        const rfid1Changed = formData.rfid_tag !== originalRfid;
-        const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
-
-        if ((rfid1Changed && formData.rfid_tag) || (rfid2Changed && formData.rfid_tag_2)) {
-          await axios.put(`${API_URL}/api/update-admin-rfid/${editingAdmin.id}`, {
-            new_rfid_tag: formData.rfid_tag || null,
-            new_rfid_tag_2: formData.rfid_tag_2 || null,
-          });
-
-          showToast({ message: "RFID updated successfully!", type: "success" });
-
-          setAdmins(admins.map((admin) =>
-            admin.id === editingAdmin.id
-              ? { ...admin, rfid_tag: formData.rfid_tag, rfid_tag_2: formData.rfid_tag_2 }
-              : admin
-          ));
-
-          setShowAddForm(false);
-          setEditingAdmin(null);
-          setOriginalRfid("");
-          setOriginalRfid2("");
-          setWaitingForSlot(null);
-          disablePartnerScanMode();
-          return;
-        }
-      } else {
-        const formPayload = new FormData();
-        formPayload.append("admin_name", formData.admin_name);
-        formPayload.append("address", formData.address);
-        formPayload.append("email", formData.email);
-        formPayload.append("password", formData.password);
-        formPayload.append("gym_name", formData.gym_name);
-        formPayload.append("gym_code", formData.gym_code || "");
-        formPayload.append("system_type", formData.system_type);
-        formPayload.append("package_id", formData.package_id || "");
-        formPayload.append("payment_method", formData.payment_method || "Cash");
-        formPayload.append("reference_number", formData.reference_number || "");
-
-        if (formData.profile_image_url) {
-          formPayload.append("profile_image_url", formData.profile_image_url);
-        }
-
-        const response = await axios.post(
-          `${API_URL}/api/add-client`,
-          formPayload,
-          { headers: { "Content-Type": "multipart/form-data" } }
-        );
-
-        showToast({ message: "Partner added successfully!", type: "success" });
-
-        if (modalMode === "registration" && editingAdmin?.registrationNumber) {
-          await axios.delete(`${API_URL}/api/pending-registrations/${editingAdmin.registrationNumber}`);
-          fetchPendingRegistrations();
-        }
-
-        setAdmins([
-          ...admins,
-          {
-            id: response.data.id,
-            admin_name: formData.admin_name,
-            address: formData.address,
-            email: formData.email,
-            gym_name: formData.gym_name,
-            gym_code: "",
-            system_type: formData.system_type,
-            package_id: formData.package_id,
-            profile_image_url: response.data.profile_image_url || null,
-            rfid_tag: null,
-            rfid_tag_2: null,
-            is_archived: 0,
-          },
-        ]);
-      }
-
-      setShowAddForm(false);
-      setEditingAdmin(null);
-      setModalMode("add");
-      setWaitingForSlot(null);
-      setOriginalRfid("");
-      setOriginalRfid2("");
-      disablePartnerScanMode();
-      
-      setFormData({
-        admin_name: "",
-        address: "",
-        email: "",
-        password: "",
-        gym_name: "",
-        system_type: "",
-        package_id: "",
-        payment_method: "Cash",
-        reference_number: "",
-        profile_image_url: null,
-        rfid_tag: "",
-        rfid_tag_2: "",
-        packages: packages,
-        paymentOptions: paymentOptions,
-      });
-    } catch (error) {
-      showToast({ message: `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`, type: "error" });
+  const handleChange = (e) => {
+    if (e.target.type === "file") {
+      setFormData({ ...formData, [e.target.name]: e.target.files[0] });
+    } else if (e.target.name === "gym_code") {
+      setFormData({ ...formData, gym_code: e.target.value.toUpperCase() });
+    } else {
+      setFormData({ ...formData, [e.target.name]: e.target.value });
     }
   };
+
+  const handleScanSlot = (slotNumber) => {
+    setWaitingForSlot(slotNumber);
+    enablePartnerScanMode(slotNumber, editingAdmin?.id);
+    showToast({ message: `Waiting for RFID Slot ${slotNumber} — scan the card now`, type: "info", duration: 5000 });
+
+    setTimeout(() => {
+      setWaitingForSlot((current) => {
+        if (current === slotNumber) {
+          disablePartnerScanMode();
+          showToast({ message: "Scan timeout — please try again", type: "warning" });
+          return null;
+        }
+        return current;
+      });
+    }, 10000);
+  };
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
+      // Update general info
+      const formPayload = new FormData();
+      formPayload.append("admin_name", formData.admin_name);
+      formPayload.append("email", formData.email);
+      formPayload.append("address", formData.address);
+      formPayload.append("gym_name", formData.gym_name);
+      formPayload.append("gym_code", formData.gym_code || "");
+      formPayload.append("system_type", formData.system_type);
+      if (formData.password) formPayload.append("password", formData.password);
+      if (formData.profile_image_url instanceof File) {
+        formPayload.append("profile_image_url", formData.profile_image_url);
+      }
+
+      await axios.put(`${API_URL}/api/update-admin/${editingAdmin.id}`, formPayload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      // Also update RFIDs if changed
+      const rfid1Changed = formData.rfid_tag !== originalRfid;
+      const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
+      if ((rfid1Changed && formData.rfid_tag) || (rfid2Changed && formData.rfid_tag_2)) {
+        await axios.put(`${API_URL}/api/update-admin-rfid/${editingAdmin.id}`, {
+          new_rfid_tag: formData.rfid_tag || null,
+          new_rfid_tag_2: formData.rfid_tag_2 || null,
+        });
+      }
+
+      showToast({ message: "Partner updated successfully!", type: "success" });
+
+      setAdmins(admins.map((admin) =>
+        admin.id === editingAdmin.id
+          ? {
+              ...admin,
+              admin_name: formData.admin_name,
+              email: formData.email,
+              address: formData.address,
+              gym_name: formData.gym_name,
+              gym_code: formData.gym_code,
+              system_type: formData.system_type,
+              rfid_tag: formData.rfid_tag,
+              rfid_tag_2: formData.rfid_tag_2,
+            }
+          : admin
+      ));
+
+    } else {
+      const formPayload = new FormData();
+      formPayload.append("admin_name", formData.admin_name);
+      formPayload.append("address", formData.address);
+      formPayload.append("email", formData.email);
+      formPayload.append("password", formData.password);
+      formPayload.append("gym_name", formData.gym_name);
+      formPayload.append("gym_code", formData.gym_code || "");
+      formPayload.append("system_type", formData.system_type);
+      formPayload.append("package_id", formData.package_id || "");
+      formPayload.append("payment_method", formData.payment_method || "Cash");
+      formPayload.append("reference_number", formData.reference_number || "");
+      if (formData.profile_image_url) {
+        formPayload.append("profile_image_url", formData.profile_image_url);
+      }
+
+      const response = await axios.post(`${API_URL}/api/add-client`, formPayload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      showToast({ message: "Partner added successfully!", type: "success" });
+
+      if (modalMode === "registration" && editingAdmin?.registrationNumber) {
+        await axios.delete(`${API_URL}/api/pending-registrations/${editingAdmin.registrationNumber}`);
+        fetchPendingRegistrations();
+      }
+
+      setAdmins([...admins, {
+        id: response.data.id,
+        admin_name: formData.admin_name,
+        address: formData.address,
+        email: formData.email,
+        gym_name: formData.gym_name,
+        gym_code: formData.gym_code || "",
+        system_type: formData.system_type,
+        package_id: formData.package_id,
+        profile_image_url: response.data.profile_image_url || null,
+        rfid_tag: null,
+        rfid_tag_2: null,
+        is_archived: 0,
+      }]);
+    }
+
+    setShowAddForm(false);
+    setEditingAdmin(null);
+    setModalMode("add");
+    setWaitingForSlot(null);
+    setOriginalRfid("");
+    setOriginalRfid2("");
+    disablePartnerScanMode();
+    setFormData({
+      admin_name: "", address: "", email: "", password: "",
+      gym_name: "", gym_code: "", system_type: "", package_id: "",
+      payment_method: "Cash", reference_number: "",
+      profile_image_url: null, rfid_tag: "", rfid_tag_2: "",
+      packages: packages, paymentOptions: paymentOptions,
+    });
+  } catch (error) {
+    showToast({ message: `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`, type: "error" });
+  }
+};
 
   const handleEdit = (admin) => {
     setEditingAdmin(admin);
@@ -366,19 +349,15 @@ const handleScanSlot = (slotNumber) => {
   const handleArchive = async (id, isArchived) => {
     const endpoint = isArchived ? "restore-admin" : "archive-admin";
     const action = isArchived ? "restore" : "archive";
-
-    showConfirm(
-      `Are you sure you want to ${action} this partner?`,
-      async () => {
-        try {
-          await axios.put(`${API_URL}/api/${endpoint}/${id}`);
-          setAdmins(admins.map((admin) => admin.id === id ? { ...admin, is_archived: !isArchived } : admin));
-          showToast({ message: `Partner ${action}d successfully!`, type: "success" });
-        } catch (error) {
-          showToast({ message: `Failed to ${isArchived ? "restore" : "archive"} partner. Please try again.`, type: "error" });
-        }
+    showConfirm(`Are you sure you want to ${action} this partner?`, async () => {
+      try {
+        await axios.put(`${API_URL}/api/${endpoint}/${id}`);
+setAdmins(admins.map((admin) => admin.id === id ? { ...admin, is_archived: isArchived ? 0 : 1 } : admin));
+        showToast({ message: `Partner ${action}d successfully!`, type: "success" });
+      } catch (error) {
+        showToast({ message: `Failed to ${action} partner. Please try again.`, type: "error" });
       }
-    );
+    });
   };
 
   const handleDelete = async (id, adminName) => {
@@ -387,25 +366,18 @@ const handleScanSlot = (slotNumber) => {
       showToast({ message: "Only archived accounts can be deleted", type: "error" });
       return;
     }
-
-    showConfirm(
-      `Are you sure you want to permanently delete "${adminName}"?\n\nThis action cannot be undone and will remove all associated data.`,
-      () => {
-        showConfirm(
-          `FINAL WARNING: Permanently delete "${adminName}"? This will delete all members, transactions, and logs associated with this account.`,
-          async () => {
-            try {
-              await axios.delete(`${API_URL}/api/delete-admin/${id}`);
-              setAdmins(admins.filter((admin) => admin.id !== id));
-              setSelectedAdmin(null);
-              showToast({ message: `${adminName} deleted permanently!`, type: "success" });
-            } catch (error) {
-              showToast({ message: `Failed to delete ${adminName}. Please try again.`, type: "error" });
-            }
-          }
-        );
-      }
-    );
+    showConfirm(`Permanently delete "${adminName}"? This cannot be undone.`, () => {
+      showConfirm(`FINAL WARNING: This will delete all members, transactions, and logs for "${adminName}".`, async () => {
+        try {
+          await axios.delete(`${API_URL}/api/delete-admin/${id}`);
+          setAdmins(admins.filter((admin) => admin.id !== id));
+          setSelectedAdmin(null);
+          showToast({ message: `${adminName} deleted permanently!`, type: "success" });
+        } catch (error) {
+          showToast({ message: `Failed to delete ${adminName}. Please try again.`, type: "error" });
+        }
+      });
+    });
   };
 
   const handleCloseModal = () => {
@@ -416,118 +388,111 @@ const handleScanSlot = (slotNumber) => {
     setOriginalRfid("");
     setOriginalRfid2("");
     disablePartnerScanMode();
-    
     setFormData({
-      admin_name: "",
-      address: "",
-      email: "",
-      password: "",
-      gym_name: "",
-      system_type: "",
-      package_id: "",
-      payment_method: "Cash",
-      reference_number: "",
-      profile_image_url: null,
-      rfid_tag: "",
-      rfid_tag_2: "",
-      packages: packages,
-      paymentOptions: paymentOptions,
+      admin_name: "", address: "", email: "", password: "",
+      gym_name: "", gym_code: "", system_type: "", package_id: "",
+      payment_method: "Cash", reference_number: "",
+      profile_image_url: null, rfid_tag: "", rfid_tag_2: "",
+      packages: packages, paymentOptions: paymentOptions,
     });
   };
 
-const getTimeRemaining = (createdAt) => {
-  const created = new Date(createdAt); // ISO format parses fine as-is
-  const expiresAt = new Date(created.getTime() + 60 * 60 * 1000);
-  const now = new Date();
-  const diff = expiresAt - now;
+  const getTimeRemaining = (createdAt) => {
+    const created = new Date(createdAt);
+    const expiresAt = new Date(created.getTime() + 60 * 60 * 1000);
+    const diff = expiresAt - new Date();
+    if (diff <= 0) return "Expired";
+    const minutes = Math.floor(diff / 60000);
+    return `${minutes} min left`;
+  };
 
-  if (diff <= 0) return "Expired";
+  const activePartners = admins.filter(a => !a.is_archived);
+  const archivedPartners = admins.filter(a => a.is_archived);
 
-  const minutes = Math.floor(diff / 60000);
-  return `${minutes} min left`;
-};
   return (
     <div className="flex min-h-screen bg-gray-50">
       <SuperAdminSidebar />
 
-      <div className="flex-1 p-4">
-        <div className="mb-4">
-          <h1 className="text-xl font-semibold text-gray-800">
-            Partner Management
-          </h1>
-          <p className="text-gray-600 text-xs">
-            Manage your gym partners and their information
-          </p>
+      <div className="flex-1 min-w-0 p-6">
+        <div className="mb-5">
+          <h1 className="text-xl font-semibold text-gray-900">Partner Management</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Manage gym partners and their account information</p>
         </div>
 
         {pendingRegistrations.length > 0 && (
-          <div className="mb-6 bg-gray-50 border border-gray-300 rounded-lg p-4">
+          <div className="mb-6 bg-white border border-gray-200 rounded-xl p-4">
             <div className="flex justify-between items-center mb-3">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-800">
-                  Pending Registrations ({pendingRegistrations.length})
-                </h2>
-                <p className="text-xs text-gray-600">Click a registration to review and approve</p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-900">Pending Registrations</span>
+                <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
+                  {pendingRegistrations.length}
+                </span>
               </div>
               <button
                 onClick={() => setShowRegistrations(!showRegistrations)}
-                className="text-gray-700 hover:text-gray-900 text-xs font-medium underline"
+                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
               >
                 {showRegistrations ? "Hide" : "Show"}
               </button>
             </div>
 
             {showRegistrations && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {pendingRegistrations.map((registration) => (
-                  <div
-                    key={registration.registration_number}
-                    onClick={() => handleRegistrationClick(registration)}
-                    className="bg-white border border-gray-300 rounded-lg p-3 cursor-pointer hover:shadow-md hover:border-gray-500 transition-all"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="bg-gray-800 text-white px-2 py-1 rounded text-xs font-medium">
-                        {registration.registration_number}
-                      </span>
-                      <button
-                        onClick={(e) => handleDeleteRegistration(registration.registration_number, e)}
-                        className="text-gray-400 hover:text-red-600 text-sm font-bold"
-                      >
-                        ×
-                      </button>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+                {pendingRegistrations.map((registration) => {
+                  const timeLeft = getTimeRemaining(registration.created_at);
+                  const isExpired = timeLeft === "Expired";
+                  return (
+                    <div
+                      key={registration.registration_number}
+                      onClick={() => handleRegistrationClick(registration)}
+                      className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col cursor-pointer hover:border-blue-400 hover:ring-1 hover:ring-blue-200 transition-all"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[11px] bg-gray-50 text-gray-500 border border-gray-200 rounded-full px-2 py-0.5">
+                          {registration.registration_number}
+                        </span>
+                        <button
+                          onClick={(e) => handleDeleteRegistration(registration.registration_number, e)}
+                          className="bg-white text-red-500 border border-red-100 hover:bg-red-50 w-5 h-5 rounded-full text-xs font-medium transition-colors flex items-center justify-center leading-none"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <p className="text-xs font-medium text-gray-900 truncate mb-1">{registration.gym_name}</p>
+                      <p className="text-[11px] text-gray-400 truncate mb-auto">{registration.admin_name}</p>
+                      <div className="mt-2 pt-2 border-t border-gray-100">
+                        <p className={`text-[11px] font-medium ${isExpired ? "text-red-500" : "text-gray-400"}`}>
+                          {isExpired ? "Expired" : timeLeft}
+                        </p>
+                      </div>
                     </div>
-
-                    <h3 className="font-semibold text-base text-gray-900">
-                      {registration.gym_name}
-                    </h3>
-<div className="mt-2 pt-2 border-t border-gray-200">
-  {getTimeRemaining(registration.created_at) === "Expired" ? (
-    <p className="text-xs text-red-500 font-medium">Expired</p>
-  ) : (
-    <p className="text-xs text-gray-500">
-      Expires in: {getTimeRemaining(registration.created_at)}
-    </p>
-  )}
-</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         )}
 
-        <div className="mb-3">
-          <button
-            className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors text-xs font-medium w-full sm:w-auto"
-            onClick={() => {
-              setModalMode("add");
-              setEditingAdmin(null);
-              setShowAddForm(true);
-            }}
-          >
-            + Add New Partner
-          </button>
-        </div>
+<div className="flex justify-between items-center mb-3">
+  <button
+    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+    onClick={() => { setModalMode("add"); setEditingAdmin(null); setShowAddForm(true); }}
+  >
+    Add New Partner
+  </button>
+
+  <div className="flex items-center gap-2">
+    <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
+      {activePartners.length} {activePartners.length === 1 ? "partner" : "partners"}
+    </span>
+
+    {archivedPartners.length > 0 && (
+      <span className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-full px-2.5 py-0.5">
+        {archivedPartners.length} archived
+      </span>
+    )}
+  </div>
+</div>
 
         <AddPartnerModal
           isOpen={showAddForm}
@@ -548,45 +513,54 @@ const getTimeRemaining = (createdAt) => {
         />
 
         {admins.length === 0 ? (
-          <div className="text-center py-6 bg-white rounded-md border">
-            <div className="text-gray-400 text-sm mb-1">No partners found</div>
-            <div className="text-gray-500 text-xs">
-              Add your first partner to get started
-            </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+            <p className="text-xs font-medium text-gray-400 mb-1">No partners yet</p>
+            <p className="text-xs text-gray-400">Add your first partner to get started</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
             {admins.map((admin) => (
               <div
                 key={admin.id}
-                className={`rounded-lg border shadow-sm transition-all text-xs ${
+                className={`bg-white border rounded-xl flex flex-col transition-all ${
                   admin.is_archived
-                    ? "bg-red-50 border-red-200"
-                    : "bg-white border-gray-200 hover:shadow-md"
+                    ? "border-red-200 ring-1 ring-red-100 opacity-75"
+                    : "border-gray-200 hover:border-blue-300 hover:shadow-sm"
                 }`}
               >
                 {admin.profile_image_url && (
                   <img
                     src={`${API_URL}${admin.profile_image_url}`}
                     alt={admin.gym_name}
-                    className="w-full h-28 object-cover rounded-t-lg"
+                    className="w-full h-28 object-cover rounded-t-xl"
                   />
                 )}
 
-                <div className="p-3">
-                  <h3 className="font-bold text-black text-sm truncate">
-                    {admin.gym_name}
-                  </h3>
-                  <p className="text-black text-xs truncate">
-                    <span className="font-bold">Owner:</span> {admin.admin_name}
-                  </p>
-                  <p className="text-black text-xs line-clamp-2">
-                    <span className="font-bold">Address:</span> {admin.address}
-                  </p>
+                <div className="p-4 flex flex-col flex-1">
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <p className="text-xs font-medium text-gray-900 truncate flex-1">{admin.gym_name}</p>
+                    {admin.gym_code && (
+                      <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5 whitespace-nowrap flex-shrink-0">
+                        {admin.gym_code}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-400 truncate mb-0.5">{admin.admin_name}</p>
+                  <p className="text-[11px] text-gray-400 line-clamp-2 mb-auto">{admin.address}</p>
 
-                  <div className="flex gap-2 mt-3">
+{admin.is_archived ? (
+  <span className="mt-2 text-[11px] bg-red-50 text-red-600 border border-red-100 rounded-full px-2 py-0.5 w-fit">
+    Archived
+  </span>
+) : (
+  <span className="mt-2 text-[11px] bg-green-50 text-green-600 border border-green-100 rounded-full px-2 py-0.5 w-fit">
+    Active
+  </span>
+)}
+
+                  <div className="flex gap-1.5 mt-auto pt-2.5 border-t border-gray-100">
                     <button
-                      className="flex-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-200 transition-colors text-xs font-medium"
+                      className="flex-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
                       onClick={() => setSelectedAdmin(admin)}
                     >
                       View
@@ -595,15 +569,13 @@ const getTimeRemaining = (createdAt) => {
                     {admin.is_archived ? (
                       <>
                         <button
-                          className="flex-1 px-2 py-1 rounded-md text-white text-xs font-medium transition-colors bg-green-500 hover:bg-green-600"
-                          onClick={() =>
-                            handleArchive(admin.id, admin.is_archived)
-                          }
+                          className="flex-1 bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
+                          onClick={() => handleArchive(admin.id, admin.is_archived)}
                         >
                           Restore
                         </button>
                         <button
-                          className="flex-1 px-2 py-1 rounded-md text-white text-xs font-medium transition-colors bg-red-600 hover:bg-red-700"
+                          className="flex-1 bg-white text-red-500 border border-red-100 hover:bg-red-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
                           onClick={() => handleDelete(admin.id, admin.gym_name)}
                         >
                           Delete
@@ -612,16 +584,14 @@ const getTimeRemaining = (createdAt) => {
                     ) : (
                       <>
                         <button
-                          className="flex-1 bg-blue-500 text-white px-2 py-1 rounded-md hover:bg-blue-600 transition-colors text-xs font-medium"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
                           onClick={() => handleEdit(admin)}
                         >
                           Edit
                         </button>
                         <button
-                          className="flex-1 px-2 py-1 rounded-md text-white text-xs font-medium transition-colors bg-red-500 hover:bg-red-600"
-                          onClick={() =>
-                            handleArchive(admin.id, admin.is_archived)
-                          }
+                          className="flex-1 bg-white text-red-500 border border-red-100 hover:bg-red-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
+                          onClick={() => handleArchive(admin.id, admin.is_archived)}
                         >
                           Archive
                         </button>

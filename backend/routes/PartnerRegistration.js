@@ -16,14 +16,7 @@ const generateRegistrationNumber = () => {
 // --- Partner Registration Form Submission ---
 router.post("/partner-registration", upload.single("profile_image_url"), async (req, res) => {
   try {
-    const {
-      gym_name,
-      admin_name,
-      email,
-      password,
-      address,
-      system_type
-    } = req.body;
+const { gym_name, admin_name, email, password, address, system_type, package_id } = req.body;
 
     // Validate required fields
     if (!gym_name || !admin_name || !email || !password || !address || !system_type) {
@@ -60,10 +53,10 @@ router.post("/partner-registration", upload.single("profile_image_url"), async (
 
     // Insert into partner_registrations table (NO package_id!)
     await query(`
-      INSERT INTO partner_registrations
-      (registration_number, gym_name, admin_name, email, password, address, 
-       system_type, profile_image_url, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+INSERT INTO partner_registrations
+(registration_number, gym_name, admin_name, email, password, address, 
+ system_type, package_id, profile_image_url, status, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
     `, [
       registrationNumber,
       gym_name,
@@ -72,6 +65,7 @@ router.post("/partner-registration", upload.single("profile_image_url"), async (
       password,
       address,
       system_type,
+      package_id || null,
       imagePath
     ]);
 
@@ -99,6 +93,7 @@ router.get("/pending-registrations", async (req, res) => {
         password,
         address,
         system_type,
+        package_id,
         profile_image_url,
         status,
         created_at

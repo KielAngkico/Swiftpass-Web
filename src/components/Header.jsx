@@ -34,37 +34,33 @@ const Header = ({ onLogoutClick, loading }) => {
     return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
   };
 
-  return (
-    <>
-      <header className="bg-[#212529] text-white p-3 flex justify-between items-center sticky z-15 text-xs">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="SwiftPass Logo" className="h-8 w-auto" />
-          <h1 className="text-xl font-bold">SwiftPass</h1>
-        </div>
+return (
+  <>
+    <header className="bg-[#212529] text-white p-3 flex justify-between items-center sticky z-15 text-xs">
+      <div className="flex items-center gap-3">
+        <img src={logo} alt="SwiftPass Logo" className="h-8 w-auto" />
+        <h1 className="text-xl font-bold">SwiftPass</h1>
+      </div>
 
+      {user && (
         <div className="flex items-center gap-3">
-          {/* Profile avatar button */}
           <button
             onClick={() => setShowProfile(true)}
-            className="w-8 h-8 rounded-half bg-blue-600 text-white text-[10px] font-medium flex items-center justify-center hover:bg-blue-700 transition-colors overflow-hidden border border-gray-700"
-            title={user?.name || "My Profile"}
+            className="w-8 h-8 rounded-full bg-blue-600 text-white text-[10px] font-medium flex items-center justify-center hover:bg-blue-700 transition-colors overflow-hidden border border-gray-700"
+            title={user.name}
           >
-            {/* ✅ Logic to show image if it exists, otherwise initials */}
-            {user?.profile_image_url ? (
-              <img 
-                src={`${API_URL}${user.profile_image_url}`} 
-                alt="" 
+            {user.profile_image_url ? (
+              <img
+                src={`${API_URL}${user.profile_image_url}`}
+                alt=""
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.target.style.display = 'none'; // Hide if image fails
+                  e.target.style.display = "none";
                 }}
               />
-            ) : null}
-            
-            {/* This spans shows if there's no URL or if the image fails */}
-            <span className={user?.profile_image_url ? "absolute" : ""}>
-              {getInitials(user?.name)}
-            </span>
+            ) : (
+              <span>{getInitials(user.name)}</span>
+            )}
           </button>
 
           <button
@@ -75,11 +71,12 @@ const Header = ({ onLogoutClick, loading }) => {
             {loading ? "Logging out..." : "Logout"}
           </button>
         </div>
-      </header>
+      )}
+    </header>
 
-      <MyProfile isOpen={showProfile} onClose={() => setShowProfile(false)} />
-    </>
-  );
+    <MyProfile isOpen={showProfile} onClose={() => setShowProfile(false)} />
+  </>
+);
 };
 
 export default Header;

@@ -165,43 +165,66 @@ router.get("/food-database/:id", (req, res) => {
 
 
 router.put("/food-database/:id", (req, res) => {
-  const { name, group_id, calories, protein, carbs, fats, allergens, grams_reference } = req.body;
+  const { name, general_group, category, calories, protein, carbs, fats, allergens, grams_reference, is_meat, is_red_meat } = req.body;
 
-  const sql = `
-    UPDATE FoodLibrary
-    SET name=?, group_id=?, calories=?, protein=?, carbs=?, fats=?, grams_reference=?
-    WHERE id=?
-  `;
+  const meatFlag = is_meat === true || is_meat === "true" ? 1 : 0;
+  const redMeatFlag = is_red_meat === true || is_red_meat === "true" ? 1 : 0;
 
-  db.query(
-    sql,
-    [name, group_id, toNullable(calories), toNullable(protein), toNullable(carbs), toNullable(fats), grams_reference || 100, req.params.id],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: "Failed to update food" });
-      if (result.affectedRows === 0) return res.status(404).json({ error: "Food not found" });
+  const findGroupSql = `SELECT id FROM FoodGroups WHERE name = ? LIMIT 1`;
+  db.query(findGroupSql, [general_group], (err, rows) => {
+    if (err) return res.status(500).json({ error: "Failed to check group" });
 
-      db.query("DELETE FROM FoodAllergens WHERE food_id = ?", [req.params.id], (err2) => {
-        if (err2) console.error("⚠️ Error clearing allergens:", err2);
-
-        if (allergens && allergens.length > 0) {
-          const values = allergens.map((aId) => [req.params.id, aId]);
-          db.query("INSERT INTO FoodAllergens (food_id, allergen_id) VALUES ?", [values], (err3) => {
-            if (err3) console.error("⚠️ Error re-inserting allergens:", err3);
-          });
-        }
+    if (rows.length > 0) {
+      updateFood(rows[0].id);
+    } else {
+      // Group doesn't exist yet — create it
+      const insertGroupSql = `INSERT INTO FoodGroups (name, category, is_meat, is_red_meat) VALUES (?, ?, ?, ?)`;
+      db.query(insertGroupSql, [general_group, category || "Unknown", meatFlag, redMeatFlag], (err, result) => {
+        if (err) return res.status(500).json({ error: "Failed to create group" });
+        updateFood(result.insertId);
       });
-
-      res.json({ id: req.params.id, ...req.body });
     }
-  );
-});
-
-router.delete("/food-database/:id", (req, res) => {
-  db.query("DELETE FROM FoodLibrary WHERE id = ?", [req.params.id], (err, result) => {
-    if (err) return res.status(500).json({ error: "Failed to delete food" });
-    if (result.affectedRows === 0) return res.status(404).json({ error: "Food not found" });
-    res.json({ message: "Food deleted successfully" });
   });
+
+  function updateFood(groupId) {
+    const sql = `
+      UPDATE FoodLibrary
+      SET name=?, group_id=?, calories=?, protein=?, carbs=?, fats=?, grams_reference=?
+      WHERE id=?
+    `;
+
+    db.query(
+      sql,
+      [
+        name,
+        groupId,
+        toNullable(calories),
+        toNullable(protein),
+        toNullable(carbs),
+        toNullable(fats),
+        grams_reference || 100,
+        req.params.id,
+      ],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: "Failed to update food" });
+        if (result.affectedRows === 0) return res.status(404).json({ error: "Food not found" });
+
+        // Re-sync allergens
+        db.query("DELETE FROM FoodAllergens WHERE food_id = ?", [req.params.id], (err2) => {
+          if (err2) console.error("⚠️ Error clearing allergens:", err2);
+
+          if (allergens && allergens.length > 0) {
+            const values = allergens.map((aId) => [req.params.id, aId]);
+            db.query("INSERT INTO FoodAllergens (food_id, allergen_id) VALUES ?", [values], (err3) => {
+              if (err3) console.error("⚠️ Error re-inserting allergens:", err3);
+            });
+          }
+        });
+
+        res.json({ id: req.params.id, ...req.body });
+      }
+    );
+  }
 });
 
 module.exports = router;

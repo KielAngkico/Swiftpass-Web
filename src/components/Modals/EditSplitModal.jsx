@@ -2,9 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { API_URL } from "../../config";
 
-const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) => {
-  const isEditing = !!splitToEdit;
-
+const EditSplitModal = ({ isOpen, onClose, onSplitUpdated, split }) => {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -21,66 +19,50 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
   const [daySearches, setDaySearches] = useState({});
 
   useEffect(() => {
-    if (isOpen) {
-      if (!isEditing) resetForm();
+    if (isOpen && split) {
       fetchExercises();
+      populateForm(split);
+      setError("");
+      setStep(1);
     }
-  }, [isOpen, splitToEdit]);
+  }, [isOpen, split]);
 
-  // FIX: fetchExercises now calls populateForm after load when editing
   const fetchExercises = async () => {
     try {
       const res = await axios.get(`${API_URL}/api/exercises`);
       setExercises(res.data);
-      if (isEditing && splitToEdit) {
-        populateForm(splitToEdit, res.data);
-      }
     } catch {
       setError("Failed to load exercises");
     }
   };
 
-  const resetForm = () => {
-    setStep(1);
-    setSplitForm({ split_name: "", target_gender: "unisex", num_days: 1, days: [] });
-    setDayFilters({});
-    setDaySearches({});
-    setError("");
-  };
-
-  // FIX: accepts exerciseList param to normalize IDs and filter deleted exercises
-  const populateForm = (split, exerciseList) => {
+  const populateForm = (split) => {
     const days = (split.days || []).map(day => ({
       day_title: day.day_title || `Day ${day.day_number}`,
-      exercises: (day.exercises || [])
-        .map(ex => ({
-          ...ex,
-          // normalize: SplitDayExercises returns exercise_id, but toggleExercise uses id
-          id: ex.exercise_id || ex.id,
-          sets: ex.sets || 3,
-          reps: ex.reps || "8-12",
-          rest_time: ex.rest_time || "60",
-          notes: ex.notes || ""
-        }))
-        // FIX: filter out exercises that no longer exist in ExerciseLibrary
-        .filter(ex => exerciseList.find(e => e.id === ex.id))
+      exercises: (day.exercises || []).map(ex => ({
+        ...ex,
+        sets: ex.sets || 3,
+        reps: ex.reps || "8-12",
+        rest_time: ex.rest_time || "60",
+        notes: ex.notes || ""
+      }))
     }));
 
-    const count = days.length || 1;
-    const filters = {};
-    const searches = {};
-    for (let i = 0; i < count; i++) { filters[i] = ""; searches[i] = ""; }
-
-    setStep(1);
     setSplitForm({
       split_name: split.split_name || "",
       target_gender: split.target_gender || "unisex",
-      num_days: count,
+      num_days: days.length || 1,
       days
     });
+
+    const filters = {};
+    const searches = {};
+    for (let i = 0; i < days.length; i++) {
+      filters[i] = "";
+      searches[i] = "";
+    }
     setDayFilters(filters);
     setDaySearches(searches);
-    setError("");
   };
 
   const handleFormChange = (e) => {
@@ -88,18 +70,24 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
     setSplitForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const goToStep2 = () => {
-    if (!splitForm.split_name.trim()) { setError("Please enter a split name"); return; }
+  const applyDayCount = () => {
+    if (!splitForm.split_name.trim()) {
+      setError("Please enter a split name");
+      return;
+    }
     const count = Math.max(1, Math.min(7, Number(splitForm.num_days) || 1));
     const existing = splitForm.days;
     const days = Array.from({ length: count }, (_, i) => ({
       day_title: existing[i]?.day_title || `Day ${i + 1}`,
       exercises: existing[i]?.exercises || []
     }));
+    setSplitForm(prev => ({ ...prev, days }));
     const filters = {};
     const searches = {};
-    for (let i = 0; i < count; i++) { filters[i] = dayFilters[i] || ""; searches[i] = daySearches[i] || ""; }
-    setSplitForm(prev => ({ ...prev, days }));
+    for (let i = 0; i < count; i++) {
+      filters[i] = dayFilters[i] || "";
+      searches[i] = daySearches[i] || "";
+    }
     setDayFilters(filters);
     setDaySearches(searches);
     setError("");
@@ -112,8 +100,13 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
       days: prev.days.map((day, i) => {
         if (i !== dayIndex) return day;
         const exists = day.exercises.find(ex => ex.id === exercise.id);
-        if (exists) return { ...day, exercises: day.exercises.filter(ex => ex.id !== exercise.id) };
-        return { ...day, exercises: [...day.exercises, { ...exercise, sets: 3, reps: "8-12", rest_time: "60", notes: "" }] };
+        if (exists) {
+          return { ...day, exercises: day.exercises.filter(ex => ex.id !== exercise.id) };
+        }
+        return {
+          ...day,
+          exercises: [...day.exercises, { ...exercise, sets: 3, reps: "8-12", rest_time: "60", notes: "" }]
+        };
       })
     }));
   };
@@ -128,7 +121,10 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
   const muscleGroups = [...new Set(exercises.map(ex => ex.muscle_group).filter(Boolean))].sort();
 
   const handleSubmit = async () => {
-    if (splitForm.days.some(day => day.exercises.length === 0)) { setError("Each day must have at least one exercise"); return; }
+    if (splitForm.days.some(day => day.exercises.length === 0)) {
+      setError("Each day must have at least one exercise");
+      return;
+    }
     try {
       setLoading(true);
       setError("");
@@ -149,16 +145,11 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
           }))
         }))
       };
-
-      if (isEditing) {
-        await axios.put(`${API_URL}/api/splits/${splitToEdit.id}`, payload);
-      } else {
-        await axios.post(`${API_URL}/api/splits`, payload);
-      }
-      onSplitAdded?.();
+      await axios.put(`${API_URL}/api/splits/${split.id}`, payload);
+      onSplitUpdated?.();
       onClose();
     } catch {
-      setError(isEditing ? "Failed to update split" : "Failed to create split");
+      setError("Failed to update split");
     } finally {
       setLoading(false);
     }
@@ -172,9 +163,9 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
 
         <div className="flex justify-between items-center px-5 py-4 border-b border-gray-100">
           <div>
-            <h2 className="text-sm font-medium text-gray-900">{isEditing ? "Edit Split" : "Add New Split"}</h2>
+            <h2 className="text-sm font-medium text-gray-900">Edit Split</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              {step === 1 ? (isEditing ? "Update split details" : "Set up your split details") : `Assign exercises to ${splitForm.days.length} day${splitForm.days.length > 1 ? "s" : ""}`}
+              {step === 1 ? "Update split details" : `Edit exercises for ${splitForm.days.length} day${splitForm.days.length > 1 ? "s" : ""}`}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -193,7 +184,9 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
 
         <div className="p-5">
           {error && (
-            <div className="bg-red-50 border border-red-100 text-red-600 px-3 py-2 rounded-lg mb-4 text-xs">{error}</div>
+            <div className="bg-red-50 border border-red-100 text-red-600 px-3 py-2 rounded-lg mb-4 text-xs">
+              {error}
+            </div>
           )}
 
           {step === 1 && (
@@ -209,48 +202,46 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Target Gender</label>
-                  <select
-                    name="target_gender"
-                    value={splitForm.target_gender}
-                    onChange={handleFormChange}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="unisex">Unisex</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Number of Days</label>
-                  <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500">
-                    <button
-                      type="button"
-                      onClick={() => setSplitForm(prev => ({ ...prev, num_days: Math.max(1, Number(prev.num_days) - 1) }))}
-                      className="px-3 py-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium border-r border-gray-200"
-                    >-</button>
-                    <span className="flex-1 text-center text-xs text-gray-900 font-medium py-2">{splitForm.num_days}</span>
-                    <button
-                      type="button"
-                      onClick={() => setSplitForm(prev => ({ ...prev, num_days: Math.min(7, Number(prev.num_days) + 1) }))}
-                      className="px-3 py-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium border-l border-gray-200"
-                    >+</button>
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">1 – 7 days</p>
-                </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Target Gender</label>
+                <select
+                  name="target_gender"
+                  value={splitForm.target_gender}
+                  onChange={handleFormChange}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="unisex">Unisex</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Number of Days (1–7)</label>
+                <input
+                  type="text"
+                  name="num_days"
+                  value={splitForm.num_days}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 1;
+                    setSplitForm(prev => ({ ...prev, num_days: Math.max(1, Math.min(7, val)) }));
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
 
-              {/* FIX: show current days summary when editing */}
-
-
               <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
-                <button type="button" onClick={onClose} className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+                >
                   Cancel
                 </button>
-                <button type="button" onClick={goToStep2} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors">
+                <button
+                  type="button"
+                  onClick={applyDayCount}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+                >
                   Next
                 </button>
               </div>
@@ -279,22 +270,6 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
                       </span>
                     </div>
 
-                    {/* FIX: show selected exercises as chips when editing */}
-                    {day.exercises.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {day.exercises.map(ex => (
-                          <span key={ex.id} className="flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5 text-[11px]">
-                            {ex.name || ex.exercise_name}
-                            <button
-                              type="button"
-                              onClick={() => toggleExercise(dayIndex, ex)}
-                              className="text-blue-400 hover:text-blue-700 ml-0.5 leading-none"
-                            >×</button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
                     <div className="flex gap-2 mb-2">
                       <input
                         type="text"
@@ -309,7 +284,9 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
                         className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="">All muscles</option>
-                        {muscleGroups.map(mg => <option key={mg} value={mg}>{mg}</option>)}
+                        {muscleGroups.map(mg => (
+                          <option key={mg} value={mg}>{mg}</option>
+                        ))}
                       </select>
                     </div>
 
@@ -320,8 +297,20 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
                         filtered.map(ex => {
                           const selected = !!day.exercises.find(d => d.id === ex.id);
                           return (
-                            <label key={ex.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer border text-xs transition-colors ${selected ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"}`}>
-                              <input type="checkbox" checked={selected} onChange={() => toggleExercise(dayIndex, ex)} className="w-3.5 h-3.5 accent-blue-600 flex-shrink-0" />
+                            <label
+                              key={ex.id}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer border text-xs transition-colors ${
+                                selected
+                                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => toggleExercise(dayIndex, ex)}
+                                className="w-3.5 h-3.5 accent-blue-600 flex-shrink-0"
+                              />
                               <div className="min-w-0">
                                 <div className="truncate font-medium">{ex.name}</div>
                                 <div className="text-[10px] text-gray-400 truncate">{ex.muscle_group}</div>
@@ -336,14 +325,27 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
               })}
 
               <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
-                <button type="button" onClick={() => { setStep(1); setError(""); }} className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors">
+                <button
+                  type="button"
+                  onClick={() => { setStep(1); setError(""); }}
+                  className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+                >
                   Back
                 </button>
-                <button type="button" onClick={onClose} className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+                >
                   Cancel
                 </button>
-                <button type="button" onClick={handleSubmit} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50">
-                  {loading ? (isEditing ? "Saving..." : "Creating...") : (isEditing ? "Save Changes" : "Create Split")}
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                >
+                  {loading ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </div>
@@ -354,4 +356,4 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
   );
 };
 
-export default AddSplitModal;
+export default EditSplitModal;

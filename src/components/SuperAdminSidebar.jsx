@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { FiMenu, FiUserPlus, FiPackage } from "react-icons/fi";
-import { FaDumbbell } from "react-icons/fa";
+import { FiMenu, FiUsers, FiShoppingCart, FiDollarSign, FiPackage, FiBarChart2 } from "react-icons/fi";
+import { FaDumbbell, FaUtensils } from "react-icons/fa";
+import { MdFitnessCenter } from "react-icons/md";
 import { useAuth } from "../App"; 
 
 const SuperAdminSidebar = () => {
@@ -21,17 +22,17 @@ const SuperAdminSidebar = () => {
   
   const navItems = useMemo(() => {
     if (!user) return [];
-    return [
-      { path: "/SuperAdmin/addClient", label: "Partners Management", icon: <FiUserPlus /> },
-      { path: "/SuperAdmin/OrdersPage", label: "Orders", icon: <FiUserPlus /> },
-      { path: "/SuperAdmin/Transactions", label: "Transactions", icon: <FiUserPlus /> },
-      { path: "/SuperAdmin/ExerciseLibrary", label: "Exercise Library", icon: <FaDumbbell /> },
-      { path: "/SuperAdmin/SplitLibrary", label: "Workout Split Library", icon: <FiPackage /> },
-      { path: "/SuperAdmin/FoodLibrary", label: "Food Library", icon: <FiPackage /> },
-      { path: "/SuperAdmin/ItemsInventory", label: "Inventory", icon: <FiPackage /> },
-      { path: "/SuperAdmin/PricingManagement", label: "Pricing Management", icon: <FiPackage /> },
-      
-    ];
+return [
+  { path: "/SuperAdmin/addClient", label: "Partners Management", icon: <FiUsers /> },
+  { path: "/SuperAdmin/OrdersPage", label: "Orders", icon: <FiShoppingCart /> },
+  { path: "/SuperAdmin/Transactions", label: "Transactions", icon: <FiDollarSign /> },
+  { path: "/SuperAdmin/ExerciseLibrary", label: "Exercise Library", icon: <FaDumbbell /> },
+  { path: "/SuperAdmin/SplitLibrary", label: "Workout Split Library", icon: <MdFitnessCenter /> },
+  { path: "/SuperAdmin/FoodLibrary", label: "Food Library", icon: <FaUtensils /> },
+  { path: "/SuperAdmin/ItemsInventory", label: "Inventory", icon: <FiPackage /> },
+  { path: "/SuperAdmin/PricingManagement", label: "Pricing Management", icon: <FiBarChart2 /> },
+];
+
   }, [user]);
 
 return (

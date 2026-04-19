@@ -7,8 +7,8 @@ const AddPartnerModal = ({
   onFormChange,
   onSubmit,
   mode = "add",
-  onScanSlot, 
-  waitingForSlot = null, 
+  onScanSlot,
+  waitingForSlot = null,
 }) => {
   if (!isOpen) return null;
 
@@ -16,65 +16,58 @@ const AddPartnerModal = ({
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-opacity-50 z-50 p-4"
+      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white p-5 rounded-md shadow-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto"
+        className="bg-white border border-gray-200 rounded-xl shadow-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">
-            {isEditMode ? "Edit Partner" : "Add New Partner"}
-          </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+          <div>
+            <h2 className="text-sm font-medium text-gray-900">
+              {isEditMode ? "Edit Partner" : mode === "registration" ? "Approve Registration" : "Add New Partner"}
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {isEditMode ? "Update partner details and RFID tags" : "Fill in the partner account details"}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center"
+          >
+            ×
           </button>
         </div>
 
         {waitingForSlot && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md animate-pulse">
-            <p className="text-xs text-blue-700">
-              <strong>⏳ Waiting for RFID Slot {waitingForSlot}...</strong> Please scan
-              the card now
+          <div className="mx-5 mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs text-blue-700 font-medium">
+              Waiting for RFID Slot {waitingForSlot} — scan the card now
             </p>
           </div>
         )}
 
-        <form onSubmit={onSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* COLUMN 1 - 5 fields */}
-            <div className="space-y-2">
+        <form onSubmit={onSubmit} className="p-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-gray-900 pb-2 border-b border-gray-100">Gym Information</p>
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Gym Name
-                </label>
+                <label className="block text-xs text-gray-500 mb-1">Gym Name</label>
                 <input
                   type="text"
                   name="gym_name"
                   value={formData.gym_name}
                   onChange={onFormChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
               </div>
-              
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Gym Code
-                </label>
+                <label className="block text-xs text-gray-500 mb-1">Gym Code</label>
                 <input
                   type="text"
                   name="gym_code"
@@ -82,198 +75,176 @@ const AddPartnerModal = ({
                   onChange={onFormChange}
                   maxLength={10}
                   placeholder="e.g. AFTS"
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
-                <p className="text-xs text-gray-400 mt-1">Short unique code (max 10 chars)</p>
+                <p className="text-[11px] text-gray-400 mt-1">Short unique code, max 10 characters</p>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Gym Address
-                </label>
+                <label className="block text-xs text-gray-500 mb-1">Gym Address</label>
                 <textarea
                   name="address"
                   value={formData.address}
                   onChange={onFormChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
                   rows="3"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Admin Name
-                </label>
+                <label className="block text-xs text-gray-500 mb-1">Admin Name</label>
                 <input
                   type="text"
                   name="admin_name"
                   value={formData.admin_name}
                   onChange={onFormChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Email Address
-                </label>
+                <label className="block text-xs text-gray-500 mb-1">Email Address</label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={onFormChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
               </div>
 
+            {!isEditMode && (
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Password{" "}
-                  {isEditMode && (
-                    <span className="text-gray-500">(leave blank to keep current)</span>
-                  )}
-                </label>
+                <label className="block text-xs text-gray-500 mb-1">Password</label>
                 <input
-                  type="password"
+                  type="text"
                   name="password"
-                  value={formData.password}
-                  onChange={onFormChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  required={!isEditMode}
-                  placeholder={isEditMode ? "Enter new password to change" : ""}
+                  value="pass123"
+                  readOnly
+                  className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-400 cursor-not-allowed"
                 />
+                <p className="text-[11px] text-gray-400 mt-1">Default password — can be changed after login</p>
               </div>
+            )}
             </div>
 
-{/* COLUMN 2 - fields (with conditional RFID) */}
-<div className="space-y-2">
-  {/* Only show RFID fields in EDIT mode */}
-  {isEditMode && (
-    <>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          RFID Tag 1
-        </label>
-        <div className="flex gap-1.5">
-          <input
-            type="text"
-            name="rfid_tag"
-            value={formData.rfid_tag}
-            onChange={onFormChange}
-            className="flex-1 p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            placeholder={
-              waitingForSlot === 1
-                ? "Scanning..."
-                : "Click 'Scan Now' or enter manually"
-            }
-            readOnly={waitingForSlot === 1}
-          />
-          <button
-            type="button"
-            onClick={() => onScanSlot(1)}
-            disabled={waitingForSlot !== null}
-            className={`px-2.5 py-1.5 text-white text-xs rounded-md whitespace-nowrap transition-colors ${
-              waitingForSlot === 1
-                ? "bg-blue-400 cursor-wait"
-                : waitingForSlot !== null
-                ? "bg-gray-300 cursor-not-allowed"
-                : "bg-blue-500 hover:bg-blue-600"
-            }`}
-          >
-            {waitingForSlot === 1 ? "Scanning..." : "Scan Now"}
-          </button>
-        </div>
-      </div>
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-gray-900 pb-2 border-b border-gray-100">
+                {isEditMode ? "RFID & System" : "System & Package"}
+              </p>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          RFID Tag 2 <span className="text-gray-500">(Optional)</span>
-        </label>
-        <div className="flex gap-1.5">
-          <input
-            type="text"
-            name="rfid_tag_2"
-            value={formData.rfid_tag_2 || ""}
-            onChange={onFormChange}
-            className="flex-1 p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            placeholder={
-              waitingForSlot === 2
-                ? "Scanning..."
-                : "Click 'Scan Now' or enter manually"
-            }
-            readOnly={waitingForSlot === 2}
-          />
-          <button
-            type="button"
-            onClick={() => onScanSlot(2)}
-            disabled={waitingForSlot !== null}
-            className={`px-2.5 py-1.5 text-white text-xs rounded-md whitespace-nowrap transition-colors ${
-              waitingForSlot === 2
-                ? "bg-blue-400 cursor-wait"
-                : waitingForSlot !== null
-                ? "bg-gray-300 cursor-not-allowed"
-                : "bg-blue-500 hover:bg-blue-600"
-            }`}
-          >
-            {waitingForSlot === 2 ? "Scanning..." : "Scan Now"}
-          </button>
-        </div>
-      </div>
-    </>
-  )}
+              {isEditMode && (
+                <>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">RFID Tag 1</label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        name="rfid_tag"
+                        value={formData.rfid_tag}
+                        onChange={onFormChange}
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder={waitingForSlot === 1 ? "Scanning..." : "Scan or enter manually"}
+                        readOnly={waitingForSlot === 1}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => onScanSlot(1)}
+                        disabled={waitingForSlot !== null}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${
+                          waitingForSlot === 1
+                            ? "bg-blue-50 text-blue-600 border-blue-200 cursor-wait"
+                            : waitingForSlot !== null
+                            ? "bg-white text-gray-300 border-gray-200 cursor-not-allowed"
+                            : "bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
+                        }`}
+                      >
+                        {waitingForSlot === 1 ? "Scanning..." : "Scan"}
+                      </button>
+                    </div>
+                  </div>
 
-  <div>
-    <label className="block text-xs font-medium text-gray-700 mb-1">
-      System Type
-    </label>
-    <select
-      name="system_type"
-      value={formData.system_type}
-      onChange={onFormChange}
-      className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-      required
-    >
-      <option value="">-- Select System Type --</option>
-      <option value="prepaid_entry">Prepaid Entry</option>
-      <option value="subscription">Subscription Membership</option>
-    </select>
-  </div>
-
-  {/* Rest of the fields remain the same... */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      RFID Tag 2 <span className="text-gray-400">(Optional)</span>
+                    </label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        name="rfid_tag_2"
+                        value={formData.rfid_tag_2 || ""}
+                        onChange={onFormChange}
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder={waitingForSlot === 2 ? "Scanning..." : "Scan or enter manually"}
+                        readOnly={waitingForSlot === 2}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => onScanSlot(2)}
+                        disabled={waitingForSlot !== null}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${
+                          waitingForSlot === 2
+                            ? "bg-blue-50 text-blue-600 border-blue-200 cursor-wait"
+                            : waitingForSlot !== null
+                            ? "bg-white text-gray-300 border-gray-200 cursor-not-allowed"
+                            : "bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
+                        }`}
+                      >
+                        {waitingForSlot === 2 ? "Scanning..." : "Scan"}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Package/Promo {!isEditMode && <span className="text-red-500">*</span>}
+                <label className="block text-xs text-gray-500 mb-1">System Type</label>
+                <select
+                  name="system_type"
+                  value={formData.system_type}
+                  onChange={onFormChange}
+                  className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select system type</option>
+                  <option value="prepaid_entry">Prepaid Entry</option>
+                  <option value="subscription">Subscription Membership</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Package / Promo {!isEditMode && <span className="text-red-500">*</span>}
                 </label>
                 <select
                   name="package_id"
-                  value={formData.package_id || ''}
+                  value={formData.package_id || ""}
                   onChange={onFormChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required={!isEditMode}
                 >
-                  <option value="">-- Select Package --</option>
+                  <option value="">Select package</option>
                   {formData.packages?.map((pkg) => (
                     <option key={pkg.id} value={pkg.id}>
-                      {pkg.name} - ₱{parseFloat(pkg.price).toLocaleString('en-PH', {minimumFractionDigits: 2})} ({pkg.duration_days} days)
+                      {pkg.name} — ₱{parseFloat(pkg.price).toLocaleString("en-PH", { minimumFractionDigits: 2 })} ({pkg.duration_days} days)
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs text-gray-500 mb-1">
                   Payment Method {!isEditMode && <span className="text-red-500">*</span>}
                 </label>
                 <select
                   name="payment_method"
-                  value={formData.payment_method || 'Cash'}
+                  value={formData.payment_method || "Cash"}
                   onChange={onFormChange}
-                  className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required={!isEditMode}
                 >
                   <option value="Cash">Cash</option>
@@ -285,27 +256,27 @@ const AddPartnerModal = ({
                 </select>
               </div>
 
-              {formData.payment_method && formData.payment_method !== 'Cash' && (
+              {formData.payment_method && formData.payment_method !== "Cash" && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <label className="block text-xs text-gray-500 mb-1">
                     Reference Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     name="reference_number"
-                    value={formData.reference_number || ''}
+                    value={formData.reference_number || ""}
                     onChange={onFormChange}
-                    placeholder="Enter reference/transaction number"
-                    className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter reference / transaction number"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     required
                   />
                 </div>
               )}
             </div>
 
-            {/* COLUMN 3 - Profile Picture */}
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-48 h-48 bg-gray-100 border rounded-md flex items-center justify-center overflow-hidden">
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-xs font-medium text-gray-900 pb-2 border-b border-gray-100 w-full text-center">Profile Photo</p>
+              <div className="w-40 h-40 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center overflow-hidden">
                 {formData.profile_image_url ? (
                   <img
                     src={
@@ -317,11 +288,10 @@ const AddPartnerModal = ({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-xs text-gray-400">No Image</span>
+                  <span className="text-xs text-gray-400">No image</span>
                 )}
               </div>
-
-              <label className="cursor-pointer bg-blue-500 text-white text-xs px-3 py-1.5 rounded-md hover:bg-blue-600">
+              <label className="cursor-pointer bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 px-4 py-2 rounded-lg text-xs font-medium transition-colors">
                 Upload Picture
                 <input
                   type="file"
@@ -334,19 +304,19 @@ const AddPartnerModal = ({
             </div>
           </div>
 
-          <div className="flex gap-2 pt-4">
+          <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
             <button
               type="button"
-              className="flex-1 bg-gray-500 text-white px-3 py-2 rounded-md text-xs hover:bg-gray-600"
+              className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
               onClick={onClose}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md text-xs"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
             >
-              {isEditMode ? "Update Partner" : "Add Partner"}
+              {isEditMode ? "Update Partner" : mode === "registration" ? "Approve & Add Partner" : "Add Partner"}
             </button>
           </div>
         </form>

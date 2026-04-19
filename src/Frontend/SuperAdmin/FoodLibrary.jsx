@@ -13,12 +13,19 @@ const FoodLibrary = () => {
   const [isAddFoodModalOpen, setIsAddFoodModalOpen] = useState(false);
   const [loadingFoods, setLoadingFoods] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(12);
+  const [itemsPerPage] = useState(10);
+  const [allergenPage, setAllergenPage] = useState(1);
+const allergensPerPage = 10;
   const categories = ["all", "Protein", "Carb", "Fruit", "Vegetable"];
   const [allergens, setAllergens] = useState([]);
   const [newAllergen, setNewAllergen] = useState("");
   const [loadingAllergens, setLoadingAllergens] = useState(true);
-const { showToast, showConfirm } = useToast();
+  const [editingAllergen, setEditingAllergen] = useState(null);
+  const [editAllergenName, setEditAllergenName] = useState("");
+  const [editingFood, setEditingFood] = useState(null);
+  const [editFoodForm, setEditFoodForm] = useState({ name: "", general_group: "", category: "", calories: "", protein: "", carbs: "", fats: "", grams_reference: "" });
+  const { showToast, showConfirm } = useToast();
+
   const fetchFoodItems = async () => {
     try {
       setLoadingFoods(true);
@@ -27,7 +34,7 @@ const { showToast, showConfirm } = useToast();
       setFilteredFoods(response.data);
     } catch (error) {
       console.error("Error fetching food items:", error);
-showToast({ message: "Failed to fetch food items", type: "error" });
+      showToast({ message: "Failed to fetch food items", type: "error" });
     } finally {
       setLoadingFoods(false);
     }
@@ -40,7 +47,7 @@ showToast({ message: "Failed to fetch food items", type: "error" });
       setAllergens(res.data);
     } catch (err) {
       console.error("Error fetching allergens:", err);
-showToast({ message: "Failed to fetch allergens", type: "error" });
+      showToast({ message: "Failed to fetch allergens", type: "error" });
     } finally {
       setLoadingAllergens(false);
     }
@@ -65,7 +72,6 @@ showToast({ message: "Failed to fetch allergens", type: "error" });
 
   const filterFoods = (query, category) => {
     let filtered = foodItems;
-
     if (query) {
       filtered = filtered.filter(
         (food) =>
@@ -73,29 +79,121 @@ showToast({ message: "Failed to fetch allergens", type: "error" });
           food.general_group.toLowerCase().includes(query.toLowerCase())
       );
     }
-
     if (category !== "all") {
       filtered = filtered.filter((food) => food.category === category);
     }
-
     setFilteredFoods(filtered);
   };
 
-const handleDeleteFood = async (foodId) => {
-  showConfirm(
-    "Are you sure you want to delete this food item?",
-    async () => {
-      try {
-        await axios.delete(`${API_URL}/api/food-database/${foodId}`);
-        fetchFoodItems();
-        showToast({ message: "Food item deleted successfully!", type: "success" });
-      } catch (error) {
-        console.error("Error deleting food item:", error);
-        showToast({ message: "Failed to delete food item", type: "error" });
+  const handleDeleteFood = async (foodId) => {
+    showConfirm(
+      "Are you sure you want to delete this food item?",
+      async () => {
+        try {
+          await axios.delete(`${API_URL}/api/food-database/${foodId}`);
+          fetchFoodItems();
+          showToast({ message: "Food item deleted successfully!", type: "success" });
+        } catch (error) {
+          console.error("Error deleting food item:", error);
+          showToast({ message: "Failed to delete food item", type: "error" });
+        }
       }
+    );
+  };
+
+  const startEditFood = (food) => {
+    setEditingFood(food.id);
+    setEditFoodForm({
+      name: food.name,
+      general_group: food.general_group,
+      category: food.category,
+      calories: food.calories ?? "",
+      protein: food.protein ?? "",
+      carbs: food.carbs ?? "",
+      fats: food.fats ?? "",
+      grams_reference: food.grams_reference || 100,
+    });
+  };
+
+  const cancelEditFood = () => {
+    setEditingFood(null);
+    setEditFoodForm({ name: "", general_group: "", category: "", calories: "", protein: "", carbs: "", fats: "", grams_reference: "" });
+  };
+
+  const saveEditFood = async (id) => {
+    try {
+      await axios.put(`${API_URL}/api/food-database/${id}`, editFoodForm);
+      fetchFoodItems();
+      setEditingFood(null);
+      showToast({ message: "Food item updated successfully!", type: "success" });
+    } catch (error) {
+      console.error("Failed to update food item:", error);
+      showToast({ message: "Failed to update food item", type: "error" });
     }
-  );
-};
+  };
+
+  const handleAddAllergen = async () => {
+    if (!newAllergen.trim()) {
+      showToast({ message: "Please enter an allergen name", type: "error" });
+      return;
+    }
+    try {
+      await axios.post(`${API_URL}/api/allergens`, { name: newAllergen.trim() });
+      setNewAllergen("");
+      fetchAllergens();
+      showToast({ message: "Allergen added successfully!", type: "success" });
+    } catch (err) {
+      console.error("Error adding allergen:", err);
+      showToast({ message: "Failed to add allergen", type: "error" });
+    }
+  };
+
+  const handleDeleteAllergen = async (id, name) => {
+    showConfirm(
+      `Are you sure you want to delete "${name}"?`,
+      async () => {
+        try {
+          await axios.delete(`${API_URL}/api/allergens/${id}`);
+          fetchAllergens();
+          showToast({ message: "Allergen deleted successfully!", type: "success" });
+        } catch (err) {
+          console.error("Error deleting allergen:", err);
+          showToast({ message: "Failed to delete allergen", type: "error" });
+        }
+      }
+    );
+  };
+
+  const handleAllergenKeyPress = (e) => {
+    if (e.key === "Enter") handleAddAllergen();
+  };
+
+  const startEditAllergen = (allergen) => {
+    setEditingAllergen(allergen.id);
+    setEditAllergenName(allergen.name);
+  };
+
+  const cancelEditAllergen = () => {
+    setEditingAllergen(null);
+    setEditAllergenName("");
+  };
+
+  const saveEditAllergen = async (id) => {
+    if (!editAllergenName.trim()) {
+      showToast({ message: "Allergen name cannot be empty", type: "error" });
+      return;
+    }
+    try {
+      await axios.put(`${API_URL}/api/allergens/${id}`, { name: editAllergenName.trim() });
+      fetchAllergens();
+      setEditingAllergen(null);
+      setEditAllergenName("");
+      showToast({ message: "Allergen updated successfully!", type: "success" });
+    } catch (err) {
+      console.error("Error updating allergen:", err);
+      showToast({ message: "Failed to update allergen", type: "error" });
+    }
+  };
 
   const totalPages = Math.ceil(filteredFoods.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -105,276 +203,450 @@ const handleDeleteFood = async (foodId) => {
   const goToPage = (page) => setCurrentPage(page);
   const goToPreviousPage = () => currentPage > 1 && setCurrentPage(currentPage - 1);
   const goToNextPage = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
-const FoodCard = ({ food }) => (
-  <div className="bg-white p-2 rounded border shadow-sm hover:shadow-md transition-shadow text-xs">
-    <div className="flex justify-between items-start mb-1">
-      <div>
-        <h4 className="font-semibold text-gray-900 text-sm">{food.name}</h4>
-        <p className="text-[11px] text-gray-600">{food.general_group}</p>
-        <span className="inline-block bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.5 rounded mt-0.5">
-          {food.category}
-        </span>
-      </div>
-      <button
-        onClick={() => handleDeleteFood(food.id)}
-        className="text-red-500 hover:text-red-700 text-lg leading-none"
-      >
-        ×
-      </button>
-    </div>
-    <div className="space-y-0.5 text-gray-700">
-      <p className="text-[11px]">Calories: {food.calories || "N/A"}</p>
-      <p className="text-[11px]">
-        Protein: {food.protein || "N/A"}g | Carbs: {food.carbs || "N/A"}g | Fats: {food.fats || "N/A"}g
-      </p>
-      <p className="text-[10px] text-gray-500">Per {food.grams_reference || 100}g</p>
-    </div>
-  </div>
-);
 
-
-  const Pagination = () => {
-    if (totalPages <= 1) return null;
-    const getPageNumbers = () => {
-      const pages = [];
-      const maxVisiblePages = 5;
-
-      if (totalPages <= maxVisiblePages) {
-        for (let i = 1; i <= totalPages; i++) pages.push(i);
-      } else {
-        if (currentPage <= 3) {
-          for (let i = 1; i <= 4; i++) pages.push(i);
-          pages.push("...");
-          pages.push(totalPages);
-        } else if (currentPage >= totalPages - 2) {
-          pages.push(1, "...");
-          for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
-        } else {
-          pages.push(1, "...");
-          for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
-          pages.push("...", totalPages);
-        }
-      }
-
-      return pages;
-    };
-
-    return (
-      <div className="flex justify-center items-center space-x-2 mt-6 pb-4">
-        <button onClick={goToPreviousPage} disabled={currentPage === 1} className="px-3 py-1 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-          Previous
-        </button>
-        {getPageNumbers().map((page, index) => (
-          <button
-            key={index}
-            onClick={() => typeof page === "number" && goToPage(page)}
-            disabled={typeof page !== "number"}
-            className={`px-3 py-1 rounded border ${
-              page === currentPage
-                ? "bg-blue-600 text-white border-blue-600"
-                : typeof page === "number"
-                ? "bg-white hover:bg-gray-50"
-                : "bg-white cursor-default"
-            }`}
-          >
-            {page}
-          </button>
-        ))}
-        <button onClick={goToNextPage} disabled={currentPage === totalPages} className="px-3 py-1 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-          Next
-        </button>
-      </div>
-    );
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else if (currentPage <= 3) {
+      for (let i = 1; i <= 4; i++) pages.push(i);
+      pages.push("...", totalPages);
+    } else if (currentPage >= totalPages - 2) {
+      pages.push(1, "...");
+      for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1, "...");
+      for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
+      pages.push("...", totalPages);
+    }
+    return pages;
   };
+  const allergenTotalPages = Math.ceil(allergens.length / allergensPerPage);
 
-  const handleAddAllergen = async () => {
-    if (!newAllergen.trim()) {
-showToast({ message: "Please enter an allergen name", type: "error" });
-      return;
-    }
+const allergenStartIndex = (allergenPage - 1) * allergensPerPage;
+const allergenEndIndex = allergenStartIndex + allergensPerPage;
 
-    try {
-      await axios.post(`${API_URL}/api/allergens`, { name: newAllergen.trim() });
-      setNewAllergen("");
-      fetchAllergens();
-showToast({ message: "Allergen added successfully!", type: "success" });
-    } catch (err) {
-      console.error("Error adding allergen:", err);
-showToast({ message: "Failed to add allergen", type: "error" });
-    }
-  };
+const currentAllergens = allergens.slice(allergenStartIndex, allergenEndIndex);
 
-const handleDeleteAllergen = async (id, name) => {
-  showConfirm(
-    `Are you sure you want to delete "${name}"?`,
-    async () => {
-      try {
-        await axios.delete(`${API_URL}/api/allergens/${id}`);
-        fetchAllergens();
-        showToast({ message: "Allergen deleted successfully!", type: "success" });
-      } catch (err) {
-        console.error("Error deleting allergen:", err);
-        showToast({ message: "Failed to delete allergen", type: "error" });
-      }
-    }
-  );
-};
-  const handleAllergenKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleAddAllergen();
-    }
-  };
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      <SuperAdminSidebar />
 
-return (
-<div className="flex h-screen bg-gray-100 overflow-hidden">
-  <SuperAdminSidebar />
-
-  <main className="flex-1 p-5 overflow-hidden flex flex-col">
-    <div className="flex justify-between items-start mb-2">
-      <div className="w-full lg:w-[60%]">
-        <h1 className="text-2xl font-semibold text-gray-800">Food Library</h1>
-        <p className="text-xs text-gray-600">
-          {filteredFoods.length} items
-          {searchQuery && ` matching "${searchQuery}"`}
-          {selectedCategory !== "all" && ` in ${selectedCategory}`}
-        </p>
-      </div>
-
-      <div className="w-full lg:w-[40%] text-left">
-        <h1 className="text-2xl font-semibold text-gray-800">Allergens</h1>
-        <p className="text-xs text-gray-600">
-          {allergens.length} {allergens.length === 1 ? "item" : "items"}
-        </p>
-      </div>
-    </div>
-
-    <div className="flex flex-1 gap-3 overflow-hidden">
-      <div className="w-full lg:w-[60%] flex flex-col space-y-2 overflow-hidden">
-        <div className="bg-white p-3 rounded shadow-sm">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Search food..."
-              className="flex-1 p-2 text-xs border rounded focus:ring-1 focus:ring-blue-500"
-            />
-            <select
-              value={selectedCategory}
-              onChange={(e) => handleCategoryFilter(e.target.value)}
-              className="p-2 text-xs border rounded focus:ring-1 focus:ring-blue-500"
-            >
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category === "all" ? "All" : category}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => setIsAddFoodModalOpen(true)}
-              className="bg-green-600 text-white px-3 py-1.5 text-xs rounded hover:bg-green-700"
-            >
-              + Add
-            </button>
-          </div>
+<main className="flex-1 min-w-0 p-6 flex flex-col h-screen overflow-hidden">   
+           <div className="mb-5">
+          <h1 className="text-xl font-semibold text-gray-900">Food Library</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Manage food items and allergens</p>
         </div>
 
-        <div className="bg-white rounded shadow-sm p-3 flex-1 overflow-auto">
-          {loadingFoods ? (
-            <div className="text-center py-8 text-xs">Loading...</div>
-          ) : currentFoods.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 text-sm">No matching food items</div>
-          ) : (
-            <>
-              <div className="mb-2 flex justify-between items-center">
-                <h3 className="text-sm font-medium text-gray-900">
-                  {selectedCategory === "all" ? "All Foods" : selectedCategory}
-                </h3>
-                <p className="text-xs text-gray-600">
-                  Showing {startIndex + 1}-{Math.min(endIndex, filteredFoods.length)} of {filteredFoods.length}
-                </p>
-              </div>
+<div className="flex gap-5 min-w-0 overflow-hidden min-h-0 flex-1 h-0">
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {currentFoods.map((food) => (
-                  <FoodCard key={food.id} food={food} />
-                ))}
-              </div>
+<div className="flex-1 min-w-0 flex flex-col gap-1 overflow-hidden h-full">
+            <div className="bg-white border border-gray-200 rounded-xl p-1 flex-shrink-0">
 
-              <Pagination />
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="w-full lg:w-[40%] flex flex-col space-y-2 overflow-hidden">
-        <div className="bg-white p-3 rounded shadow-sm">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newAllergen}
-              onChange={(e) => setNewAllergen(e.target.value)}
-              onKeyPress={handleAllergenKeyPress}
-              placeholder="Search or add allergen..."
-              className="flex-1 p-2 text-xs border rounded focus:ring-1 focus:ring-blue-500"
-            />
-            <button
-              onClick={handleAddAllergen}
-              disabled={!newAllergen.trim()}
-              className="bg-green-600 text-white px-3 py-1.5 text-xs rounded hover:bg-green-700 disabled:opacity-50"
-            >
-              + Add
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white p-3 rounded shadow-sm flex-1 overflow-auto">
-          <h2 className="text-sm font-semibold mb-2">All Allergens</h2>
-          {loadingAllergens ? (
-            <div className="text-center text-gray-500 text-sm py-4">Loading allergens...</div>
-          ) : allergens.length === 0 ? (
-            <div className="text-center text-gray-500 text-sm py-4">No allergens added.</div>
-          ) : (
-            <div className="space-y-1">
-              {allergens.map((allergen, index) => (
-                <div
-                  key={allergen.id}
-                  className="bg-white p-2 rounded border text-xs shadow-sm hover:shadow-md flex justify-between items-center"
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="Search food..."
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => handleCategoryFilter(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <div className="flex items-center">
-                    <span className="text-gray-500 mr-2">#{index + 1}</span>
-                    <span className="font-medium text-gray-800">{allergen.name}</span>
-                  </div>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category === "all" ? "All categories" : category}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setIsAddFoodModalOpen(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+                >
+                  Add food
+                </button>
+              </div>
+            </div>
+
+<div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col min-h-0 flex-1">
+  <div className="flex justify-between items-center px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex-shrink-0">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-medium text-gray-900">
+                    {selectedCategory === "all" ? "All foods" : selectedCategory}
+                  </span>
+                  <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
+                    {loadingFoods ? "..." : `${filteredFoods.length} ${filteredFoods.length === 1 ? "item" : "items"}`}
+                  </span>
+                </div>
+                {!loadingFoods && filteredFoods.length > 0 && (
+                  <span className="text-xs text-gray-400">
+                    {startIndex + 1}–{Math.min(endIndex, filteredFoods.length)} of {filteredFoods.length}
+                  </span>
+                )}
+              </div>
+
+<div className="overflow-auto min-h-0 flex-1">              
+  {loadingFoods ? (
+                  <p className="text-xs text-gray-400 p-4 text-center">Loading...</p>
+                ) : currentFoods.length === 0 ? (
+                  <p className="text-xs text-gray-400 p-4 text-center">No matching food items</p>
+                ) : (
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-gray-100 border-b border-gray-100">
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">#</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Name</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Group</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Category</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Calories</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Protein</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Carbs</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Fats</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Per</th>
+                        <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {currentFoods.map((food, index) => (
+                        <tr key={food.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 text-xs text-gray-400">{startIndex + index + 1}</td>
+                          <td className="px-4 py-3">
+                            {editingFood === food.id ? (
+                              <input
+                                type="text"
+                                value={editFoodForm.name}
+                                onChange={(e) => setEditFoodForm({ ...editFoodForm, name: e.target.value })}
+                                className="w-full border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            ) : (
+                              <span className="text-xs font-medium text-gray-800">{food.name}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {editingFood === food.id ? (
+                              <input
+                                type="text"
+                                value={editFoodForm.general_group}
+                                onChange={(e) => setEditFoodForm({ ...editFoodForm, general_group: e.target.value })}
+                                className="w-full border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            ) : (
+                              <span className="text-xs text-gray-400">{food.general_group}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {editingFood === food.id ? (
+                              <select
+                                value={editFoodForm.category}
+                                onChange={(e) => setEditFoodForm({ ...editFoodForm, category: e.target.value })}
+                                className="border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                {categories.filter(c => c !== "all").map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2.5 py-0.5">
+                                {food.category}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {editingFood === food.id ? (
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={editFoodForm.calories}
+                                onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setEditFoodForm({ ...editFoodForm, calories: e.target.value }); }}
+                                className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            ) : (
+                              <span className="text-xs text-gray-800">{food.calories ?? "N/A"}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {editingFood === food.id ? (
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={editFoodForm.protein}
+                                onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setEditFoodForm({ ...editFoodForm, protein: e.target.value }); }}
+                                className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            ) : (
+                              <span className="text-xs text-gray-800">{food.protein != null ? `${food.protein}g` : "N/A"}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {editingFood === food.id ? (
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={editFoodForm.carbs}
+                                onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setEditFoodForm({ ...editFoodForm, carbs: e.target.value }); }}
+                                className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            ) : (
+                              <span className="text-xs text-gray-800">{food.carbs != null ? `${food.carbs}g` : "N/A"}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {editingFood === food.id ? (
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={editFoodForm.fats}
+                                onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setEditFoodForm({ ...editFoodForm, fats: e.target.value }); }}
+                                className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            ) : (
+                              <span className="text-xs text-gray-800">{food.fats != null ? `${food.fats}g` : "N/A"}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {editingFood === food.id ? (
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={editFoodForm.grams_reference}
+                                onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setEditFoodForm({ ...editFoodForm, grams_reference: e.target.value }); }}
+                                className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            ) : (
+                              <span className="text-xs text-gray-400">{food.grams_reference || 100}g</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-1.5 justify-end">
+                              {editingFood === food.id ? (
+                                <>
+                                  <button
+                                    onClick={() => saveEditFood(food.id)}
+                                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[13px] font-medium transition-colors"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={cancelEditFood}
+                                    className="px-2.5 py-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => startEditFood(food)}
+                                    className="px-2.5 py-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteFood(food.id)}
+                                    className="px-2.5 py-1 bg-white text-red-500 border border-red-100 hover:bg-red-50 rounded-lg text-[13px] font-medium transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-1.5 px-4 py-3 border-t border-gray-100 flex-shrink-0">
                   <button
-                    onClick={() => handleDeleteAllergen(allergen.id, allergen.name)}
-                    className="text-red-500 hover:text-red-700 text-sm"
+                    onClick={goToPreviousPage}
+                    disabled={currentPage === 1}
+                    className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    ×
+                    Previous
+                  </button>
+                  {getPageNumbers().map((page, index) => (
+                    <button
+                      key={index}
+                      onClick={() => typeof page === "number" && goToPage(page)}
+                      disabled={typeof page !== "number"}
+                      className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors border ${
+                        page === currentPage
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : typeof page === "number"
+                          ? "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                          : "bg-white text-gray-400 border-gray-200 cursor-default"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    onClick={goToNextPage}
+                    disabled={currentPage === totalPages}
+                    className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next
                   </button>
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+
+<div className="w-72 flex-shrink-0 flex flex-col gap-1 overflow-hidden">
+  {/* Add allergen input */}
+  <div className="bg-white border border-gray-200 rounded-xl p-1 flex-shrink-0">
+    <div className="flex gap-2">
+      <input
+        type="text"
+        value={newAllergen}
+        onChange={(e) => setNewAllergen(e.target.value)}
+        onKeyPress={handleAllergenKeyPress}
+        placeholder="Add allergen..."
+        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+      />
+      <button
+        onClick={handleAddAllergen}
+        disabled={!newAllergen.trim()}
+        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Add
+      </button>
+    </div>
+  </div>
+
+  {/* Allergen card — fixed height, no overflow on the card itself */}
+  <div className="bg-white border border-gray-200 rounded-xl flex-1 flex flex-col min-h-0">
+
+    {/* Sticky header */}
+    <div className="flex justify-between items-center px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex-shrink-0 rounded-t-xl">
+      <p className="text-xs font-medium text-gray-500">Allergens</p>
+      <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
+        {allergens.length}
+      </span>
     </div>
 
-    <AddFoodModal
-      isOpen={isAddFoodModalOpen}
-      onClose={() => setIsAddFoodModalOpen(false)}
-      onFoodAdded={fetchFoodItems}
-    />
-  </main>
+    {loadingAllergens ? (
+      <div className="text-center py-8 text-xs text-gray-400">Loading allergens...</div>
+    ) : allergens.length === 0 ? (
+      <div className="text-center py-8 text-xs text-gray-400">No allergens added.</div>
+    ) : (
+      <>
+        {/* Scrollable table body only */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-gray-100 border-b border-gray-100">
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">#</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Name</th>
+                <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {currentAllergens.map((allergen, index) => (
+                <tr key={allergen.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 text-xs text-gray-400">
+                    {allergenStartIndex + index + 1}
+                  </td>
+                  <td className="px-4 py-3">
+                    {editingAllergen === allergen.id ? (
+                      <input
+                        type="text"
+                        value={editAllergenName}
+                        onChange={(e) => setEditAllergenName(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && saveEditAllergen(allergen.id)}
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="text-xs font-medium text-gray-800">{allergen.name}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-1.5 justify-end">
+                      {editingAllergen === allergen.id ? (
+                        <>
+                          <button
+                            onClick={() => saveEditAllergen(allergen.id)}
+                            className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[13px] font-medium"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={cancelEditAllergen}
+                            className="px-2.5 py-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 rounded-lg text-[13px] font-medium"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => startEditAllergen(allergen)}
+                            className="px-2.5 py-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 rounded-lg text-[13px] font-medium"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAllergen(allergen.id, allergen.name)}
+                            className="px-2.5 py-1 bg-white text-red-500 border border-red-100 hover:bg-red-50 rounded-lg text-[13px] font-medium"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Sticky pagination — always at bottom */}
+{/* Sticky pagination — always at bottom */}
+        <div className="flex justify-center items-center gap-1.5 px-4 py-3 border-t border-gray-100 flex-shrink-0 rounded-b-xl bg-white">
+          <button
+            onClick={() => setAllergenPage((p) => Math.max(p - 1, 1))}
+            disabled={allergenPage === 1}
+            className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+
+<span className="text-xs text-gray-400">Page</span>
+          <span className="px-3 py-1.5 rounded-lg text-[13px] font-medium border bg-blue-600 text-white border-blue-600">
+            {allergenPage}
+          </span>
+          <span className="text-xs text-gray-400">of {Math.max(allergenTotalPages, 1)}</span>
+
+          <button
+            onClick={() => setAllergenPage((p) => Math.min(p + 1, Math.max(allergenTotalPages, 1)))}
+            disabled={allergenPage >= allergenTotalPages || allergenTotalPages <= 1}
+            className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+      </>
+    )}
+  </div>
 </div>
+        </div>
 
-
-
-);
-
-
-
-
-
+        <AddFoodModal
+          isOpen={isAddFoodModalOpen}
+          onClose={() => setIsAddFoodModalOpen(false)}
+          onFoodAdded={fetchFoodItems}
+        />
+      </main>
+    </div>
+  );
 };
 
 export default FoodLibrary;

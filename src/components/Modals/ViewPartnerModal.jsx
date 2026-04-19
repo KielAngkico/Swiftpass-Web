@@ -6,240 +6,224 @@ const ViewPartnerModal = ({ isOpen, onClose, admin, onEdit }) => {
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-opacity-50 z-50 p-4"
+      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white p-5 rounded-md shadow-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto"
+        className="bg-white border border-gray-200 rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">
-            Partner Details
-          </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+          <div>
+            <h2 className="text-sm font-medium text-gray-900">Partner Details</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{admin.gym_name}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center"
+          >
+            ×
           </button>
         </div>
 
-        {/* Archived Badge */}
         {admin.is_archived === 1 && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-xs text-red-700">
-              <strong>⚠️ This partner is archived</strong>
-            </p>
+          <div className="mx-5 mt-4 p-3 bg-red-50 border border-red-100 rounded-lg">
+            <p className="text-xs text-red-600 font-medium">This partner account is archived</p>
           </div>
         )}
 
-        {/* Form-like Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* ======================== COLUMN 1 ======================== */}
-          <div className="space-y-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Gym Name
-              </label>
-              <input
-                type="text"
-                value={admin.gym_name}
-                readOnly
-                className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
-              />
-            </div>
+        <div className="p-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Gym Address
-              </label>
-              <textarea
-                value={admin.address}
-                readOnly
-                className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed resize-none"
-                rows="2"
-              />
-            </div>
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-gray-900 pb-2 border-b border-gray-100">Gym Information</p>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Admin Name
-              </label>
-              <input
-                type="text"
-                value={admin.admin_name}
-                readOnly
-                className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={admin.email}
-                readOnly
-                className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                value="••••••••"
-                readOnly
-                className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
-              />
-            </div>
-          </div>
-
-          {/* ======================== COLUMN 2 ======================== */}
-          <div className="space-y-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                RFID Tag 1
-              </label>
-              <input
-                type="text"
-                value={admin.rfid_tag || "N/A"}
-                readOnly
-                className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                RFID Tag 2 <span className="text-gray-500">(Optional)</span>
-              </label>
-              <input
-                type="text"
-                value={admin.rfid_tag_2 || "N/A"}
-                readOnly
-                className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
-              />
-            </div>
-<div>
-  <label className="block text-xs font-medium text-gray-700 mb-1">
-    System Type
-  </label>
-  <input
-    type="text"
-    value={admin.system_type}
-    readOnly
-    className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
-  />
-</div>
-
-{/* ALWAYS SHOW PACKAGE INFO */}
-<div>
-  <label className="block text-xs font-medium text-gray-700 mb-1">
-    Package/Promo
-  </label>
-  <input
-    type="text"
-    value={admin.package_name || 'No package selected'}
-    readOnly
-    className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
-  />
-  {admin.package_price && (
-    <div className="mt-1 text-[10px] text-gray-600">
-      ₱{parseFloat(admin.package_price).toLocaleString('en-PH', {minimumFractionDigits: 2})} • {admin.package_duration} days
-    </div>
-  )}
-</div>
-
-<div>
-  <label className="block text-xs font-medium text-gray-700 mb-1">
-    Package Period
-  </label>
-  <input
-    type="text"
-    value={
-      admin.subscription_start_date && admin.subscription_end_date
-        ? `${new Date(admin.subscription_start_date).toLocaleDateString()} - ${new Date(admin.subscription_end_date).toLocaleDateString()}`
-        : 'Not activated'
-    }
-    readOnly
-    className="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 text-gray-700 cursor-not-allowed"
-  />
-</div>
-
-{admin.subscription_end_date && (
-  <div>
-    <label className="block text-xs font-medium text-gray-700 mb-1">
-      Days Remaining
-    </label>
-    <input
-      type="text"
-      value={
-        admin.days_remaining !== null && admin.days_remaining !== undefined
-          ? admin.days_remaining > 0 
-            ? `${admin.days_remaining} days` 
-            : 'Expired'
-          : 'N/A'
-      }
-      readOnly
-      className={`w-full p-1.5 border border-gray-300 rounded-md text-xs bg-gray-50 cursor-not-allowed ${
-        admin.days_remaining <= 0 ? 'text-red-700 font-semibold' : 'text-gray-700'
-      }`}
-    />
-  </div>
-)}
-
-          </div>
-
-          {/* ======================== COLUMN 3 ======================== */}
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-48 h-48 bg-gray-100 border rounded-md flex items-center justify-center overflow-hidden">
-              {admin.profile_image_url ? (
-                <img
-                  src={`${API_URL}${admin.profile_image_url}`}
-                  alt={admin.gym_name}
-                  className="w-full h-full object-cover"
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Gym Name</label>
+                <input
+                  type="text"
+                  value={admin.gym_name}
+                  readOnly
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-gray-50 cursor-not-allowed"
                 />
-              ) : (
-                <span className="text-xs text-gray-400">No Image</span>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Gym Code</label>
+                <input
+                  type="text"
+                  value={admin.gym_code || "Not set"}
+                  readOnly
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-gray-50 cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Gym Address</label>
+                <textarea
+                  value={admin.address}
+                  readOnly
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-gray-50 cursor-not-allowed resize-none"
+                  rows="2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Admin Name</label>
+                <input
+                  type="text"
+                  value={admin.admin_name}
+                  readOnly
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-gray-50 cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={admin.email}
+                  readOnly
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-gray-50 cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Password</label>
+                <input
+                  type="password"
+                  value="••••••••"
+                  readOnly
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-gray-50 cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-gray-900 pb-2 border-b border-gray-100">System & Subscription</p>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">RFID Tag 1</label>
+                <input
+                  type="text"
+                  value={admin.rfid_tag || "Not assigned"}
+                  readOnly
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-gray-50 cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">
+                  RFID Tag 2 <span className="text-gray-400">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={admin.rfid_tag_2 || "Not assigned"}
+                  readOnly
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-gray-50 cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">System Type</label>
+                <input
+                  type="text"
+                  value={admin.system_type || "Not set"}
+                  readOnly
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-gray-50 cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Package / Promo</label>
+                <input
+                  type="text"
+                  value={admin.package_name || "No package selected"}
+                  readOnly
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-gray-50 cursor-not-allowed"
+                />
+                {admin.package_price && (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    ₱{parseFloat(admin.package_price).toLocaleString("en-PH", { minimumFractionDigits: 2 })} • {admin.package_duration} days
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Package Period</label>
+                <input
+                  type="text"
+                  value={
+                    admin.subscription_start_date && admin.subscription_end_date
+                      ? `${new Date(admin.subscription_start_date).toLocaleDateString()} — ${new Date(admin.subscription_end_date).toLocaleDateString()}`
+                      : "Not activated"
+                  }
+                  readOnly
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-gray-50 cursor-not-allowed"
+                />
+              </div>
+
+              {admin.subscription_end_date && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Days Remaining</label>
+                  <input
+                    type="text"
+                    value={
+                      admin.days_remaining !== null && admin.days_remaining !== undefined
+                        ? admin.days_remaining > 0
+                          ? `${admin.days_remaining} days`
+                          : "Expired"
+                        : "N/A"
+                    }
+                    readOnly
+                    className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-xs bg-gray-50 cursor-not-allowed ${
+                      admin.days_remaining <= 0 ? "text-red-600 font-medium" : "text-gray-900"
+                    }`}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-xs font-medium text-gray-900 pb-2 border-b border-gray-100 w-full text-center">Profile Photo</p>
+              <div className="w-40 h-40 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center overflow-hidden">
+                {admin.profile_image_url ? (
+                  <img
+                    src={`${API_URL}${admin.profile_image_url}`}
+                    alt={admin.gym_name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-xs text-gray-400">No image</span>
+                )}
+              </div>
+
+              {admin.is_archived === 0 && (
+                <span className="text-[11px] bg-green-50 text-green-700 border border-green-100 rounded-full px-2.5 py-0.5">
+                  Active
+                </span>
               )}
             </div>
           </div>
-        </div>
 
-        {/* ======================== BUTTONS ======================== */}
-        <div className="flex gap-2 pt-4">
-          <button
-            type="button"
-            className="flex-1 bg-gray-500 text-white px-3 py-2 rounded-md text-xs hover:bg-gray-600"
-            onClick={onClose}
-          >
-            Close
-          </button>
-          {admin.is_archived === 0 && onEdit && (
+          <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
             <button
               type="button"
-              onClick={() => {
-                onEdit(admin);
-                onClose();
-              }}
-              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md text-xs"
+              className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+              onClick={onClose}
             >
-              Edit Partner
+              Close
             </button>
-          )}
+            {admin.is_archived === 0 && onEdit && (
+              <button
+                type="button"
+                onClick={() => { onEdit(admin); onClose(); }}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+              >
+                Edit Partner
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

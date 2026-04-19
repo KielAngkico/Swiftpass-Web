@@ -52,4 +52,28 @@ router.delete("/allergens/:id", (req, res) => {
   });
 });
 
+router.put("/allergens/:id", (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!name || name.trim() === "") {
+    return res.status(400).json({ error: "Allergen name is required" });
+  }
+
+  db.query(
+    "UPDATE Allergens SET name = ? WHERE id = ?",
+    [name.trim(), id],
+    (err, result) => {
+      if (err) {
+        console.error("❌ Error updating allergen:", err);
+        return res.status(500).json({ error: "Failed to update allergen" });
+      }
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "Allergen not found" });
+      }
+      res.json({ id: Number(id), name: name.trim() });
+    }
+  );
+});
+
 module.exports = router;

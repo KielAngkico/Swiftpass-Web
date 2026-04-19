@@ -54,10 +54,14 @@ router.post("/exercises", exerciseUpload.single("image"), async (req, res) => {
 });
 
 router.get("/exercises", async (req, res) => {
+  
   try {
     const [exercises] = await dbSuperAdmin
       .promise()
       .query("SELECT * FROM ExerciseLibrary ORDER BY created_at DESC");
+
+          console.log("Exercises count:", exercises.length);          // ADD THIS
+    console.log("First exercise sample:", exercises[0]);
 
     for (let ex of exercises) {
       let ids = ex.alt_exercise_ids || [];
@@ -80,6 +84,7 @@ router.get("/exercises", async (req, res) => {
             .query(
               "SELECT id, name, muscle_group, image_url FROM ExerciseLibrary WHERE id IN (?)",
               [ex.alt_exercise_ids]
+              
             );
           ex.alternatives = alts;
         } catch (e) {

@@ -21,6 +21,20 @@ router.post("/splits", async (req, res) => {
       );
 
       const split_day_id = dayResult.insertId;
+
+      const exerciseIds = (day.exercise_details || []).map(ex => ex.exercise_id);
+      if (exerciseIds.length > 0) {
+        const [valid] = await db.promise().query(
+          "SELECT id FROM ExerciseLibrary WHERE id IN (?)",
+          [exerciseIds]
+        );
+        const validIds = valid.map(e => e.id);
+        const invalid = exerciseIds.filter(id => !validIds.includes(id));
+        console.log("Sent IDs:", exerciseIds, "| Valid IDs:", validIds, "| Invalid:", invalid);
+        if (invalid.length > 0) {
+          return res.status(400).json({ error: `Invalid exercise IDs: ${invalid.join(", ")}` });
+        }
+      }
       for (const ex of day.exercise_details || []) {
         await db.promise().query(
           `INSERT INTO SplitDayExercises 

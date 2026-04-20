@@ -172,23 +172,24 @@ const PrepaidAnalytical = ({ adminUser }) => {
       legend: { position: "bottom", labels: { boxWidth: 12, padding: 10, font: { size: 10 } } },
     },
   };
-
-  const pieOptions = {
-    ...chartOptions,
-    plugins: {
-      ...chartOptions.plugins,
-      tooltip: {
-        callbacks: {
-          label: (context) => {
-            const value = context.parsed;
-            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-            return `${context.label}: ${value.toLocaleString()} (${percentage}%)`;
-          },
+const pieOptions = {
+  ...chartOptions,
+  maintainAspectRatio: false,
+  plugins: {
+    ...chartOptions.plugins,
+    tooltip: {
+      callbacks: {
+        label: (context) => {
+          const value = context.parsed;
+          const total = context.dataset.data.reduce((a, b) => a + b, 0);
+          const percentage =
+            total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+          return `${context.label}: ${value.toLocaleString()} (${percentage}%)`;
         },
       },
     },
-  };
+  },
+};
 
   const topupsVsDeductionsData = {
     labels: Object.keys(sampleData.transaction_breakdown || {}),
@@ -420,16 +421,13 @@ const PrepaidAnalytical = ({ adminUser }) => {
     </div>
   </div>
 
-<div className="flex-1 flex flex-col bg-white border border-gray-200 rounded-xl p-4 min-h-[260px]">
-  <p className="text-xs font-medium text-gray-900 mb-2">
+<div className="w-full lg:w-80 bg-white border border-gray-200 rounded-xl p-4 flex flex-col">
+  <p className="text-xs font-medium text-gray-900 mb-1">
     Transaction Type Breakdown
   </p>
 
-  <div className="flex-1 w-full">
-    <Doughnut
-      data={topupsVsDeductionsData}
-      options={pieOptions}
-    />
+  <div className="relative w-full h-[220px]">
+    <Doughnut data={topupsVsDeductionsData} options={pieOptions} />
   </div>
 </div>
 </div>

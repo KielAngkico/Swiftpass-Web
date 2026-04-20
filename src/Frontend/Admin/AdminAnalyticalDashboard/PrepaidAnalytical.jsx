@@ -425,9 +425,11 @@ const PrepaidAnalytical = ({ adminUser }) => {
       Transaction Type Breakdown
     </p>
 
-    <div className="w-full h-40">
-      <Doughnut data={topupsVsDeductionsData} options={pieOptions} />
-    </div>
+<div className="w-full h-64 flex items-center justify-center">
+  <div className="w-56 h-56">
+    <Doughnut data={topupsVsDeductionsData} options={pieOptions} />
+  </div>
+</div>
   </div>
 </div>
 </div>

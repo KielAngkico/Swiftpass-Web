@@ -427,11 +427,12 @@ const pieOptions = {
   </p>
 
   <div className="flex-1 flex justify-center items-center">
-    <div className="w-40 h-40">
+    <div className="w-56 h-56"> {/* increase size here */}
       <Doughnut data={topupsVsDeductionsData} options={pieOptions} />
     </div>
   </div>
 </div>
+
 
 
 

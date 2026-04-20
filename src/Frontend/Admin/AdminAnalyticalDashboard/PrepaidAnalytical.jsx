@@ -393,37 +393,45 @@ const PrepaidAnalytical = ({ adminUser }) => {
           </div>
         </div>
       </div>
+<div className="flex flex-col lg:flex-row gap-5">
+  <div className="flex-1 bg-white border border-gray-200 rounded-xl p-4">
+    <p className="text-sm font-medium text-gray-900 mb-3">
+      Peak Hour Analysis (24 Hours)
+    </p>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-4">
-        <p className="text-sm font-medium text-gray-900 mb-3">Peak Hour Analysis (24 Hours)</p>
-        <div className="w-full h-52 sm:h-64">
-          <Line
-            data={scansByHourData}
-            options={{
-              ...chartOptions,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  ticks: { font: { size: 10 }, color: "#9CA3AF" },
-                  grid: { color: "#F3F4F6" },
-                },
-                x: {
-                  ticks: { font: { size: 10 }, color: "#9CA3AF" },
-                  grid: { display: false },
-                },
-              },
-            }}
-          />
-        </div>
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col">
-        <p className="text-xs font-medium text-gray-900 mb-1">Transaction Type Breakdown</p>
-        <div className="w-full h-40">
-          <Doughnut data={topupsVsDeductionsData} options={pieOptions} />
-        </div>
-      </div>
+    <div className="w-full h-52 sm:h-64">
+      <Line
+        data={scansByHourData}
+        options={{
+          ...chartOptions,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { font: { size: 10 }, color: "#9CA3AF" },
+              grid: { color: "#F3F4F6" },
+            },
+            x: {
+              ticks: { font: { size: 10 }, color: "#9CA3AF" },
+              grid: { display: false },
+            },
+          },
+        }}
+      />
     </div>
+  </div>
+
+  <div className="w-full lg:w-80 bg-white border border-gray-200 rounded-xl p-4 flex flex-col">
+    <p className="text-xs font-medium text-gray-900 mb-1">
+      Transaction Type Breakdown
+    </p>
+
+    <div className="w-full h-40">
+      <Doughnut data={topupsVsDeductionsData} options={pieOptions} />
+    </div>
+  </div>
+</div>
+</div>
+
   );
 };
 

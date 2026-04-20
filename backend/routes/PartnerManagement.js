@@ -369,20 +369,20 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
 // --- Get Admins ---
 router.get("/admins", async (_, res) => {
   try {
-    const [rows] = await query(`
-      SELECT 
-        a.id, a.admin_name, a.email, a.address, a.gym_name, a.system_type,
-        a.profile_image_url, a.rfid_tag, a.rfid_tag_2, a.is_archived,
-        a.subscription_start_date, a.subscription_end_date, a.package_id,
-        DATEDIFF(a.subscription_end_date, NOW()) as days_remaining,
-        sp.name as package_name,
-        sp.description as package_description,
-        sp.price as package_price,
-        sp.duration_days as package_duration
-      FROM AdminAccounts a
-      LEFT JOIN SubscriptionPackages sp ON a.package_id = sp.id
-      ORDER BY a.is_archived ASC, a.admin_name ASC
-    `);
+const [rows] = await query(`
+  SELECT 
+    a.id, a.admin_name, a.email, a.address, a.gym_name, a.gym_code, a.system_type,
+    a.profile_image_url, a.rfid_tag, a.rfid_tag_2, a.is_archived,
+    a.subscription_start_date, a.subscription_end_date, a.package_id,
+    DATEDIFF(a.subscription_end_date, NOW()) as days_remaining,
+    sp.name as package_name,
+    sp.description as package_description,
+    sp.price as package_price,
+    sp.duration_days as package_duration
+  FROM AdminAccounts a
+  LEFT JOIN SubscriptionPackages sp ON a.package_id = sp.id
+  ORDER BY a.is_archived ASC, a.admin_name ASC
+`);
     res.json(rows);
   } catch (err) {
     console.error("Get admins error:", err);

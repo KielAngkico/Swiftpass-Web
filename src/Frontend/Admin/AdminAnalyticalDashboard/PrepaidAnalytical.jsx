@@ -36,6 +36,14 @@ const padDataArray = (labels, data) => {
   return padded;
 };
 
+const FILTER_OPTIONS = [
+  { value: "today", label: "Today" },
+  { value: "this_week", label: "This Week" },
+  { value: "this_month", label: "This Month" },
+  { value: "all", label: "All Time" },
+  { value: "custom", label: "Custom" },
+];
+
 const PrepaidAnalytical = ({ adminUser }) => {
   const [adminId, setAdminId] = useState(null);
   const [analyticsData, setAnalyticsData] = useState(null);
@@ -44,7 +52,7 @@ const PrepaidAnalytical = ({ adminUser }) => {
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
-
+ const today = new Date().toISOString().split("T")[0];
   useEffect(() => {
     const fetchAdmin = async () => {
       try {
@@ -74,14 +82,12 @@ const PrepaidAnalytical = ({ adminUser }) => {
       try {
         setLoading(true);
         const params = { admin_id: adminId, system_type: "prepaid_entry" };
-        if (filterType === "custom") {
-          params.start_date = startDate;
-          params.end_date = endDate;
-        } else if (filterType === "today") {
-          params.range = "today";
-        } else {
-          params.range = "all";
-        }
+ if (filterType === "custom") {
+  params.start_date = startDate;
+  params.end_date = endDate;
+} else {
+  params.range = filterType; // sends "today", "this_week", "this_month", "all"
+}
         const { data } = await api.get("/api/prepaid-activity-analytics", { params });
         setAnalyticsData(data);
       } catch (err) {
@@ -226,28 +232,48 @@ const pieOptions = {
     );
   }
 
-  const today = new Date().toISOString().split("T")[0];
+ 
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex justify-between items-center">
-        <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
-          <label className="text-xs text-gray-500">Filter:</label>
-          <select
-            value={filterType}
-            onChange={(e) => {
-              setFilterType(e.target.value);
-              if (e.target.value !== "custom") {
-                setStartDate("");
-                setEndDate("");
-              }
+<div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+<div className="p-4 border-b border-gray-100 flex flex-wrap gap-2 items-center">    
+    {/* FILTERS */}
+    <div className="flex flex-wrap gap-2 items-center">
+      <div className="bg-gray-100 border border-gray-200 rounded-lg p-1 flex items-center gap-0.5">
+        
+        {FILTER_OPTIONS.filter((opt) => opt.value !== "custom").map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => {
+              setFilterType(opt.value);
+              setStartDate("");
+              setEndDate("");
             }}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              filterType === opt.value
+                ? "bg-white text-gray-900 border border-gray-200 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
           >
-            <option value="all">All</option>
-            <option value="today">Today</option>
-            <option value="custom">Custom</option>
-          </select>
+            {opt.label}
+          </button>
+        ))}
+
+        {/* CUSTOM */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setFilterType("custom")}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              filterType === "custom"
+                ? "bg-white text-gray-900 border border-gray-200 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Custom
+          </button>
+
           {filterType === "custom" && (
             <>
               <input
@@ -255,7 +281,7 @@ const pieOptions = {
                 value={startDate}
                 max={today}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white w-32"
               />
               <input
                 type="date"
@@ -264,11 +290,15 @@ const pieOptions = {
                 max={today}
                 disabled={!startDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white w-32 disabled:opacity-40 disabled:cursor-not-allowed"
               />
             </>
           )}
         </div>
+      </div>
+    </div>
+  </div>
+</div>
         <button
           onClick={handleDownloadPDF}
           disabled={!analyticsData}
@@ -401,23 +431,39 @@ const pieOptions = {
     </p>
 
     <div className="w-full h-52 sm:h-64">
-      <Line
-        data={scansByHourData}
-        options={{
-          ...chartOptions,
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: { font: { size: 10 }, color: "#9CA3AF" },
-              grid: { color: "#F3F4F6" },
-            },
-            x: {
-              ticks: { font: { size: 10 }, color: "#9CA3AF" },
-              grid: { display: false },
-            },
-          },
-        }}
-      />
+<Line
+  data={scansByHourData}
+  options={{
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => `Logins: ${ctx.parsed.y}`,
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        min: 0,
+        ticks: { font: { size: 10 }, color: "#9CA3AF", stepSize: 1, precision: 0 },
+        grid: { color: "#F3F4F6" },
+      },
+      x: {
+        ticks: {
+          font: { size: 9 },
+          color: "#9CA3AF",
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 12,
+        },
+        grid: { display: false },
+      },
+    },
+  }}
+/>
     </div>
   </div>
 

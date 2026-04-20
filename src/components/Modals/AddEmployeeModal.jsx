@@ -1,47 +1,38 @@
 import React, { useState, useEffect } from "react";
 import { API_URL } from "../../config";
 import { useWebSocket } from "../../contexts/WebSocketContext";
+import { useWebcam } from "../../hooks/useWebcam";
 
 const AddEmployeeModal = ({
-  isOpen,
-  onClose,
-  onEmployeeAdded,
-  onEmployeeUpdated,
-  adminId,
-  mode = "add",
-  editingEmployee = null,
-  showToast,
+  isOpen, onClose, onEmployeeAdded, onEmployeeUpdated,
+  adminId, mode = "add", editingEmployee = null, showToast,
 }) => {
-  const {
-    scanModeEnabled,
-    scannedRfidForStaff,
-    toggleScanMode,
-    clearScannedRfid
-  } = useWebSocket();
+  const { scanModeEnabled, scannedRfidForStaff, toggleScanMode, clearScannedRfid } = useWebSocket();
 
   const [formData, setFormData] = useState({
-    name: "",
-    age: "",
-    address: "",
-    contact_number: "",
-    email: "",
-    password: "pass123",
-    rfid_tag: "",
+    name: "", age: "", address: "", contact_number: "",
+    email: "", password: "pass123", rfid_tag: "",
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ✅ Webcam hook
+  const { isWebcamActive, videoRef, canvasRef, startWebcam, stopWebcam, capturePhoto } = useWebcam(showToast);
+
+  const handleCapturePhoto = () => {
+    capturePhoto((file, preview) => {
+      setImageFile(file);
+      setImagePreview(preview);
+    });
+  };
+
   useEffect(() => {
     if (mode === "edit" && editingEmployee && isOpen) {
       setFormData({
-        name: editingEmployee.name || "",
-        age: editingEmployee.age || "",
-        address: editingEmployee.address || "",
-        contact_number: editingEmployee.contact_number || "",
-        email: editingEmployee.email || "",
-        password: "",
-        rfid_tag: editingEmployee.rfid_tag || "",
+        name: editingEmployee.name || "", age: editingEmployee.age || "",
+        address: editingEmployee.address || "", contact_number: editingEmployee.contact_number || "",
+        email: editingEmployee.email || "", password: "", rfid_tag: editingEmployee.rfid_tag || "",
       });
       setImagePreview(editingEmployee.profile_image_url || null);
     } else if (mode === "add" && isOpen) {
@@ -54,10 +45,7 @@ const AddEmployeeModal = ({
   useEffect(() => {
     if (scannedRfidForStaff && isOpen) {
       const rfidTag = typeof scannedRfidForStaff === 'string' ? scannedRfidForStaff : scannedRfidForStaff.rfid_tag;
-      if (!rfidTag) {
-        showToast({ message: "Invalid RFID data received", type: "error" });
-        return;
-      }
+      if (!rfidTag) { showToast({ message: "Invalid RFID data received", type: "error" }); return; }
       setFormData(prev => ({ ...prev, rfid_tag: rfidTag }));
       clearScannedRfid();
       if (scanModeEnabled) toggleScanMode(false);
@@ -65,9 +53,13 @@ const AddEmployeeModal = ({
     }
   }, [scannedRfidForStaff, isOpen]);
 
+  // ✅ Stop webcam when modal closes
   useEffect(() => {
-    if (!isOpen && scanModeEnabled) toggleScanMode(false);
-  }, [isOpen, scanModeEnabled, toggleScanMode]);
+    if (!isOpen) {
+      if (scanModeEnabled) toggleScanMode(false);
+      if (isWebcamActive) stopWebcam();
+    }
+  }, [isOpen, scanModeEnabled, toggleScanMode, isWebcamActive, stopWebcam]);
 
   if (!isOpen) return null;
 
@@ -134,8 +126,7 @@ const AddEmployeeModal = ({
         }
 
         onEmployeeUpdated({
-          user_id: editingEmployee.user_id,
-          ...formData,
+          user_id: editingEmployee.user_id, ...formData,
           profile_image_url: data.profile_image_url || editingEmployee.profile_image_url
         });
       } else {
@@ -169,25 +160,13 @@ const AddEmployeeModal = ({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div
-        className="bg-white border border-gray-200 rounded-xl shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="bg-white border border-gray-200 rounded-xl shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 border-b border-gray-100 flex justify-between items-center">
           <div>
-            <h2 className="text-sm font-medium text-gray-900">
-              {mode === "edit" ? "Edit Employee" : "Add New Employee"}
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {mode === "edit" ? "Update employee details and RFID" : "Fill in the employee account details"}
-            </p>
+            <h2 className="text-sm font-medium text-gray-900">{mode === "edit" ? "Edit Employee" : "Add New Employee"}</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{mode === "edit" ? "Update employee details and RFID" : "Fill in the employee account details"}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center"
-          >
-            ×
-          </button>
+          <button onClick={onClose} className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center">×</button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5">
@@ -224,12 +203,7 @@ const AddEmployeeModal = ({
 
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Password</label>
-                <input
-                  type="text"
-                  value="pass123"
-                  readOnly
-                  className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-400 cursor-not-allowed"
-                />
+                <input type="text" value="pass123" readOnly className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-400 cursor-not-allowed" />
                 <p className="text-[11px] text-gray-400 mt-1">Default password — can be changed after login</p>
               </div>
 
@@ -239,61 +213,86 @@ const AddEmployeeModal = ({
                 </label>
                 <div className="flex gap-1.5">
                   <input
-                    type="text"
-                    name="rfid_tag"
-                    value={formData.rfid_tag}
-                    onChange={handleChange}
+                    type="text" name="rfid_tag" value={formData.rfid_tag} onChange={handleChange}
                     placeholder={scanModeEnabled ? "Scanning..." : mode === "edit" ? "Scan to replace RFID" : "Scan or enter manually"}
-                    className={`${fieldClass} flex-1`}
-                    readOnly={scanModeEnabled}
+                    className={`${fieldClass} flex-1`} readOnly={scanModeEnabled}
                   />
-                  <button
-                    type="button"
-                    onClick={handleScanRfid}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${
-                      scanModeEnabled
-                        ? "bg-blue-50 text-blue-600 border-blue-200 animate-pulse"
-                        : "bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
-                    }`}
-                  >
+                  <button type="button" onClick={handleScanRfid}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${scanModeEnabled ? "bg-blue-50 text-blue-600 border-blue-200 animate-pulse" : "bg-white text-blue-600 border-blue-200 hover:bg-blue-50"}`}>
                     {scanModeEnabled ? "Scanning..." : "Scan RFID"}
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col items-center gap-3">
-              <p className="text-xs font-medium text-gray-900 pb-2 border-b border-gray-100 w-full text-center">Profile Photo</p>
-              <div className="w-40 h-40 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center overflow-hidden">
-                {imagePreview ? (
-                  <img src={imagePreview} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-xs text-gray-400">No image</span>
-                )}
-              </div>
-              <label className="cursor-pointer bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 px-4 py-2 rounded-lg text-xs font-medium transition-colors">
-                Upload Picture
-                <input type="file" accept="image/*" onChange={handleChange} className="hidden" />
-              </label>
-            </div>
+            {/* ✅ Profile Photo Column with Camera */}
+{/* Profile Photo Column */}
+<div className="flex flex-col items-center gap-3">
+  <p className="text-xs font-medium text-gray-900 pb-2 border-b border-gray-100 w-full text-center">
+    Profile Photo
+  </p>
+
+  <div className="w-40 h-40 bg-gray-50 border border-gray-200 rounded-xl overflow-hidden flex items-center justify-center">
+    {isWebcamActive ? (
+      <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+    ) : imagePreview ? (
+      <img src={imagePreview} alt="Profile" className="w-full h-full object-cover" />
+    ) : (
+      <span className="text-xs text-gray-400">No image</span>
+    )}
+  </div>
+
+  <canvas ref={canvasRef} className="hidden" />
+
+  {/* ACTION BUTTONS */}
+  <div className="flex gap-2 w-full">
+    {!isWebcamActive ? (
+      <>
+        <button
+          type="button"
+          onClick={startWebcam}
+          className="flex-1 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors"
+        >
+          Open Camera
+        </button>
+
+        <label className="flex-1 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors cursor-pointer text-center">
+          Upload
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleChange}
+            className="hidden"
+          />
+        </label>
+      </>
+    ) : (
+      <>
+        <button
+          type="button"
+          onClick={handleCapturePhoto}
+          className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors"
+        >
+          Capture
+        </button>
+
+        <button
+          type="button"
+          onClick={stopWebcam}
+          className="flex-1 px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors"
+        >
+          Cancel
+        </button>
+      </>
+    )}
+  </div>
+</div>
           </div>
 
           <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-40"
-            >
-              {isSubmitting
-                ? (mode === "edit" ? "Updating..." : "Adding...")
-                : (mode === "edit" ? "Update Employee" : "Add Employee")}
+            <button type="button" onClick={onClose} className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors">Cancel</button>
+            <button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-40">
+              {isSubmitting ? (mode === "edit" ? "Updating..." : "Adding...") : (mode === "edit" ? "Update Employee" : "Add Employee")}
             </button>
           </div>
         </form>

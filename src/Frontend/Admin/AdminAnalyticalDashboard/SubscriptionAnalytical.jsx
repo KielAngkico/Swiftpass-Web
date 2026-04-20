@@ -28,6 +28,14 @@ ChartJS.register(
   Filler
 );
 
+const FILTER_OPTIONS = [
+  { value: "today", label: "Today" },
+  { value: "this_week", label: "This Week" },
+  { value: "this_month", label: "This Month" },
+  { value: "all", label: "All Time" },
+  { value: "custom", label: "Custom" },
+];
+
 const EMPTY_PIE_DATA = {
   labels: ["No Data"],
   datasets: [{ data: [1], backgroundColor: ["#E5E7EB"], borderWidth: 0 }],
@@ -42,14 +50,6 @@ const EMPTY_PIE_OPTIONS = {
   },
 };
 
-const padDataArray = (labels, data) => {
-  const padded = Array(labels.length).fill(0);
-  data.forEach((value, idx) => {
-    if (idx < padded.length) padded[idx] = value;
-  });
-  return padded;
-};
-
 const PIE_COLORS = ["#10B981", "#6366F1", "#F59E0B", "#8B5CF6", "#EC4899", "#14B8A6"];
 
 const SubscriptionAnalytical = () => {
@@ -60,6 +60,8 @@ const SubscriptionAnalytical = () => {
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
+
+  const today = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
     const fetchAdmin = async () => {
@@ -145,17 +147,12 @@ const SubscriptionAnalytical = () => {
         peakHour: "—",
         revenueCard: { labels: [], values: [] },
         transactionTypeBreakdown: { labels: [], values: [] },
-        peakHourAnalysis: { labels: [], values: [] },
+        peakHourAnalysis: { labels: Array.from({ length: 24 }, (_, i) => `${i}:00`), values: Array(24).fill(0) },
         revenueByMembershipType: { labels: [], values: [] },
         currentlyInside: [],
         topMembers: [],
       };
     }
-
-    const revenueCardLabels = analyticsData.revenueCard?.labels || [];
-    const transactionLabels = analyticsData.transactionTypeBreakdown?.labels || [];
-    const peakLabels = analyticsData.peakHourAnalysis?.labels || [];
-    const revenueByTypeLabels = analyticsData.revenueByMembershipType?.labels || [];
 
     return {
       totalRevenue: analyticsData.summary?.totalRevenue || 0,
@@ -164,23 +161,34 @@ const SubscriptionAnalytical = () => {
       totalTransactions: analyticsData.summary?.totalTransactions || 0,
       peakHour: analyticsData.summary?.peakHour || "—",
       revenueCard: {
-        labels: revenueCardLabels,
-        values: padDataArray(revenueCardLabels, analyticsData.revenueCard?.values || []),
+        labels: analyticsData.revenueCard?.labels || [],
+        values: analyticsData.revenueCard?.values || [],
       },
       transactionTypeBreakdown: {
-        labels: transactionLabels,
-        values: padDataArray(transactionLabels, analyticsData.transactionTypeBreakdown?.amounts || []),
+        labels: analyticsData.transactionTypeBreakdown?.labels || [],
+        values: analyticsData.transactionTypeBreakdown?.amounts || [],
       },
       peakHourAnalysis: {
-        labels: peakLabels,
-        values: padDataArray(peakLabels, analyticsData.peakHourAnalysis?.values || []),
+        labels: analyticsData.peakHourAnalysis?.labels || Array.from({ length: 24 }, (_, i) => `${i}:00`),
+        values: analyticsData.peakHourAnalysis?.values || Array(24).fill(0),
       },
       revenueByMembershipType: {
-        labels: revenueByTypeLabels,
-        values: padDataArray(revenueByTypeLabels, analyticsData.revenueByMembershipType?.values || []),
+        labels: analyticsData.revenueByMembershipType?.labels || [],
+        values: analyticsData.revenueByMembershipType?.values || [],
       },
-      currentlyInside: analyticsData.currentlyInside || [],
-      topMembers: analyticsData.topMembers || [],
+      // Fix: map backend field names correctly
+      currentlyInside: (analyticsData.currentlyInside || []).map((m) => ({
+        full_name: m.name || m.full_name,
+        entryTime: m.entryTime || m.entry_time,
+        visitor_type: m.visitorType || m.visitor_type,
+        rfid_tag: m.rfidTag || m.rfid_tag,
+      })),
+      topMembers: (analyticsData.topMembers || []).map((m) => ({
+        full_name: m.name || m.full_name,
+        rfidTag: m.rfidTag || m.rfid_tag,
+        profile_image_url: m.profileImageUrl || m.profile_image_url,
+        visitCount: m.visitCount,
+      })),
     };
   }, [analyticsData]);
 
@@ -230,20 +238,60 @@ const SubscriptionAnalytical = () => {
     ? { labels: sampleData.revenueByMembershipType.labels, datasets: [{ data: sampleData.revenueByMembershipType.values, backgroundColor: PIE_COLORS, borderWidth: 0 }] }
     : EMPTY_PIE_DATA;
 
+  // Peak hour chart — always renders 24 hours, line shows when data exists
   const peakLineData = {
-    labels: hasPeakData ? sampleData.peakHourAnalysis.labels : Array.from({ length: 24 }, (_, i) => `${i}:00`),
+    labels: sampleData.peakHourAnalysis.labels,
     datasets: [
       {
         label: "Check-ins",
-        data: hasPeakData ? sampleData.peakHourAnalysis.values : Array(24).fill(0),
+        data: sampleData.peakHourAnalysis.values,
         fill: true,
         backgroundColor: "rgba(139, 92, 246, 0.1)",
-        borderColor: hasPeakData ? "#8B5CF6" : "#D1D5DB",
+        borderColor: hasPeakData ? "#8B5CF6" : "#E5E7EB",
         tension: 0.4,
-        pointRadius: hasPeakData ? 4 : 0,
+        pointRadius: hasPeakData ? 3 : 0,
+        pointHoverRadius: hasPeakData ? 5 : 0,
         pointBackgroundColor: "#8B5CF6",
+        borderWidth: 2,
       },
     ],
+  };
+
+  const peakLineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        enabled: hasPeakData,
+        callbacks: {
+          label: (ctx) => `Check-ins: ${ctx.parsed.y}`,
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        min: 0,
+        ticks: {
+          font: { size: 10 },
+          color: "#9CA3AF",
+          stepSize: 1,
+          precision: 0,
+        },
+        grid: { color: "#F3F4F6" },
+      },
+      x: {
+        ticks: {
+          font: { size: 9 },
+          color: "#9CA3AF",
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 12,
+        },
+        grid: { display: false },
+      },
+    },
   };
 
   if (loading) {
@@ -254,28 +302,45 @@ const SubscriptionAnalytical = () => {
     );
   }
 
-  const today = new Date().toISOString().split("T")[0];
-
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex justify-between items-center">
-        <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
-          <label className="text-xs text-gray-500">Filter:</label>
-          <select
-            value={filterType}
-            onChange={(e) => {
-              setFilterType(e.target.value);
-              if (e.target.value !== "custom") {
-                setStartDate("");
-                setEndDate("");
-              }
+      {/* Filter Bar */}
+<div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+  <div className="p-4 border-b border-gray-100 flex flex-wrap gap-2 items-center">
+    
+    <div className="flex flex-wrap gap-2 items-center">
+      <div className="bg-gray-100 border border-gray-200 rounded-lg p-1 flex items-center gap-0.5">
+        
+        {FILTER_OPTIONS.filter((opt) => opt.value !== "custom").map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => {
+              setFilterType(opt.value);
+              setStartDate("");
+              setEndDate("");
             }}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              filterType === opt.value
+                ? "bg-white text-gray-900 border border-gray-200 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
           >
-            <option value="all">All</option>
-            <option value="today">Today</option>
-            <option value="custom">Custom</option>
-          </select>
+            {opt.label}
+          </button>
+        ))}
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setFilterType("custom")}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              filterType === "custom"
+                ? "bg-white text-gray-900 border border-gray-200 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Custom
+          </button>
+
           {filterType === "custom" && (
             <>
               <input
@@ -283,7 +348,7 @@ const SubscriptionAnalytical = () => {
                 value={startDate}
                 max={today}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white w-32"
               />
               <input
                 type="date"
@@ -292,20 +357,18 @@ const SubscriptionAnalytical = () => {
                 max={today}
                 disabled={!startDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white w-32 disabled:opacity-40 disabled:cursor-not-allowed"
               />
             </>
           )}
         </div>
-        <button
-          onClick={handleDownloadPDF}
-          disabled={!analyticsData}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          Download PDF
-        </button>
       </div>
+    </div>
 
+  </div>
+</div>
+
+      {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <KpiCard title="Total Revenue" value={`₱${sampleData.totalRevenue.toLocaleString()}`} color="text-green-600" />
         <KpiCard title="Members Inside" value={sampleData.membersInside} color="text-blue-600" />
@@ -314,6 +377,7 @@ const SubscriptionAnalytical = () => {
         <KpiCard title="Peak Hour" value={sampleData.peakHour} color="text-gray-700" />
       </div>
 
+      {/* Top Members + Currently Inside */}
       <div className="flex items-stretch gap-5">
         <div className="flex-1 min-w-0 bg-white border border-gray-200 rounded-xl p-4 flex flex-col">
           <div className="flex justify-between items-center mb-3">
@@ -329,11 +393,9 @@ const SubscriptionAnalytical = () => {
                 <div
                   key={member.rfidTag || i}
                   className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-center ${
-                    i === 0
-                      ? "bg-yellow-50 border-yellow-200"
-                      : i === 1
-                      ? "bg-gray-50 border-gray-200"
-                      : "bg-orange-50 border-orange-200"
+                    i === 0 ? "bg-yellow-50 border-yellow-200"
+                    : i === 1 ? "bg-gray-50 border-gray-200"
+                    : "bg-orange-50 border-orange-200"
                   }`}
                 >
                   <p className={`text-xs font-medium ${
@@ -352,10 +414,7 @@ const SubscriptionAnalytical = () => {
                   <p className="text-[10px] text-gray-400">{member.rfidTag}</p>
                 </div>
               ) : (
-                <div
-                  key={i}
-                  className="p-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-2 min-h-[160px]"
-                >
+                <div key={i} className="p-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-2 min-h-[160px]">
                   <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200" />
                   <p className="text-[10px] text-gray-400">No data</p>
                 </div>
@@ -422,30 +481,22 @@ const SubscriptionAnalytical = () => {
         </div>
       </div>
 
+      {/* Peak Hour Chart */}
       <div className="bg-white border border-gray-200 rounded-xl p-4">
-        <p className="text-sm font-medium text-gray-900 mb-3">Peak Hour Analysis (24 Hours)</p>
-        {!hasPeakData && <p className="text-xs text-gray-400 mb-2">No check-in data available for this period</p>}
+        <div className="flex justify-between items-center mb-3">
+          <p className="text-sm font-medium text-gray-900">Peak Hour Analysis (24 Hours)</p>
+          {!hasPeakData && (
+            <span className="text-xs text-gray-400 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-0.5">
+              No check-in data
+            </span>
+          )}
+        </div>
         <div className="w-full h-52 sm:h-64">
-          <Line
-            data={peakLineData}
-            options={{
-              ...chartOptions,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  ticks: { font: { size: 10 }, color: "#9CA3AF" },
-                  grid: { color: "#F3F4F6" },
-                },
-                x: {
-                  ticks: { font: { size: 10 }, color: "#9CA3AF" },
-                  grid: { display: false },
-                },
-              },
-            }}
-          />
+          <Line data={peakLineData} options={peakLineOptions} />
         </div>
       </div>
 
+      {/* Pie Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <MiniPieCard title="Revenue Breakdown" hasData={hasRevenueCard}>
           <Pie data={revenueCardData} options={hasRevenueCard ? pieOptions : EMPTY_PIE_OPTIONS} />

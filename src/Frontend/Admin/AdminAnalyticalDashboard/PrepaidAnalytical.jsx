@@ -420,17 +420,18 @@ const PrepaidAnalytical = ({ adminUser }) => {
     </div>
   </div>
 
-  <div className="w-full lg:w-80 bg-white border border-gray-200 rounded-xl p-4 flex flex-col">
-    <p className="text-xs font-medium text-gray-900 mb-1">
-      Transaction Type Breakdown
-    </p>
+<div className="flex-1 flex flex-col bg-white border border-gray-200 rounded-xl p-4 min-h-[260px]">
+  <p className="text-xs font-medium text-gray-900 mb-2">
+    Transaction Type Breakdown
+  </p>
 
-<div className="w-full h-64 flex items-center justify-center">
-  <div className="w-56 h-56">
-    <Doughnut data={topupsVsDeductionsData} options={pieOptions} />
+  <div className="flex-1 w-full">
+    <Doughnut
+      data={topupsVsDeductionsData}
+      options={pieOptions}
+    />
   </div>
 </div>
-  </div>
 </div>
 </div>
 

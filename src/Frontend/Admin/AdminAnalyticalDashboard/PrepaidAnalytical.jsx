@@ -426,10 +426,13 @@ const pieOptions = {
     Transaction Type Breakdown
   </p>
 
-  <div className="flex justify-center items-center w-full h-[220px]">
-    <Doughnut data={topupsVsDeductionsData} options={pieOptions} />
+  <div className="flex-1 flex justify-center items-center">
+    <div className="w-40 h-40">
+      <Doughnut data={topupsVsDeductionsData} options={pieOptions} />
+    </div>
   </div>
 </div>
+
 
 
 </div>

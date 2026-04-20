@@ -81,9 +81,8 @@ router.get("/analytics", async (req, res) => {
       [admin_id]
     );
 
-    const peakHour = peakHourResult.length
-      ? `${peakHourResult[0].hour}:00-${peakHourResult[0].hour + 1}:00`
-      : "N/A";
+const h = peakHourResult.length ? peakHourResult[0].hour : null;
+const peakHour = h !== null ? `${h}:00-${(h + 1) % 24}:00` : "N/A";
 
  
     const [revenueBreakdown] = await dbSuperAdmin.promise().query(

@@ -213,7 +213,7 @@ router.put("/replace-employee-rfid/:id", async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // Get current employee data
+    // Get current employee
     const [currentEmployee] = await conn.query(
       "SELECT rfid_tag, admin_id, staff_name FROM StaffAccounts WHERE id = ?",
       [employeeId]
@@ -228,66 +228,80 @@ router.put("/replace-employee-rfid/:id", async (req, res) => {
     const adminId = currentEmployee[0].admin_id;
     const staffName = currentEmployee[0].staff_name;
 
-    // Check if new RFID already assigned
     if (new_rfid_tag && new_rfid_tag.trim() !== "") {
+      // Check not already assigned to another staff under this admin
       const [existingRfid] = await conn.query(
         "SELECT * FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ? AND id != ?",
         [new_rfid_tag, adminId, employeeId]
       );
       if (existingRfid.length > 0) {
         await conn.rollback();
-        return res.status(400).json({ 
-          error: "RFID tag already assigned to another staff member under this admin." 
+        return res.status(400).json({
+          error: "RFID tag already assigned to another staff member under this admin."
+        });
+      }
+
+      // Check RFID exists in RegisteredRfid with role 'Partner'
+      const [rfidExists] = await conn.query(
+        "SELECT * FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Partner'",
+        [new_rfid_tag]
+      );
+      if (rfidExists.length === 0) {
+        await conn.rollback();
+        return res.status(400).json({
+          error: "RFID tag not found in registered Partner/Employee RFIDs."
+        });
+      }
+
+      // Check RFID is allocated to this admin
+      if (rfidExists[0].allocated_to_admin !== parseInt(adminId)) {
+        await conn.rollback();
+        return res.status(400).json({
+          error: "This RFID is not allocated to your account."
         });
       }
     }
 
-    // Update StaffAccounts
+    // Update StaffAccounts — only rfid_tag (no previous_rfid/replaced_by/replaced_at)
     await conn.query(
-      `UPDATE StaffAccounts
-       SET previous_rfid = ?,
-           rfid_tag = ?,
-           replaced_by = ?,
-           replaced_at = NOW()
-       WHERE id = ?`,
-      [oldRfid, new_rfid_tag || null, "Admin", employeeId]
+      "UPDATE StaffAccounts SET rfid_tag = ? WHERE id = ?",
+      [new_rfid_tag || null, employeeId]
     );
 
- // ✅ Clear old RFID in RegisteredRfid
-if (oldRfid) {
-  await conn.query(
-    `UPDATE RegisteredRfid 
-     SET assigned_to_id = NULL,
-         assigned_to_name = NULL,
-         assigned_to_type = NULL,
-         status = 'allocated',
-         assignment_date = NULL
-     WHERE rfid_tag = ? AND role = 'Partner'`,
-    [oldRfid]
-  );
-}
+    // Clear old RFID in RegisteredRfid
+    if (oldRfid) {
+      await conn.query(
+        `UPDATE RegisteredRfid 
+         SET assigned_to_id = NULL,
+             assigned_to_name = NULL,
+             assigned_to_type = NULL,
+             status = 'allocated',
+             assignment_date = NULL
+         WHERE rfid_tag = ? AND role = 'Partner'`,
+        [oldRfid]
+      );
+    }
 
-// ✅ Assign new RFID in RegisteredRfid
-if (new_rfid_tag && new_rfid_tag.trim() !== "") {
-  await conn.query(
-    `UPDATE RegisteredRfid 
-     SET assigned_to_id = ?,
-         assigned_to_name = ?,
-         assigned_to_type = 'Staff',
-         status = 'in_use',
-         assignment_date = NOW()
-     WHERE rfid_tag = ? AND role = 'Partner'`,
-    [employeeId, staffName, new_rfid_tag]
-  );
-}
+    // Assign new RFID in RegisteredRfid
+    if (new_rfid_tag && new_rfid_tag.trim() !== "") {
+      await conn.query(
+        `UPDATE RegisteredRfid 
+         SET assigned_to_id = ?,
+             assigned_to_name = ?,
+             assigned_to_type = 'Staff',
+             status = 'in_use',
+             assignment_date = NOW()
+         WHERE rfid_tag = ? AND role = 'Partner'`,
+        [employeeId, staffName, new_rfid_tag]
+      );
+    }
 
     await conn.commit();
 
     res.json({
       message: "RFID replaced successfully",
       old_rfid: oldRfid,
-      new_rfid: new_rfid_tag || null,
-      replaced_by: "Admin"
+      new_rfid: new_rfid_tag || null
     });
 
   } catch (error) {

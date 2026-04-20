@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import api from "../../../api";
 import { generateAnalyticsPDF } from "../../../utils/analyticalReport";
 import {
-Chart as ChartJS,
+  Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
@@ -13,10 +13,8 @@ Chart as ChartJS,
   Legend,
   Filler,
 } from "chart.js";
-import { Line, Pie, Bar, Doughnut } from "react-chartjs-2";
+import { Line, Pie, Doughnut } from "react-chartjs-2";
 import { useToast } from "../../../components/ToastManager";
-
-
 
 ChartJS.register(
   CategoryScale,
@@ -30,6 +28,20 @@ ChartJS.register(
   Filler
 );
 
+const EMPTY_PIE_DATA = {
+  labels: ["No Data"],
+  datasets: [{ data: [1], backgroundColor: ["#E5E7EB"], borderWidth: 0 }],
+};
+
+const EMPTY_PIE_OPTIONS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: { enabled: false },
+  },
+};
+
 const padDataArray = (labels, data) => {
   const padded = Array(labels.length).fill(0);
   data.forEach((value, idx) => {
@@ -38,6 +50,8 @@ const padDataArray = (labels, data) => {
   return padded;
 };
 
+const PIE_COLORS = ["#10B981", "#6366F1", "#F59E0B", "#8B5CF6", "#EC4899", "#14B8A6"];
+
 const SubscriptionAnalytical = () => {
   const [adminId, setAdminId] = useState(null);
   const [analyticsData, setAnalyticsData] = useState(null);
@@ -45,10 +59,7 @@ const SubscriptionAnalytical = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-    const { showToast } = useToast(); 
-  
-
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchAdmin = async () => {
@@ -58,8 +69,7 @@ const SubscriptionAnalytical = () => {
         if (!data.authenticated || !data.user) throw new Error("Not authenticated");
         setAdminId(data.user.adminId || data.user.id);
       } catch (err) {
-        console.error(" Error fetching admin:", err);
-        setError("Failed to authenticate");
+        console.error("Error fetching admin:", err);
         if (err.response?.status === 401) window.location.href = "/login";
       } finally {
         setLoading(false);
@@ -70,7 +80,6 @@ const SubscriptionAnalytical = () => {
 
   useEffect(() => {
     if (!adminId) return;
-
     if (filterType === "custom" && (!startDate || !endDate)) {
       setAnalyticsData(null);
       setLoading(false);
@@ -85,12 +94,11 @@ const SubscriptionAnalytical = () => {
           params.start_date = startDate;
           params.end_date = endDate;
         }
-
-const { data } = await api.get("/api/subscription-activity-analytics", { params });        setAnalyticsData(data);
-        setError(null);
+        const { data } = await api.get("/api/subscription-activity-analytics", { params });
+        setAnalyticsData(data);
       } catch (err) {
         console.error("Failed to load analytics:", err);
-  showToast({ message: "Failed to load analytics", type: "error" });
+        showToast({ message: "Failed to load analytics", type: "error" });
         setAnalyticsData(null);
       } finally {
         setLoading(false);
@@ -102,22 +110,16 @@ const { data } = await api.get("/api/subscription-activity-analytics", { params 
 
   const handleDownloadPDF = async () => {
     if (!analyticsData) {
-showToast({ message: "No members to download", type: "error" });
-
+      showToast({ message: "No data to download", type: "error" });
       return;
     }
-
     try {
-showToast({ message: "Generating PDF...", type: "info" });
-
+      showToast({ message: "Generating PDF...", type: "info" });
       const { data: meData } = await api.get("/api/me");
       if (!meData.authenticated || !meData.user) throw new Error("Not authenticated");
-
       const currentAdminId = meData.user.adminId || meData.user.id;
       if (!currentAdminId) throw new Error("Missing admin ID");
-
       const { data: gymInfo } = await api.get(`/api/gym-info/${currentAdminId}`);
-
       const filterData = {
         filter_type: filterType,
         start_date: filterType === "custom" ? startDate : undefined,
@@ -125,15 +127,11 @@ showToast({ message: "Generating PDF...", type: "info" });
         gym_name: gymInfo.gym_name,
         owner_name: gymInfo.admin_name,
       };
-
       const filename = await generateAnalyticsPDF(analyticsData, filterData);
-
-showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
-
+      showToast({ message: `PDF generated: ${filename}`, type: "success" });
     } catch (error) {
-      console.error("error generating PDF:", error);
-showToast({ message: "Failed to generate PDF", type: "error" });
-
+      console.error("Error generating PDF:", error);
+      showToast({ message: "Failed to generate PDF", type: "error" });
     }
   };
 
@@ -195,302 +193,286 @@ showToast({ message: "Failed to generate PDF", type: "error" });
   };
 
   const pieOptions = {
-    ...chartOptions,
+    responsive: true,
+    maintainAspectRatio: false,
     plugins: {
-      ...chartOptions.plugins,
+      legend: {
+        position: "bottom",
+        labels: { boxWidth: 8, boxHeight: 8, padding: 8, font: { size: 10 } },
+      },
       tooltip: {
         callbacks: {
           label: (context) => {
             const value = context.parsed;
             const total = context.dataset.data.reduce((a, b) => a + b, 0);
-            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-            return `${context.label}: ₱${value.toLocaleString()} (${percentage}%)`;
+            const pct = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+            return ` ${context.label}: ${pct}%`;
           },
         },
       },
     },
   };
 
-  const revenueCardData = {
-    labels: sampleData.revenueCard.labels,
-    datasets: [{
-      data: sampleData.revenueCard.values,
-      backgroundColor: ["#10B981", "#6366F1"],
-      borderWidth: 0,
-    }],
+  const hasRevenueCard = sampleData.revenueCard.values.some((v) => v > 0);
+  const hasTransaction = sampleData.transactionTypeBreakdown.values.some((v) => v > 0);
+  const hasRevenueByType = sampleData.revenueByMembershipType.values.some((v) => v > 0);
+  const hasPeakData = sampleData.peakHourAnalysis.values.some((v) => v > 0);
+
+  const revenueCardData = hasRevenueCard
+    ? { labels: sampleData.revenueCard.labels, datasets: [{ data: sampleData.revenueCard.values, backgroundColor: ["#10B981", "#6366F1"], borderWidth: 0 }] }
+    : EMPTY_PIE_DATA;
+
+  const transactionBreakdownData = hasTransaction
+    ? { labels: sampleData.transactionTypeBreakdown.labels, datasets: [{ data: sampleData.transactionTypeBreakdown.values, backgroundColor: ["#10B981", "#6366F1", "#F59E0B", "#8B5CF6"], borderWidth: 0 }] }
+    : EMPTY_PIE_DATA;
+
+  const revenueByTypeData = hasRevenueByType
+    ? { labels: sampleData.revenueByMembershipType.labels, datasets: [{ data: sampleData.revenueByMembershipType.values, backgroundColor: PIE_COLORS, borderWidth: 0 }] }
+    : EMPTY_PIE_DATA;
+
+  const peakLineData = {
+    labels: hasPeakData ? sampleData.peakHourAnalysis.labels : Array.from({ length: 24 }, (_, i) => `${i}:00`),
+    datasets: [
+      {
+        label: "Check-ins",
+        data: hasPeakData ? sampleData.peakHourAnalysis.values : Array(24).fill(0),
+        fill: true,
+        backgroundColor: "rgba(139, 92, 246, 0.1)",
+        borderColor: hasPeakData ? "#8B5CF6" : "#D1D5DB",
+        tension: 0.4,
+        pointRadius: hasPeakData ? 4 : 0,
+        pointBackgroundColor: "#8B5CF6",
+      },
+    ],
   };
 
-  const transactionBreakdownData = {
-    labels: sampleData.transactionTypeBreakdown.labels,
-    datasets: [{
-      data: sampleData.transactionTypeBreakdown.values,
-      backgroundColor: ["#10B981", "#6366F1", "#F59E0B", "#8B5CF6"],
-      borderWidth: 0,
-    }],
-  };
-
-  const peakHoursData = {
-    labels: sampleData.peakHourAnalysis.labels,
-    datasets: [{ label: "Check-ins", data: sampleData.peakHourAnalysis.values, backgroundColor: "#8B5CF6" }],
-  };
-
-  const revenueByTypeData = {
-    labels: sampleData.revenueByMembershipType.labels,
-    datasets: [{
-      label: "Revenue",
-      data: sampleData.revenueByMembershipType.values,
-      backgroundColor: ["#6366F1", "#8B5CF6", "#A78BFA", "#EC4899", "#F59E0B"],
-    }],
-  };
-
-  if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-600">Loading analytics...</div>;
+  if (loading) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <p className="text-xs text-gray-500">Loading analytics...</p>
+      </div>
+    );
+  }
 
   const today = new Date().toISOString().split("T")[0];
 
   return (
-    <div className="p-3 flex flex-col space-y-3 w-full min-h-screen">
-
-
-      <div className="flex flex-col gap-3">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-lg sm:text-xl font-semibold">Analytics Dashboard</h1>
-            <p className="text-xs text-gray-500">Summary of your activity and trends</p>
-          </div>
-          <button
-            onClick={handleDownloadPDF}
-            disabled={!analyticsData}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium shadow-sm"
-            title="Download PDF Report"
+    <div className="flex flex-col gap-5">
+      <div className="flex justify-between items-center">
+        <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
+          <label className="text-xs text-gray-500">Filter:</label>
+          <select
+            value={filterType}
+            onChange={(e) => {
+              setFilterType(e.target.value);
+              if (e.target.value !== "custom") {
+                setStartDate("");
+                setEndDate("");
+              }
+            }}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="12" y1="18" x2="12" y2="12"></line>
-              <line x1="9" y1="15" x2="15" y2="15"></line>
-            </svg>
-            <span className="hidden sm:inline">Download PDF</span>
-            <span className="sm:hidden">PDF</span>
-          </button>
+            <option value="all">All</option>
+            <option value="today">Today</option>
+            <option value="custom">Custom</option>
+          </select>
+          {filterType === "custom" && (
+            <>
+              <input
+                type="date"
+                value={startDate}
+                max={today}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <input
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                max={today}
+                disabled={!startDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              />
+            </>
+          )}
         </div>
-
-        <div className="flex items-center">
-          <div className="bg-white p-2 rounded-md shadow-sm inline-flex items-center gap-2">
-            <label className="text-xs text-gray-600">Filter:</label>
-
-            <select
-              value={filterType}
-              onChange={(e) => {
-                setFilterType(e.target.value);
-                if (e.target.value !== "custom") {
-                  setStartDate("");
-                  setEndDate("");
-                }
-              }}
-              className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              <option value="all">All</option>
-              <option value="today">Today</option>
-              <option value="custom">Custom</option>
-            </select>
-
-            {filterType === "custom" && (
-              <>
-                <input
-                  type="date"
-                  value={startDate}
-                  max={today}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-                <input
-                  type="date"
-                  value={endDate}
-                  min={startDate || undefined}
-                  max={today}
-                  disabled={!startDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                />
-              </>
-            )}
-          </div>
-        </div>
+        <button
+          onClick={handleDownloadPDF}
+          disabled={!analyticsData}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+        >
+          Download PDF
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <KpiCard title="Total Revenue" value={`₱${sampleData.totalRevenue.toLocaleString()}`} color="text-green-600" />
         <KpiCard title="Members Inside" value={sampleData.membersInside} color="text-blue-600" />
-        <KpiCard title="Day Pass Guests Inside" value={sampleData.dayPassInside} color="text-amber-600" />
+        <KpiCard title="Day Pass Guests" value={sampleData.dayPassInside} color="text-amber-600" />
         <KpiCard title="Total Transactions" value={sampleData.totalTransactions} color="text-purple-600" />
         <KpiCard title="Peak Hour" value={sampleData.peakHour} color="text-gray-700" />
       </div>
-      <div className="flex flex-col lg:flex-row gap-2">
-        <div className="lg:w-[60%] w-full">
-          <div className="bg-white p-3 rounded-md shadow-sm h-full">
-            <h2 className="text-sm font-semibold text-gray-800 mb-2">🏆 Top 3 Most Active Members</h2>
-            <div className="grid grid-cols-3 gap-3 text-center mt-2 text-[10px]">
-              {[1, 0, 2].map((i) => {
-                const member = sampleData.topMembers[i];
-                return member ? (
-                  <div
-                    key={member.rfidTag || i}
-                    className={`p-3 rounded shadow flex flex-col items-center gap-2 ${
-                      i === 0
-                        ? "bg-yellow-100 text-yellow-700 scale-105 z-10"
-                        : i === 1
-                        ? "bg-gray-200 text-gray-700"
-                        : "bg-orange-100 text-orange-700"
-                    }`}
-                  >
-                                      <div className="text-2xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</div>
-<img
-  src={member.profile_image_url || `https://swiftpasstech.com/uploads/members/default.jpg`}
-  alt={member.full_name}
-  className="w-16 h-16 object-cover rounded-full border"
-  onError={(e) => {
-    e.currentTarget.src = `https://swiftpasstech.com/uploads/members/default.jpg`;
-  }}
-/>
 
-                    <p className="font-semibold text-sm">{member.full_name}</p>
-                    <p className="text-[10px]">Visits: {member.login_count}</p>
-                    <p className="text-[10px] italic text-gray-500">{member.rfidTag}</p>
-                  </div>
-                ) : (
-                  <div key={i} className="p-3 rounded shadow bg-gray-50 flex items-center justify-center text-gray-400 text-xs min-h-[160px]">
-                    No data
-                  </div>
-                );
-              })}
-            </div>
+      <div className="flex items-stretch gap-5">
+        <div className="flex-1 min-w-0 bg-white border border-gray-200 rounded-xl p-4 flex flex-col">
+          <div className="flex justify-between items-center mb-3">
+            <p className="text-sm font-medium text-gray-900">Top 3 Most Active Members</p>
+            <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
+              {sampleData.topMembers.length} members
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-3 flex-1">
+            {[1, 0, 2].map((i) => {
+              const member = sampleData.topMembers[i];
+              return member ? (
+                <div
+                  key={member.rfidTag || i}
+                  className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-center ${
+                    i === 0
+                      ? "bg-yellow-50 border-yellow-200"
+                      : i === 1
+                      ? "bg-gray-50 border-gray-200"
+                      : "bg-orange-50 border-orange-200"
+                  }`}
+                >
+                  <p className={`text-xs font-medium ${
+                    i === 0 ? "text-yellow-700" : i === 1 ? "text-gray-500" : "text-orange-700"
+                  }`}>
+                    {i === 0 ? "1st" : i === 1 ? "2nd" : "3rd"}
+                  </p>
+                  <img
+                    src={member.profile_image_url || "https://swiftpasstech.com/uploads/members/default.jpg"}
+                    alt={member.full_name}
+                    className="w-14 h-14 object-cover rounded-full border border-gray-200"
+                    onError={(e) => { e.currentTarget.src = "https://swiftpasstech.com/uploads/members/default.jpg"; }}
+                  />
+                  <p className="text-xs font-medium text-gray-800 leading-tight">{member.full_name}</p>
+                  <p className="text-[10px] text-gray-500">Visits: {member.visitCount}</p>
+                  <p className="text-[10px] text-gray-400">{member.rfidTag}</p>
+                </div>
+              ) : (
+                <div
+                  key={i}
+                  className="p-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-2 min-h-[160px]"
+                >
+                  <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200" />
+                  <p className="text-[10px] text-gray-400">No data</p>
+                </div>
+              );
+            })}
           </div>
         </div>
-        <div id="transactionTypeChart" className="lg:w-[40%] w-full">
-          <ChartCard title="Transaction Type Breakdown">
-            <Doughnut data={transactionBreakdownData} options={pieOptions} />
-          </ChartCard>
-        </div>
-      </div>
-      <div className="flex flex-col lg:flex-row gap-2">
-        <div id="revenueChart" className="lg:w-[40%] w-full">
-          <ChartCard title="Revenue Breakdown (Cash vs Cashless)">
-            <Pie data={revenueCardData} options={pieOptions} />
-          </ChartCard>
-        </div>
-        <div id="membershipTypeChart" className="lg:w-[60%] w-full">
-          <ChartCard title="Revenue by Membership Type">
-            <Bar data={revenueByTypeData} options={chartOptions} />
-          </ChartCard>
-        </div>
-      </div>
-      <div className="flex flex-col lg:flex-row gap-2">
-        <div id="peakHourChart" className="lg:w-[60%] w-full">
-          <ChartCard title="Peak Hour Analysis (24 Hours)">
-            <Line 
-              data={{
-                labels: sampleData.peakHourAnalysis.labels,
-                datasets: [
-                  {
-                    label: "Check-ins",
-                    data: sampleData.peakHourAnalysis.values,
-                    fill: true,
-                    backgroundColor: "rgba(139, 92, 246, 0.2)",
-                    borderColor: "#8B5CF6",
-                    tension: 0.4,
-                    pointRadius: 4,
-                    pointBackgroundColor: "#8B5CF6",
-                  },
-                ],
-              }}
-              options={{
-                ...chartOptions,
-                scales: {
-                  y: { beginAtZero: true },
-                },
-              }}
-            />
-          </ChartCard>
-        </div>
 
-        <div className="lg:w-[40%] w-full">
-          <div className="bg-white rounded-md shadow-sm p-3 h-full">
-            <h2 className="text-sm font-semibold text-gray-800 mb-2">
-              👥 Currently Inside ({sampleData.currentlyInside.length})
-            </h2>
-            <div className="overflow-y-auto max-h-[250px]">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-white">
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Name</th>
-                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">RFID</th>
-                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Type</th>
-                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Entry</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sampleData.currentlyInside.length > 0 ? (
-                    sampleData.currentlyInside.map((member, idx) => (
-                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                        <td className="py-2 px-3 text-xs text-gray-800">{member.full_name}</td>
-                        <td className="py-2 px-3 text-xs text-gray-600">{member.rfidTag}</td>
-                        <td className="py-2 px-3">
-                          <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-medium ${
-                            member.visitorType === "Member" 
-                              ? "bg-blue-100 text-blue-700" 
-                              : "bg-amber-100 text-amber-700"
-                          }`}>
-                            {member.visitor_type}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3 text-xs text-gray-600">
-                          {new Date(member.entryTime).toLocaleString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="4" className="py-4 text-center text-gray-500 text-xs">
-                        No one is currently inside
+        <div className="w-80 flex-shrink-0 bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
+          <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100">
+            <p className="text-sm font-medium text-gray-900">Currently Inside</p>
+            <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
+              {sampleData.currentlyInside.length}
+            </span>
+          </div>
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Name</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Type</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Entry</th>
+              </tr>
+            </thead>
+          </table>
+          <div className="overflow-y-auto flex-1">
+            <table className="w-full">
+              <tbody className="divide-y divide-gray-50">
+                {sampleData.currentlyInside.length > 0 ? (
+                  sampleData.currentlyInside.map((member, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 text-xs font-medium text-gray-800">{member.full_name}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] border ${
+                          member.visitor_type === "Member"
+                            ? "bg-blue-50 text-blue-700 border-blue-100"
+                            : "bg-amber-50 text-amber-700 border-amber-100"
+                        }`}>
+                          {member.visitor_type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-400">
+                        {new Date(member.entryTime).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="3">
+                      <div className="flex flex-col items-center justify-center py-10 gap-2">
+                        <div className="w-10 h-10 rounded-full bg-gray-100 border border-gray-200" />
+                        <p className="text-xs text-gray-400">No one is currently inside</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <p className="text-sm font-medium text-gray-900 mb-3">Peak Hour Analysis (24 Hours)</p>
+        {!hasPeakData && <p className="text-xs text-gray-400 mb-2">No check-in data available for this period</p>}
+        <div className="w-full h-52 sm:h-64">
+          <Line
+            data={peakLineData}
+            options={{
+              ...chartOptions,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: { font: { size: 10 }, color: "#9CA3AF" },
+                  grid: { color: "#F3F4F6" },
+                },
+                x: {
+                  ticks: { font: { size: 10 }, color: "#9CA3AF" },
+                  grid: { display: false },
+                },
+              },
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <MiniPieCard title="Revenue Breakdown" hasData={hasRevenueCard}>
+          <Pie data={revenueCardData} options={hasRevenueCard ? pieOptions : EMPTY_PIE_OPTIONS} />
+        </MiniPieCard>
+        <MiniPieCard title="Revenue by Membership Type" hasData={hasRevenueByType}>
+          <Pie data={revenueByTypeData} options={hasRevenueByType ? pieOptions : EMPTY_PIE_OPTIONS} />
+        </MiniPieCard>
+        <MiniPieCard title="Transaction Breakdown" hasData={hasTransaction}>
+          <Doughnut data={transactionBreakdownData} options={hasTransaction ? pieOptions : EMPTY_PIE_OPTIONS} />
+        </MiniPieCard>
       </div>
     </div>
   );
 };
 
 const KpiCard = ({ title, value, color }) => (
-  <div className="bg-white p-3 rounded-md shadow-sm">
-    <h2 className="text-xs text-gray-500">{title}</h2>
-    <p className={`text-lg font-bold ${color}`}>{value}</p>
+  <div className="bg-white border border-gray-200 rounded-xl p-4">
+    <p className="text-xs text-gray-500">{title}</p>
+    <p className={`text-lg font-semibold mt-0.5 ${color}`}>{value}</p>
   </div>
 );
 
-const ChartCard = ({ title, children }) => (
-  <div className="bg-white p-3 rounded-md shadow-sm h-full">
-    <h2 className="text-sm font-semibold text-gray-800 mb-2">{title}</h2>
-    <div className="w-full h-52 sm:h-64">{children}</div>
+const MiniPieCard = ({ title, hasData, children }) => (
+  <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col">
+    <p className="text-xs font-medium text-gray-900 mb-1">{title}</p>
+    {!hasData && <p className="text-[11px] text-gray-400 mb-2">No data available</p>}
+    <div className="w-full h-40">{children}</div>
   </div>
 );
 

@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import { FiMenu, FiUsers, FiPieChart, FiFileText } from "react-icons/fi";
+import { NavLink } from "react-router-dom";
+import { FiMenu, FiUsers, FiPieChart, FiBarChart2, FiShoppingCart, FiPackage } from "react-icons/fi";
 import { IoPricetagOutline } from "react-icons/io5";
 import { useAuth } from "../App";
 
 const OwnerSidebar = () => {
   const { user } = useAuth();
-  const location = useLocation();
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const stored = sessionStorage.getItem("owner-sidebar-collapsed");
@@ -14,23 +13,63 @@ const OwnerSidebar = () => {
   });
 
   useEffect(() => {
-    sessionStorage.setItem("owner-sidebar-collapsed", JSON.stringify(isCollapsed));
+    sessionStorage.setItem(
+      "owner-sidebar-collapsed",
+      JSON.stringify(isCollapsed)
+    );
   }, [isCollapsed]);
 
-  const toggleSidebar = () => setIsCollapsed(prev => !prev);
+  const toggleSidebar = () => setIsCollapsed((prev) => !prev);
 
   const navItems = useMemo(() => {
     if (!user) return [];
+
     return [
-      { path: "/Admin/AdminAnalyticalDashboard", label: "Dashboard", icon: <FiPieChart /> },
-      { path: "/Admin/TransactionsReport", label: "Sales Report", icon: <FiFileText /> },
-      { path: "/Admin/MyOrders", label: "My Orders", icon: <FiFileText /> },
-      { path: "/Admin/MyRfidInventory", label: "My Rfid Inventory", icon: <FiFileText /> },
-      { path: "/Admin/ActivityAnalytics", label: "Activity Analytics", icon: <FiFileText /> },
-      { path: "/Admin/AdminViewMembers", label: "Members Directory", icon: <FiUsers /> },
-      { path: "/Admin/PricingManagement", label: "Pricing", icon: <IoPricetagOutline /> },
-      { path: "/Admin/staffManagement", label:"Employees Management", icon: <FiUsers /> },
-      { path: "/Admin/StaffActivityLogs", label:"Employees Activity", icon: <FiUsers /> },
+      {
+        path: "/Admin/AdminAnalyticalDashboard",
+        label: "Dashboard",
+        icon: <FiPieChart />,
+      },
+      {
+        path: "/Admin/TransactionsReport",
+        label: "Sales Report",
+        icon: <FiBarChart2 />,
+      },
+      {
+        path: "/Admin/MyOrders",
+        label: "My Orders",
+        icon: <FiShoppingCart />,
+      },
+      {
+        path: "/Admin/MyRfidInventory",
+        label: "RFID Inventory",
+        icon: <FiPackage />,
+      },
+      {
+        path: "/Admin/ActivityAnalytics",
+        label: "Activity Analytics",
+        icon: <FiBarChart2 />,
+      },
+      {
+        path: "/Admin/AdminViewMembers",
+        label: "Members Directory",
+        icon: <FiUsers />,
+      },
+      {
+        path: "/Admin/PricingManagement",
+        label: "Pricing",
+        icon: <IoPricetagOutline />,
+      },
+      {
+        path: "/Admin/staffManagement",
+        label: "Employees Management",
+        icon: <FiUsers />,
+      },
+      {
+        path: "/Admin/StaffActivityLogs",
+        label: "Employees Activity",
+        icon: <FiUsers />,
+      },
     ];
   }, [user]);
 
@@ -45,9 +84,12 @@ const OwnerSidebar = () => {
         {!isCollapsed && (
           <div>
             <h2 className="text-sm font-bold text-white">Admin Panel</h2>
-            {user && <p className="text-xs text-gray-300 truncate">{user.name}</p>}
+            {user && (
+              <p className="text-xs text-gray-300 truncate">{user.name}</p>
+            )}
           </div>
         )}
+
         <button
           onClick={toggleSidebar}
           className="p-2 hover:bg-blue-800 text-white rounded-full"
@@ -73,10 +115,13 @@ const OwnerSidebar = () => {
                 }
               >
                 <span className="text-sm">{icon}</span>
-                {!isCollapsed && <span className="ml-3">{label}</span>}
+
+                {!isCollapsed && (
+                  <span className="ml-3">{label}</span>
+                )}
               </NavLink>
 
-              {/* Hover tooltip when collapsed */}
+              {/* Tooltip when collapsed */}
               {isCollapsed && (
                 <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-white text-gray-900 text-xs px-2 py-1 rounded shadow opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                   {label}

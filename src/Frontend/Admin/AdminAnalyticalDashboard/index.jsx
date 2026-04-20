@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import OwnerSidebar from "../../../components/OwnerSidebar";
-import PrepaidAnalytical from "./PrepaidAnalytical"; 
+import PrepaidAnalytical from "./PrepaidAnalytical";
 import SubscriptionAnalytical from "./SubscriptionAnalytical";
-import api from "../../../api"; 
+import api from "../../../api";
 
 const AdminAnalyticalDashboard = () => {
   const [adminUser, setAdminUser] = useState(null);
@@ -17,7 +17,6 @@ const AdminAnalyticalDashboard = () => {
         setError(null);
 
         const { data } = await api.get("/api/me");
-        console.log("📥 Admin info response (Dashboard):", data);
 
         if (!data.authenticated || !data.user) {
           throw new Error("Not authenticated");
@@ -28,15 +27,11 @@ const AdminAnalyticalDashboard = () => {
         }
 
         setAdminUser(data.user);
-
-        const stype = data.user.systemType || data.user.system_type || "";
-        setSystemType(stype);
-        console.log("🔍 System type:", stype);
+        setSystemType(data.user.systemType || data.user.system_type || "");
       } catch (err) {
-        console.error("❌ Failed to fetch admin info:", err);
         setError(err.message || "Failed to fetch admin info");
 
-        if (err.response?.status === 401) {
+        if (err?.response?.status === 401) {
           window.location.href = "/login";
         }
       } finally {
@@ -47,62 +42,75 @@ const AdminAnalyticalDashboard = () => {
     fetchAdmin();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex">
-        <OwnerSidebar />
-        <div className="flex-1 p-6 text-center py-12">
-          <div className="text-4xl mb-4">⏳</div>
-          <p className="text-gray-600">Loading Analytical Dashboard...</p>
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-xs text-gray-500">
+            Loading Analytical Dashboard...
+          </p>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (error) {
-    return (
-      <div className="flex">
-        <OwnerSidebar />
-        <div className="flex-1 p-6 text-center py-12">
-          <div className="text-6xl mb-4">❌</div>
-          <h2 className="text-2xl font-bold text-red-600 mb-2">Error</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
+    if (error) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <h2 className="text-sm font-medium text-red-600 mb-2">Error</h2>
+          <p className="text-xs text-gray-500 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
           >
             Try Again
           </button>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (!systemType) {
-    return (
-      <div className="flex">
-        <OwnerSidebar />
-        <div className="flex-1 p-6 text-center py-12 text-gray-600">
-          Unknown system type. Please contact support.
+    if (!systemType) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-xs text-gray-500">
+            Unknown system type. Please contact support.
+          </p>
         </div>
+      );
+    }
+
+    if (systemType === "prepaid_entry") {
+      return <PrepaidAnalytical adminUser={adminUser} />;
+    }
+
+    if (systemType === "subscription") {
+      return <SubscriptionAnalytical adminUser={adminUser} />;
+    }
+
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <p className="text-xs text-gray-500">
+          Unknown system type: "{systemType}"
+        </p>
       </div>
     );
-  }
+  };
 
   return (
-    <div className="flex">
+    <div className="flex min-h-screen bg-gray-50">
       <OwnerSidebar />
-      <div className="flex-1 p-4">
-        {systemType === "prepaid_entry" ? (
-          <PrepaidAnalytical adminUser={adminUser} />
-        ) : systemType === "subscription" ? (
-          <SubscriptionAnalytical adminUser={adminUser} />
-        ) : (
-          <div className="text-gray-600">
-            Unknown system type: "{systemType}". Please contact support.
-          </div>
-        )}
-      </div>
+
+      <main className="flex-1 min-w-0 p-6">
+        <div className="mb-5">
+          <h1 className="text-xl font-semibold text-gray-900">
+            Analytical Dashboard
+          </h1>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Summary of your activity and trends
+          </p>
+        </div>
+
+        {renderContent()}
+      </main>
     </div>
   );
 };

@@ -18,6 +18,7 @@ const AddClient = () => {
   const [originalRfid2, setOriginalRfid2] = useState("");
   const [pendingRegistrations, setPendingRegistrations] = useState([]);
   const [showRegistrations, setShowRegistrations] = useState(true);
+  const [activeTab, setActiveTab] = useState("active");
 
   const [formData, setFormData] = useState({
     admin_name: "",
@@ -123,23 +124,23 @@ const AddClient = () => {
       }
     }
 
-setFormData({
-  admin_name: registration.admin_name || "",
-  address: registration.address || "",
-  email: registration.email || "",
-  password: registration.password || "pass123",
-  gym_name: registration.gym_name || "",
-  gym_code: registration.gym_code || "",
-  system_type: registration.system_type || "",
-  package_id: registration.package_id ? String(registration.package_id) : "",  // ← ensure it's a string
-  payment_method: "Cash",
-  reference_number: "",
-  profile_image_url: imageFile,
-  rfid_tag: "",
-  rfid_tag_2: "",
-  packages: packages,        // ← make sure these are passed
-  paymentOptions: paymentOptions,
-});
+    setFormData({
+      admin_name: registration.admin_name || "",
+      address: registration.address || "",
+      email: registration.email || "",
+      password: registration.password || "pass123",
+      gym_name: registration.gym_name || "",
+      gym_code: registration.gym_code || "",
+      system_type: registration.system_type || "",
+      package_id: registration.package_id ? String(registration.package_id) : "",
+      payment_method: "Cash",
+      reference_number: "",
+      profile_image_url: imageFile,
+      rfid_tag: "",
+      rfid_tag_2: "",
+      packages: packages,
+      paymentOptions: paymentOptions,
+    });
 
     setModalMode("registration");
     setEditingAdmin({ registrationNumber: registration.registration_number });
@@ -210,116 +211,114 @@ setFormData({
     }, 10000);
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
-      // Update general info
-      const formPayload = new FormData();
-      formPayload.append("admin_name", formData.admin_name);
-      formPayload.append("email", formData.email);
-      formPayload.append("address", formData.address);
-      formPayload.append("gym_name", formData.gym_name);
-      formPayload.append("gym_code", formData.gym_code || "");
-      formPayload.append("system_type", formData.system_type);
-      if (formData.password) formPayload.append("password", formData.password);
-      if (formData.profile_image_url instanceof File) {
-        formPayload.append("profile_image_url", formData.profile_image_url);
-      }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
+        const formPayload = new FormData();
+        formPayload.append("admin_name", formData.admin_name);
+        formPayload.append("email", formData.email);
+        formPayload.append("address", formData.address);
+        formPayload.append("gym_name", formData.gym_name);
+        formPayload.append("gym_code", formData.gym_code || "");
+        formPayload.append("system_type", formData.system_type);
+        if (formData.password) formPayload.append("password", formData.password);
+        if (formData.profile_image_url instanceof File) {
+          formPayload.append("profile_image_url", formData.profile_image_url);
+        }
 
-      await axios.put(`${API_URL}/api/update-admin/${editingAdmin.id}`, formPayload, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      // Also update RFIDs if changed
-      const rfid1Changed = formData.rfid_tag !== originalRfid;
-      const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
-      if ((rfid1Changed && formData.rfid_tag) || (rfid2Changed && formData.rfid_tag_2)) {
-        await axios.put(`${API_URL}/api/update-admin-rfid/${editingAdmin.id}`, {
-          new_rfid_tag: formData.rfid_tag || null,
-          new_rfid_tag_2: formData.rfid_tag_2 || null,
+        await axios.put(`${API_URL}/api/update-admin/${editingAdmin.id}`, formPayload, {
+          headers: { "Content-Type": "multipart/form-data" },
         });
+
+        const rfid1Changed = formData.rfid_tag !== originalRfid;
+        const rfid2Changed = formData.rfid_tag_2 !== originalRfid2;
+        if ((rfid1Changed && formData.rfid_tag) || (rfid2Changed && formData.rfid_tag_2)) {
+          await axios.put(`${API_URL}/api/update-admin-rfid/${editingAdmin.id}`, {
+            new_rfid_tag: formData.rfid_tag || null,
+            new_rfid_tag_2: formData.rfid_tag_2 || null,
+          });
+        }
+
+        showToast({ message: "Partner updated successfully!", type: "success" });
+
+        setAdmins(admins.map((admin) =>
+          admin.id === editingAdmin.id
+            ? {
+                ...admin,
+                admin_name: formData.admin_name,
+                email: formData.email,
+                address: formData.address,
+                gym_name: formData.gym_name,
+                gym_code: formData.gym_code,
+                system_type: formData.system_type,
+                rfid_tag: formData.rfid_tag,
+                rfid_tag_2: formData.rfid_tag_2,
+              }
+            : admin
+        ));
+
+      } else {
+        const formPayload = new FormData();
+        formPayload.append("admin_name", formData.admin_name);
+        formPayload.append("address", formData.address);
+        formPayload.append("email", formData.email);
+        formPayload.append("password", formData.password);
+        formPayload.append("gym_name", formData.gym_name);
+        formPayload.append("gym_code", formData.gym_code || "");
+        formPayload.append("system_type", formData.system_type);
+        formPayload.append("package_id", formData.package_id || "");
+        formPayload.append("payment_method", formData.payment_method || "Cash");
+        formPayload.append("reference_number", formData.reference_number || "");
+        if (formData.profile_image_url) {
+          formPayload.append("profile_image_url", formData.profile_image_url);
+        }
+
+        const response = await axios.post(`${API_URL}/api/add-client`, formPayload, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        showToast({ message: "Partner added successfully!", type: "success" });
+
+        if (modalMode === "registration" && editingAdmin?.registrationNumber) {
+          await axios.delete(`${API_URL}/api/pending-registrations/${editingAdmin.registrationNumber}`);
+          fetchPendingRegistrations();
+        }
+
+        setAdmins([...admins, {
+          id: response.data.id,
+          admin_name: formData.admin_name,
+          address: formData.address,
+          email: formData.email,
+          gym_name: formData.gym_name,
+          gym_code: formData.gym_code || "",
+          system_type: formData.system_type,
+          package_id: formData.package_id,
+          profile_image_url: response.data.profile_image_url || null,
+          rfid_tag: null,
+          rfid_tag_2: null,
+          is_archived: 0,
+        }]);
       }
 
-      showToast({ message: "Partner updated successfully!", type: "success" });
-
-      setAdmins(admins.map((admin) =>
-        admin.id === editingAdmin.id
-          ? {
-              ...admin,
-              admin_name: formData.admin_name,
-              email: formData.email,
-              address: formData.address,
-              gym_name: formData.gym_name,
-              gym_code: formData.gym_code,
-              system_type: formData.system_type,
-              rfid_tag: formData.rfid_tag,
-              rfid_tag_2: formData.rfid_tag_2,
-            }
-          : admin
-      ));
-
-    } else {
-      const formPayload = new FormData();
-      formPayload.append("admin_name", formData.admin_name);
-      formPayload.append("address", formData.address);
-      formPayload.append("email", formData.email);
-      formPayload.append("password", formData.password);
-      formPayload.append("gym_name", formData.gym_name);
-      formPayload.append("gym_code", formData.gym_code || "");
-      formPayload.append("system_type", formData.system_type);
-      formPayload.append("package_id", formData.package_id || "");
-      formPayload.append("payment_method", formData.payment_method || "Cash");
-      formPayload.append("reference_number", formData.reference_number || "");
-      if (formData.profile_image_url) {
-        formPayload.append("profile_image_url", formData.profile_image_url);
-      }
-
-      const response = await axios.post(`${API_URL}/api/add-client`, formPayload, {
-        headers: { "Content-Type": "multipart/form-data" },
+      setShowAddForm(false);
+      setEditingAdmin(null);
+      setModalMode("add");
+      setWaitingForSlot(null);
+      setOriginalRfid("");
+      setOriginalRfid2("");
+      disablePartnerScanMode();
+      setFormData({
+        admin_name: "", address: "", email: "", password: "",
+        gym_name: "", gym_code: "", system_type: "", package_id: "",
+        payment_method: "Cash", reference_number: "",
+        profile_image_url: null, rfid_tag: "", rfid_tag_2: "",
+        packages: packages, paymentOptions: paymentOptions,
       });
-
-      showToast({ message: "Partner added successfully!", type: "success" });
-
-      if (modalMode === "registration" && editingAdmin?.registrationNumber) {
-        await axios.delete(`${API_URL}/api/pending-registrations/${editingAdmin.registrationNumber}`);
-        fetchPendingRegistrations();
-      }
-
-      setAdmins([...admins, {
-        id: response.data.id,
-        admin_name: formData.admin_name,
-        address: formData.address,
-        email: formData.email,
-        gym_name: formData.gym_name,
-        gym_code: formData.gym_code || "",
-        system_type: formData.system_type,
-        package_id: formData.package_id,
-        profile_image_url: response.data.profile_image_url || null,
-        rfid_tag: null,
-        rfid_tag_2: null,
-        is_archived: 0,
-      }]);
+    } catch (error) {
+      showToast({ message: `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`, type: "error" });
     }
-
-    setShowAddForm(false);
-    setEditingAdmin(null);
-    setModalMode("add");
-    setWaitingForSlot(null);
-    setOriginalRfid("");
-    setOriginalRfid2("");
-    disablePartnerScanMode();
-    setFormData({
-      admin_name: "", address: "", email: "", password: "",
-      gym_name: "", gym_code: "", system_type: "", package_id: "",
-      payment_method: "Cash", reference_number: "",
-      profile_image_url: null, rfid_tag: "", rfid_tag_2: "",
-      packages: packages, paymentOptions: paymentOptions,
-    });
-  } catch (error) {
-    showToast({ message: `Failed to ${modalMode === "edit" ? "update" : "add"} partner. Please try again.`, type: "error" });
-  }
-};
+  };
 
   const handleEdit = (admin) => {
     setEditingAdmin(admin);
@@ -352,7 +351,7 @@ const handleSubmit = async (e) => {
     showConfirm(`Are you sure you want to ${action} this partner?`, async () => {
       try {
         await axios.put(`${API_URL}/api/${endpoint}/${id}`);
-setAdmins(admins.map((admin) => admin.id === id ? { ...admin, is_archived: isArchived ? 0 : 1 } : admin));
+        setAdmins(admins.map((admin) => admin.id === id ? { ...admin, is_archived: isArchived ? 0 : 1 } : admin));
         showToast({ message: `Partner ${action}d successfully!`, type: "success" });
       } catch (error) {
         showToast({ message: `Failed to ${action} partner. Please try again.`, type: "error" });
@@ -408,6 +407,12 @@ setAdmins(admins.map((admin) => admin.id === id ? { ...admin, is_archived: isArc
 
   const activePartners = admins.filter(a => !a.is_archived);
   const archivedPartners = admins.filter(a => a.is_archived);
+  const displayedAdmins = activeTab === "active" ? activePartners : archivedPartners;
+
+  const tabs = [
+    { id: "active", label: "Active Partners", count: activePartners.length },
+    { id: "archived", label: "Archived Partners", count: archivedPartners.length },
+  ];
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -419,6 +424,7 @@ setAdmins(admins.map((admin) => admin.id === id ? { ...admin, is_archived: isArc
           <p className="text-xs text-gray-500 mt-0.5">Manage gym partners and their account information</p>
         </div>
 
+        {/* Pending Registrations */}
         {pendingRegistrations.length > 0 && (
           <div className="mb-6 bg-white border border-gray-200 rounded-xl p-4">
             <div className="flex justify-between items-center mb-3">
@@ -473,26 +479,34 @@ setAdmins(admins.map((admin) => admin.id === id ? { ...admin, is_archived: isArc
           </div>
         )}
 
-<div className="flex justify-between items-center mb-3">
-  <button
-    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
-    onClick={() => { setModalMode("add"); setEditingAdmin(null); setShowAddForm(true); }}
-  >
-    Add New Partner
-  </button>
+        {/* Tabs + Add Button Row */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="bg-gray-100 border border-gray-200 rounded-lg p-1 flex gap-0.5">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  activeTab === tab.id
+                    ? "bg-white text-gray-900 border border-gray-200 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {tab.label}
+                <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-1.5 py-0.5 leading-none">
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
 
-  <div className="flex items-center gap-2">
-    <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
-      {activePartners.length} {activePartners.length === 1 ? "partner" : "partners"}
-    </span>
-
-    {archivedPartners.length > 0 && (
-      <span className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-full px-2.5 py-0.5">
-        {archivedPartners.length} archived
-      </span>
-    )}
-  </div>
-</div>
+          <button
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+            onClick={() => { setModalMode("add"); setEditingAdmin(null); setShowAddForm(true); }}
+          >
+            Add New Partner
+          </button>
+        </div>
 
         <AddPartnerModal
           isOpen={showAddForm}
@@ -512,62 +526,119 @@ setAdmins(admins.map((admin) => admin.id === id ? { ...admin, is_archived: isArc
           onEdit={handleEdit}
         />
 
-        {admins.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
-            <p className="text-xs font-medium text-gray-400 mb-1">No partners yet</p>
-            <p className="text-xs text-gray-400">Add your first partner to get started</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
-            {admins.map((admin) => (
-              <div
-                key={admin.id}
-                className={`bg-white border rounded-xl flex flex-col transition-all ${
-                  admin.is_archived
-                    ? "border-red-200 ring-1 ring-red-100 opacity-75"
-                    : "border-gray-200 hover:border-blue-300 hover:shadow-sm"
-                }`}
-              >
-                {admin.profile_image_url && (
-                  <img
-                    src={`${API_URL}${admin.profile_image_url}`}
-                    alt={admin.gym_name}
-                    className="w-full h-28 object-cover rounded-t-xl"
-                  />
-                )}
-
-                <div className="p-4 flex flex-col flex-1">
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="text-xs font-medium text-gray-900 truncate flex-1">{admin.gym_name}</p>
-                    {admin.gym_code && (
-                      <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5 whitespace-nowrap flex-shrink-0">
-                        {admin.gym_code}
-                      </span>
+        {/* Active Tab */}
+        {activeTab === "active" && (
+          <>
+            {activePartners.length === 0 ? (
+              <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+                <p className="text-xs font-medium text-gray-400 mb-1">No active partners yet</p>
+                <p className="text-xs text-gray-400 mb-3">Add your first partner to get started</p>
+                <button
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+                  onClick={() => { setModalMode("add"); setEditingAdmin(null); setShowAddForm(true); }}
+                >
+                  Add Partner
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+                {activePartners.map((admin) => (
+                  <div
+                    key={admin.id}
+                    className="bg-white border border-gray-200 rounded-xl flex flex-col hover:border-blue-300 hover:shadow-sm transition-all"
+                  >
+                    {admin.profile_image_url && (
+                      <img
+                        src={`${API_URL}${admin.profile_image_url}`}
+                        alt={admin.gym_name}
+                        className="w-full h-28 object-cover rounded-t-xl"
+                      />
                     )}
+                    <div className="p-4 flex flex-col flex-1">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <p className="text-xs font-medium text-gray-900 truncate flex-1">{admin.gym_name}</p>
+                        {admin.gym_code && (
+                          <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5 whitespace-nowrap flex-shrink-0">
+                            {admin.gym_code}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-400 truncate mb-0.5">{admin.admin_name}</p>
+                      <p className="text-[11px] text-gray-400 line-clamp-2 mb-auto">{admin.address}</p>
+                      <span className="mt-2 text-[11px] bg-green-50 text-green-600 border border-green-100 rounded-full px-2 py-0.5 w-fit">
+                        Active
+                      </span>
+                      <div className="flex gap-1.5 mt-auto pt-2.5 border-t border-gray-100">
+                        <button
+                          className="flex-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
+                          onClick={() => setSelectedAdmin(admin)}
+                        >
+                          View
+                        </button>
+                        <button
+                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
+                          onClick={() => handleEdit(admin)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="flex-1 bg-white text-red-500 border border-red-100 hover:bg-red-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
+                          onClick={() => handleArchive(admin.id, admin.is_archived)}
+                        >
+                          Archive
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-gray-400 truncate mb-0.5">{admin.admin_name}</p>
-                  <p className="text-[11px] text-gray-400 line-clamp-2 mb-auto">{admin.address}</p>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
-{admin.is_archived ? (
-  <span className="mt-2 text-[11px] bg-red-50 text-red-600 border border-red-100 rounded-full px-2 py-0.5 w-fit">
-    Archived
-  </span>
-) : (
-  <span className="mt-2 text-[11px] bg-green-50 text-green-600 border border-green-100 rounded-full px-2 py-0.5 w-fit">
-    Active
-  </span>
-)}
-
-                  <div className="flex gap-1.5 mt-auto pt-2.5 border-t border-gray-100">
-                    <button
-                      className="flex-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
-                      onClick={() => setSelectedAdmin(admin)}
-                    >
-                      View
-                    </button>
-
-                    {admin.is_archived ? (
-                      <>
+        {/* Archived Tab */}
+        {activeTab === "archived" && (
+          <>
+            {archivedPartners.length === 0 ? (
+              <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+                <p className="text-xs font-medium text-gray-400 mb-1">No archived partners</p>
+                <p className="text-xs text-gray-400">Archived partners will appear here</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+                {archivedPartners.map((admin) => (
+                  <div
+                    key={admin.id}
+                    className="bg-white border border-red-200 ring-1 ring-red-100 rounded-xl flex flex-col opacity-80"
+                  >
+                    {admin.profile_image_url && (
+                      <img
+                        src={`${API_URL}${admin.profile_image_url}`}
+                        alt={admin.gym_name}
+                        className="w-full h-28 object-cover rounded-t-xl"
+                      />
+                    )}
+                    <div className="p-4 flex flex-col flex-1">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <p className="text-xs font-medium text-gray-900 truncate flex-1">{admin.gym_name}</p>
+                        {admin.gym_code && (
+                          <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5 whitespace-nowrap flex-shrink-0">
+                            {admin.gym_code}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-400 truncate mb-0.5">{admin.admin_name}</p>
+                      <p className="text-[11px] text-gray-400 line-clamp-2 mb-auto">{admin.address}</p>
+                      <span className="mt-2 text-[11px] bg-red-50 text-red-600 border border-red-100 rounded-full px-2 py-0.5 w-fit">
+                        Archived
+                      </span>
+                      <div className="flex gap-1.5 mt-auto pt-2.5 border-t border-gray-100">
+                        <button
+                          className="flex-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
+                          onClick={() => setSelectedAdmin(admin)}
+                        >
+                          View
+                        </button>
                         <button
                           className="flex-1 bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
                           onClick={() => handleArchive(admin.id, admin.is_archived)}
@@ -580,28 +651,13 @@ setAdmins(admins.map((admin) => admin.id === id ? { ...admin, is_archived: isArc
                         >
                           Delete
                         </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
-                          onClick={() => handleEdit(admin)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="flex-1 bg-white text-red-500 border border-red-100 hover:bg-red-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"
-                          onClick={() => handleArchive(admin.id, admin.is_archived)}
-                        >
-                          Archive
-                        </button>
-                      </>
-                    )}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>

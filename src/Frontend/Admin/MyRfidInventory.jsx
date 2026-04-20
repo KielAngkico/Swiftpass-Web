@@ -31,7 +31,6 @@ const MyRfidsInventory = () => {
 
   useEffect(() => {
     if (!user?.id && !user?.adminId) return;
-
     const fetchInventory = async () => {
       try {
         setLoading(true);
@@ -49,11 +48,8 @@ const MyRfidsInventory = () => {
     fetchInventory();
   }, [user]);
 
-  // Apply filters
   useEffect(() => {
     let filtered = inventory.rfids || [];
-
-    // Search by warehouse number or assigned name
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -63,122 +59,88 @@ const MyRfidsInventory = () => {
           rfid.rfid_tag?.toLowerCase().includes(term)
       );
     }
-
-    // Filter by type (role)
-    if (filterType !== "All") {
-      filtered = filtered.filter((rfid) => rfid.role === filterType);
-    }
-
-    // Filter by status (available/in use)
-    if (filterStatus === "Available") {
-      filtered = filtered.filter((rfid) => !rfid.assigned_to_name);
-    } else if (filterStatus === "In Use") {
-      filtered = filtered.filter((rfid) => rfid.assigned_to_name);
-    }
-
+    if (filterType !== "All") filtered = filtered.filter((rfid) => rfid.role === filterType);
+    if (filterStatus === "Available") filtered = filtered.filter((rfid) => !rfid.assigned_to_name);
+    else if (filterStatus === "In Use") filtered = filtered.filter((rfid) => rfid.assigned_to_name);
     setFilteredRfids(filtered);
   }, [searchTerm, filterType, filterStatus, inventory.rfids]);
 
   const getRoleLabel = (role) => {
-    const labels = {
-      Member: "Member",
-      Partner: "Staff/Admin",
-      DayPass: "DayPass",
-    };
+    const labels = { Member: "Member", Partner: "Staff/Admin", DayPass: "Day Pass" };
     return labels[role] || role;
   };
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+  const getRoleBadge = (role) => {
+    const config = {
+      Member: "bg-blue-50 text-blue-700 border-blue-100",
+      Partner: "bg-purple-50 text-purple-700 border-purple-100",
+      DayPass: "bg-amber-50 text-amber-700 border-amber-100",
+    };
+    return config[role] || "bg-gray-100 text-gray-500 border-gray-200";
   };
+
+  const formatDate = (date) =>
+    new Date(date).toLocaleDateString("en-US", {
+      month: "short", day: "numeric", year: "numeric",
+    });
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       <OwnerSidebar />
-      <main className="flex-1 p-5">
-        <div className="mb-6">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
-            My RFID Inventory
-          </h2>
-          <p className="text-xs text-gray-500">
-            Manage and track your RFID assets
-          </p>
+      <main className="flex-1 min-w-0 p-6">
+        <div className="mb-5">
+          <h1 className="text-xl font-semibold text-gray-900">My RFID Inventory</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Manage and track your RFID assets</p>
         </div>
 
-        {/* KPI Cards - Simple Black & White */}
         {!loading && inventory.stats && (
-          <div className="mb-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-white border-2 border-black rounded p-4">
-              <h3 className="text-xs text-gray-600 mb-1 font-semibold">Total RFIDs</h3>
-              <p className="text-2xl font-bold text-black">
-                {inventory.stats.total || 0}
-              </p>
-              <p className="text-xs text-gray-600 mt-1">
-                {inventory.stats.in_use || 0} in use • {inventory.stats.available || 0} available
-              </p>
-            </div>
-
-            <div className="bg-white border-2 border-black rounded p-4">
-              <h3 className="text-xs text-gray-600 mb-1 font-semibold">Staff RFIDs</h3>
-              <p className="text-2xl font-bold text-black">
-                {inventory.stats.staff_left || 0}
-              </p>
-              <p className="text-xs text-gray-600 mt-1">
-                available of {inventory.stats.staff_total || 0}
-              </p>
-            </div>
-
-            <div className="bg-white border-2 border-black rounded p-4">
-              <h3 className="text-xs text-gray-600 mb-1 font-semibold">Member RFIDs</h3>
-              <p className="text-2xl font-bold text-black">
-                {inventory.stats.member_left || 0}
-              </p>
-              <p className="text-xs text-gray-600 mt-1">
-                available of {inventory.stats.member_total || 0}
-              </p>
-            </div>
-
-            <div className="bg-white border-2 border-black rounded p-4">
-              <h3 className="text-xs text-gray-600 mb-1 font-semibold">DayPass RFIDs</h3>
-              <p className="text-2xl font-bold text-black">
-                {inventory.stats.daypass_left || 0}
-              </p>
-              <p className="text-xs text-gray-600 mt-1">
-                available of {inventory.stats.daypass_total || 0}
-              </p>
-            </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+            <KpiCard
+              title="Total RFIDs"
+              value={inventory.stats.total || 0}
+              sub={`${inventory.stats.in_use || 0} in use · ${inventory.stats.available || 0} available`}
+            />
+            <KpiCard
+              title="Staff RFIDs"
+              value={inventory.stats.staff_left || 0}
+              sub={`available of ${inventory.stats.staff_total || 0}`}
+            />
+            <KpiCard
+              title="Member RFIDs"
+              value={inventory.stats.member_left || 0}
+              sub={`available of ${inventory.stats.member_total || 0}`}
+            />
+            <KpiCard
+              title="Day Pass RFIDs"
+              value={inventory.stats.daypass_left || 0}
+              sub={`available of ${inventory.stats.daypass_total || 0}`}
+            />
           </div>
         )}
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div className="inline-flex flex-wrap items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 mb-5">
+          <label className="text-xs text-gray-500">Filter:</label>
           <input
             type="text"
-            placeholder="🔍 Search warehouse #, name, or tag"
-            className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm placeholder:text-gray-400 bg-white"
+            placeholder="Search warehouse, name, or tag"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
-
           <select
-            className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm bg-white"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="All">All Types</option>
             <option value="Member">Members</option>
             <option value="Partner">Staff/Admin</option>
-            <option value="DayPass">DayPass</option>
+            <option value="DayPass">Day Pass</option>
           </select>
-
           <select
-            className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm bg-white"
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="All">All Status</option>
             <option value="Available">Available Only</option>
@@ -186,65 +148,53 @@ const MyRfidsInventory = () => {
           </select>
         </div>
 
-        {/* RFID Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-[10px] sm:text-xs text-left border-collapse">
-            <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-[10px]">
-              <tr>
-                <th className="px-3 py-2">#</th>
-                <th className="px-3 py-2">Warehouse #</th>
-                <th className="px-3 py-2">RFID Tag</th>
-                <th className="px-3 py-2">Type</th>
-                <th className="px-3 py-2">Allocated To</th>
-                <th className="px-3 py-2">Received Date</th>
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">#</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Warehouse No.</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">RFID Tag</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Type</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Allocated To</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Received Date</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-50">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="px-3 py-6 text-center bg-white">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin h-6 w-6 border-b-2 border-gray-600 rounded-full"></div>
-                      <span className="ml-2 text-gray-500 text-xs">
-                        Loading inventory...
-                      </span>
-                    </div>
+                  <td colSpan="6" className="px-4 py-8 text-center">
+                    <p className="text-xs text-gray-400">Loading inventory...</p>
                   </td>
                 </tr>
               ) : filteredRfids.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan="6"
-                    className="px-3 py-6 text-center bg-white text-xs text-gray-400"
-                  >
-                    No RFIDs found
+                  <td colSpan="6" className="px-4 py-8 text-center">
+                    <p className="text-xs text-gray-400">No RFIDs found</p>
                   </td>
                 </tr>
               ) : (
-                filteredRfids.map((rfid, index) => (
-                  <tr
-                    key={rfid.id}
-                    className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                  >
-                    <td className="px-3 py-2 text-gray-600">
-                      {rfid.customer_number || "-"}
+                filteredRfids.map((rfid) => (
+                  <tr key={rfid.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-xs text-gray-400">{rfid.customer_number || "—"}</td>
+                    <td className="px-4 py-3 text-xs font-medium text-gray-800 font-mono">{rfid.warehouse_number}</td>
+                    <td className="px-4 py-3 text-xs text-gray-600 font-mono">{rfid.rfid_tag}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] border font-medium ${getRoleBadge(rfid.role)}`}>
+                        {getRoleLabel(rfid.role)}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 font-mono font-semibold text-gray-800">
-                      {rfid.warehouse_number}
+                    <td className="px-4 py-3 text-xs text-gray-800">
+                      {rfid.assigned_to_name ? (
+                        rfid.assigned_to_name
+                      ) : (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[11px] border bg-green-50 text-green-700 border-green-100 font-medium">
+                          Available
+                        </span>
+                      )}
                     </td>
-                    <td className="px-3 py-2 font-mono text-gray-700">
-                      {rfid.rfid_tag}
-                    </td>
-                    <td className="px-3 py-2 text-gray-800">
-                      {getRoleLabel(rfid.role)}
-                    </td>
-                    <td className="px-3 py-2 text-gray-800">
-                      {rfid.assigned_to_name || "-"}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {rfid.allocation_date
-                        ? formatDate(rfid.allocation_date)
-                        : "-"}
+                    <td className="px-4 py-3 text-xs text-gray-400">
+                      {rfid.allocation_date ? formatDate(rfid.allocation_date) : "—"}
                     </td>
                   </tr>
                 ))
@@ -256,5 +206,13 @@ const MyRfidsInventory = () => {
     </div>
   );
 };
+
+const KpiCard = ({ title, value, sub }) => (
+  <div className="bg-white border border-gray-200 rounded-xl p-4">
+    <p className="text-xs text-gray-500">{title}</p>
+    <p className="text-lg font-semibold text-gray-900 mt-0.5">{value}</p>
+    <p className="text-[11px] text-gray-400 mt-1">{sub}</p>
+  </div>
+);
 
 export default MyRfidsInventory;

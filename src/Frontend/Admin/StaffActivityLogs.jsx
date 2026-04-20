@@ -19,7 +19,7 @@ const StaffActivityLogs = () => {
   const [endDate, setEndDate] = useState(null);
 
   const navigate = useNavigate();
-  const { showToast } = useToast(); 
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -36,7 +36,6 @@ const StaffActivityLogs = () => {
 
   useEffect(() => {
     if (!user?.id && !user?.adminId) return;
-
     const fetchActivityLogs = async () => {
       try {
         setLoading(true);
@@ -54,271 +53,192 @@ const StaffActivityLogs = () => {
     fetchActivityLogs();
   }, [user]);
 
-  // Apply filters
   useEffect(() => {
     let filtered = activityLogs;
-
-    // Search by staff name
-    if (searchTerm) {
+    if (searchTerm)
       filtered = filtered.filter((log) =>
         log.staff_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-    }
-
-    // Filter by location
-    if (filterLocation !== "All") {
+    if (filterLocation !== "All")
       filtered = filtered.filter((log) => log.location === filterLocation);
-    }
-
-    // Filter by activity type
-    if (filterActivity !== "All") {
+    if (filterActivity !== "All")
       filtered = filtered.filter((log) => log.activity_type === filterActivity);
-    }
-
-    // Filter by date range
-    if (startDate) {
-      filtered = filtered.filter(
-        (log) => new Date(log.timestamp) >= startDate
-      );
-    }
-
-    if (endDate) {
-      filtered = filtered.filter(
-        (log) => new Date(log.timestamp) <= endDate
-      );
-    }
-
+    if (startDate)
+      filtered = filtered.filter((log) => new Date(log.timestamp) >= startDate);
+    if (endDate)
+      filtered = filtered.filter((log) => new Date(log.timestamp) <= endDate);
     setFilteredLogs(filtered);
   }, [searchTerm, filterLocation, filterActivity, startDate, endDate, activityLogs]);
 
-const handleDownloadPDF = async () => {
-  if (filteredLogs.length === 0) {
-    showToast({ message: "No activity data to download", type: "error" });
-    return;
-  }
-
-  try {
-    showToast({ message: "Generating PDF...", type: "info" });
-
-    const { data: meData } = await api.get("/api/me");
-    if (!meData.authenticated || !meData.user) {
-      throw new Error("Not authenticated");
+  const handleDownloadPDF = async () => {
+    if (filteredLogs.length === 0) {
+      showToast({ message: "No activity data to download", type: "error" });
+      return;
     }
+    try {
+      showToast({ message: "Generating PDF...", type: "info" });
+      const { data: meData } = await api.get("/api/me");
+      if (!meData.authenticated || !meData.user) throw new Error("Not authenticated");
+      const currentAdminId = meData.user.adminId || meData.user.id;
+      if (!currentAdminId) throw new Error("Missing admin ID");
+      const { data: gymInfo } = await api.get(`/api/gym-info/${currentAdminId}`);
+      const logsData = {
+        logs: filteredLogs,
+        total_activities: filteredLogs.length,
+        total_entries: filteredLogs.filter((log) => log.activity_type === "ENTRY").length,
+        total_exits: filteredLogs.filter((log) => log.activity_type === "EXIT").length,
+      };
+      const filterData = {
+        gym_name: gymInfo.gym_name,
+        owner_name: gymInfo.admin_name,
+        start_date: startDate ? startDate.toISOString().split("T")[0] : null,
+        end_date: endDate ? endDate.toISOString().split("T")[0] : null,
+        filter_location: filterLocation !== "All" ? filterLocation : null,
+        filter_activity: filterActivity !== "All" ? filterActivity : null,
+        search_term: searchTerm || null,
+      };
+      const filename = generateStaffActivityLogsPDF(logsData, filterData);
+      showToast({ message: `PDF generated successfully: ${filename}`, type: "success" });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      showToast({ message: "Failed to generate PDF", type: "error" });
+    }
+  };
 
-    const currentAdminId = meData.user.adminId || meData.user.id;
-    if (!currentAdminId) throw new Error("Missing admin ID");
-
-    const { data: gymInfo } = await api.get(`/api/gym-info/${currentAdminId}`);
-
-    const logsData = {
-      logs: filteredLogs,
-      total_activities: filteredLogs.length,
-      total_entries: filteredLogs.filter((log) => log.activity_type === "ENTRY").length,
-      total_exits: filteredLogs.filter((log) => log.activity_type === "EXIT").length
-    };
-
-    const filterData = {
-      gym_name: gymInfo.gym_name,
-      owner_name: gymInfo.admin_name,
-      start_date: startDate ? startDate.toISOString().split("T")[0] : null,
-      end_date: endDate ? endDate.toISOString().split("T")[0] : null,
-      filter_location: filterLocation !== "All" ? filterLocation : null,
-      filter_activity: filterActivity !== "All" ? filterActivity : null,
-      search_term: searchTerm || null
-    };
-
-    const filename = generateStaffActivityLogsPDF(logsData, filterData);
-
-    showToast({
-      message: `PDF generated successfully: ${filename}`,
-      type: "success"
-    });
-  } catch (error) {
-    console.error(" Error generating PDF:", error);
-    showToast({
-      message: "Failed to generate PDF",
-      type: "error"
-    });
-  }
-};
+  const totalEntries = filteredLogs.filter((log) => log.activity_type === "ENTRY").length;
+  const totalExits = filteredLogs.filter((log) => log.activity_type === "EXIT").length;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       <OwnerSidebar />
-      <main className="flex-1 p-5">
-
-        <div className="mb-6 flex justify-between items-start">
+      <main className="flex-1 min-w-0 p-6">
+        <div className="flex justify-between items-start mb-5">
           <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
-              Staff Activity Logs
-            </h2>
-            <p className="text-xs text-gray-500">
-              Track staff entry and exit activities
-            </p>
+            <h1 className="text-xl font-semibold text-gray-900">Staff Activity Logs</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Track staff entry and exit activities</p>
           </div>
-
           <button
             onClick={handleDownloadPDF}
             disabled={filteredLogs.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium shadow-sm"
-            title="Download PDF Report"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="12" y1="18" x2="12" y2="12"></line>
-              <line x1="9" y1="15" x2="15" y2="15"></line>
-            </svg>
-            <span className="hidden sm:inline">Download PDF</span>
-            <span className="sm:hidden">PDF</span>
+            Download PDF
           </button>
         </div>
 
-        {/* Summary Stats */}
         {!loading && filteredLogs.length > 0 && (
-          <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-white shadow p-3 rounded text-center">
-              <h3 className="text-xs text-gray-600">Total Activities</h3>
-              <p className="text-base sm:text-lg font-bold text-gray-800">
-                {filteredLogs.length}
-              </p>
-            </div>
-            <div className="bg-white shadow p-3 rounded text-center">
-              <h3 className="text-xs text-gray-600">Entries</h3>
-              <p className="text-base sm:text-lg font-bold text-green-600">
-                {filteredLogs.filter((log) => log.activity_type === "ENTRY").length}
-              </p>
-            </div>
-            <div className="bg-white shadow p-3 rounded text-center">
-              <h3 className="text-xs text-gray-600">Exits</h3>
-              <p className="text-base sm:text-lg font-bold text-orange-600">
-                {filteredLogs.filter((log) => log.activity_type === "EXIT").length}
-              </p>
-            </div>
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            <KpiCard title="Total Activities" value={filteredLogs.length} color="text-gray-900" />
+            <KpiCard title="Entries" value={totalEntries} color="text-green-600" />
+            <KpiCard title="Exits" value={totalExits} color="text-amber-600" />
           </div>
         )}
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 mb-4">
+        <div className="inline-flex flex-wrap items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 mb-5">
+          <label className="text-xs text-gray-500">Filter:</label>
           <input
             type="text"
-            placeholder="🔍 Search Staff Name"
-            className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm placeholder:text-gray-400 bg-white"
+            placeholder="Search staff name"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
-
           <select
-            className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm bg-white"
             value={filterLocation}
             onChange={(e) => setFilterLocation(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="All">All Locations</option>
             <option value="ENTRY">Entry</option>
             <option value="EXIT">Exit</option>
           </select>
-
           <select
-            className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm bg-white"
             value={filterActivity}
             onChange={(e) => setFilterActivity(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="All">All Activities</option>
             <option value="ENTRY">Entry</option>
             <option value="EXIT">Exit</option>
           </select>
-
           <DatePicker
             selected={startDate}
             onChange={(date) => setStartDate(date)}
             maxDate={new Date()}
             dateFormat="yyyy-MM-dd"
-            className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm bg-white"
-            placeholderText="Start Date"
+            placeholderText="Start date"
             isClearable
+            className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
-
           <DatePicker
             selected={endDate}
             onChange={(date) => setEndDate(date)}
             minDate={startDate}
             maxDate={new Date()}
             dateFormat="yyyy-MM-dd"
-            className="w-full p-2 border border-gray-300 rounded text-xs sm:text-sm bg-white"
-            placeholderText="End Date"
+            placeholderText="End date"
             isClearable
+            className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
 
-        {/* Activity Logs Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-[10px] sm:text-xs text-left border-collapse">
-            <thead className="bg-gray-700 text-white uppercase text-[9px] sm:text-[10px]">
-              <tr>
-                <th className="px-3 py-2">#</th>
-                <th className="px-3 py-2">Staff Name</th>
-                <th className="px-3 py-2">RFID Tag</th>
-                <th className="px-3 py-2">Location</th>
-                <th className="px-3 py-2">Activity</th>
-                <th className="px-3 py-2">Timestamp</th>
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">#</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Staff Name</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">RFID Tag</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Location</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Activity</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Timestamp</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-50">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="px-3 py-6 text-center bg-white">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin h-6 w-6 border-b-2 border-blue-600 rounded-full"></div>
-                      <span className="ml-2 text-gray-500 text-xs">Loading activity logs...</span>
-                    </div>
+                  <td colSpan="6" className="px-4 py-8 text-center">
+                    <p className="text-xs text-gray-400">Loading activity logs...</p>
                   </td>
                 </tr>
               ) : filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-3 py-6 text-center bg-white text-xs text-gray-400">
-                    No activity logs found
+                  <td colSpan="6" className="px-4 py-8 text-center">
+                    <p className="text-xs text-gray-400">No activity logs found</p>
                   </td>
                 </tr>
               ) : (
                 filteredLogs.map((log, index) => (
-                  <tr key={log.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                    <td className="px-3 py-2">{index + 1}</td>
-                    <td className="px-3 py-2 font-medium text-gray-800">
-                      {log.staff_name}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {log.rfid_tag || "N/A"}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className={`px-2 py-1 rounded-full text-[9px] font-medium ${
+                  <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-xs text-gray-400">{index + 1}</td>
+                    <td className="px-4 py-3 text-xs font-medium text-gray-800">{log.staff_name}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400 font-mono">{log.rfid_tag || "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] border font-medium ${
                         log.location === "ENTRY"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-purple-100 text-purple-700"
+                          ? "bg-blue-50 text-blue-700 border-blue-100"
+                          : "bg-purple-50 text-purple-700 border-purple-100"
                       }`}>
                         {log.location}
                       </span>
                     </td>
-                    <td className="px-3 py-2">
-                      <span className={`px-2 py-1 rounded-full text-[9px] font-medium ${
+                    <td className="px-4 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] border font-medium ${
                         log.activity_type === "ENTRY"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-orange-100 text-orange-700"
+                          ? "bg-green-50 text-green-700 border-green-100"
+                          : "bg-amber-50 text-amber-700 border-amber-100"
                       }`}>
-                        {log.activity_type === "ENTRY" ? "🚪 Entry" : "🚶 Exit"}
+                        {log.activity_type === "ENTRY" ? "Entry" : "Exit"}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {new Date(log.timestamp).toLocaleString()}
+                    <td className="px-4 py-3 text-xs text-gray-400">
+                      {new Date(log.timestamp).toLocaleString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </td>
                   </tr>
                 ))
@@ -330,5 +250,12 @@ const handleDownloadPDF = async () => {
     </div>
   );
 };
+
+const KpiCard = ({ title, value, color }) => (
+  <div className="bg-white border border-gray-200 rounded-xl p-4">
+    <p className="text-xs text-gray-500">{title}</p>
+    <p className={`text-lg font-semibold mt-0.5 ${color}`}>{value}</p>
+  </div>
+);
 
 export default StaffActivityLogs;

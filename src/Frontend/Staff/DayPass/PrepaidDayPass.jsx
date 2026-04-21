@@ -369,44 +369,46 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
 
           <canvas ref={canvasRef} className="hidden" />
 
-          <div className="flex flex-col gap-1.5">
-            {!isWebcamActive ? (
-              <>
-                <button
-                  type="button"
-                  onClick={startWebcam}
-                  className="w-full bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 px-4 py-2 rounded-lg text-xs font-medium transition-colors"
-                >
-                  Open Camera
-                </button>
-                <label className="w-full bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors cursor-pointer text-center">
-                  Upload Photo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                </label>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={handleCapturePhoto}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
-                >
-                  Capture
-                </button>
-                <button
-                  type="button"
-                  onClick={stopWebcam}
-                  className="w-full bg-white text-red-500 border border-red-100 hover:bg-red-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-              </>
-            )}
+          <div className="grid grid-cols-2 gap-2">
+{!isWebcamActive ? (
+  <>
+    <button
+      type="button"
+      onClick={startWebcam}
+      className="w-full bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+    >
+      Open Camera
+    </button>
+
+    <label className="w-full bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-center">
+      Upload Photo
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+    </label>
+  </>
+) : (
+  <>
+    <button
+      type="button"
+      onClick={handleCapturePhoto}
+      className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+    >
+      Capture
+    </button>
+
+    <button
+      type="button"
+      onClick={stopWebcam}
+      className="w-full bg-white text-red-500 border border-red-100 hover:bg-red-50 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+    >
+      Cancel
+    </button>
+  </>
+)}
           </div>
         </div>
       </form>

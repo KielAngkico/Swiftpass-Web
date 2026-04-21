@@ -36,17 +36,14 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
     const fetchPlans = async () => {
       try {
         const { data } = await api.get(`/api/get-pricing/${adminId}`);
-        
         const prepaidPlans = data.filter((plan) => {
           const isPrepaid = plan.system_type === "prepaid_entry";
           const isSystemPlan = ['Key Fob', 'Membership Fee', 'Replacement Fee', 'Daily Session'].includes(plan.plan_name);
-          
           return isPrepaid && !isSystemPlan;
         });
-        
         setPlans(prepaidPlans);
       } catch (err) {
-        console.error("❌ Failed to fetch plans:", err);
+        console.error("Failed to fetch plans:", err);
       }
     };
 
@@ -55,7 +52,7 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
         const { data } = await api.get(`/api/payment-methods/${adminId}`);
         setPaymentMethods(data);
       } catch (err) {
-        console.error("❌ Failed to fetch payment methods:", err);
+        console.error("Failed to fetch payment methods:", err);
       }
     };
 
@@ -90,7 +87,8 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     if (!member || (!selectedPlan && !customAmount) || !paymentMethod || !staffName) {
       showToast({ message: "Please complete all required fields.", type: "error" });
       return;
@@ -119,11 +117,8 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
       reference: paymentMethod.toLowerCase().includes("gcash") || paymentMethod.toLowerCase() !== "cash" ? reference || "" : null
     };
 
-    console.log("📤 Payload to submit:", payload);
-
     try {
-      const { data } = await api.post("/api/tapup-member", payload);
-      
+      await api.post("/api/tapup-member", payload);
       showToast({ message: "Tap-up successful!", type: "success" });
       setMember(null);
       setRfid("");
@@ -132,176 +127,174 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
       setPaymentMethod("");
       setReference("");
     } catch (err) {
-      console.error("❌ Error submitting tap-up:", err);
+      console.error("Error submitting tap-up:", err);
       showToast({ message: "Failed to tap-up member.", type: "error" });
     } finally {
       setLoading(false);
     }
   };
 
+  const inputClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500";
+  const labelClass = "block text-xs text-gray-500 mb-1";
+  const readonlyClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 bg-gray-50 cursor-not-allowed";
+
   return (
-    <div className="min-h-screen w-fit bg-white p-2">
-      <main className="max-w-screen-xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
-            Prepaid Tap-Up
-          </h1>
-          <p className="text-xs text-gray-500">
-            Load prepaid credits to a member using RFID or manual entry.
-          </p>
-        </div>
+    <div>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold text-gray-900">Prepaid Tap-Up</h1>
+        <p className="text-xs text-gray-500 mt-0.5">Load prepaid credits to a member using RFID or manual entry.</p>
+      </div>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSubmit();
-          }}
-          className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-white rounded-lg shadow items-start"
-        >
-          <div className="flex flex-col gap-4 h-full">
-            <h2 className="text-sm font-semibold text-gray-700">
-              Tap-Up Details & Payment
-            </h2>
+      <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-xl p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                Scan or Enter RFID
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={rfid}
-                  onChange={(e) => setRfid(e.target.value)}
-                  placeholder="Enter RFID tag"
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm focus:ring focus:ring-indigo-100"
-                />
-                <button
-                  type="button"
-                  onClick={fetchMember}
-                  className="px-4 py-2 rounded bg-black text-white font-semibold text-sm hover:bg-blue-700"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                Select Top-Up Plan
-              </label>
-              <select
-                value={selectedPlan?.plan_name || ""}
-                onChange={(e) => {
-                  const plan = plans.find((p) => p.plan_name === e.target.value);
-                  setSelectedPlan(plan);
-                  setCustomAmount("");
-                }}
-                className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
-              >
-                <option value="">-- Choose a Plan (or enter custom) --</option>
-                {plans.map((plan) => (
-                  <option key={plan.id} value={plan.plan_name}>
-                    {plan.plan_name} — ₱{plan.amount_to_pay} → ₱{plan.amount_to_credit}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {!selectedPlan && (
+          <div className="flex flex-col gap-4 h-full self-stretch">
+            <p className="text-sm font-medium text-gray-900 pb-3 border-b border-gray-100">Member Lookup</p>
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Amount</label>
-                <input
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  placeholder="Enter amount"
-                  value={customAmount}
-                  onChange={(e) => setCustomAmount(e.target.value)}
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                Payment Method
-              </label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
-              >
-                <option value="">Select</option>
-                {paymentMethods.map((method) => (
-                  <option key={method.id} value={method.name.toLowerCase()}>
-                    {method.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {paymentMethod !== "cash" && paymentMethod !== "" && (
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">
-                  {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)} Reference No.
-                </label>
-                <input
-                  type="text"
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
-                  required
-                />
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-1/2 mt-4 px-4 py-2 rounded bg-black text-white font-semibold text-sm hover:bg-blue-700 disabled:opacity-50"
-            >
-              {loading ? "Processing..." : "Confirm Tap-Up"}
-            </button>
-          </div>
-
-          <div className="flex flex-col items-center gap-3 w-80">
-            <h2 className="text-sm font-semibold text-gray-700">Member ID</h2>
-            <div className="bg-white border rounded-lg shadow w-3/4">
-              <div className="bg-black h-16 flex items-center justify-center">
-                <h3 className="text-white font-semibold text-sm">GYM MEMBER ID</h3>
-              </div>
-              <div className="flex flex-col items-center p-4">
-                <div className="w-32 h-32 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden mb-3">
-                  {member?.profile_image_url ? (
-                    <img
-                      src={member.profile_image_url}
-                      alt="Member Photo"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-gray-400 text-sm">
-                      {member?.full_name
-                        ? member.full_name.charAt(0).toUpperCase()
-                        : "?"}
-                    </span>
-                  )}
+                <label className={labelClass}>Scan or Enter RFID</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={rfid}
+                    onChange={(e) => setRfid(e.target.value)}
+                    placeholder="Enter RFID tag"
+                    className={inputClass}
+                  />
+                  <button
+                    type="button"
+                    onClick={fetchMember}
+                    className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors whitespace-nowrap"
+                  >
+                    Search
+                  </button>
                 </div>
-                <h4 className="text-sm font-semibold text-gray-800">
-                  {member?.full_name || "No Member Loaded"}
-                </h4>
-                <p className="text-xs text-gray-600">
-                  Balance:{" "}
-                  <span className="font-medium">
-                    {member
-                      ? `₱${parseFloat(member.current_balance).toFixed(2)}`
-                      : "N/A"}
-                  </span>
-                </p>
+              </div>
+              <div>
+                <label className={labelClass}>Member Name</label>
+                <input
+                  type="text"
+                  value={member?.full_name || ""}
+                  readOnly
+                  placeholder="No member loaded"
+                  className={readonlyClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Current Balance</label>
+                <input
+                  type="text"
+                  value={member ? `₱${parseFloat(member.current_balance).toFixed(2)}` : ""}
+                  readOnly
+                  placeholder="—"
+                  className={readonlyClass}
+                />
               </div>
             </div>
           </div>
-        </form>
-      </main>
+
+          <div className="flex flex-col gap-4 h-full self-stretch">
+            <p className="text-sm font-medium text-gray-900 pb-3 border-b border-gray-100">Top-Up & Payment</p>
+            <div className="space-y-3">
+              <div>
+                <label className={labelClass}>Select Plan</label>
+                <select
+                  value={selectedPlan?.plan_name || ""}
+                  onChange={(e) => {
+                    const plan = plans.find((p) => p.plan_name === e.target.value);
+                    setSelectedPlan(plan);
+                    setCustomAmount("");
+                  }}
+                  className={`${inputClass} bg-white`}
+                >
+                  <option value="">Choose a plan or enter custom</option>
+                  {plans.map((plan) => (
+                    <option key={plan.id} value={plan.plan_name}>
+                      {plan.plan_name} — ₱{plan.amount_to_pay} → ₱{plan.amount_to_credit}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {!selectedPlan && (
+                <div>
+                  <label className={labelClass}>Custom Amount</label>
+                  <input
+                    type="text"
+                    placeholder="Enter amount"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                    className={inputClass}
+                  />
+                </div>
+              )}
+              <div>
+                <label className={labelClass}>Payment Method</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className={`${inputClass} bg-white`}
+                >
+                  <option value="">Select</option>
+                  {paymentMethods.map((method) => (
+                    <option key={method.id} value={method.name.toLowerCase()}>{method.name}</option>
+                  ))}
+                </select>
+              </div>
+              {paymentMethod !== "cash" && paymentMethod !== "" && (
+                <div>
+                  <label className={labelClass}>
+                    {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)} Reference No.
+                  </label>
+                  <input
+                    type="text"
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    placeholder="Reference number"
+                    className={inputClass}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 mt-auto pt-3 border-t border-gray-100">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                {loading ? "Processing..." : "Confirm Tap-Up"}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 h-full self-stretch">
+            <p className="text-sm font-medium text-gray-900 pb-3 border-b border-gray-100">Member Preview</p>
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-70 h-70 border border-gray-200 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden flex-shrink-0">
+                {member?.profile_image_url ? (
+                  <img
+                    src={member.profile_image_url}
+                    alt="Member Photo"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-3xl font-medium text-gray-300">
+                    {member?.full_name ? member.full_name.charAt(0).toUpperCase() : "?"}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs font-medium text-gray-900 text-center">
+                {member?.full_name || "No member loaded"}
+              </p>
+              {member && (
+                <p className="text-xs text-gray-400 text-center">
+                  Balance: ₱{parseFloat(member.current_balance).toFixed(2)}
+                </p>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </form>
     </div>
   );
 };

@@ -49,11 +49,10 @@ const RfidReplacement = () => {
 
   if (loading) {
     return (
-      <div className="flex">
+      <div className="flex min-h-screen bg-gray-50">
         <StaffSidebar />
-        <div className="flex-1 p-6 text-center py-12">
-          <div className="text-4xl mb-4">⏳</div>
-          <p className="text-gray-600">Loading RFID Replacement system...</p>
+        <div className="flex-1 min-w-0 flex items-center justify-center">
+          <p className="text-xs text-gray-500">Loading RFID Replacement system...</p>
         </div>
       </div>
     );
@@ -61,17 +60,14 @@ const RfidReplacement = () => {
 
   if (error) {
     return (
-      <div className="flex">
+      <div className="flex min-h-screen bg-gray-50">
         <StaffSidebar />
-        <div className="flex-1 p-6 text-center py-12">
-          <div className="text-6xl mb-4">❌</div>
-          <h2 className="text-2xl font-bold text-red-600 mb-2">
-            Error Loading System
-          </h2>
-          <p className="text-gray-600 mb-4">{error}</p>
+        <div className="flex-1 min-w-0 flex flex-col items-center justify-center gap-3">
+          <p className="text-sm font-medium text-gray-900">Error loading RFID Replacement</p>
+          <p className="text-xs text-gray-500">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
           >
             Try Again
           </button>
@@ -82,27 +78,25 @@ const RfidReplacement = () => {
 
   if (!systemType) {
     return (
-      <div className="flex">
+      <div className="flex min-h-screen bg-gray-50">
         <StaffSidebar />
-        <div className="flex-1 p-6 text-center py-12 text-gray-600">
-          Unknown system type. Please contact admin.
+        <div className="flex-1 min-w-0 flex items-center justify-center">
+          <p className="text-xs text-gray-500">Unknown system type. Please contact admin.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex">
+    <div className="flex min-h-screen bg-gray-50">
       <StaffSidebar />
-      <div className="flex-1 p-4">
+      <div className="flex-1 min-w-0 p-6">
         {systemType === "prepaid_entry" ? (
           <PrepaidReplacement staffUser={staffUser} />
         ) : systemType === "subscription" ? (
           <SubscriptionReplacement staffUser={staffUser} />
         ) : (
-          <div className="text-gray-600">
-            Unknown system type: "{systemType}". Please contact admin.
-          </div>
+          <p className="text-xs text-gray-500">Unknown system type: "{systemType}". Please contact admin.</p>
         )}
       </div>
     </div>

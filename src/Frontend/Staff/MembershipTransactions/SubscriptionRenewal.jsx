@@ -1,10 +1,7 @@
-
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../api";
 import { useToast } from "../../../components/ToastManager";
-
 
 const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUser }) => {
   const staffName = staffUser?.name || "";
@@ -25,8 +22,7 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
   const [reference, setReference] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [loading, setLoading] = useState(false);
-    const { showToast } = useToast();
-  
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (rfid_tag && full_name) {
@@ -34,70 +30,66 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
     }
   }, [rfid_tag, full_name, subscription_expiry]);
 
+  useEffect(() => {
+    if (!adminId) return;
 
- useEffect(() => {
-  if (!adminId) return;
+    const fetchPlans = async () => {
+      try {
+        const { data } = await api.get(`/api/get-pricing/${adminId}`);
+        const subscriptionPlans = data.filter((plan) => {
+          const isSubscription = plan.system_type === "subscription";
+          const isSystemPlan = ['Key Fob', 'Membership Fee', 'Replacement Fee', 'Daily Session'].includes(plan.plan_name);
+          return isSubscription && !isSystemPlan;
+        });
+        setPlans(subscriptionPlans);
+      } catch (err) {
+        console.error("Failed to fetch plans:", err);
+      }
+    };
 
-  const fetchPlans = async () => {
-    try {
-      const { data } = await api.get(`/api/get-pricing/${adminId}`);
-      
-      const subscriptionPlans = data.filter((plan) => {
-        const isSubscription = plan.system_type === "subscription";
-        const isSystemPlan = ['Key Fob', 'Membership Fee', 'Replacement Fee', 'Daily Session'].includes(plan.plan_name);
-        
-        return isSubscription && !isSystemPlan;
-      });
-      
-      setPlans(subscriptionPlans);
-    } catch (err) {
-      console.error("❌ Failed to fetch plans:", err);
+    const fetchPaymentMethods = async () => {
+      try {
+        const { data } = await api.get(`/api/payment-methods/${adminId}`);
+        setPaymentMethods(data);
+      } catch (err) {
+        console.error("Failed to fetch payment methods:", err);
+      }
+    };
+
+    fetchPlans();
+    fetchPaymentMethods();
+  }, [adminId]);
+
+  useEffect(() => {
+    if (rfid && rfid.length >= 8 && adminId) {
+      fetchMember();
     }
-  };
+  }, [rfid, adminId]);
 
-  const fetchPaymentMethods = async () => {
+  const fetchMember = async () => {
+    if (!rfid || !adminId) return;
+    setLoading(true);
     try {
-      const { data } = await api.get(`/api/payment-methods/${adminId}`);
-      setPaymentMethods(data);
+      const { data } = await api.get(`/api/member-by-rfid/${rfid}`);
+      if (data && data.system_type === "subscription") {
+        data.admin_id = data.admin_id || adminId;
+        setMember(data);
+      } else {
+        setMember(null);
+        showToast({ message: "Member not found or not a subscription account.", type: "error" });
+      }
     } catch (err) {
-      console.error("❌ Failed to fetch payment methods:", err);
-    }
-  };
-
-  fetchPlans();
-  fetchPaymentMethods();
-}, [adminId]);
-
-useEffect(() => {
-  if (rfid && rfid.length >= 8 && adminId) {
-    fetchMember();
-  }
-}, [rfid, adminId]); 
-
-const fetchMember = async () => {
-  if (!rfid || !adminId) return; 
-  setLoading(true);
-  try {
-    const { data } = await api.get(`/api/member-by-rfid/${rfid}`);
-    if (data && data.system_type === "subscription") {
-      data.admin_id = data.admin_id || adminId;
-      setMember(data);
-    } else {
+      console.error("Error fetching member:", err);
+      showToast({ message: "Error fetching member data.", type: "error" });
       setMember(null);
-      showToast({ message: "Member not found or not a subscription account.", type: "error" });
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Error fetching member:", err);
-    showToast({ message: "Error fetching member data.", type: "error" });
-    setMember(null);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleSubmit = async () => {
     if (!member || !selectedPlan || !paymentMethod || !staffName || !amountToPay) {
-showToast({ message: "Please complete all required fields.", type: "error" });
+      showToast({ message: "Please complete all required fields.", type: "error" });
       return;
     }
 
@@ -110,25 +102,23 @@ showToast({ message: "Please complete all required fields.", type: "error" });
       expiry.setDate(expiry.getDate() + selectedPlan.duration_in_days);
       const end = expiry.toISOString().split("T")[0];
 
- const payload = {
-  rfid_tag: member.rfid_tag,
-  full_name: member.full_name,
-  admin_id: member.admin_id || adminId,
-  staff_name: staffName,
-  plan_name: selectedPlan.plan_name,
-  payment: Number(amountToPay),
-  subscription_type: selectedPlan.plan_name,
-  subscription_start: start,
-  subscription_expiry: end,
-  payment_Method: paymentMethod.toLowerCase().includes("gcash") ? "gcash" : paymentMethod, 
-  reference: paymentMethod.toLowerCase().includes("gcash") ? reference || "" : null
-};
+      const payload = {
+        rfid_tag: member.rfid_tag,
+        full_name: member.full_name,
+        admin_id: member.admin_id || adminId,
+        staff_name: staffName,
+        plan_name: selectedPlan.plan_name,
+        payment: Number(amountToPay),
+        subscription_type: selectedPlan.plan_name,
+        subscription_start: start,
+        subscription_expiry: end,
+        payment_Method: paymentMethod.toLowerCase().includes("gcash") ? "gcash" : paymentMethod,
+        reference: paymentMethod.toLowerCase().includes("gcash") ? reference || "" : null
+      };
 
-      console.log("📤 Payload to submit:", payload);
+      await api.post("/api/renew-subscription", payload);
 
-      const { data } = await api.post("/api/renew-subscription", payload);
-
-showToast({ message: "Subscription renewed successfully!", type: "success" });
+      showToast({ message: "Subscription renewed successfully!", type: "success" });
       setMember(null);
       setRfid("");
       setSelectedPlan(null);
@@ -137,188 +127,165 @@ showToast({ message: "Subscription renewed successfully!", type: "success" });
       setReference("");
     } catch (err) {
       console.error("Error submitting renewal:", err);
-showToast({ message: "Failed to renew subscription.", type: "error" });
+      showToast({ message: "Failed to renew subscription.", type: "error" });
     } finally {
       setLoading(false);
     }
   };
 
-return (
-  <div className="min-h-screen w-fit bg-white p-2">
-    <main className="max-w-screen-xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
-          Subscription Renewal
-        </h1>
-        <p className="text-xs text-gray-500">
-          Renew a member’s subscription using RFID or manual entry.
-        </p>
+  const inputClass = "w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500";
+  const labelClass = "block text-xs text-gray-500 mb-1";
+  const readonlyClass = "w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-500 bg-gray-50 cursor-not-allowed";
+
+  return (
+    <div>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold text-gray-900">Subscription Renewal</h1>
+        <p className="text-xs text-gray-500 mt-0.5">Renew a member's subscription using RFID or manual entry.</p>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSubmit();
-        }}
-        className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-white rounded-lg shadow items-start"
-      >
-        <div className="flex flex-col gap-4 h-full">
-          <h2 className="text-sm font-semibold text-gray-700">
-            Renewal Details & Payment
-          </h2>
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">
-              Scan or Enter RFID
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={rfid}
-                onChange={(e) => setRfid(e.target.value)}
-                placeholder="Enter RFID tag"
-                className="w-full border border-gray-300 px-3 py-2 rounded text-sm focus:ring focus:ring-indigo-100"
-              />
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">Member Lookup</p>
+            <div className="space-y-2">
+              <div>
+                <label className={labelClass}>Scan or Enter RFID</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={rfid}
+                    onChange={(e) => setRfid(e.target.value)}
+                    placeholder="Enter RFID tag"
+                    className={inputClass}
+                  />
+                  <button
+                    type="button"
+                    onClick={fetchMember}
+                    className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors whitespace-nowrap"
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Member Name</label>
+                <input type="text" value={member?.full_name || ""} readOnly placeholder="No member loaded" className={readonlyClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Current Expiry</label>
+                <input type="text" value={member?.subscription_expiry || ""} readOnly placeholder="—" className={readonlyClass} />
+              </div>
+              {member?.subscription_type && (
+                <div>
+                  <label className={labelClass}>Current Plan</label>
+                  <input type="text" value={member.subscription_type} readOnly className={readonlyClass} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">Renewal & Payment</p>
+            <div className="space-y-2">
+              <div>
+                <label className={labelClass}>Select Renewal Plan</label>
+                <select
+                  value={selectedPlan?.plan_name || ""}
+                  onChange={(e) => {
+                    const plan = plans.find((p) => p.plan_name === e.target.value);
+                    setSelectedPlan(plan);
+                    setAmountToPay(plan ? plan.amount_to_pay : "");
+                  }}
+                  className={`${inputClass} bg-white`}
+                >
+                  <option value="">Choose a plan</option>
+                  {plans.map((plan) => (
+                    <option key={plan.id} value={plan.plan_name}>
+                      {plan.plan_name} — ₱{plan.amount_to_pay} for {plan.duration_in_days} day{plan.duration_in_days > 1 ? "s" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Amount to Pay</label>
+                <input
+                  type="text"
+                  value={amountToPay}
+                  onChange={(e) => setAmountToPay(e.target.value.replace(/[^0-9.]/g, ""))}
+                  placeholder="Enter amount to pay"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Payment Method</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className={`${inputClass} bg-white`}
+                >
+                  <option value="">Select</option>
+                  {paymentMethods.map((method) => (
+                    <option key={method.id} value={method.name.toLowerCase()}>{method.name}</option>
+                  ))}
+                </select>
+              </div>
+              {paymentMethod !== "cash" && paymentMethod !== "" && (
+                <div>
+                  <label className={labelClass}>
+                    {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)} Reference No.
+                  </label>
+                  <input
+                    type="text"
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    placeholder="Reference number"
+                    className={inputClass}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 mt-auto pt-3 border-t border-gray-100">
               <button
                 type="button"
-                onClick={fetchMember}
-                className="px-4 py-2 rounded bg-black text-white font-semibold text-sm hover:bg-blue-700"
+                onClick={handleSubmit}
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
               >
-                Search
+                {loading ? "Processing..." : "Confirm Renewal"}
               </button>
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">
-              Select Renewal Plan
-            </label>
-            <select
-              value={selectedPlan?.plan_name || ""}
-              onChange={(e) => {
-                const plan = plans.find((p) => p.plan_name === e.target.value);
-                setSelectedPlan(plan);
-                setAmountToPay(plan ? plan.amount_to_pay : "");
-              }}
-              className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
-            >
-              <option value="">-- Choose a Plan --</option>
-              {plans.map((plan) => (
-                <option key={plan.id} value={plan.plan_name}>
-                  {plan.plan_name} — ₱{plan.amount_to_pay} for{" "}
-                  {plan.duration_in_days} day
-                  {plan.duration_in_days > 1 ? "s" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">
-              Amount to Pay
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={amountToPay}
-              onChange={(e) => setAmountToPay(e.target.value)}
-              placeholder="Enter amount to pay"
-              className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">
-              Payment Method
-            </label>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
-            >
-              <option value="">Select</option>
-              {paymentMethods.map((method) => (
-                <option key={method.id} value={method.name.toLowerCase()}>
-                  {method.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {paymentMethod !== "cash" && paymentMethod !== "" && (
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                {paymentMethod.charAt(0).toUpperCase() +
-                  paymentMethod.slice(1)}{" "}
-                Reference No.
-              </label>
-              <input
-                type="text"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
-                required
-              />
-            </div>
-          )}
-
-          <button
-            type="submit"
-            className="w-1/2 mt-4 px-4 py-2 rounded bg-black text-white font-semibold text-sm hover:bg-blue-700"
-          >
-            Confirm Renewal
-          </button>
-
-        </div>
-
-        <div className="flex flex-col items-center gap-3 w-80">
-          <h2 className="text-sm font-semibold text-gray-700">Member ID</h2>
-          <div className="bg-white border rounded-lg shadow w-3/4">
-            <div className="bg-black h-16 flex items-center justify-center">
-              <h3 className="text-white font-semibold text-sm">
-                GYM MEMBER ID
-              </h3>
-            </div>
-            <div className="flex flex-col items-center p-4">
-              <div className="w-32 h-32 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden mb-3">
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">Member Preview</p>
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-70 h-70 border border-gray-200 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden flex-shrink-0">
                 {member?.profile_image_url ? (
-                  <img
-                    src={member.profile_image_url}
-                    alt="Member Photo"
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={member.profile_image_url} alt="Member Photo" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-gray-400 text-sm">
-                    {member?.full_name
-                      ? member.full_name.charAt(0).toUpperCase()
-                      : "?"}
+                  <span className="text-3xl font-medium text-gray-300">
+                    {member?.full_name ? member.full_name.charAt(0).toUpperCase() : "?"}
                   </span>
                 )}
               </div>
-              <h4 className="text-sm font-semibold text-gray-800">
-                {member?.full_name || "No Member Loaded"}
-              </h4>
-              <p className="text-xs text-gray-600">
-                Plan:{" "}
-                <span className="font-medium">
-                  {member?.subscription_type || "N/A"}
-                </span>
+              <p className="text-xs font-medium text-gray-900 text-center">
+                {member?.full_name || "No member loaded"}
               </p>
-              <p className="text-xs text-gray-600">
-                Expires:{" "}
-                <span className="font-medium">
-                  {member?.subscription_expiry || "N/A"}
-                </span>
-              </p>
+              {member?.subscription_type && (
+                <p className="text-xs text-gray-400 text-center">Plan: {member.subscription_type}</p>
+              )}
+              {member?.subscription_expiry && (
+                <p className="text-xs text-gray-400 text-center">Expires: {member.subscription_expiry}</p>
+              )}
             </div>
           </div>
-        </div>
-      </form>
-    </main>
-  </div>
-);
 
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default SubscriptionRenewal;

@@ -50,6 +50,8 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
       admin_name, email, password, address, gym_name, gym_code,
       system_type, package_id, rfid_tag, rfid_tag_2,
     } = req.body;
+    console.log("BODY:", req.body); 
+    console.log("FILE:", req.file); 
 
     if (!password) {
       await conn.rollback();

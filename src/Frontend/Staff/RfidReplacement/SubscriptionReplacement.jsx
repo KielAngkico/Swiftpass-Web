@@ -4,12 +4,12 @@ import { useWebSocket } from "../../../contexts/WebSocketContext";
 import { useToast } from "../../../components/ToastManager";
 
 const SubscriptionReplacement = ({ staffUser }) => {
-  const { 
-    replacementScannedRfid, 
+  const {
+    replacementScannedRfid,
     clearReplacementScannedRfid,
     toggleReplacementScanMode
   } = useWebSocket();
-  
+
   const [adminId, setAdminId] = useState(null);
   const [staffName, setStaffName] = useState("");
   const [members, setMembers] = useState([]);
@@ -80,31 +80,25 @@ const SubscriptionReplacement = ({ staffUser }) => {
     fetchPaymentMethods();
   }, [adminId]);
 
-  // ✅ UPDATED: Handle replacement scan response
   useEffect(() => {
     if (replacementScannedRfid && scanActive) {
       console.log("🔄 Replacement RFID scanned:", replacementScannedRfid);
-      
-      // Check if it's an error response
+
       if (replacementScannedRfid.status === "error") {
-        showToast({ 
-          message: replacementScannedRfid.reason || "Invalid RFID for replacement", 
-          type: "error" 
+        showToast({
+          message: replacementScannedRfid.reason || "Invalid RFID for replacement",
+          type: "error"
         });
         setScanActive(false);
         clearReplacementScannedRfid();
         toggleReplacementScanMode(false);
         return;
       }
-      
-      // Success - set the RFID tag
+
       const scannedTag = replacementScannedRfid.rfid_tag || replacementScannedRfid;
       setNewRfidTag(scannedTag);
       setScanActive(false);
-      showToast({ 
-        message: `✅ RFID captured: ${scannedTag}`, 
-        type: "success" 
-      });
+      showToast({ message: `✅ RFID captured: ${scannedTag}`, type: "success" });
       clearReplacementScannedRfid();
       toggleReplacementScanMode(false);
     }
@@ -120,8 +114,8 @@ const SubscriptionReplacement = ({ staffUser }) => {
       const filtered = allMembers.filter(member =>
         member.system_type === "subscription" &&
         (member.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-         member.member_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-         member.rfid_tag?.toLowerCase().includes(searchTerm.toLowerCase()))
+          member.member_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          member.rfid_tag?.toLowerCase().includes(searchTerm.toLowerCase()))
       );
 
       if (filtered.length === 1) {
@@ -214,230 +208,186 @@ const SubscriptionReplacement = ({ staffUser }) => {
     }
   };
 
-  // ✅ Handle scan cancellation when component unmounts or scan is cancelled
-useEffect(() => {
-  return () => {
-    console.log("🧹 Component unmounting - disabling replacement scan mode");
-    toggleReplacementScanMode(false);
-  };
-}, []); // ✅ Empty dependency array - only runs on unmount
+  useEffect(() => {
+    return () => {
+      console.log("🧹 Component unmounting - disabling replacement scan mode");
+      toggleReplacementScanMode(false);
+    };
+  }, []);
+
+  const inputClass = "w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500";
+  const labelClass = "block text-xs text-gray-500 mb-1";
+  const readonlyClass = "w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-500 bg-gray-50 cursor-not-allowed";
 
   return (
-    <div className="min-h-screen w-fit bg-white p-2">
-      <main className="max-w-screen-xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
-            RFID Replacement - Subscription
-          </h1>
-          <p className="text-xs text-gray-500">
-            Search and replace member RFID tags
-          </p>
-        </div>
+    <div>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold text-gray-900">RFID Replacement</h1>
+        <p className="text-xs text-gray-500 mt-0.5">Search and replace member RFID tags.</p>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-white rounded-lg shadow items-start">
-          <div className="flex flex-col gap-4 h-full">
-            <h2 className="text-sm font-semibold text-gray-700">
-              Replacement Details & Payment
-            </h2>
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                Search Member (Name or RFID)
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      fetchMember();
-                    }
-                  }}
-                  placeholder="Enter name or RFID tag"
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm focus:ring focus:ring-indigo-100"
-                />
-                <button
-                  type="button"
-                  onClick={fetchMember}
-                  className="px-4 py-2 rounded bg-black text-white font-semibold text-sm hover:bg-blue-700"
-                >
-                  Search
-                </button>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">Member Lookup</p>
+            <div className="space-y-2">
+              <div>
+                <label className={labelClass}>Search Member (Name or RFID)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyPress={(e) => { if (e.key === "Enter") { e.preventDefault(); fetchMember(); } }}
+                    placeholder="Enter name or RFID tag"
+                    className={inputClass}
+                  />
+                  <button
+                    type="button"
+                    onClick={fetchMember}
+                    className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors whitespace-nowrap"
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+              {members.length > 1 && (
+                <div>
+                  <label className={labelClass}>Select Member</label>
+                  <select
+                    onChange={(e) => {
+                      const member = members.find(m => m.id === parseInt(e.target.value));
+                      if (member) { setSelectedMember(member); setMembers([]); }
+                    }}
+                    className={`${inputClass} bg-white`}
+                  >
+                    <option value="">Choose a member</option>
+                    {members.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.full_name || member.member_name} - {member.rfid_tag}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className={labelClass}>Member Name</label>
+                <input type="text" value={selectedMember?.full_name || selectedMember?.member_name || ""} readOnly placeholder="No member loaded" className={readonlyClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Current RFID Tag</label>
+                <input type="text" value={selectedMember?.rfid_tag || ""} readOnly placeholder="Current RFID will appear here" className={readonlyClass} />
               </div>
             </div>
+          </div>
 
-            {members.length > 1 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">Replacement & Payment</p>
+            <div className="space-y-2">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
-                  Select Member
-                </label>
+                <label className={labelClass}>New RFID Tag</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newRfidTag}
+                    onChange={handleRfidInputChange}
+                    placeholder={scanActive ? "Waiting for RFID scan..." : "Scan or enter new RFID tag"}
+                    className={`${inputClass} flex-1 ${scanActive ? "border-green-500 bg-green-50 focus:ring-green-500 focus:border-green-500" : ""}`}
+                    autoComplete="off"
+                    autoFocus={scanActive}
+                  />
+                  <button
+                    type="button"
+                    onClick={startScan}
+                    disabled={scanActive}
+                    className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors whitespace-nowrap ${
+                      scanActive
+                        ? "bg-green-500 text-white cursor-not-allowed opacity-75"
+                        : "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50"
+                    }`}
+                  >
+                    {scanActive ? "Scanning..." : "Scan"}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Replacement Fee</label>
+                <input
+                  type="text"
+                  value={replacementFee}
+                  onChange={(e) => setReplacementFee(e.target.value)}
+                  placeholder="Enter replacement fee"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Payment Method</label>
                 <select
-                  onChange={(e) => {
-                    const member = members.find(m => m.id === parseInt(e.target.value));
-                    if (member) {
-                      setSelectedMember(member);
-                      setMembers([]);
-                    }
-                  }}
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className={`${inputClass} bg-white`}
                 >
-                  <option value="">-- Choose a Member --</option>
-                  {members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.full_name || member.member_name} - {member.rfid_tag}
-                    </option>
+                  <option value="">Select</option>
+                  {paymentMethods.map((method) => (
+                    <option key={method.id} value={method.name.toLowerCase()}>{method.name}</option>
                   ))}
                 </select>
               </div>
-            )}
-
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                Current RFID Tag
-              </label>
-              <input
-                type="text"
-                value={selectedMember?.rfid_tag || ""}
-                readOnly
-                placeholder="Current RFID will appear here"
-                className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-gray-50"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                New RFID Tag
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newRfidTag}
-                  onChange={handleRfidInputChange}
-                  placeholder={scanActive ? "Waiting for RFID scan..." : "Scan or enter new RFID tag"}
-                  className={`flex-1 border px-3 py-2 rounded text-sm transition-all ${
-                    scanActive ? "border-green-500 bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500" : "border-gray-300"
-                  }`}
-                  autoComplete="off"
-                  autoFocus={scanActive}
-                />
-                <button
-                  type="button"
-                  onClick={startScan}
-                  disabled={scanActive}
-                  className={`px-3 py-2 rounded font-semibold text-sm transition-all ${
-                    scanActive
-                      ? "bg-green-500 text-white cursor-not-allowed opacity-75"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
-                >
-                  {scanActive ? "Scanning..." : "Scan"}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                Replacement Fee
-              </label>
-              <input
-                type="number"
-                value={replacementFee}
-                onChange={(e) => setReplacementFee(e.target.value)}
-                placeholder="Enter replacement fee"
-                className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                Payment Method
-              </label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full border border-gray-300 px-3 py-2 rounded text-sm bg-white"
-              >
-                <option value="">Select</option>
-                {paymentMethods.map((method) => (
-                  <option key={method.id} value={method.name.toLowerCase()}>
-                    {method.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {paymentMethod !== "cash" && paymentMethod !== "" && (
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">
-                  {paymentMethod.charAt(0).toUpperCase() +
-                    paymentMethod.slice(1)}{" "}
-                  Reference No.
-                </label>
-                <input
-                  type="text"
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
-                  required
-                />
-              </div>
-            )}
-
-            <button
-              onClick={handleSubmit}
-              disabled={loading}
-              className="w-1/2 mt-4 px-4 py-2 rounded bg-black text-white font-semibold text-sm hover:bg-blue-700 disabled:opacity-50"
-            >
-              {loading ? "Processing..." : "Confirm Replacement"}
-            </button>
-          </div>
-
-          <div className="flex flex-col items-center gap-3 w-80">
-            <h2 className="text-sm font-semibold text-gray-700">Member ID</h2>
-            <div className="bg-white border rounded-lg shadow w-3/4">
-              <div className="bg-black h-16 flex items-center justify-center">
-                <h3 className="text-white font-semibold text-sm">
-                  GYM MEMBER ID
-                </h3>
-              </div>
-              <div className="flex flex-col items-center p-4">
-                <div className="w-32 h-32 border border-gray-300 rounded flex items-center justify-center bg-gray-50 overflow-hidden mb-3">
-                  {selectedMember?.member_image ? (
-                    <img
-                      src={selectedMember.member_image}
-                      alt="Member Photo"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-gray-400 text-sm">
-                      {selectedMember?.full_name || selectedMember?.member_name
-                        ? (selectedMember?.full_name || selectedMember?.member_name).charAt(0).toUpperCase()
-                        : "?"}
-                    </span>
-                  )}
+              {paymentMethod !== "cash" && paymentMethod !== "" && (
+                <div>
+                  <label className={labelClass}>
+                    {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)} Reference No.
+                  </label>
+                  <input
+                    type="text"
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    placeholder="Reference number"
+                    className={inputClass}
+                  />
                 </div>
-                <h4 className="text-sm font-semibold text-gray-800">
-                  {selectedMember?.full_name || selectedMember?.member_name || "No Member Loaded"}
-                </h4>
-                <p className="text-xs text-gray-600">
-                  Plan:{" "}
-                  <span className="font-medium">
-                    {selectedMember?.subscription_type || "N/A"}
-                  </span>
-                </p>
-                <p className="text-xs text-gray-600">
-                  Expires:{" "}
-                  <span className="font-medium">
-                    {selectedMember?.subscription_expiry || "N/A"}
-                  </span>
-                </p>
-              </div>
+              )}
+            </div>
+            <div className="flex gap-2 mt-auto pt-3 border-t border-gray-100">
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                {loading ? "Processing..." : "Confirm Replacement"}
+              </button>
             </div>
           </div>
+
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">Member Preview</p>
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-70 h-70 border border-gray-200 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden flex-shrink-0">
+                {selectedMember?.member_image ? (
+                  <img src={selectedMember.member_image} alt="Member Photo" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-3xl font-medium text-gray-300">
+                    {selectedMember?.full_name || selectedMember?.member_name
+                      ? (selectedMember?.full_name || selectedMember?.member_name).charAt(0).toUpperCase()
+                      : "?"}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs font-medium text-gray-900 text-center">
+                {selectedMember?.full_name || selectedMember?.member_name || "No member loaded"}
+              </p>
+              {selectedMember?.subscription_type && (
+                <p className="text-xs text-gray-400 text-center">Plan: {selectedMember.subscription_type}</p>
+              )}
+              {selectedMember?.subscription_expiry && (
+                <p className="text-xs text-gray-400 text-center">Expires: {selectedMember.subscription_expiry}</p>
+              )}
+            </div>
+          </div>
+
         </div>
-      </main>
+      </div>
     </div>
   );
 };

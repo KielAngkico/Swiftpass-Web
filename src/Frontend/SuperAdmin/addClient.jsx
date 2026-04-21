@@ -24,7 +24,7 @@ const AddClient = () => {
     admin_name: "",
     address: "",
     email: "",
-    password: "",
+    password: "pass123",
     gym_name: "",
     gym_code: "",
     system_type: "",

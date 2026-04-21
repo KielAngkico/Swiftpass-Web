@@ -16,7 +16,6 @@ const StaffViewMember = () => {
         setError(null);
 
         const { data } = await api.get("/api/me");
-        console.log("📥 Staff info response:", data);
 
         if (!data.authenticated || !data.user) {
           throw new Error("Not authenticated");
@@ -27,14 +26,9 @@ const StaffViewMember = () => {
         }
 
         const stype = (data.user.systemType || data.user.system_type || "").toLowerCase().trim();
-        console.log("🔍 System type:", stype);
-
         setSystemType(stype);
-
       } catch (err) {
-        console.error("❌ Failed to fetch staff info:", err);
         setError(err.message || "Failed to fetch staff info");
-
         if (err.response?.status === 401) {
           window.location.href = "/login";
         }
@@ -48,11 +42,10 @@ const StaffViewMember = () => {
 
   if (loading) {
     return (
-      <div className="flex">
+      <div className="flex min-h-screen bg-gray-50">
         <StaffSidebar />
-        <div className="flex-1 p-6 text-center py-12">
-          <div className="text-4xl mb-4">⏳</div>
-          <p className="text-gray-600">Loading staff system...</p>
+        <div className="flex-1 min-w-0 flex items-center justify-center">
+          <p className="text-xs text-gray-500">Loading...</p>
         </div>
       </div>
     );
@@ -60,27 +53,28 @@ const StaffViewMember = () => {
 
   if (error) {
     return (
-      <div className="flex">
+      <div className="flex min-h-screen bg-gray-50">
         <StaffSidebar />
-        <div className="flex-1 p-6 text-center py-12">
-          <div className="text-6xl mb-4">❌</div>
-          <h2 className="text-2xl font-bold text-red-600 mb-2">Error</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Try Again
-          </button>
+        <div className="flex-1 min-w-0 flex items-center justify-center">
+          <div className="bg-white border border-gray-200 rounded-xl p-6 text-center max-w-sm">
+            <p className="text-sm font-medium text-gray-900 mb-1">Something went wrong</p>
+            <p className="text-xs text-gray-500 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex">
+    <div className="flex min-h-screen bg-gray-50">
       <StaffSidebar />
-      <div className="flex-1 p-4">
+      <div className="flex-1 min-w-0 p-6">
         {systemType === "prepaid_entry" ? <PrepaidView /> : <SubscriptionView />}
       </div>
     </div>

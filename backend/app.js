@@ -8,6 +8,8 @@ require("./middleware/expiryHandler");
 process.env.TZ = process.env.TZ;
 const dbSuperAdmin = require('./db');
 
+const profileRoute = require("./routes/profile");
+
 const loginroute = require("./routes/login");
 const authRoute = require("./routes/auth");
 const PartnerRegistration = require("./routes/PartnerRegistration");
@@ -46,13 +48,7 @@ const allowedOrigins = process.env.CLIENT_ORIGINS
   : [];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: true, // allows all origins during development
   credentials: true,
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization','X-Requested-With','Accept','Origin'],
@@ -85,7 +81,7 @@ app.use("/uploads/daypass", express.static(path.join(__dirname, "..", "public","
 app.use("/uploads/exercises", express.static(path.join(__dirname, "..", "public","uploads/exercises")));
 app.use("/uploads", express.static(path.join(__dirname, "..","public" ,"uploads")));
 
-
+app.use("/api", profileRoute);
 app.use("/api", loginroute);
 app.use("/api", authRoute);
 app.use("/api", PartnerRegistration);

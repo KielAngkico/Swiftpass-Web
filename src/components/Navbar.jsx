@@ -6,15 +6,16 @@ import axios from "axios";
 import { API_URL } from "../config";
 import { getAccessToken } from "../tokenMemory";
 import { FaBars, FaTimes } from "react-icons/fa";
-import logo from "../../uploads/Final_SwiftPass_Logo-cropped.png"; 
+import logo from "../../uploads/Final_SwiftPass_Logo-cropped.png";
+
 const Navbar = () => {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [userName, setUserName] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user } = useAuth();
   const location = useLocation();
-  if (location.pathname !== "/") return null;
 
+  // ✅ ALL hooks must come before any conditional return
   const fetchUser = async () => {
     try {
       const token = getAccessToken();
@@ -39,16 +40,13 @@ const Navbar = () => {
   useEffect(() => {
     fetchUser();
 
-    const handleAuthChange = () => {
-      fetchUser();
-    };
-
+    const handleAuthChange = () => fetchUser();
     window.addEventListener("auth-changed", handleAuthChange);
-    return () => {
-      window.removeEventListener("auth-changed", handleAuthChange);
-    };
+    return () => window.removeEventListener("auth-changed", handleAuthChange);
   }, []);
 
+  // ✅ Conditional return AFTER all hooks
+  if (location.pathname !== "/") return null;
 
   return (
     <div className="absolute top-0 left-0 w-full z-15 fixed">
@@ -59,7 +57,7 @@ const Navbar = () => {
           className="h-8 md:h-9 object-contain"
         />
         <ul className="hidden md:flex gap-7 text-white text-sm/5">
-          <a href="#main" className="cursor-pointer hover:text-gray-400 ">Home</a>
+          <a href="#main" className="cursor-pointer hover:text-gray-400">Home</a>
           <a href="#about" className="cursor-pointer hover:text-gray-400">About</a>
           <a href="#Header" className="cursor-pointer hover:text-gray-400">Features</a>
           <a href="#Contact" className="cursor-pointer hover:text-gray-400">Contact</a>
@@ -77,6 +75,7 @@ const Navbar = () => {
           {isMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
         </button>
       </div>
+
       {isMenuOpen && (
         <div className="md:hidden bg-gray-100 text-black flex flex-col items-center py-4 space-y-4 shadow-lg">
           <a href="#main" className="hover:text-gray-400" onClick={() => setIsMenuOpen(false)}>Home</a>
@@ -94,6 +93,7 @@ const Navbar = () => {
           </button>
         </div>
       )}
+
       {isLoginOpen && <Login closeModal={() => setIsLoginOpen(false)} />}
     </div>
   );

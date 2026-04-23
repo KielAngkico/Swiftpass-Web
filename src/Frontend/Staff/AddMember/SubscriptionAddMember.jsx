@@ -297,10 +297,19 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
                   <label className={labelClass}>Full Name</label>
                   <input type="text" name="full_name" value={formData.full_name} onChange={handleChange} required placeholder="Enter full name" className={inputClass} />
                 </div>
-                <div>
-                  <label className={labelClass}>RFID Tag</label>
-                  <input type="text" name="rfid_tag" value={formData.rfid_tag} readOnly className={readonlyClass} />
-                </div>
+<div>
+  <label className={labelClass}>RFID Tag</label>
+  <input
+    type="text"
+    name="rfid_tag"
+    value={formData.rfid_tag}
+    onChange={(e) =>
+      setFormData({ ...formData, rfid_tag: e.target.value })
+    }
+    className={readonlyClass}
+  />
+</div>
+
               </div>
               <div>
                 <label className={labelClass}>Email</label>

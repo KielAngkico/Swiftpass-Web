@@ -323,21 +323,20 @@ const DayPassRenewal = ({ staffUser }) => {
               <p className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">Guest Preview</p>
               <div className="flex flex-col items-center gap-2">
                 <div className="w-70 h-70 border border-gray-200 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden flex-shrink-0">
-                  {imagePreview ? (
-                    <img
-                      src={imagePreview}
-                      alt="Guest"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.parentElement.innerHTML = `<span class="text-3xl font-medium text-gray-300">${guestName ? guestName.charAt(0).toUpperCase() : "?"}</span>`;
-                      }}
-                    />
-                  ) : (
-                    <span className="text-3xl font-medium text-gray-300">
-                      {guestName ? guestName.charAt(0).toUpperCase() : "?"}
-                    </span>
-                  )}
+{imagePreview ? (
+  <img
+    src={imagePreview}
+    alt="Guest"
+    className="w-full h-full object-cover"
+    onError={(e) => {
+      setImagePreview(null); // ← use React state instead of DOM manipulation
+    }}
+  />
+) : (
+  <span className="text-3xl font-medium text-gray-300">
+    {guestName ? guestName.charAt(0).toUpperCase() : "?"}
+  </span>
+)}
                 </div>
                 <p className="text-xs font-medium text-gray-900 text-center">
                   {guestName || "No guest loaded"}

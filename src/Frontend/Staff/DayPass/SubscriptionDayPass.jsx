@@ -220,16 +220,17 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
                 className={inputClass}
               />
             </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">RFID Tag</label>
-              <input
-                type="text"
-                value={rfid}
-                readOnly
-                placeholder="Scan RFID tag"
-                className={readonlyInputClass}
-              />
-            </div>
+<div>
+  <label className="block text-xs text-gray-500 mb-1">RFID Tag</label>
+  <input
+    type="text"
+    value={rfid}
+    onChange={(e) => setRfid(e.target.value)}
+    placeholder="Scan RFID tag"
+    className={readonlyInputClass}
+  />
+</div>
+
           </div>
 
           <div className="grid grid-cols-2 gap-3">

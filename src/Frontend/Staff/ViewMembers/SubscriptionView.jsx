@@ -24,6 +24,7 @@ const SubscriptionView = () => {
         if (!extractedAdminId) throw new Error("Admin ID missing from user data");
 
         const membersRes = await api.get(`/api/get-members?admin_id=${extractedAdminId}`);
+        
         const allMembers = membersRes.data.members || [];
         setMembers(allMembers.filter((m) => m.system_type === "subscription"));
       } catch (err) {

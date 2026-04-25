@@ -40,6 +40,8 @@ const SubscriptionPackages = require ("./routes/SubscriptionPackages.js");
 const RfidReplacementRoutes = require ("./routes/RfidReplacement");
 const partnerOrdersRoutes = require("./routes/partnerOrders");
 
+const viewDayPassGuestsRoute = require("./routes/ViewDayPassGuests");
+
 const app = express();
 
 
@@ -86,6 +88,8 @@ app.use("/api", loginroute);
 app.use("/api", authRoute);
 app.use("/api", PartnerRegistration);
 app.use("/api", memberRegistration);
+
+app.use("/api", viewDayPassGuestsRoute);
 
 app.use("/api/partner-orders", partnerOrdersRoutes);
 app.use('/api/partner-rfids', partnerRfidsRoutes);

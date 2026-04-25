@@ -56,6 +56,11 @@ const OwnerSidebar = () => {
         icon: <FiUsers />,
       },
       {
+        path: "/Admin/AdminViewDayPass",
+        label: "Day Pass Guests",
+        icon: <FiUsers />,
+      },
+      {
         path: "/Admin/PricingManagement",
         label: "Pricing",
         icon: <IoPricetagOutline />,

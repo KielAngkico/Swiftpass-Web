@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { NavLink } from "react-router-dom";
-import { FiMenu, FiUserPlus, FiUsers, FiClipboard, FiLogIn } from "react-icons/fi";
+import { 
+  FiMenu, FiLogIn, FiUsers, FiSun, FiUserPlus, 
+  FiRefreshCw, FiCreditCard 
+} from "react-icons/fi";
 import { useAuth } from "../App";
 
 const StaffSidebar = () => {
@@ -19,17 +22,14 @@ const StaffSidebar = () => {
   const navItems = useMemo(() => {
     if (!user) return [];
     return [
-      { path: "/Staff/member-entry", label: "Member Entry", icon: <FiLogIn /> },
-      { path: "/Staff/view-members", label: "View Members", icon: <FiUsers /> },
-      { path: "/Staff/DayPass", label: "Day Pass", icon: <FiUserPlus /> },
-      { path: "/Staff/AddMember", label: "Add Member", icon: <FiUserPlus /> },
-      {
-        path: "/Staff/MembershipTransactions",
-        label: user.systemType === "subscription" ? "Renewal" : "Top Up",
-        icon: <FiClipboard />,
-      },
-      { path: "/Staff/DayPassRenewal", label: "Day Pass Renewal", icon: <FiUserPlus /> },
-    { path: "/Staff/RfidReplacement", label: "Rfid Replacement", icon: <FiUserPlus /> },
+{ path: "/Staff/member-entry",            label: "Member Entry",       icon: <FiLogIn /> },
+{ path: "/Staff/view-members",            label: "View Members",        icon: <FiUsers /> },
+{ path: "/Staff/view-daypass",            label: "View Day Pass Guests",        icon: <FiUsers /> },
+{ path: "/Staff/DayPass",                 label: "Day Pass",            icon: <FiSun /> },
+{ path: "/Staff/AddMember",               label: "Add Member",          icon: <FiUserPlus /> },
+{ path: "/Staff/MembershipTransactions",  label: "Top Up / Renewal",    icon: <FiRefreshCw /> },
+{ path: "/Staff/DayPassRenewal",          label: "Day Pass Renewal",    icon: <FiRefreshCw /> },
+{ path: "/Staff/RfidReplacement",         label: "RFID Replacement",    icon: <FiCreditCard /> },
     ];
   }, [user]);
 

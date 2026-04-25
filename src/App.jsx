@@ -45,6 +45,8 @@ const TransactionsPage = React.lazy(() => import("./Frontend/SuperAdmin/Transact
 
 const AdminAnalyticalDashboard = React.lazy(() => import("./Frontend/Admin/AdminAnalyticalDashboard"));
 const AdminViewMembers = React.lazy(() => import("./Frontend/Admin/AdminViewMembers"));
+const AdminViewDayPass = React.lazy(() => import("./Frontend/Admin/AdminViewDayPass"));
+
 const ActivityAnalytics = React.lazy(() => import("./Frontend/Admin/ActivityAnalytics"));
 const TransactionsReport = React.lazy(() => import("./Frontend/Admin/TransactionsReport"));
 const PricingManagement = React.lazy(() => import("./Frontend/Admin/PricingManagement"));
@@ -56,6 +58,8 @@ const MyRfidInventory = React.lazy(() => import("./Frontend/Admin/MyRfidInventor
 
 
 const ViewMembers = React.lazy(() => import("./Frontend/Staff/ViewMembers"));
+const ViewDayPass = React.lazy(() => import("./Frontend/Staff/ViewDayPass"));
+
 const ScanRFID = React.lazy(() => import("./Frontend/Staff/ScanRFID"));
 const DayPass = React.lazy(() => import("./Frontend/Staff/DayPass"));
 const AddMember = React.lazy(() => import("./Frontend/Staff/AddMember"));
@@ -312,6 +316,7 @@ const AppRoutes = () => {
             <>
               <Route path="/Admin/AdminAnalyticalDashboard" element={<AdminAnalyticalDashboard />} />
               <Route path="/Admin/AdminViewMembers" element={<AdminViewMembers />} />
+              <Route path="/Admin/AdminViewDayPass" element={<AdminViewDayPass />} />
               <Route path="/Admin/ActivityAnalytics" element={<ActivityAnalytics />} />
               <Route path="/Admin/TransactionsReport" element={<TransactionsReport />} />
               <Route path="/Admin/MyOrders" element={<MyOrders />} />
@@ -326,6 +331,7 @@ const AppRoutes = () => {
             <>
               <Route path="/Staff/member-entry" element={<MemberEntry />} />
               <Route path="/Staff/view-members" element={<ViewMembers />} />
+              <Route path="/Staff/view-daypass" element={<ViewDayPass />} />
               <Route path="/Staff/DayPass" element={<DayPass />} />
               <Route path="/Staff/AddMember" element={<AddMember />} />
               <Route path="/Staff/scan-rfid" element={<ScanRFID />} />

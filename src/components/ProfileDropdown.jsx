@@ -9,6 +9,7 @@ const ProfileDropdown = ({ onLogoutClick, loading }) => {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(null);
   const ref = useRef(null);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -46,16 +47,16 @@ const ProfileDropdown = ({ onLogoutClick, loading }) => {
         className="w-8 h-8 rounded-full bg-blue-600 text-white text-[10px] font-semibold flex items-center justify-center hover:bg-blue-500 transition-colors border-2 border-transparent hover:border-blue-400 overflow-hidden"
         title={user.name}
       >
-        {user.profile_image_url ? (
-          <img
-            src={`${API_URL}${user.profile_image_url}`}
-            alt=""
-            className="w-full h-full object-cover"
-            onError={(e) => { e.target.style.display = "none"; }}
-          />
-        ) : (
-          <span>{getInitials(user.name)}</span>
-        )}
+  {user.profile_image_url && !imgError ? (
+    <img
+      src={`${API_URL}${user.profile_image_url}`}
+      alt=""
+      className="w-full h-full object-cover"
+      onError={() => setImgError(true)}
+    />
+  ) : (
+    <span>{getInitials(user.name)}</span>
+  )}
       </button>
 
       {open && (

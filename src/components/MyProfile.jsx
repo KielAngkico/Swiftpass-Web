@@ -261,7 +261,7 @@ const MyProfile = ({ isOpen, onClose }) => {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 py-2 bg-gray-900 hover:bg-black text-white text-[11px] rounded transition-all active:scale-[0.98] disabled:opacity-50"
+              className="flex-1 py-2 bg-blue-600 hover:bg-blue-800 text-white text-[11px] rounded transition-all active:scale-[0.98] disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save changes"}
             </button>
@@ -276,7 +276,7 @@ const MyProfile = ({ isOpen, onClose }) => {
           <div className="flex gap-2 mt-4">
             <button
               onClick={startEdit}
-              className="flex-1 py-2 bg-gray-900 hover:bg-black text-white text-[11px] rounded transition-all active:scale-[0.98]"
+              className="flex-1 py-2 bg-blue-600 hover:bg-blue-800 text-white text-[11px] rounded transition-all active:scale-[0.98]"
             >
               Edit Profile
             </button>

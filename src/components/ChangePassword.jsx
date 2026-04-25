@@ -148,7 +148,7 @@ const ChangePassword = ({ isOpen, onClose }) => {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.35)" }}
+      style={{ background: "transparent" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-gray-100">
@@ -212,7 +212,7 @@ const ChangePassword = ({ isOpen, onClose }) => {
                 <button
                   onClick={handleSendOtp}
                   disabled={loading}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors "
                 >
                   {loading ? "Sending..." : "Send verification code"}
                 </button>
@@ -252,7 +252,7 @@ const ChangePassword = ({ isOpen, onClose }) => {
                 <button
                   onClick={handleVerifyOtp}
                   disabled={loading || otp.length !== 6}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors "
                 >
                   {loading ? "Verifying..." : "Verify code"}
                 </button>
@@ -292,7 +292,7 @@ const ChangePassword = ({ isOpen, onClose }) => {
                 <button
                   onClick={handleResetPassword}
                   disabled={loading}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors "
                 >
                   {loading ? "Saving..." : "Save new password"}
                 </button>

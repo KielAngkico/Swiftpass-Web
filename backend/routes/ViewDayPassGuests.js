@@ -24,20 +24,15 @@ router.get('/daypass-guests', async (req, res) => {
     const baseURL = `${req.protocol}://${req.get("host")}`;
 
 const guests = rows.map((g) => {
-  let imageUrl = g.profile_image_url
-    ? `${baseURL}/${g.profile_image_url.replace(/^\//, "")}` // ✅ strips the leading /
-    : `${baseURL}/uploads/members/default.jpg`;
+let imageUrl;
 
-  if (g.profile_image_url) {
-    try {
-      const url = new URL(imageUrl);
-      const pathParts = url.pathname.split('/');
-      url.pathname = pathParts.map(part => encodeURIComponent(part)).join('/');
-      imageUrl = url.toString();
-    } catch (e) {
-      console.error('URL encoding error:', e);
-    }
-  }
+if (!g.profile_image_url) {
+  imageUrl = `${baseURL}/uploads/members/default.jpg`;
+} else if (g.profile_image_url.startsWith("http")) {
+  imageUrl = g.profile_image_url; // already a full URL, use as-is
+} else {
+  imageUrl = `${baseURL}/${g.profile_image_url.replace(/^\//, "")}`; // relative path, prepend server
+}
 
       return {
         ...g,

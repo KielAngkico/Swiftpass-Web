@@ -8,7 +8,7 @@ router.get('/daypass-guests', async (req, res) => {
   if (!admin_id) return res.status(400).json({ message: 'admin_id is required' });
 
   try {
-    let query = `SELECT * FROM daypassguests WHERE admin_id = ?`;
+    let query = `SELECT * FROM DayPassGuests WHERE admin_id = ?`;
     const params = [admin_id];
 
     if (system_type) {

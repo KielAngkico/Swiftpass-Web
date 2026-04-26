@@ -40,6 +40,7 @@ const ItemsInventory = React.lazy(() => import("./Frontend/SuperAdmin/ItemsInven
 const PricingsManagement = React.lazy(() => import("./Frontend/SuperAdmin/PricingManagement"));
 const OrdersPage = React.lazy(() => import("./Frontend/SuperAdmin/OrdersPage"));
 const TransactionsPage = React.lazy(() => import("./Frontend/SuperAdmin/Transactions"));
+const AuditTrails= React.lazy(() => import("./Frontend/SuperAdmin/AuditTrails"));
 
 
 
@@ -291,7 +292,7 @@ const AppRoutes = () => {
   );
 }
 
-  return (
+  return (  
     <ToastProvider>
       <Suspense fallback={<p>Loading page...</p>}>
         <Routes>
@@ -309,6 +310,7 @@ const AppRoutes = () => {
               <Route path="/SuperAdmin/ItemsInventory" element={<ItemsInventory />} />
               <Route path="/SuperAdmin/PricingManagement" element={<PricingsManagement />} />
               <Route path="/SuperAdmin/Transactions" element={<TransactionsPage />} />
+              <Route path="/SuperAdmin/AuditTrails" element={<AuditTrails />} />
             </>
           )}
 

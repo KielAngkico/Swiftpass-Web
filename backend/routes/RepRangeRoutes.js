@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
-
+const { logAudit } = require("../middleware/auditLogger");
 
 router.post("/rep-ranges", async (req, res) => {
   const { body_goal, gender, reps_low, reps_high } = req.body;
@@ -17,14 +17,22 @@ router.post("/rep-ranges", async (req, res) => {
       [body_goal, gender, reps_low, reps_high]
     );
 
+    await logAudit({
+      req,
+      action: "CREATE",
+      module: "RepRanges",
+      target: `${body_goal} - ${gender}`,
+      target_id: result.insertId,
+      description: `Added rep range for ${body_goal} (${gender}): ${reps_low}-${reps_high} reps`,
+      payload: req.body,
+    });
+
     res.status(201).json({ message: "Rep range added successfully", id: result.insertId });
   } catch (error) {
     console.error("Error creating rep range:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
 
 router.get("/rep-ranges", async (req, res) => {
   try {
@@ -35,7 +43,6 @@ router.get("/rep-ranges", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
-
 
 router.put("/rep-ranges/:id", async (req, res) => {
   const { id } = req.params;
@@ -56,6 +63,16 @@ router.put("/rep-ranges/:id", async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Rep range not found" });
     }
+
+    await logAudit({
+      req,
+      action: "UPDATE",
+      module: "RepRanges",
+      target: `${body_goal} - ${gender}`,
+      target_id: parseInt(id),
+      description: `Edited rep range for ${body_goal} (${gender}): ${reps_low}-${reps_high} reps`,
+      payload: req.body,
+    });
 
     res.json({ message: "Rep range updated successfully" });
   } catch (err) {

@@ -4,6 +4,7 @@ const dbSuperAdmin = require("../db");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
+const logAudit = require("../middleware/auditLogger");
 
 const otpLoginSessions = {};
 
@@ -87,61 +88,79 @@ router.post("/login", async (req, res) => {
       }
     }
 
-if (!user) {
-  return res.status(401).json({ success: false, message: "Invalid email or password" });
-}
+    if (!user) {
+      await logAudit({
+        req,
+        action: "LOGIN_FAILED",
+        module: "Auth",
+        target: email,
+        target_id: null,
+        description: `Failed login attempt for ${email}`,
+        payload: { email },
+      });
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
 
-// REPLACED: no more OTP, issue tokens directly
-const accessToken = jwt.sign(
-  {
-    id: user.id,
-    role: user.role,
-    systemType: user.systemType || user.system_type || null,
-    adminId: user.role === "admin" ? user.id : user.role === "staff" ? user.admin_id : null,
-    name: user.name,
-  },
-  process.env.JWT_SECRET,
-  { expiresIn: "3m" }
-);
+    const accessToken = jwt.sign(
+      {
+        id: user.id,
+        role: user.role,
+        systemType: user.systemType || user.system_type || null,
+        adminId: user.role === "admin" ? user.id : user.role === "staff" ? user.admin_id : null,
+        name: user.name,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "3m" }
+    );
 
-const refreshToken = jwt.sign(
-  { id: user.id, role: user.role },
-  process.env.JWT_REFRESH_SECRET,
-  { expiresIn: "1d" }
-);
+    const refreshToken = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: "1d" }
+    );
 
-res.cookie("accessToken", accessToken, {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-  maxAge: 3 * 60 * 1000,
-  path: "/",
-});
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      maxAge: 3 * 60 * 1000,
+      path: "/",
+    });
 
-res.cookie("refreshToken", refreshToken, {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-  path: "/",
-});
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      path: "/",
+    });
 
-return res.json({
-  success: true,
-  message: "Login successful",
-  accessToken,
-  user: {
-    id: user.id,
-    role: user.role,
-    systemType: user.systemType || user.system_type || null,
-    adminId: user.role === "admin" ? user.id : user.role === "staff" ? user.admin_id : null,
-    name: user.name,
-  },
-});
+    await logAudit({
+      req,
+      action: "LOGIN_SUCCESS",
+      module: "Auth",
+      target: email,
+      target_id: user.id,
+      description: `${user.name} logged in successfully`,
+      payload: { email, role: user.role },
+    });
 
-} catch (error) {
-  console.error("Login error:", error);
-  res.status(500).json({ success: false, message: "Internal server error" });
-}
+    return res.json({
+      success: true,
+      message: "Login successful",
+      accessToken,
+      user: {
+        id: user.id,
+        role: user.role,
+        systemType: user.systemType || user.system_type || null,
+        adminId: user.role === "admin" ? user.id : user.role === "staff" ? user.admin_id : null,
+        name: user.name,
+      },
+    });
+
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
 });
 
 router.post("/verify-login-otp", async (req, res) => {
@@ -193,7 +212,7 @@ router.post("/verify-login-otp", async (req, res) => {
     { expiresIn: "3m" }
   );
 
-  const refreshToken = jwt.sign({ id: sessionData.userId, role:sessionData.role }, process.env.JWT_REFRESH_SECRET, {
+  const refreshToken = jwt.sign({ id: sessionData.userId, role: sessionData.role }, process.env.JWT_REFRESH_SECRET, {
     expiresIn: "1d",
   });
 
@@ -224,9 +243,10 @@ router.post("/verify-login-otp", async (req, res) => {
       adminId: sessionData.adminId,
       name: sessionData.name,
     },
-	accessToken,
+    accessToken,
   });
 });
+
 router.post("/refresh-token", async (req, res) => {
   const refreshToken = req.cookies?.refreshToken;
   if (!refreshToken) return res.status(401).json({ success: false, message: "No refresh token" });
@@ -319,6 +339,7 @@ router.post("/refresh-token", async (req, res) => {
     }
   });
 });
+
 router.post("/resend-login-otp", async (req, res) => {
   const { email } = req.body;
 

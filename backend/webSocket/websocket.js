@@ -159,6 +159,19 @@ async function getAdminByRfid(rfidTag) {
   }
 }
 
+async function getSuperAdminByRfid(rfidTag) {
+  try {
+    const [rows] = await dbSuperAdmin.promise().query(
+      "SELECT id, superadmin_name FROM SuperAdminAccounts WHERE rfid_tag = ? LIMIT 1",
+      [rfidTag]
+    );
+    return rows.length > 0 ? rows[0] : null;
+  } catch (error) {
+    console.error("❌ SuperAdmin check error:", error.message);
+    return null;
+  }
+}
+
 async function getMemberByRfid(rfidTag, adminId = null) {
   try {
     let query = "SELECT id, full_name, status, admin_id FROM MembersAccounts WHERE rfid_tag = ?";
@@ -455,6 +468,7 @@ async function handleMessage(ws, message) {
         isRfidRegistered,
         getStaffByRfid,
         getAdminByRfid,
+        getSuperAdminByRfid,
         logStaffActivity,
         broadcastToClients,
         handleDayPassGuest,

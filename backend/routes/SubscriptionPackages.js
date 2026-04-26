@@ -1,8 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
+const { logAudit } = require("../middleware/auditLogger");
 
- router.post("/packages", async (req, res) => {
+router.post("/packages", async (req, res) => {
   try {
     const { name, price, duration_days, items } = req.body;
     if (!name || !price || !duration_days) {
@@ -27,6 +28,16 @@ const dbSuperAdmin = require("../db");
       }
     }
 
+    await logAudit({
+      req,
+      action: 'CREATE',
+      module: 'Packages',
+      target: name,
+      target_id: packageId,
+      description: `Added subscription package ${name}`,
+      payload: req.body,
+    });
+
     res.status(201).json({ message: "Package created", packageId });
   } catch (err) {
     console.error(err);
@@ -34,7 +45,7 @@ const dbSuperAdmin = require("../db");
   }
 });
 
- router.get("/packages", async (req, res) => {
+router.get("/packages", async (req, res) => {
   try {
     const [packages] = await dbSuperAdmin.promise().query("SELECT * FROM SubscriptionPackages ORDER BY created_at DESC");
     for (let pkg of packages) {
@@ -47,7 +58,6 @@ const dbSuperAdmin = require("../db");
   }
 });
 
-
 router.put("/packages/:id", async (req, res) => {
   const conn = await dbSuperAdmin.promise().getConnection();
   try {
@@ -56,14 +66,14 @@ router.put("/packages/:id", async (req, res) => {
 
     await conn.beginTransaction();
 
-     await conn.query(
+    await conn.query(
       "UPDATE SubscriptionPackages SET name=?, price=?, duration_days=? WHERE id=?",
       [name, price, duration_days, id]
     );
 
-     await conn.query("DELETE FROM PackageItems WHERE package_id=?", [id]);
+    await conn.query("DELETE FROM PackageItems WHERE package_id=?", [id]);
 
-     if (items && items.length > 0) {
+    if (items && items.length > 0) {
       for (const item of items) {
         await conn.query(
           "INSERT INTO PackageItems (package_id, item_name, quantity) VALUES (?, ?, ?)",
@@ -73,6 +83,17 @@ router.put("/packages/:id", async (req, res) => {
     }
 
     await conn.commit();
+
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: 'Packages',
+      target: name,
+      target_id: parseInt(id),
+      description: `Edited subscription package ${name}`,
+      payload: req.body,
+    });
+
     res.json({ message: "Package updated" });
   } catch (err) {
     await conn.rollback();
@@ -82,17 +103,34 @@ router.put("/packages/:id", async (req, res) => {
     conn.release();
   }
 });
- router.delete("/packages/:id", async (req, res) => {
+
+router.delete("/packages/:id", async (req, res) => {
   try {
     const { id } = req.params;
+
+    const [[pkg]] = await dbSuperAdmin.promise().query(
+      "SELECT name FROM SubscriptionPackages WHERE id = ?", [id]
+    );
+
     await dbSuperAdmin.promise().query("DELETE FROM SubscriptionPackages WHERE id=?", [id]);
+
+    await logAudit({
+      req,
+      action: 'DELETE',
+      module: 'Packages',
+      target: pkg ? pkg.name : id,
+      target_id: parseInt(id),
+      description: `Deleted subscription package ${pkg ? pkg.name : id}`,
+      payload: req.body,
+    });
+
     res.json({ message: "Package deleted" });
   } catch (err) {
     res.status(500).json({ message: "Error deleting package" });
   }
 });
 
- router.post("/purchase-package", async (req, res) => {
+router.post("/purchase-package", async (req, res) => {
   const conn = await dbSuperAdmin.promise().getConnection();
   try {
     const { admin_id, package_id } = req.body;
@@ -139,6 +177,17 @@ router.put("/packages/:id", async (req, res) => {
     }
 
     await conn.commit();
+
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: 'Packages',
+      target: pkg.name,
+      target_id: parseInt(package_id),
+      description: `Purchased package ${pkg.name} for admin ${admin_id}`,
+      payload: req.body,
+    });
+
     res.json({ message: "Package purchased successfully", transaction_id: trxId });
   } catch (err) {
     await conn.rollback();
@@ -148,6 +197,7 @@ router.put("/packages/:id", async (req, res) => {
     conn.release();
   }
 });
+
 router.get("/payment-options", async (req, res) => {
   try {
     const [options] = await dbSuperAdmin.promise().query(`
@@ -161,11 +211,10 @@ router.get("/payment-options", async (req, res) => {
   }
 });
 
-// ADD payment option
 router.post("/payment-options", async (req, res) => {
   try {
     const { payment_method, account_name, account_number, is_enabled } = req.body;
-    
+
     if (!payment_method) {
       return res.status(400).json({ error: "Payment method is required" });
     }
@@ -175,6 +224,16 @@ router.post("/payment-options", async (req, res) => {
       (payment_method, account_name, account_number, is_enabled)
       VALUES (?, ?, ?, ?)
     `, [payment_method, account_name || null, account_number || null, is_enabled ? 1 : 0]);
+
+    await logAudit({
+      req,
+      action: 'CREATE',
+      module: 'Packages',
+      target: payment_method,
+      target_id: null,
+      description: `Added payment option ${payment_method}`,
+      payload: req.body,
+    });
 
     res.status(201).json({ message: "Payment option added" });
   } catch (err) {
@@ -186,7 +245,6 @@ router.post("/payment-options", async (req, res) => {
   }
 });
 
-// UPDATE payment option
 router.put("/payment-options/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -201,6 +259,16 @@ router.put("/payment-options/:id", async (req, res) => {
       WHERE id = ?
     `, [payment_method, account_name || null, account_number || null, is_enabled ? 1 : 0, id]);
 
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: 'Packages',
+      target: payment_method,
+      target_id: parseInt(id),
+      description: `Edited payment option ${payment_method}`,
+      payload: req.body,
+    });
+
     res.json({ message: "Payment option updated" });
   } catch (err) {
     console.error("Error updating payment option:", err);
@@ -208,13 +276,12 @@ router.put("/payment-options/:id", async (req, res) => {
   }
 });
 
-// DELETE payment option
 router.delete("/payment-options/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
     const [[option]] = await dbSuperAdmin.promise().query(
-      `SELECT is_default FROM SuperAdminPaymentOptions WHERE id = ?`, 
+      `SELECT is_default, payment_method FROM SuperAdminPaymentOptions WHERE id = ?`,
       [id]
     );
 
@@ -227,6 +294,17 @@ router.delete("/payment-options/:id", async (req, res) => {
     }
 
     await dbSuperAdmin.promise().query(`DELETE FROM SuperAdminPaymentOptions WHERE id = ?`, [id]);
+
+    await logAudit({
+      req,
+      action: 'DELETE',
+      module: 'Packages',
+      target: option.payment_method,
+      target_id: parseInt(id),
+      description: `Deleted payment option ${option.payment_method}`,
+      payload: req.body,
+    });
+
     res.json({ message: "Payment option deleted" });
   } catch (err) {
     console.error("Error deleting payment option:", err);
@@ -234,16 +312,13 @@ router.delete("/payment-options/:id", async (req, res) => {
   }
 });
 
-// SET DEFAULT payment method
 router.put("/payment-options/:id/set-default", async (req, res) => {
   const conn = await dbSuperAdmin.promise().getConnection();
   try {
     await conn.beginTransaction();
 
-    // Remove default from all
     await conn.query(`UPDATE SuperAdminPaymentOptions SET is_default = 0`);
 
-    // Set new default
     const [result] = await conn.query(
       `UPDATE SuperAdminPaymentOptions SET is_default = 1 WHERE id = ?`,
       [req.params.id]
@@ -255,6 +330,17 @@ router.put("/payment-options/:id/set-default", async (req, res) => {
     }
 
     await conn.commit();
+
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: 'Packages',
+      target: `Payment Option ID ${req.params.id}`,
+      target_id: parseInt(req.params.id),
+      description: `Set default payment option ID ${req.params.id}`,
+      payload: req.body,
+    });
+
     res.json({ message: "Default payment method updated" });
   } catch (err) {
     await conn.rollback();
@@ -264,4 +350,5 @@ router.put("/payment-options/:id/set-default", async (req, res) => {
     conn.release();
   }
 });
+
 module.exports = router;

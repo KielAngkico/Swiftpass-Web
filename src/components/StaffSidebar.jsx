@@ -5,6 +5,7 @@ import {
   FiRefreshCw, FiCreditCard 
 } from "react-icons/fi";
 import { useAuth } from "../App";
+import trackPageVisit from "../utils/trackPageVisit";
 
 const StaffSidebar = () => {
   const { user } = useAuth();
@@ -22,14 +23,14 @@ const StaffSidebar = () => {
   const navItems = useMemo(() => {
     if (!user) return [];
     return [
-{ path: "/Staff/member-entry",            label: "Member Entry",       icon: <FiLogIn /> },
-{ path: "/Staff/view-members",            label: "View Members",        icon: <FiUsers /> },
-{ path: "/Staff/view-daypass",            label: "View Day Pass Guests",        icon: <FiUsers /> },
-{ path: "/Staff/DayPass",                 label: "Day Pass",            icon: <FiSun /> },
-{ path: "/Staff/AddMember",               label: "Add Member",          icon: <FiUserPlus /> },
-{ path: "/Staff/MembershipTransactions",  label: "Top Up / Renewal",    icon: <FiRefreshCw /> },
-{ path: "/Staff/DayPassRenewal",          label: "Day Pass Renewal",    icon: <FiRefreshCw /> },
-{ path: "/Staff/RfidReplacement",         label: "RFID Replacement",    icon: <FiCreditCard /> },
+{ path: "/Staff/member-entry",            label: "Member Entry",         icon: <FiLogIn /> },
+{ path: "/Staff/view-members",            label: "View Members",         icon: <FiUsers /> },
+{ path: "/Staff/view-daypass",            label: "View Day Pass Guests", icon: <FiUsers /> },
+{ path: "/Staff/DayPass",                 label: "Day Pass",             icon: <FiSun /> },
+{ path: "/Staff/AddMember",               label: "Add Member",           icon: <FiUserPlus /> },
+{ path: "/Staff/MembershipTransactions",  label: "Top Up / Renewal",     icon: <FiRefreshCw /> },
+{ path: "/Staff/DayPassRenewal",          label: "Day Pass Renewal",     icon: <FiRefreshCw /> },
+{ path: "/Staff/RfidReplacement",         label: "RFID Replacement",     icon: <FiCreditCard /> },
     ];
   }, [user]);
 
@@ -61,6 +62,7 @@ const StaffSidebar = () => {
             <li key={path} className="relative group">
               <NavLink
                 to={path}
+                onClick={() => trackPageVisit(label)}
                 className={({ isActive }) =>
                   `flex items-center px-3 py-2 rounded-lg transition-all text-xs ${
                     isActive

@@ -1,34 +1,25 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
+const { logAudit } = require("../middleware/auditLogger");
 
 const query = (sql, params = []) => db.promise().query(sql, params);
 
-// --- Generate Order Number ---
 const generateOrderNumber = () => {
   const timestamp = Date.now().toString().slice(-8);
   const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   return `ORD-${timestamp}${random}`;
 };
 
-// --- Determine item type based on item name ---
 const getItemType = (itemName) => {
   const name = itemName.toLowerCase();
-  
-  if (name.includes('pcb') || name.includes('lock') || name.includes('button')) {
-    return 'other';
-  }
-  
+  if (name.includes('pcb') || name.includes('lock') || name.includes('button')) return 'other';
   if (name.includes('partner') || name.includes('staff')) return 'partner_rfid';
   if (name.includes('member') || name.includes('wristband')) return 'member_rfid';
   if (name.includes('day pass') || name.includes('keyfob')) return 'daypass_rfid';
-  
   return 'other';
 };
 
-// ========================================
-// GET AVAILABLE INVENTORY FOR ORDER CREATION
-// ========================================
 router.get("/available-inventory", async (req, res) => {
   try {
     const [items] = await query(`
@@ -42,7 +33,6 @@ router.get("/available-inventory", async (req, res) => {
       FROM SuperAdminInventory
       ORDER BY type, name
     `);
-    
     res.json(items);
   } catch (err) {
     console.error("Get available inventory error:", err);
@@ -50,9 +40,6 @@ router.get("/available-inventory", async (req, res) => {
   }
 });
 
-// ========================================
-// CREATE NEW ORDER (Partner)
-// ========================================
 router.post("/create", async (req, res) => {
   const conn = await db.promise().getConnection();
   try {
@@ -65,7 +52,6 @@ router.post("/create", async (req, res) => {
       return res.status(400).json({ error: "Admin ID and items are required" });
     }
 
-    // Validate inventory availability and prices
     for (const item of items) {
       const [[inventoryItem]] = await conn.query(`
         SELECT id, name, quantity, selling_price 
@@ -75,28 +61,20 @@ router.post("/create", async (req, res) => {
 
       if (!inventoryItem) {
         await conn.rollback();
-        return res.status(400).json({ 
-          error: `Item "${item.item_name}" not found in inventory` 
-        });
+        return res.status(400).json({ error: `Item "${item.item_name}" not found in inventory` });
       }
 
       if (inventoryItem.quantity < item.quantity) {
         await conn.rollback();
-        return res.status(400).json({ 
-          error: `Insufficient stock for "${item.item_name}". Available: ${inventoryItem.quantity}` 
-        });
+        return res.status(400).json({ error: `Insufficient stock for "${item.item_name}". Available: ${inventoryItem.quantity}` });
       }
 
       item.unit_price = inventoryItem.selling_price;
     }
 
-    const total_amount = items.reduce((sum, item) => {
-      return sum + (item.quantity * item.unit_price);
-    }, 0);
-
+    const total_amount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
     const order_number = generateOrderNumber();
 
-    // Create order with unpaid status
     const [orderResult] = await conn.query(`
       INSERT INTO PartnerOrders 
       (order_number, admin_id, order_type, total_amount, payment_status, notes, status)
@@ -105,11 +83,10 @@ router.post("/create", async (req, res) => {
 
     const order_id = orderResult.insertId;
 
-    // Create order items with inventory prices
     for (const item of items) {
       const subtotal = item.quantity * item.unit_price;
       const itemType = getItemType(item.item_name);
-      
+
       await conn.query(`
         INSERT INTO PartnerOrderItems 
         (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
@@ -118,6 +95,16 @@ router.post("/create", async (req, res) => {
     }
 
     await conn.commit();
+
+    await logAudit({
+      req,
+      action: 'CREATE',
+      module: 'Orders',
+      target: order_number,
+      target_id: order_id,
+      description: `Created order ${order_number} for admin ${admin_id}`,
+      payload: req.body,
+    });
 
     res.status(201).json({
       message: "Order created successfully",
@@ -136,9 +123,6 @@ router.post("/create", async (req, res) => {
   }
 });
 
-// ========================================
-// COMPLETE ORDER WITH PAYMENT (SuperAdmin) - SIMPLIFIED
-// ========================================
 router.put("/:id/complete-with-payment", async (req, res) => {
   const conn = await db.promise().getConnection();
   try {
@@ -147,7 +131,6 @@ router.put("/:id/complete-with-payment", async (req, res) => {
     const { id } = req.params;
     const { payment_method, reference_number } = req.body;
 
-    // Get order details
     const [[order]] = await conn.query(`
       SELECT * FROM PartnerOrders 
       WHERE id = ? AND status = 'processing'
@@ -155,61 +138,56 @@ router.put("/:id/complete-with-payment", async (req, res) => {
 
     if (!order) {
       await conn.rollback();
-      return res.status(404).json({ 
-        error: "Order not found or not in processing status" 
-      });
+      return res.status(404).json({ error: "Order not found or not in processing status" });
     }
 
-    // Check if it's initial package (already paid)
     if (order.order_type === 'initial_package') {
-      // Skip payment, just complete
       await conn.query(`
         UPDATE PartnerOrders 
-        SET status = 'completed',
-            completed_at = NOW()
+        SET status = 'completed', completed_at = NOW()
         WHERE id = ?
       `, [id]);
 
       await conn.commit();
-      return res.json({ 
+
+      await logAudit({
+        req,
+        action: 'UPDATE',
+        module: 'Orders',
+        target: order.order_number,
+        target_id: parseInt(id),
+        description: `Completed order ${order.order_number} (initial package)`,
+        payload: req.body,
+      });
+
+      return res.json({
         message: "Order completed (payment already recorded at signup)",
         skipped_payment: true
       });
     }
 
-    // For reorders, require payment info
     if (!payment_method) {
       await conn.rollback();
-      return res.status(400).json({ 
-        error: "Payment method is required" 
-      });
+      return res.status(400).json({ error: "Payment method is required" });
     }
 
-    // If not cash, require reference number
     if (payment_method.toLowerCase() !== 'cash' && !reference_number) {
       await conn.rollback();
-      return res.status(400).json({ 
-        error: "Reference number is required for non-cash payments" 
-      });
+      return res.status(400).json({ error: "Reference number is required for non-cash payments" });
     }
 
-    // Create SuperAdmin transaction
     const [txnResult] = await conn.query(`
       INSERT INTO SuperAdminTransactions 
       (admin_id, order_id, transaction_type, amount, payment_method, reference_number)
       VALUES (?, ?, 'Order Payment', ?, ?, ?)
     `, [order.admin_id, id, order.total_amount, payment_method, reference_number || null]);
-    
+
     const transaction_id = txnResult.insertId;
 
-    // Get order items for transaction details
     const [orderItems] = await conn.query(`
-      SELECT item_name, quantity, unit_price, subtotal
-      FROM PartnerOrderItems
-      WHERE order_id = ?
+      SELECT item_name, quantity, unit_price, subtotal FROM PartnerOrderItems WHERE order_id = ?
     `, [id]);
 
-    // Insert transaction items
     for (const item of orderItems) {
       await conn.query(`
         INSERT INTO SuperAdminTransactionItems
@@ -218,16 +196,12 @@ router.put("/:id/complete-with-payment", async (req, res) => {
       `, [transaction_id, item.item_name, item.quantity, item.unit_price, item.subtotal]);
     }
 
-    // Update order to completed and paid
     await conn.query(`
       UPDATE PartnerOrders 
-      SET status = 'completed',
-          payment_status = 'paid',
-          completed_at = NOW()
+      SET status = 'completed', payment_status = 'paid', completed_at = NOW()
       WHERE id = ?
     `, [id]);
 
-    // Update allocated RFIDs to in_use
     await conn.query(`
       UPDATE RegisteredRfid 
       SET status = 'in_use'
@@ -236,7 +210,17 @@ router.put("/:id/complete-with-payment", async (req, res) => {
 
     await conn.commit();
 
-    res.json({ 
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: 'Orders',
+      target: order.order_number,
+      target_id: parseInt(id),
+      description: `Completed order ${order.order_number} with payment`,
+      payload: req.body,
+    });
+
+    res.json({
       message: "Order completed and payment recorded successfully",
       transaction_id,
       payment_method,
@@ -252,9 +236,6 @@ router.put("/:id/complete-with-payment", async (req, res) => {
   }
 });
 
-// ========================================
-// GET PAYMENT OPTIONS
-// ========================================
 router.get("/payment-options", async (req, res) => {
   try {
     const [options] = await query(`
@@ -269,9 +250,6 @@ router.get("/payment-options", async (req, res) => {
   }
 });
 
-// ========================================
-// GET PARTNER ORDERS
-// ========================================
 router.get("/partner/:admin_id", async (req, res) => {
   try {
     const { admin_id } = req.params;
@@ -287,16 +265,8 @@ router.get("/partner/:admin_id", async (req, res) => {
 
     const [orders] = await query(`
       SELECT 
-        po.id,
-        po.order_number,
-        po.order_type,
-        po.order_date,
-        po.status,
-        po.total_amount,
-        po.payment_status,
-        po.notes,
-        po.processed_at,
-        po.completed_at
+        po.id, po.order_number, po.order_type, po.order_date, po.status,
+        po.total_amount, po.payment_status, po.notes, po.processed_at, po.completed_at
       FROM PartnerOrders po
       ${whereClause}
       ORDER BY po.order_date DESC
@@ -304,16 +274,8 @@ router.get("/partner/:admin_id", async (req, res) => {
 
     for (let order of orders) {
       const [items] = await query(`
-        SELECT 
-          item_name,
-          item_type,
-          quantity,
-          unit_price,
-          subtotal,
-          allocated_quantity,
-          status
-        FROM PartnerOrderItems
-        WHERE order_id = ?
+        SELECT item_name, item_type, quantity, unit_price, subtotal, allocated_quantity, status
+        FROM PartnerOrderItems WHERE order_id = ?
       `, [order.id]);
       order.items = items;
 
@@ -329,9 +291,6 @@ router.get("/partner/:admin_id", async (req, res) => {
   }
 });
 
-// ========================================
-// GET ALL ORDERS (SuperAdmin)
-// ========================================
 router.get("/all", async (req, res) => {
   try {
     const { status } = req.query;
@@ -341,20 +300,9 @@ router.get("/all", async (req, res) => {
 
     const [orders] = await query(`
       SELECT 
-        po.id,
-        po.order_number,
-        po.order_type,
-        po.order_date,
-        po.status,
-        po.total_amount,
-        po.payment_status,
-        po.notes,
-        po.processed_at,
-        po.completed_at,
-        po.admin_id,
-        aa.gym_name,
-        aa.admin_name,
-        aa.email
+        po.id, po.order_number, po.order_type, po.order_date, po.status,
+        po.total_amount, po.payment_status, po.notes, po.processed_at, po.completed_at,
+        po.admin_id, aa.gym_name, aa.admin_name, aa.email
       FROM PartnerOrders po
       JOIN AdminAccounts aa ON po.admin_id = aa.id
       ${whereClause}
@@ -363,16 +311,8 @@ router.get("/all", async (req, res) => {
 
     for (let order of orders) {
       const [items] = await query(`
-        SELECT 
-          item_name,
-          item_type,
-          quantity,
-          unit_price,
-          subtotal,
-          allocated_quantity,
-          status
-        FROM PartnerOrderItems
-        WHERE order_id = ?
+        SELECT item_name, item_type, quantity, unit_price, subtotal, allocated_quantity, status
+        FROM PartnerOrderItems WHERE order_id = ?
       `, [order.id]);
       order.items = items;
 
@@ -388,9 +328,6 @@ router.get("/all", async (req, res) => {
   }
 });
 
-// ========================================
-// PROCESS ORDER (Allocate Inventory)
-// ========================================
 router.put("/:id/process", async (req, res) => {
   const conn = await db.promise().getConnection();
   try {
@@ -399,8 +336,7 @@ router.put("/:id/process", async (req, res) => {
     const { id } = req.params;
 
     const [[order]] = await conn.query(
-      `SELECT * FROM PartnerOrders WHERE id = ? AND status = 'pending'`,
-      [id]
+      `SELECT * FROM PartnerOrders WHERE id = ? AND status = 'pending'`, [id]
     );
 
     if (!order) {
@@ -409,132 +345,97 @@ router.put("/:id/process", async (req, res) => {
     }
 
     const [orderItems] = await conn.query(
-      `SELECT * FROM PartnerOrderItems WHERE order_id = ? AND status != 'fully_allocated'`,
-      [id]
+      `SELECT * FROM PartnerOrderItems WHERE order_id = ? AND status != 'fully_allocated'`, [id]
     );
 
     let allocationResults = [];
 
     for (const item of orderItems) {
       const remainingQty = item.quantity - item.allocated_quantity;
-      
       if (remainingQty <= 0) continue;
 
       if (item.item_type.includes('rfid')) {
-        // ===== RFID ALLOCATION =====
         let rfidRole = 'Member';
         if (item.item_type === 'partner_rfid') rfidRole = 'Partner';
         else if (item.item_type === 'daypass_rfid') rfidRole = 'DayPass';
 
         const [availableRfids] = await conn.query(`
           SELECT id, rfid_tag FROM RegisteredRfid 
-          WHERE status = 'in_stock' 
-          AND role = ?
-          LIMIT ?
+          WHERE status = 'in_stock' AND role = ? LIMIT ?
         `, [rfidRole, remainingQty]);
 
         if (availableRfids.length === 0) {
-          allocationResults.push({
-            item: item.item_name,
-            requested: remainingQty,
-            allocated: 0,
-            error: `No ${rfidRole} RFIDs available`
-          });
+          allocationResults.push({ item: item.item_name, requested: remainingQty, allocated: 0, error: `No ${rfidRole} RFIDs available` });
           continue;
         }
 
-        // Allocate RFIDs
         for (const rfid of availableRfids) {
           await conn.query(`
             UPDATE RegisteredRfid 
-            SET status = 'allocated',
-                allocated_to_admin = ?,
-                order_id = ?,
-                allocation_date = NOW()
+            SET status = 'allocated', allocated_to_admin = ?, order_id = ?, allocation_date = NOW()
             WHERE id = ?
           `, [order.admin_id, id, rfid.id]);
         }
 
-        // Update inventory count
         await conn.query(`
           UPDATE SuperAdminInventory 
-          SET quantity = GREATEST(0, quantity - ?),
-              updated_at = NOW()
+          SET quantity = GREATEST(0, quantity - ?), updated_at = NOW()
           WHERE name = ?
         `, [availableRfids.length, item.item_name]);
 
-        // Update order item
         const newAllocated = item.allocated_quantity + availableRfids.length;
         const newStatus = newAllocated >= item.quantity ? 'fully_allocated' : 'partially_allocated';
 
         await conn.query(`
-          UPDATE PartnerOrderItems 
-          SET allocated_quantity = ?,
-              status = ?
-          WHERE id = ?
+          UPDATE PartnerOrderItems SET allocated_quantity = ?, status = ? WHERE id = ?
         `, [newAllocated, newStatus, item.id]);
 
         allocationResults.push({
-          item: item.item_name,
-          type: 'RFID',
-          requested: remainingQty,
-          allocated: availableRfids.length,
-          rfids: availableRfids.map(r => r.rfid_tag)
+          item: item.item_name, type: 'RFID', requested: remainingQty,
+          allocated: availableRfids.length, rfids: availableRfids.map(r => r.rfid_tag)
         });
 
       } else {
-        // ===== NON-RFID ITEMS =====
         const [[inventoryItem]] = await conn.query(`
-          SELECT id, name, quantity FROM SuperAdminInventory 
-          WHERE name = ?
+          SELECT id, name, quantity FROM SuperAdminInventory WHERE name = ?
         `, [item.item_name]);
 
         if (!inventoryItem || inventoryItem.quantity < remainingQty) {
-          allocationResults.push({
-            item: item.item_name,
-            requested: remainingQty,
-            allocated: 0,
-            error: `Insufficient stock (Available: ${inventoryItem?.quantity || 0})`
-          });
+          allocationResults.push({ item: item.item_name, requested: remainingQty, allocated: 0, error: `Insufficient stock (Available: ${inventoryItem?.quantity || 0})` });
           continue;
         }
 
         await conn.query(`
           UPDATE SuperAdminInventory 
-          SET quantity = quantity - ?,
-              updated_at = NOW()
+          SET quantity = quantity - ?, updated_at = NOW()
           WHERE id = ? AND quantity >= ?
         `, [remainingQty, inventoryItem.id, remainingQty]);
 
         await conn.query(`
-          UPDATE PartnerOrderItems 
-          SET allocated_quantity = quantity,
-              status = 'fully_allocated'
-          WHERE id = ?
+          UPDATE PartnerOrderItems SET allocated_quantity = quantity, status = 'fully_allocated' WHERE id = ?
         `, [item.id]);
 
-        allocationResults.push({
-          item: item.item_name,
-          type: 'Inventory',
-          requested: remainingQty,
-          allocated: remainingQty
-        });
+        allocationResults.push({ item: item.item_name, type: 'Inventory', requested: remainingQty, allocated: remainingQty });
       }
     }
 
     await conn.query(`
-      UPDATE PartnerOrders 
-      SET status = 'processing',
-          processed_at = NOW()
-      WHERE id = ?
+      UPDATE PartnerOrders SET status = 'processing', processed_at = NOW() WHERE id = ?
     `, [id]);
 
     await conn.commit();
 
-    res.json({
-      message: "Order processed successfully",
-      allocation_results: allocationResults
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: 'Orders',
+      target: order.order_number,
+      target_id: parseInt(id),
+      description: `Processed order ${order.order_number}`,
+      payload: req.body,
     });
+
+    res.json({ message: "Order processed successfully", allocation_results: allocationResults });
 
   } catch (err) {
     await conn.rollback();
@@ -545,9 +446,6 @@ router.put("/:id/process", async (req, res) => {
   }
 });
 
-// ========================================
-// CANCEL ORDER
-// ========================================
 router.put("/:id/cancel", async (req, res) => {
   const conn = await db.promise().getConnection();
   try {
@@ -555,10 +453,7 @@ router.put("/:id/cancel", async (req, res) => {
 
     const { id } = req.params;
 
-    const [[order]] = await conn.query(
-      `SELECT * FROM PartnerOrders WHERE id = ?`,
-      [id]
-    );
+    const [[order]] = await conn.query(`SELECT * FROM PartnerOrders WHERE id = ?`, [id]);
 
     if (!order) {
       await conn.rollback();
@@ -571,39 +466,37 @@ router.put("/:id/cancel", async (req, res) => {
     }
 
     const [orderItems] = await conn.query(`
-      SELECT item_name, allocated_quantity 
-      FROM PartnerOrderItems 
+      SELECT item_name, allocated_quantity FROM PartnerOrderItems 
       WHERE order_id = ? AND allocated_quantity > 0
     `, [id]);
 
-    // Restore inventory
     for (const item of orderItems) {
       await conn.query(`
-        UPDATE SuperAdminInventory 
-        SET quantity = quantity + ?,
-            updated_at = NOW()
-        WHERE name = ?
+        UPDATE SuperAdminInventory SET quantity = quantity + ?, updated_at = NOW() WHERE name = ?
       `, [item.allocated_quantity, item.item_name]);
     }
 
-    // Release RFIDs
     await conn.query(`
       UPDATE RegisteredRfid 
-      SET status = 'in_stock',
-          allocated_to_admin = NULL,
-          order_id = NULL,
-          allocation_date = NULL
+      SET status = 'in_stock', allocated_to_admin = NULL, order_id = NULL, allocation_date = NULL
       WHERE order_id = ?
     `, [id]);
 
     await conn.query(`
-      UPDATE PartnerOrders 
-      SET status = 'cancelled',
-          cancelled_at = NOW()
-      WHERE id = ?
+      UPDATE PartnerOrders SET status = 'cancelled', cancelled_at = NOW() WHERE id = ?
     `, [id]);
 
     await conn.commit();
+
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: 'Orders',
+      target: order.order_number,
+      target_id: parseInt(id),
+      description: `Cancelled order ${order.order_number}`,
+      payload: req.body,
+    });
 
     res.json({ message: "Order cancelled successfully" });
   } catch (err) {
@@ -615,24 +508,13 @@ router.put("/:id/cancel", async (req, res) => {
   }
 });
 
-// ========================================
-// GET ALLOCATED RFIDs
-// ========================================
 router.get("/:id/allocated-rfids", async (req, res) => {
   try {
     const { id } = req.params;
 
     const [rfids] = await query(`
-      SELECT 
-        id,
-        rfid_tag,
-        rfid_type,
-        role,
-        status,
-        allocation_date
-      FROM RegisteredRfid
-      WHERE order_id = ?
-      ORDER BY role, rfid_tag
+      SELECT id, rfid_tag, rfid_type, role, status, allocation_date
+      FROM RegisteredRfid WHERE order_id = ? ORDER BY role, rfid_tag
     `, [id]);
 
     const grouped = rfids.reduce((acc, rfid) => {
@@ -641,10 +523,7 @@ router.get("/:id/allocated-rfids", async (req, res) => {
       return acc;
     }, {});
 
-    res.json({
-      total: rfids.length,
-      rfids: grouped
-    });
+    res.json({ total: rfids.length, rfids: grouped });
   } catch (err) {
     console.error("Get allocated RFIDs error:", err);
     res.status(500).json({ error: "Server error" });

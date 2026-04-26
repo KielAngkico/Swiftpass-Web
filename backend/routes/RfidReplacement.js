@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
+const { logAudit } = require("../middleware/auditLogger");
 
 router.put("/replace-member-rfid/:id", async (req, res) => {
   const memberId = req.params.id;
@@ -14,8 +15,8 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
   } = req.body;
 
   if (!new_rfid_tag || !admin_id || !staff_name) {
-    return res.status(400).json({ 
-      message: "Missing required fields: new_rfid_tag, admin_id, or staff_name" 
+    return res.status(400).json({
+      message: "Missing required fields: new_rfid_tag, admin_id, or staff_name"
     });
   }
 
@@ -30,7 +31,7 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
     }
 
     const member = memberRows[0];
-    const oldRfid = member.rfid_tag; 
+    const oldRfid = member.rfid_tag;
 
     console.log("🔍 Member found:", {
       id: member.id,
@@ -56,7 +57,7 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
       });
     }
 
-     const updateSql = `
+    const updateSql = `
       UPDATE MembersAccounts
       SET previous_rfid = ?, 
           rfid_tag = ?, 
@@ -64,7 +65,7 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
           replaced_at = NOW()
       WHERE id = ?
     `;
-    
+
     console.log("📝 Updating with:", {
       previous_rfid: oldRfid,
       rfid_tag: new_rfid_tag,
@@ -73,8 +74,8 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
     });
 
     await dbSuperAdmin.promise().query(updateSql, [
-      oldRfid,        
-      new_rfid_tag,   
+      oldRfid,
+      new_rfid_tag,
       staff_name,
       memberId,
     ]);
@@ -88,7 +89,7 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
       admin_id,
       member.id,
       member.full_name,
-      new_rfid_tag,  
+      new_rfid_tag,
       replacement_fee || 0,
       payment_method || "Cash",
       payment_method?.toLowerCase() === "gcash" ? reference : null,
@@ -103,7 +104,7 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
     `;
     await dbSuperAdmin.promise().query(memberTxnSql, [
       admin_id,
-      new_rfid_tag,  
+      new_rfid_tag,
       member.full_name,
       replacement_fee || 0,
       payment_method || "Cash",
@@ -111,6 +112,16 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
       staff_name,
       member.subscription_type || null,
     ]);
+
+    await logAudit({
+      req,
+      action: 'RFID_REPLACEMENT',
+      module: 'RFID',
+      target: member.full_name,
+      target_id: member.id,
+      description: `Replaced RFID of ${member.full_name}`,
+      payload: req.body,
+    });
 
     res.status(200).json({
       message: " RFID replaced successfully.",
@@ -121,12 +132,11 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
     });
   } catch (err) {
     console.error("Error replacing RFID:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Server error while replacing RFID.",
-      error: err.message 
+      error: err.message
     });
   }
 });
 
 module.exports = router;
-

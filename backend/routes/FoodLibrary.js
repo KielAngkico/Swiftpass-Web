@@ -1,14 +1,17 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db"); 
+const db = require("../db");
+const { logAudit } = require("../middleware/auditLogger");
+
 const toNullable = (val) => {
   if (val === "" || val === undefined || val === null) return null;
   return val;
 };
+
 router.get('/food-groups/names', async (req, res) => {
   try {
     const sql = `SELECT DISTINCT name FROM FoodGroups ORDER BY name ASC`;
-    
+
     db.query(sql, (err, results) => {
       if (err) {
         console.error('Error fetching food group names:', err);
@@ -16,7 +19,7 @@ router.get('/food-groups/names', async (req, res) => {
       }
 
       const foodGroupNames = results.map(row => row.name);
-      
+
       console.log('Food group names:', foodGroupNames);
       res.json(foodGroupNames);
     });
@@ -25,6 +28,7 @@ router.get('/food-groups/names', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch food group names' });
   }
 });
+
 router.post("/food-groups", (req, res) => {
   console.log("📦 Received from frontend:", req.body);
   const { name, category } = req.body;
@@ -53,29 +57,25 @@ router.get("/food-groups", (req, res) => {
 });
 
 router.post("/food-database", (req, res) => {
-const { name, general_group, category, calories, protein, carbs, fats, created_by, allergens, grams_reference, is_meat, is_red_meat } = req.body;
+  const { name, general_group, category, calories, protein, carbs, fats, created_by, allergens, grams_reference, is_meat, is_red_meat } = req.body;
 
+  const meatFlag = is_meat === true || is_meat === "true" ? 1 : 0;
+  const redMeatFlag = is_red_meat === true || is_red_meat === "true" ? 1 : 0;
 
-const meatFlag = is_meat === true || is_meat === "true" ? 1 : 0;
-const redMeatFlag = is_red_meat === true || is_red_meat === "true" ? 1 : 0;
+  const findGroupSql = `SELECT id FROM FoodGroups WHERE name = ? LIMIT 1`;
+  db.query(findGroupSql, [general_group], (err, rows) => {
+    if (err) return res.status(500).json({ error: "Failed to check group" });
 
-
-const findGroupSql = `SELECT id FROM FoodGroups WHERE name = ? LIMIT 1`;
-db.query(findGroupSql, [general_group], (err, rows) => {
-  if (err) return res.status(500).json({ error: "Failed to check group" });
-
-  if (rows.length > 0) {
-    insertFood(rows[0].id);
-  } else {
-    const insertGroupSql = `INSERT INTO FoodGroups (name, category, is_meat, is_red_meat) VALUES (?, ?, ?, ?)`;
-    db.query(insertGroupSql, [general_group, category || "Unknown", meatFlag, redMeatFlag], (err, result) => {
-      if (err) return res.status(500).json({ error: "Failed to create group" });
-      insertFood(result.insertId);
-    });
-  }
-});
-
-
+    if (rows.length > 0) {
+      insertFood(rows[0].id);
+    } else {
+      const insertGroupSql = `INSERT INTO FoodGroups (name, category, is_meat, is_red_meat) VALUES (?, ?, ?, ?)`;
+      db.query(insertGroupSql, [general_group, category || "Unknown", meatFlag, redMeatFlag], (err, result) => {
+        if (err) return res.status(500).json({ error: "Failed to create group" });
+        insertFood(result.insertId);
+      });
+    }
+  });
 
   function insertFood(groupId) {
     const sql = `
@@ -108,12 +108,21 @@ db.query(findGroupSql, [general_group], (err, rows) => {
           });
         }
 
+        logAudit({
+          req,
+          action: "CREATE",
+          module: "FoodLibrary",
+          target: name,
+          target_id: foodId,
+          description: `Added food item ${name}`,
+          payload: req.body,
+        });
+
         res.status(201).json({ id: foodId, name, general_group, category, calories, protein, carbs, fats, created_by, allergens, grams_reference });
       }
     );
   }
 });
-
 
 router.get("/food-database", (req, res) => {
   const sql = `
@@ -140,7 +149,6 @@ router.get("/food-database", (req, res) => {
   });
 });
 
-
 router.get("/food-database/:id", (req, res) => {
   const sql = `
     SELECT f.*, g.name AS general_group, g.category,
@@ -163,7 +171,6 @@ router.get("/food-database/:id", (req, res) => {
   });
 });
 
-
 router.put("/food-database/:id", (req, res) => {
   const { name, general_group, category, calories, protein, carbs, fats, allergens, grams_reference, is_meat, is_red_meat } = req.body;
 
@@ -177,7 +184,6 @@ router.put("/food-database/:id", (req, res) => {
     if (rows.length > 0) {
       updateFood(rows[0].id);
     } else {
-      // Group doesn't exist yet — create it
       const insertGroupSql = `INSERT INTO FoodGroups (name, category, is_meat, is_red_meat) VALUES (?, ?, ?, ?)`;
       db.query(insertGroupSql, [general_group, category || "Unknown", meatFlag, redMeatFlag], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create group" });
@@ -209,7 +215,6 @@ router.put("/food-database/:id", (req, res) => {
         if (err) return res.status(500).json({ error: "Failed to update food" });
         if (result.affectedRows === 0) return res.status(404).json({ error: "Food not found" });
 
-        // Re-sync allergens
         db.query("DELETE FROM FoodAllergens WHERE food_id = ?", [req.params.id], (err2) => {
           if (err2) console.error("⚠️ Error clearing allergens:", err2);
 
@@ -219,6 +224,16 @@ router.put("/food-database/:id", (req, res) => {
               if (err3) console.error("⚠️ Error re-inserting allergens:", err3);
             });
           }
+        });
+
+        logAudit({
+          req,
+          action: "UPDATE",
+          module: "FoodLibrary",
+          target: name,
+          target_id: parseInt(req.params.id),
+          description: `Edited food item ${name}`,
+          payload: req.body,
         });
 
         res.json({ id: req.params.id, ...req.body });

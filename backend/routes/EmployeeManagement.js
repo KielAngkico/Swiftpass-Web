@@ -4,14 +4,12 @@ const dbSuperAdmin = require("../db");
 const bcrypt = require("bcrypt");
 const staffUpload = require("../middleware/staffupload");
 const path = require("path");
+const logAudit = require("../middleware/auditLogger");
 
 router.post("/add-employee", staffUpload.single("profile_image"), async (req, res) => {
   const conn = await dbSuperAdmin.promise().getConnection();
   try {
     await conn.beginTransaction();
-
-    console.log("REQ.BODY:", req.body);
-    console.log("REQ.FILE:", req.file);
 
     const { name, age, address, contact_number, email, password, admin_id, rfid_tag } = req.body;
 
@@ -34,7 +32,7 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
 
     if (rfid_tag && rfid_tag.trim() !== "") {
       const [existingRfid] = await conn.query(
-        "SELECT * FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ?", 
+        "SELECT * FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ?",
         [rfid_tag, admin_id]
       );
       if (existingRfid.length > 0) {
@@ -42,7 +40,6 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
         return res.status(400).json({ message: "RFID tag already assigned to another staff member." });
       }
 
-      // ✅ CHECK if RFID exists in RegisteredRfid with role 'Partner' (shared with Employee)
       const [rfidExists] = await conn.query(
         "SELECT * FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Partner'",
         [rfid_tag]
@@ -50,17 +47,12 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
 
       if (rfidExists.length === 0) {
         await conn.rollback();
-        return res.status(400).json({ 
-          message: "RFID tag not found in registered Partner/Employee RFIDs." 
-        });
+        return res.status(400).json({ message: "RFID tag not found in registered Partner/Employee RFIDs." });
       }
 
-      // ✅ CHECK if RFID is available for this admin
       if (rfidExists[0].allocated_to_admin !== parseInt(admin_id)) {
         await conn.rollback();
-        return res.status(400).json({ 
-          message: "This RFID is not allocated to your account." 
-        });
+        return res.status(400).json({ message: "This RFID is not allocated to your account." });
       }
     }
 
@@ -71,79 +63,67 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
       `INSERT INTO StaffAccounts
         (admin_id, staff_name, age, address, contact_number, email, password, profile_image_url, rfid_tag, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
-      [
-        admin_id,
-        name,
-        age,
-        address,
-        contact_number,
-        email,
-        hashedPassword,
-        profile_image_filename,
-        rfid_tag || null
-      ]
+      [admin_id, name, age, address, contact_number, email, hashedPassword, profile_image_filename, rfid_tag || null]
     );
 
     const employeeId = result.insertId;
 
-    // ✅ Update RegisteredRfid table (role = 'Partner' for employees too)
-      if (rfid_tag && rfid_tag.trim() !== "") {
-        const [updateResult] = await conn.query(
-          `UPDATE RegisteredRfid 
-          SET assigned_to_id = ?,
-              assigned_to_name = ?,
-              assigned_to_type = 'Staff',
-              status = 'in_use',
-              assignment_date = NOW()
-          WHERE rfid_tag = ? AND role = 'Partner'`,
-          [employeeId, name, rfid_tag]
-        );
-
-      console.log(`✅ RegisteredRfid UPDATE result:`, updateResult);
-      console.log(`   - Rows affected: ${updateResult.affectedRows}`);
-      console.log(`   - RFID: ${rfid_tag}, Employee ID: ${employeeId}, Name: ${name}`);
+    if (rfid_tag && rfid_tag.trim() !== "") {
+      const [updateResult] = await conn.query(
+        `UPDATE RegisteredRfid 
+         SET assigned_to_id = ?,
+             assigned_to_name = ?,
+             assigned_to_type = 'Staff',
+             status = 'in_use',
+             assignment_date = NOW()
+         WHERE rfid_tag = ? AND role = 'Partner'`,
+        [employeeId, name, rfid_tag]
+      );
 
       if (updateResult.affectedRows === 0) {
-        console.warn(`⚠️ WARNING: RFID ${rfid_tag} was NOT updated in RegisteredRfid`);
+        console.warn(`RFID ${rfid_tag} was NOT updated in RegisteredRfid`);
       }
     }
 
     await conn.commit();
 
+    await logAudit({
+      req,
+      action: "CREATE",
+      module: "Staff",
+      target: name,
+      target_id: employeeId,
+      description: `Added staff ${name}`,
+      payload: { name, age, address, contact_number, email, admin_id, rfid_tag: rfid_tag || null },
+    });
+
     const profile_image_url = profile_image_filename
-      ? `${req.protocol}://${req.get('host')}/uploads/staff/${profile_image_filename}`
+      ? `${req.protocol}://${req.get("host")}/uploads/staff/${profile_image_filename}`
       : null;
 
     res.status(200).json({
       message: "Employee added successfully!",
       id: employeeId,
       profile_image_url,
-      rfid_tag: rfid_tag || null
+      rfid_tag: rfid_tag || null,
     });
 
   } catch (err) {
     await conn.rollback();
-    console.error("❌ Add employee error:", err);
+    console.error("Add employee error:", err);
     res.status(500).json({ message: "Server error adding employee." });
   } finally {
     conn.release();
   }
 });
 
- router.put("/update-employee/:id", staffUpload.single("profile_image"), async (req, res) => {
+router.put("/update-employee/:id", staffUpload.single("profile_image"), async (req, res) => {
   const employeeId = req.params.id;
 
   try {
-    const {
-      name,
-      age,
-      address,
-      contact_number,
-      email,
-      password
-    } = req.body;
+    const { name, age, address, contact_number, email, password } = req.body;
 
-     const [currentEmployee] = await dbSuperAdmin.promise().query(
+    const [currentEmployee] = await dbSuperAdmin.promise().query(
       `SELECT * FROM StaffAccounts WHERE id = ?`,
       [employeeId]
     );
@@ -152,7 +132,7 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
       return res.status(404).json({ error: "Employee not found" });
     }
 
-     if (email !== currentEmployee[0].email) {
+    if (email !== currentEmployee[0].email) {
       const [existingEmail] = await dbSuperAdmin.promise().query(
         "SELECT * FROM StaffAccounts WHERE email = ? AND id != ?",
         [email, employeeId]
@@ -162,17 +142,17 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
       }
     }
 
-     let imagePath = currentEmployee[0].profile_image_url;
+    let imagePath = currentEmployee[0].profile_image_url;
     if (req.file) {
       imagePath = req.file.filename;
     }
 
-     let hashedPassword = currentEmployee[0].password;
+    let hashedPassword = currentEmployee[0].password;
     if (password && password.trim() !== "") {
       hashedPassword = await bcrypt.hash(password, 10);
     }
 
-     const updateSql = `
+    const updateSql = `
       UPDATE StaffAccounts
       SET staff_name = ?, age = ?, email = ?, address = ?, 
           contact_number = ?, profile_image_url = ?, password = ?
@@ -180,24 +160,24 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
     `;
 
     await dbSuperAdmin.promise().query(updateSql, [
-      name,
-      age,
-      email,
-      address,
-      contact_number,
-      imagePath,
-      hashedPassword,
-      employeeId
+      name, age, email, address, contact_number, imagePath, hashedPassword, employeeId,
     ]);
 
+    await logAudit({
+      req,
+      action: "UPDATE",
+      module: "Staff",
+      target: name,
+      target_id: parseInt(employeeId),
+      description: `Edited staff ${name}`,
+      payload: { name, age, address, contact_number, email },
+    });
+
     const profile_image_url = imagePath
-      ? `${req.protocol}://${req.get('host')}/uploads/staff/${imagePath}`
+      ? `${req.protocol}://${req.get("host")}/uploads/staff/${imagePath}`
       : null;
 
-    res.json({
-      message: "Employee updated successfully",
-      profile_image_url
-    });
+    res.json({ message: "Employee updated successfully", profile_image_url });
 
   } catch (error) {
     console.error("Update employee error:", error);
@@ -213,7 +193,6 @@ router.put("/replace-employee-rfid/:id", async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // Get current employee
     const [currentEmployee] = await conn.query(
       "SELECT rfid_tag, admin_id, staff_name FROM StaffAccounts WHERE id = ?",
       [employeeId]
@@ -229,68 +208,50 @@ router.put("/replace-employee-rfid/:id", async (req, res) => {
     const staffName = currentEmployee[0].staff_name;
 
     if (new_rfid_tag && new_rfid_tag.trim() !== "") {
-      // Check not already assigned to another staff under this admin
       const [existingRfid] = await conn.query(
         "SELECT * FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ? AND id != ?",
         [new_rfid_tag, adminId, employeeId]
       );
       if (existingRfid.length > 0) {
         await conn.rollback();
-        return res.status(400).json({
-          error: "RFID tag already assigned to another staff member under this admin."
-        });
+        return res.status(400).json({ error: "RFID tag already assigned to another staff member under this admin." });
       }
 
-      // Check RFID exists in RegisteredRfid with role 'Partner'
       const [rfidExists] = await conn.query(
         "SELECT * FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Partner'",
         [new_rfid_tag]
       );
       if (rfidExists.length === 0) {
         await conn.rollback();
-        return res.status(400).json({
-          error: "RFID tag not found in registered Partner/Employee RFIDs."
-        });
+        return res.status(400).json({ error: "RFID tag not found in registered Partner/Employee RFIDs." });
       }
 
-      // Check RFID is allocated to this admin
       if (rfidExists[0].allocated_to_admin !== parseInt(adminId)) {
         await conn.rollback();
-        return res.status(400).json({
-          error: "This RFID is not allocated to your account."
-        });
+        return res.status(400).json({ error: "This RFID is not allocated to your account." });
       }
     }
 
-    // Update StaffAccounts — only rfid_tag (no previous_rfid/replaced_by/replaced_at)
     await conn.query(
       "UPDATE StaffAccounts SET rfid_tag = ? WHERE id = ?",
       [new_rfid_tag || null, employeeId]
     );
 
-    // Clear old RFID in RegisteredRfid
     if (oldRfid) {
       await conn.query(
         `UPDATE RegisteredRfid 
-         SET assigned_to_id = NULL,
-             assigned_to_name = NULL,
-             assigned_to_type = NULL,
-             status = 'allocated',
-             assignment_date = NULL
+         SET assigned_to_id = NULL, assigned_to_name = NULL, assigned_to_type = NULL,
+             status = 'allocated', assignment_date = NULL
          WHERE rfid_tag = ? AND role = 'Partner'`,
         [oldRfid]
       );
     }
 
-    // Assign new RFID in RegisteredRfid
     if (new_rfid_tag && new_rfid_tag.trim() !== "") {
       await conn.query(
         `UPDATE RegisteredRfid 
-         SET assigned_to_id = ?,
-             assigned_to_name = ?,
-             assigned_to_type = 'Staff',
-             status = 'in_use',
-             assignment_date = NOW()
+         SET assigned_to_id = ?, assigned_to_name = ?, assigned_to_type = 'Staff',
+             status = 'in_use', assignment_date = NOW()
          WHERE rfid_tag = ? AND role = 'Partner'`,
         [employeeId, staffName, new_rfid_tag]
       );
@@ -298,11 +259,17 @@ router.put("/replace-employee-rfid/:id", async (req, res) => {
 
     await conn.commit();
 
-    res.json({
-      message: "RFID replaced successfully",
-      old_rfid: oldRfid,
-      new_rfid: new_rfid_tag || null
+    await logAudit({
+      req,
+      action: "UPDATE",
+      module: "Staff",
+      target: staffName,
+      target_id: parseInt(employeeId),
+      description: `Replaced RFID of staff ${staffName}`,
+      payload: { old_rfid: oldRfid, new_rfid: new_rfid_tag || null },
     });
+
+    res.json({ message: "RFID replaced successfully", old_rfid: oldRfid, new_rfid: new_rfid_tag || null });
 
   } catch (error) {
     await conn.rollback();
@@ -330,147 +297,24 @@ router.get("/get-employees/:admin_id", (req, res) => {
 
     const employeesWithImages = results.map(emp => {
       let imageUrl = null;
-
       if (emp.profile_image_url) {
-        imageUrl = `${req.protocol}://${req.get('host')}/uploads/staff/${emp.profile_image_url}`;
+        imageUrl = `${req.protocol}://${req.get("host")}/uploads/staff/${emp.profile_image_url}`;
       }
-
-      console.log(`Employee ${emp.name}: DB value = ${emp.profile_image_url}, Final URL = ${imageUrl}`);
-
-      return {
-        ...emp,
-        profile_image_url: imageUrl
-      };
+      return { ...emp, profile_image_url: imageUrl };
     });
 
     return res.status(200).json({ employees: employeesWithImages });
   });
 });
 
-router.delete('/staff/:id', (req, res) => {
-  const { id } = req.params;
-
-  if (!id || isNaN(id)) {
-    console.error("Error: Invalid staff ID received:", id);
-    return res.status(400).json({ message: "Invalid staff ID provided." });
-  }
-
-  console.log(`Processing deletion for staff ID: ${id}`);
-
-  const getStaffQuery = "SELECT * FROM StaffAccounts WHERE id = ?";
-  dbSuperAdmin.query(getStaffQuery, [id], (err, results) => {
-    if (err) {
-      console.error("Error fetching staff:", err);
-      return res.status(500).json({ message: "Internal server error while fetching staff data." });
-    }
-
-    if (results.length === 0) {
-      console.warn(`Staff ID ${id} not found.`);
-      return res.status(404).json({ message: "Staff not found." });
-    }
-
-    const staff = results[0];
-
-    const archiveQuery = `
-      INSERT INTO StaffAccounts_Archived
-        (id, admin_id, staff_name, age, contact_number, address, email, password, profile_image_url, rfid_tag, status, created_at, archived_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-    `;
-
-    dbSuperAdmin.query(
-      archiveQuery,
-      [
-        staff.id,
-        staff.admin_id,
-        staff.staff_name,
-        staff.age,
-        staff.contact_number,
-        staff.address,
-        staff.email,
-        staff.password,
-        staff.profile_image_url,
-        staff.rfid_tag || null,
-        'inactive',
-        staff.created_at
-      ],
-      (err) => {
-        if (err) {
-          console.error("Error archiving staff:", err);
-          return res.status(500).json({ message: "Error archiving staff. Possible duplicate ID or missing table." });
-        }
-
-        const deleteQuery = "DELETE FROM StaffAccounts WHERE id = ?";
-        dbSuperAdmin.query(deleteQuery, [id], (err, deleteResults) => {
-          if (err) {
-            console.error("Error deleting staff:", err);
-            return res.status(500).json({ message: "Error deleting staff. Possible constraint issue." });
-          }
-
-          console.log(`Staff ID ${id} successfully archived and deleted.`);
-          res.status(200).json({ message: "Staff successfully archived and deleted." });
-        });
-      }
-    );
-  });
-});
-
-router.get("/staff-session-logs/:admin_id", async (req, res) => {
-  const { admin_id } = req.params;
-
-  try {
-    const [logs] = await dbSuperAdmin.promise().query(
-      `SELECT id, staff_id, staff_name, admin_id, system_type, status, login_time, logout_time
-       FROM StaffSessionLogs
-       WHERE admin_id = ?
-       ORDER BY login_time DESC
-       LIMIT 100`,
-      [admin_id]
-    );
-
-    res.json({ logs });
-  } catch (error) {
-    console.error("Error fetching staff session logs:", error);
-    res.status(500).json({ message: "Failed to fetch session logs" });
-  }
-});
-router.get("/staff-activity-logs/:admin_id", async (req, res) => {
-  const { admin_id } = req.params;
-
-  try {
-    const [logs] = await dbSuperAdmin.promise().query(
-      `SELECT 
-        id, 
-        rfid_tag, 
-        staff_id, 
-        staff_name, 
-        admin_id, 
-        location, 
-        activity_type, 
-        timestamp
-       FROM StaffActivityLogs
-       WHERE admin_id = ?
-       ORDER BY timestamp DESC
-       LIMIT 500`,
-      [admin_id]
-    );
-
-    res.json({ logs });
-  } catch (error) {
-    console.error("Error fetching staff activity logs:", error);
-    res.status(500).json({ message: "Failed to fetch activity logs" });
-  }
-});
-router.put('/staff/:id/archive', async (req, res) => {
+router.put("/staff/:id/archive", async (req, res) => {
   const { id } = req.params;
 
   const conn = await dbSuperAdmin.promise().getConnection();
   try {
     await conn.beginTransaction();
 
-    const [staff] = await conn.query(
-      "SELECT * FROM StaffAccounts WHERE id = ?",
-      [id]
-    );
+    const [staff] = await conn.query("SELECT * FROM StaffAccounts WHERE id = ?", [id]);
 
     if (staff.length === 0) {
       await conn.rollback();
@@ -479,15 +323,11 @@ router.put('/staff/:id/archive', async (req, res) => {
 
     const staffData = staff[0];
 
-    // ✅ Clear RFID assignment in RegisteredRfid
     if (staffData.rfid_tag) {
       await conn.query(
         `UPDATE RegisteredRfid 
-         SET assigned_to_id = NULL,
-             assigned_to_name = NULL,
-             assigned_to_type = NULL,
-             status = 'allocated',
-             assignment_date = NULL
+         SET assigned_to_id = NULL, assigned_to_name = NULL, assigned_to_type = NULL,
+             status = 'allocated', assignment_date = NULL
          WHERE rfid_tag = ? AND role = 'Partner'`,
         [staffData.rfid_tag]
       );
@@ -496,30 +336,27 @@ router.put('/staff/:id/archive', async (req, res) => {
     await conn.query(
       `INSERT INTO StaffAccounts_Archived
         (id, admin_id, staff_name, age, contact_number, address, email, password, profile_image_url, rfid_tag, status, created_at, archived_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'archived', ?, NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'archived', ?, NOW())`,
       [
-        staffData.id,
-        staffData.admin_id,
-        staffData.staff_name,
-        staffData.age,
-        staffData.contact_number,
-        staffData.address,
-        staffData.email,
-        staffData.password,
-        staffData.profile_image_url,
-        staffData.rfid_tag,
-        staffData.created_at
+        staffData.id, staffData.admin_id, staffData.staff_name, staffData.age,
+        staffData.contact_number, staffData.address, staffData.email, staffData.password,
+        staffData.profile_image_url, staffData.rfid_tag, staffData.created_at,
       ]
     );
 
-    await conn.query(
-      "DELETE FROM StaffAccounts WHERE id = ?",
-      [id]
-    );
-
+    await conn.query("DELETE FROM StaffAccounts WHERE id = ?", [id]);
     await conn.commit();
 
-    console.log(`✅ Staff ID ${id} archived successfully`);
+    await logAudit({
+      req,
+      action: "DELETE",
+      module: "Staff",
+      target: staffData.staff_name,
+      target_id: parseInt(id),
+      description: `Archived staff ${staffData.staff_name}`,
+      payload: { staff_id: parseInt(id), staff_name: staffData.staff_name, admin_id: staffData.admin_id },
+    });
+
     res.json({ message: "Staff archived successfully" });
 
   } catch (error) {
@@ -530,17 +367,15 @@ router.put('/staff/:id/archive', async (req, res) => {
     conn.release();
   }
 });
-router.put('/staff/:id/restore', async (req, res) => {
+
+router.put("/staff/:id/restore", async (req, res) => {
   const { id } = req.params;
 
   const conn = await dbSuperAdmin.promise().getConnection();
   try {
     await conn.beginTransaction();
 
-    const [staff] = await conn.query(
-      "SELECT * FROM StaffAccounts_Archived WHERE id = ?",
-      [id]
-    );
+    const [staff] = await conn.query("SELECT * FROM StaffAccounts_Archived WHERE id = ?", [id]);
 
     if (staff.length === 0) {
       await conn.rollback();
@@ -556,9 +391,7 @@ router.put('/staff/:id/restore', async (req, res) => {
 
     if (existingEmail.length > 0) {
       await conn.rollback();
-      return res.status(400).json({ 
-        message: "Cannot restore: Email already exists in active staff." 
-      });
+      return res.status(400).json({ message: "Cannot restore: Email already exists in active staff." });
     }
 
     if (staffData.rfid_tag) {
@@ -566,56 +399,46 @@ router.put('/staff/:id/restore', async (req, res) => {
         "SELECT * FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ?",
         [staffData.rfid_tag, staffData.admin_id]
       );
-
       if (existingRfid.length > 0) {
         await conn.rollback();
-        return res.status(400).json({ 
-          message: "Cannot restore: RFID tag already assigned to another active staff." 
-        });
+        return res.status(400).json({ message: "Cannot restore: RFID tag already assigned to another active staff." });
       }
     }
 
     await conn.query(
       `INSERT INTO StaffAccounts
         (id, admin_id, staff_name, age, contact_number, address, email, password, profile_image_url, rfid_tag, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
       [
-        staffData.id,
-        staffData.admin_id,
-        staffData.staff_name,
-        staffData.age,
-        staffData.contact_number,
-        staffData.address,
-        staffData.email,
-        staffData.password,
-        staffData.profile_image_url,
-        staffData.rfid_tag,
-        staffData.created_at
+        staffData.id, staffData.admin_id, staffData.staff_name, staffData.age,
+        staffData.contact_number, staffData.address, staffData.email, staffData.password,
+        staffData.profile_image_url, staffData.rfid_tag, staffData.created_at,
       ]
     );
 
-    // ✅ Re-assign RFID in RegisteredRfid if exists
     if (staffData.rfid_tag) {
       await conn.query(
         `UPDATE RegisteredRfid 
-         SET assigned_to_id = ?,
-             assigned_to_name = ?,
-             assigned_to_type = 'Staff',
-             status = 'in_use',
-             assignment_date = NOW()
+         SET assigned_to_id = ?, assigned_to_name = ?, assigned_to_type = 'Staff',
+             status = 'in_use', assignment_date = NOW()
          WHERE rfid_tag = ? AND role = 'Partner'`,
         [staffData.id, staffData.staff_name, staffData.rfid_tag]
       );
     }
 
-    await conn.query(
-      "DELETE FROM StaffAccounts_Archived WHERE id = ?",
-      [id]
-    );
-
+    await conn.query("DELETE FROM StaffAccounts_Archived WHERE id = ?", [id]);
     await conn.commit();
 
-    console.log(`✅ Staff ID ${id} restored successfully`);
+    await logAudit({
+      req,
+      action: "UPDATE",
+      module: "Staff",
+      target: staffData.staff_name,
+      target_id: parseInt(id),
+      description: `Restored staff ${staffData.staff_name}`,
+      payload: { staff_id: parseInt(id), staff_name: staffData.staff_name, admin_id: staffData.admin_id },
+    });
+
     res.json({ message: "Staff restored successfully" });
 
   } catch (error) {
@@ -626,10 +449,22 @@ router.put('/staff/:id/restore', async (req, res) => {
     conn.release();
   }
 });
- router.delete('/staff/:id/permanent', async (req, res) => {
+
+router.delete("/staff/:id/permanent", async (req, res) => {
   const { id } = req.params;
 
   try {
+    const [staff] = await dbSuperAdmin.promise().query(
+      "SELECT * FROM StaffAccounts_Archived WHERE id = ?",
+      [id]
+    );
+
+    if (staff.length === 0) {
+      return res.status(404).json({ message: "Archived staff not found." });
+    }
+
+    const staffData = staff[0];
+
     const [result] = await dbSuperAdmin.promise().query(
       "DELETE FROM StaffAccounts_Archived WHERE id = ?",
       [id]
@@ -639,7 +474,16 @@ router.put('/staff/:id/restore', async (req, res) => {
       return res.status(404).json({ message: "Archived staff not found." });
     }
 
-    console.log(`✅ Staff ID ${id} permanently deleted`);
+    await logAudit({
+      req,
+      action: "DELETE",
+      module: "Staff",
+      target: staffData.staff_name,
+      target_id: parseInt(id),
+      description: `Permanently deleted staff ${staffData.staff_name}`,
+      payload: { staff_id: parseInt(id), staff_name: staffData.staff_name, admin_id: staffData.admin_id },
+    });
+
     res.json({ message: "Staff permanently deleted" });
 
   } catch (error) {
@@ -648,63 +492,18 @@ router.put('/staff/:id/restore', async (req, res) => {
   }
 });
 
- router.get("/get-archived-employees/:admin_id", async (req, res) => {
-  const adminId = req.params.admin_id;
-
-  try {
-    const [results] = await dbSuperAdmin.promise().query(
-      `SELECT 
-        id AS user_id, 
-        staff_name AS name, 
-        age, 
-        address, 
-        contact_number, 
-        email, 
-        profile_image_url, 
-        rfid_tag,
-        archived_at
-      FROM StaffAccounts_Archived
-      WHERE admin_id = ?
-      ORDER BY archived_at DESC`,
-      [adminId]
-    );
-
-    const employeesWithImages = results.map(emp => {
-      let imageUrl = null;
-      if (emp.profile_image_url) {
-        imageUrl = `${req.protocol}://${req.get('host')}/uploads/staff/${emp.profile_image_url}`;
-      }
-      return {
-        ...emp,
-        profile_image_url: imageUrl
-      };
-    });
-
-    res.json({ employees: employeesWithImages });
-
-  } catch (error) {
-    console.error("Error fetching archived employees:", error);
-    res.status(500).json({ message: "Failed to fetch archived employees" });
-  }
-});
-router.delete('/staff/:id', async (req, res) => {
+router.delete("/staff/:id", async (req, res) => {
   const { id } = req.params;
 
   if (!id || isNaN(id)) {
-    console.error("Error: Invalid staff ID received:", id);
     return res.status(400).json({ message: "Invalid staff ID provided." });
   }
-
-  console.log(`⚠️ Note: DELETE /staff/${id} now archives instead of deleting. Use /staff/${id}/permanent for permanent deletion.`);
 
   const conn = await dbSuperAdmin.promise().getConnection();
   try {
     await conn.beginTransaction();
 
-    const [staff] = await conn.query(
-      "SELECT * FROM StaffAccounts WHERE id = ?",
-      [id]
-    );
+    const [staff] = await conn.query("SELECT * FROM StaffAccounts WHERE id = ?", [id]);
 
     if (staff.length === 0) {
       await conn.rollback();
@@ -713,15 +512,11 @@ router.delete('/staff/:id', async (req, res) => {
 
     const staffData = staff[0];
 
-    // ✅ Clear RFID assignment in RegisteredRfid
     if (staffData.rfid_tag) {
       await conn.query(
         `UPDATE RegisteredRfid 
-         SET assigned_to_id = NULL,
-             assigned_to_name = NULL,
-             assigned_to_type = NULL,
-             status = 'allocated',
-             assignment_date = NULL
+         SET assigned_to_id = NULL, assigned_to_name = NULL, assigned_to_type = NULL,
+             status = 'allocated', assignment_date = NULL
          WHERE rfid_tag = ? AND role = 'Partner'`,
         [staffData.rfid_tag]
       );
@@ -730,30 +525,27 @@ router.delete('/staff/:id', async (req, res) => {
     await conn.query(
       `INSERT INTO StaffAccounts_Archived
         (id, admin_id, staff_name, age, contact_number, address, email, password, profile_image_url, rfid_tag, status, created_at, archived_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'archived', ?, NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'archived', ?, NOW())`,
       [
-        staffData.id,
-        staffData.admin_id,
-        staffData.staff_name,
-        staffData.age,
-        staffData.contact_number,
-        staffData.address,
-        staffData.email,
-        staffData.password,
-        staffData.profile_image_url,
-        staffData.rfid_tag,
-        staffData.created_at
+        staffData.id, staffData.admin_id, staffData.staff_name, staffData.age,
+        staffData.contact_number, staffData.address, staffData.email, staffData.password,
+        staffData.profile_image_url, staffData.rfid_tag, staffData.created_at,
       ]
     );
 
-    await conn.query(
-      "DELETE FROM StaffAccounts WHERE id = ?",
-      [id]
-    );
-
+    await conn.query("DELETE FROM StaffAccounts WHERE id = ?", [id]);
     await conn.commit();
 
-    console.log(`✅ Staff ID ${id} archived (via DELETE endpoint)`);
+    await logAudit({
+      req,
+      action: "DELETE",
+      module: "Staff",
+      target: staffData.staff_name,
+      target_id: parseInt(id),
+      description: `Archived staff ${staffData.staff_name}`,
+      payload: { staff_id: parseInt(id), staff_name: staffData.staff_name, admin_id: staffData.admin_id },
+    });
+
     res.json({ message: "Staff archived successfully" });
 
   } catch (error) {
@@ -764,4 +556,71 @@ router.delete('/staff/:id', async (req, res) => {
     conn.release();
   }
 });
+
+router.get("/staff-session-logs/:admin_id", async (req, res) => {
+  const { admin_id } = req.params;
+
+  try {
+    const [logs] = await dbSuperAdmin.promise().query(
+      `SELECT id, staff_id, staff_name, admin_id, system_type, status, login_time, logout_time
+       FROM StaffSessionLogs
+       WHERE admin_id = ?
+       ORDER BY login_time DESC
+       LIMIT 100`,
+      [admin_id]
+    );
+    res.json({ logs });
+  } catch (error) {
+    console.error("Error fetching staff session logs:", error);
+    res.status(500).json({ message: "Failed to fetch session logs" });
+  }
+});
+
+router.get("/staff-activity-logs/:admin_id", async (req, res) => {
+  const { admin_id } = req.params;
+
+  try {
+    const [logs] = await dbSuperAdmin.promise().query(
+      `SELECT id, rfid_tag, staff_id, staff_name, admin_id, location, activity_type, timestamp
+       FROM StaffActivityLogs
+       WHERE admin_id = ?
+       ORDER BY timestamp DESC
+       LIMIT 500`,
+      [admin_id]
+    );
+    res.json({ logs });
+  } catch (error) {
+    console.error("Error fetching staff activity logs:", error);
+    res.status(500).json({ message: "Failed to fetch activity logs" });
+  }
+});
+
+router.get("/get-archived-employees/:admin_id", async (req, res) => {
+  const adminId = req.params.admin_id;
+
+  try {
+    const [results] = await dbSuperAdmin.promise().query(
+      `SELECT id AS user_id, staff_name AS name, age, address, contact_number, email, profile_image_url, rfid_tag, archived_at
+       FROM StaffAccounts_Archived
+       WHERE admin_id = ?
+       ORDER BY archived_at DESC`,
+      [adminId]
+    );
+
+    const employeesWithImages = results.map(emp => {
+      let imageUrl = null;
+      if (emp.profile_image_url) {
+        imageUrl = `${req.protocol}://${req.get("host")}/uploads/staff/${emp.profile_image_url}`;
+      }
+      return { ...emp, profile_image_url: imageUrl };
+    });
+
+    res.json({ employees: employeesWithImages });
+
+  } catch (error) {
+    console.error("Error fetching archived employees:", error);
+    res.status(500).json({ message: "Failed to fetch archived employees" });
+  }
+});
+
 module.exports = router;

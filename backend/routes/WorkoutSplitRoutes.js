@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
+const { logAudit } = require("../middleware/auditLogger");
 
 router.post("/splits", async (req, res) => {
   const { split_name, workout_days, target_gender, days } = req.body;
@@ -53,6 +54,16 @@ router.post("/splits", async (req, res) => {
       }
     }
 
+    await logAudit({
+      req,
+      action: "CREATE",
+      module: "WorkoutSplit",
+      target: split_name,
+      target_id: split_id,
+      description: `Added workout split ${split_name}`,
+      payload: req.body,
+    });
+
     res.status(201).json({ message: "Split added successfully" });
   } catch (error) {
     console.error(error);
@@ -104,7 +115,6 @@ router.put("/splits/:id", async (req, res) => {
       [split_name, workout_days, target_gender, id]
     );
 
-
     await db.promise().query(
       "DELETE FROM SplitDayExercises WHERE split_day_id IN (SELECT id FROM SplitDays WHERE split_id = ?)",
       [id]
@@ -135,22 +145,45 @@ router.put("/splits/:id", async (req, res) => {
       }
     }
 
+    await logAudit({
+      req,
+      action: "UPDATE",
+      module: "WorkoutSplit",
+      target: split_name,
+      target_id: parseInt(id),
+      description: `Edited workout split ${split_name}`,
+      payload: req.body,
+    });
+
     res.json({ message: "Split updated successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "An error occurred while updating the split" });
   }
 });
+
 router.delete("/splits/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
+    const [[split]] = await db.promise().query("SELECT split_name FROM SplitLibrary WHERE id = ?", [id]);
+
     await db.promise().query(
       "DELETE FROM SplitDayExercises WHERE split_day_id IN (SELECT id FROM SplitDays WHERE split_id = ?)",
       [id]
     );
     await db.promise().query("DELETE FROM SplitDays WHERE split_id = ?", [id]);
     await db.promise().query("DELETE FROM SplitLibrary WHERE id = ?", [id]);
+
+    await logAudit({
+      req,
+      action: "DELETE",
+      module: "WorkoutSplit",
+      target: split ? split.split_name : id,
+      target_id: parseInt(id),
+      description: `Deleted workout split ${split ? split.split_name : id}`,
+      payload: { id },
+    });
 
     res.json({ message: "Split deleted successfully" });
   } catch (error) {

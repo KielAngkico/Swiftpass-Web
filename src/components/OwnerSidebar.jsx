@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { FiMenu, FiUsers, FiPieChart, FiBarChart2, FiShoppingCart, FiPackage } from "react-icons/fi";
 import { IoPricetagOutline } from "react-icons/io5";
 import { useAuth } from "../App";
+import trackPageVisit from "../utils/trackPageVisit";
 
 const OwnerSidebar = () => {
   const { user } = useAuth();
@@ -84,7 +85,6 @@ const OwnerSidebar = () => {
         isCollapsed ? "w-14" : "w-56"
       }`}
     >
-      {/* Header */}
       <div className="flex items-center justify-between px-3 py-4 border-b border-gray-700">
         {!isCollapsed && (
           <div>
@@ -104,13 +104,13 @@ const OwnerSidebar = () => {
         </button>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 px-2 py-3 relative">
         <ul className="space-y-1">
           {navItems.map(({ path, label, icon }) => (
             <li key={path} className="relative group">
               <NavLink
                 to={path}
+                onClick={() => trackPageVisit(label)}
                 className={({ isActive }) =>
                   `flex items-center px-3 py-2 rounded-lg transition-all text-xs ${
                     isActive
@@ -126,7 +126,6 @@ const OwnerSidebar = () => {
                 )}
               </NavLink>
 
-              {/* Tooltip when collapsed */}
               {isCollapsed && (
                 <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-white text-gray-900 text-xs px-2 py-1 rounded shadow opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                   {label}

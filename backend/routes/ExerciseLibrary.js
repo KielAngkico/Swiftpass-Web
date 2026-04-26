@@ -2,19 +2,13 @@ const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
 const exerciseUpload = require("../middleware/exerciseUpload");
+const { logAudit } = require("../middleware/auditLogger");
 
 router.post("/exercises", exerciseUpload.single("image"), async (req, res) => {
   try {
     const {
-      name,
-      level,
-      muscle_group,
-      sub_target,
-      exercise_type,
-      equipment,
-      instructions,
-      created_by,
-      alt_exercise_ids
+      name, level, muscle_group, sub_target, exercise_type,
+      equipment, instructions, created_by, alt_exercise_ids
     } = req.body;
 
     const image_url = req.file ? `/uploads/exercises/${req.file.filename}` : "";
@@ -36,15 +30,26 @@ router.post("/exercises", exerciseUpload.single("image"), async (req, res) => {
     `;
 
     const values = [
-      name, level, muscle_group, sub_target, exercise_type, 
+      name, level, muscle_group, sub_target, exercise_type,
       equipment, instructions, image_url, created_by, alts
     ];
 
-    dbSuperAdmin.query(sql, values, (err, result) => {
+    dbSuperAdmin.query(sql, values, async (err, result) => {
       if (err) {
         console.error("Insert Error:", err.message);
         return res.status(500).json({ error: "Failed to add exercise" });
       }
+
+      await logAudit({
+        req,
+        action: 'CREATE',
+        module: 'ExerciseLibrary',
+        target: name,
+        target_id: result.insertId,
+        description: `Added exercise ${name}`,
+        payload: req.body,
+      });
+
       res.status(200).json({ message: "Exercise added successfully" });
     });
   } catch (error) {
@@ -54,18 +59,17 @@ router.post("/exercises", exerciseUpload.single("image"), async (req, res) => {
 });
 
 router.get("/exercises", async (req, res) => {
-  
   try {
     const [exercises] = await dbSuperAdmin
       .promise()
       .query("SELECT * FROM ExerciseLibrary ORDER BY created_at DESC");
 
-          console.log("Exercises count:", exercises.length);          // ADD THIS
+    console.log("Exercises count:", exercises.length);
     console.log("First exercise sample:", exercises[0]);
 
     for (let ex of exercises) {
       let ids = ex.alt_exercise_ids || [];
-      
+
       if (typeof ids === 'string') {
         try {
           ids = JSON.parse(ids);
@@ -74,9 +78,9 @@ router.get("/exercises", async (req, res) => {
           ids = [];
         }
       }
-      
+
       ex.alt_exercise_ids = Array.isArray(ids) ? ids : [];
-      
+
       if (ex.alt_exercise_ids.length > 0) {
         try {
           const [alts] = await dbSuperAdmin
@@ -84,7 +88,6 @@ router.get("/exercises", async (req, res) => {
             .query(
               "SELECT id, name, muscle_group, image_url FROM ExerciseLibrary WHERE id IN (?)",
               [ex.alt_exercise_ids]
-              
             );
           ex.alternatives = alts;
         } catch (e) {
@@ -106,12 +109,12 @@ router.get("/exercises", async (req, res) => {
 router.put("/exercises/:id", exerciseUpload.single("image"), async (req, res) => {
   const { id } = req.params;
   const {
-    name, level, muscle_group, sub_target, exercise_type, 
+    name, level, muscle_group, sub_target, exercise_type,
     equipment, instructions, alt_exercise_ids
   } = req.body;
 
   const image_url = req.file ? `/uploads/exercises/${req.file.filename}` : null;
-  
+
   let alts = null;
   if (alt_exercise_ids) {
     try {
@@ -137,11 +140,22 @@ router.put("/exercises/:id", exerciseUpload.single("image"), async (req, res) =>
   sql += " WHERE id = ?";
   values.push(id);
 
-  dbSuperAdmin.query(sql, values, (err, result) => {
+  dbSuperAdmin.query(sql, values, async (err, result) => {
     if (err) {
       console.error("Update Error:", err.message);
       return res.status(500).json({ error: "Failed to update exercise" });
     }
+
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: 'ExerciseLibrary',
+      target: name,
+      target_id: parseInt(id),
+      description: `Edited exercise ${name}`,
+      payload: req.body,
+    });
+
     res.status(200).json({ message: "Exercise updated successfully" });
   });
 });

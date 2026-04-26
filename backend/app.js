@@ -9,6 +9,7 @@ process.env.TZ = process.env.TZ;
 const dbSuperAdmin = require('./db');
 
 const profileRoute = require("./routes/profile");
+const auditRoutes = require('./routes/auditRoutes');
 
 const loginroute = require("./routes/login");
 const authRoute = require("./routes/auth");
@@ -83,6 +84,8 @@ app.use("/uploads/daypass", express.static(path.join(__dirname, "..", "public","
 app.use("/uploads/exercises", express.static(path.join(__dirname, "..", "public","uploads/exercises")));
 app.use("/uploads", express.static(path.join(__dirname, "..","public" ,"uploads")));
 
+
+
 app.use("/api", profileRoute);
 app.use("/api", loginroute);
 app.use("/api", authRoute);
@@ -114,5 +117,7 @@ app.use("/api", RfidVerification);
 app.use("/api", SubscriptionPackages);
 app.use("/api", RfidReplacementRoutes);
 app.use("/api", SuperAdminTransactions);
+
+app.use("/api", auditRoutes);
 
 module.exports = app;

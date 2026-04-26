@@ -3,8 +3,9 @@ const router = express.Router();
 const bcrypt = require("bcrypt");
 const dbSuperAdmin = require("../db");
 const upload = require("../middleware/upload");
+const { logAudit } = require("../middleware/auditLogger");
 
- router.post("/add-member", upload.single("member_image"), async (req, res) => {
+router.post("/add-member", upload.single("member_image"), async (req, res) => {
   console.log("Received req.body:", req.body);
   console.log("Received req.file:", req.file);
 
@@ -16,7 +17,7 @@ const upload = require("../middleware/upload");
 
   const profileImage = req.file ? `uploads/members/${req.file.filename}` : null;
 
-   if (!full_name || !gender || !age || !rfid_tag || !phone_number || !address || !email ||
+  if (!full_name || !gender || !age || !rfid_tag || !phone_number || !address || !email ||
       !password || !payment || !staff_name || !payment_method || !admin_id) {
     return res.status(400).json({ message: "All fields are required." });
   }
@@ -50,18 +51,17 @@ const upload = require("../middleware/upload");
       return res.status(400).json({ message: "RFID tag already exists." });
     }
 
-     const [adminData] = await dbSuperAdmin.promise().query(
+    const [adminData] = await dbSuperAdmin.promise().query(
       "SELECT session_fee FROM AdminAccounts WHERE id = ? LIMIT 1",
       [admin_id]
     );
-    
+
     const minimumSessionFee = adminData.length > 0 ? parseFloat(adminData[0].session_fee) : 0;
-    
-     const memberStatus = initialBalance >= minimumSessionFee ? 'active' : 'inactive';
+    const memberStatus = initialBalance >= minimumSessionFee ? 'active' : 'inactive';
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-     const insertMemberSql = `
+    const insertMemberSql = `
       INSERT INTO MembersAccounts
       (rfid_tag, full_name, gender, age, phone_number, address, email, password, profile_image_url, 
        admin_id, staff_name, initial_balance, current_balance, subscription_type, payment, status, 
@@ -71,21 +71,23 @@ const upload = require("../middleware/upload");
     const [insertResult] = await dbSuperAdmin.promise().query(insertMemberSql, [
       rfid_tag, full_name, gender, ageNumber, phone_number, address, email, hashedPassword,
       profileImage, admin_id, staff_name, initialBalance, initialBalance, plan_name, paymentNumber,
-      memberStatus, 
+      memberStatus,
       emergency_contact_person || null, emergency_contact_number || null, emergency_contact_relationship || null
     ]);
     const memberId = insertResult.insertId;
-await dbSuperAdmin.promise().query(
-  `UPDATE RegisteredRfid 
-   SET assigned_to_id = ?,
-       assigned_to_name = ?,
-       assigned_to_type = 'Member',
-       status = 'in_use',
-       assignment_date = NOW()
-   WHERE rfid_tag = ? AND role = 'Member'`,
-  [memberId, full_name, rfid_tag]
-);
-     const insertTransactionSql = `
+
+    await dbSuperAdmin.promise().query(
+      `UPDATE RegisteredRfid 
+       SET assigned_to_id = ?,
+           assigned_to_name = ?,
+           assigned_to_type = 'Member',
+           status = 'in_use',
+           assignment_date = NOW()
+       WHERE rfid_tag = ? AND role = 'Member'`,
+      [memberId, full_name, rfid_tag]
+    );
+
+    const insertTransactionSql = `
       INSERT INTO AdminTransactions
       (admin_id, member_id, member_name, rfid_tag, amount, payment_method, reference, staff_name, transaction_type, plan_name)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new_membership', ?)
@@ -96,7 +98,7 @@ await dbSuperAdmin.promise().query(
       reference || null, staff_name, plan_name || null
     ]);
 
-     const insertMemberTxnSql = `
+    const insertMemberTxnSql = `
       INSERT INTO AdminMembersTransactions
       (admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance, payment_method, reference, tax, processed_by, subscription_type)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -107,12 +109,22 @@ await dbSuperAdmin.promise().query(
       reference || null, 1.0, staff_name, plan_name || null
     ]);
 
+    await logAudit({
+      req,
+      action: 'CREATE',
+      module: 'Members',
+      target: full_name,
+      target_id: memberId,
+      description: `Added member ${full_name}`,
+      payload: req.body,
+    });
+
     return res.status(200).json({
-      message: memberStatus === 'inactive' 
+      message: memberStatus === 'inactive'
         ? "✅ Member added! Please top-up to activate (balance below minimum session fee)."
         : "✅ Member added and activated successfully!",
       rfid_tag, full_name, age: ageNumber, phone_number, address, email, staff_name,
-      profile_image_url: profileImage, initial_balance: initialBalance, balance_after: initialBalance, 
+      profile_image_url: profileImage, initial_balance: initialBalance, balance_after: initialBalance,
       payment: paymentNumber, status: memberStatus, minimum_session_fee: minimumSessionFee
     });
   } catch (err) {
@@ -134,7 +146,7 @@ router.post("/add-subscription-member", upload.single("member_image"), async (re
 
   const profileImage = req.file ? `uploads/members/${req.file.filename}` : null;
 
-   if (!full_name || !gender || !age || !rfid_tag || !phone_number || !address || !email ||
+  if (!full_name || !gender || !age || !rfid_tag || !phone_number || !address || !email ||
       !password || !payment || !staff_name || !payment_method || !admin_id) {
     return res.status(400).json({ message: "All fields are required." });
   }
@@ -177,16 +189,18 @@ router.post("/add-subscription-member", upload.single("member_image"), async (re
       emergency_contact_person || null, emergency_contact_number || null, emergency_contact_relationship || null
     ]);
     const memberId = memberInsertResult.insertId;
-await dbSuperAdmin.promise().query(
-  `UPDATE RegisteredRfid 
-   SET assigned_to_id = ?,
-       assigned_to_name = ?,
-       assigned_to_type = 'Member',
-       status = 'in_use',
-       assignment_date = NOW()
-   WHERE rfid_tag = ? AND role = 'Member'`,
-  [memberId, full_name, rfid_tag]
-);
+
+    await dbSuperAdmin.promise().query(
+      `UPDATE RegisteredRfid 
+       SET assigned_to_id = ?,
+           assigned_to_name = ?,
+           assigned_to_type = 'Member',
+           status = 'in_use',
+           assignment_date = NOW()
+       WHERE rfid_tag = ? AND role = 'Member'`,
+      [memberId, full_name, rfid_tag]
+    );
+
     const insertTxnSql = `
       INSERT INTO AdminTransactions
       (admin_id, member_id, member_name, rfid_tag, amount, payment_method, reference, staff_name,
@@ -211,6 +225,16 @@ await dbSuperAdmin.promise().query(
       reference || null, staff_name, plan_name || 'Membership Fee'
     ]);
 
+    await logAudit({
+      req,
+      action: 'CREATE',
+      module: 'Members',
+      target: full_name,
+      target_id: memberId,
+      description: `Added member ${full_name}`,
+      payload: req.body,
+    });
+
     return res.status(200).json({
       message: "✅ Member registered successfully! Please renew subscription to activate.",
       rfid_tag, full_name, status: 'inactive', payment: paymentNumber,
@@ -221,4 +245,5 @@ await dbSuperAdmin.promise().query(
     return res.status(500).json({ message: "Server error while adding subscription member." });
   }
 });
+
 module.exports = router;

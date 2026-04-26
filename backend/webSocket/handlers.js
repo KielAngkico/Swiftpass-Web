@@ -229,6 +229,22 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
     console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
     return;
   }
+  const superAdminMember = await helpers.getSuperAdminByRfid(rfid_tag);
+if (superAdminMember) {
+  broadcastToClients({
+    type: "member-update",
+    data: {
+      rfid_tag,
+      full_name: superAdminMember.superadmin_name,
+      status: "admin_granted",
+      reason: "System access",
+      location,
+      admin_id: target_admin_id,
+      timestamp: new Date().toISOString()
+    }
+  });
+  return;
+}
 
   if (allocation.role === 'Member') {
     console.log(`🔍 Checking MembersAccounts for admin ${target_admin_id}...`);

@@ -5,8 +5,8 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { authenticateJWT } = require("../middleware/auth");
+const { logAudit } = require("../middleware/auditLogger");
 
-// ─── Multer Config ────────────────────────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const role = req.user?.role;
@@ -33,7 +33,6 @@ const upload = multer({
   },
 });
 
-// ─── GET /api/profile ─────────────────────────────────────────────────────────
 router.get("/profile", authenticateJWT, async (req, res) => {
   const { id, role } = req.user;
 
@@ -81,7 +80,6 @@ router.get("/profile", authenticateJWT, async (req, res) => {
   }
 });
 
-// ─── PUT /api/profile/update ──────────────────────────────────────────────────
 router.put("/profile/update", authenticateJWT, upload.single("profile_image"), async (req, res) => {
   const { id, role } = req.user;
   const { name, age, address, contact_number } = req.body;
@@ -134,7 +132,6 @@ router.put("/profile/update", authenticateJWT, upload.single("profile_image"), a
       );
     }
 
-    // Re-fetch updated user
     let updatedRows = [];
 
     if (role === "superadmin") {
@@ -162,6 +159,16 @@ router.put("/profile/update", authenticateJWT, upload.single("profile_image"), a
         [id]
       );
     }
+
+    await logAudit({
+      req,
+      action: "UPDATE",
+      module: "Profile",
+      target: name.trim(),
+      target_id: id,
+      description: `Updated profile of ${name.trim()}`,
+      payload: req.body,
+    });
 
     return res.json({
       success: true,

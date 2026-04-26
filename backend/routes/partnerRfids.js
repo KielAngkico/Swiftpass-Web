@@ -1,17 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
+const { logAudit } = require("../middleware/auditLogger");
 
 const query = (sql, params = []) => db.promise().query(sql, params);
 
-// ========================================
-// GET PARTNER'S RFID INVENTORY
-// ========================================
 router.get("/inventory/:admin_id", async (req, res) => {
   try {
     const { admin_id } = req.params;
 
-    // Get all RFIDs owned by this partner
     const [rfids] = await query(`
       SELECT 
         id,
@@ -31,18 +28,14 @@ router.get("/inventory/:admin_id", async (req, res) => {
       ORDER BY role, customer_number
     `, [admin_id]);
 
-    // Calculate KPI stats
     const stats = {
       total: rfids.length,
       staff_left: rfids.filter(r => r.role === 'Partner' && !r.assigned_to_name).length,
       member_left: rfids.filter(r => r.role === 'Member' && !r.assigned_to_name).length,
       daypass_left: rfids.filter(r => r.role === 'DayPass' && !r.assigned_to_name).length,
-      
-      // Additional stats
       staff_total: rfids.filter(r => r.role === 'Partner').length,
       member_total: rfids.filter(r => r.role === 'Member').length,
       daypass_total: rfids.filter(r => r.role === 'DayPass').length,
-      
       in_use: rfids.filter(r => r.assigned_to_name).length,
       available: rfids.filter(r => !r.assigned_to_name).length
     };
@@ -58,9 +51,6 @@ router.get("/inventory/:admin_id", async (req, res) => {
   }
 });
 
-// ========================================
-// ASSIGN RFID TO MEMBER/STAFF
-// ========================================
 router.put("/:rfid_id/assign", async (req, res) => {
   try {
     const { rfid_id } = req.params;
@@ -70,7 +60,6 @@ router.put("/:rfid_id/assign", async (req, res) => {
       return res.status(400).json({ error: "Name is required" });
     }
 
-    // Verify RFID belongs to this admin
     const [[rfid]] = await query(`
       SELECT id, allocated_to_admin, warehouse_number, role
       FROM RegisteredRfid
@@ -85,7 +74,6 @@ router.put("/:rfid_id/assign", async (req, res) => {
       return res.status(403).json({ error: "You don't own this RFID" });
     }
 
-    // Assign RFID
     const [result] = await query(`
       UPDATE RegisteredRfid
       SET assigned_to_name = ?,
@@ -97,7 +85,17 @@ router.put("/:rfid_id/assign", async (req, res) => {
       return res.status(400).json({ error: "Failed to assign RFID" });
     }
 
-    res.json({ 
+    await logAudit({
+      req,
+      action: "UPDATE",
+      module: "PartnerRFID",
+      target: assigned_to_name.trim(),
+      target_id: parseInt(rfid_id),
+      description: `Assigned RFID to ${assigned_to_name.trim()}`,
+      payload: req.body,
+    });
+
+    res.json({
       message: "RFID assigned successfully",
       rfid_id,
       assigned_to: assigned_to_name.trim()
@@ -109,15 +107,11 @@ router.put("/:rfid_id/assign", async (req, res) => {
   }
 });
 
-// ========================================
-// UNASSIGN RFID (Make Available)
-// ========================================
 router.put("/:rfid_id/unassign", async (req, res) => {
   try {
     const { rfid_id } = req.params;
     const { admin_id } = req.body;
 
-    // Verify RFID belongs to this admin
     const [[rfid]] = await query(`
       SELECT id, allocated_to_admin, assigned_to_name
       FROM RegisteredRfid
@@ -132,7 +126,6 @@ router.put("/:rfid_id/unassign", async (req, res) => {
       return res.status(403).json({ error: "You don't own this RFID" });
     }
 
-    // Unassign RFID
     const [result] = await query(`
       UPDATE RegisteredRfid
       SET assigned_to_name = NULL,
@@ -144,7 +137,17 @@ router.put("/:rfid_id/unassign", async (req, res) => {
       return res.status(400).json({ error: "Failed to unassign RFID" });
     }
 
-    res.json({ 
+    await logAudit({
+      req,
+      action: "UPDATE",
+      module: "PartnerRFID",
+      target: rfid.assigned_to_name || "Unknown",
+      target_id: parseInt(rfid_id),
+      description: `Unassigned RFID from ${rfid.assigned_to_name || "Unknown"}`,
+      payload: req.body,
+    });
+
+    res.json({
       message: "RFID unassigned successfully",
       rfid_id
     });
@@ -155,9 +158,6 @@ router.put("/:rfid_id/unassign", async (req, res) => {
   }
 });
 
-// ========================================
-// GET RFID DETAILS
-// ========================================
 router.get("/:rfid_id", async (req, res) => {
   try {
     const { rfid_id } = req.params;

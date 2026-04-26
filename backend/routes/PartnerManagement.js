@@ -3,11 +3,10 @@ const bcrypt = require("bcrypt");
 const router = express.Router();
 const db = require("../db");
 const upload = require("../middleware/partnersUpload");
+const { logAudit } = require("../middleware/auditLogger");
 
 const query = (sql, params = []) => db.promise().query(sql, params);
 
-// --- Insert Default Pricing ---
-// --- Insert Default Pricing (modified to accept connection) ---
 const insertDefaultPricing = async (conn, admin_id, system_type) => {
   const defaults = [
     ["Daily Session", 0],
@@ -24,20 +23,13 @@ const insertDefaultPricing = async (conn, admin_id, system_type) => {
     );
   }
 };
-// Add this helper function at the top with other helpers
+
 const getItemType = (itemName) => {
   const name = itemName.toLowerCase();
-  
-  // Check for hardware items FIRST (PCB, lock, button)
-  if (name.includes('pcb') || name.includes('lock') || name.includes('button')) {
-    return 'other';
-  }
-  
-  // Then check for RFID items
+  if (name.includes('pcb') || name.includes('lock') || name.includes('button')) return 'other';
   if (name.includes('partner') || name.includes('staff')) return 'partner_rfid';
   if (name.includes('member') || name.includes('wristband')) return 'member_rfid';
   if (name.includes('day pass') || name.includes('keyfob')) return 'daypass_rfid';
-  
   return 'other';
 };
 
@@ -50,16 +42,15 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
       admin_name, email, password, address, gym_name, gym_code,
       system_type, package_id, rfid_tag, rfid_tag_2,
     } = req.body;
-    console.log("BODY:", req.body); 
-    console.log("FILE:", req.file); 
+    console.log("BODY:", req.body);
+    console.log("FILE:", req.file);
 
     if (!password) {
       await conn.rollback();
       return res.status(400).json({ error: "Password is required" });
-
     }
 
-        if (gym_code) {
+    if (gym_code) {
       const [[existing]] = await conn.query(
         `SELECT id FROM AdminAccounts WHERE gym_code = ?`, [gym_code]
       );
@@ -83,22 +74,19 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
         endDate = new Date(Date.now() + pkg.duration_days * 86400000);
       }
     }
-    
 
-    // ✅ FIXED: Insert with actual RFID values, not NULL
     const [result] = await conn.query(`
       INSERT INTO AdminAccounts
       (admin_name, email, password, address, gym_name, gym_code, system_type,
        profile_image_url, rfid_tag, rfid_tag_2, package_id,
        subscription_start_date, subscription_end_date, is_archived)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `, [admin_name, email, hashedPassword, address, gym_name,gym_code,
+    `, [admin_name, email, hashedPassword, address, gym_name, gym_code,
       system_type, imagePath, rfid_tag || null, rfid_tag_2 || null,
       pkgId, startDate, endDate]);
 
     const admin_id = result.insertId;
 
-    // ✅ Update RegisteredRfid for slot 1
     if (rfid_tag && rfid_tag.trim() !== "") {
       await conn.query(
         `UPDATE RegisteredRfid 
@@ -112,7 +100,6 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
       );
     }
 
-    // ✅ Update RegisteredRfid for slot 2
     if (rfid_tag_2 && rfid_tag_2.trim() !== "") {
       await conn.query(
         `UPDATE RegisteredRfid 
@@ -130,15 +117,16 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
                  VALUES (?, 'Cash', 1, 1)`, [admin_id]);
 
     await insertDefaultPricing(conn, admin_id, system_type);
-if (pkgId && pkgPrice > 0) {
-  const { payment_method, reference_number } = req.body;
-  
-  const [[pkg]] = await conn.query(`SELECT name FROM SubscriptionPackages WHERE id = ?`, [pkgId]);
-  const [txn] = await conn.query(`
-    INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount, payment_method, reference_number)
-    VALUES (?, 'Package Purchase', ?, ?, ?)`, 
-    [admin_id, pkgPrice, payment_method || 'Cash', reference_number || null]);
-      
+
+    if (pkgId && pkgPrice > 0) {
+      const { payment_method, reference_number } = req.body;
+
+      const [[pkg]] = await conn.query(`SELECT name FROM SubscriptionPackages WHERE id = ?`, [pkgId]);
+      const [txn] = await conn.query(`
+        INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount, payment_method, reference_number)
+        VALUES (?, 'Package Purchase', ?, ?, ?)`,
+        [admin_id, pkgPrice, payment_method || 'Cash', reference_number || null]);
+
       await conn.query(`
         INSERT INTO SuperAdminTransactionItems
         (transaction_id, item_name, quantity, unit_price, total_price)
@@ -150,7 +138,6 @@ if (pkgId && pkgPrice > 0) {
       const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
       const order_number = `ORD-${timestamp}${random}`;
 
-      // ✅ FIXED: Use INNER JOIN and proper item type detection
       const [packageItems] = await conn.query(`
         SELECT 
           pi.item_name, 
@@ -163,9 +150,7 @@ if (pkgId && pkgPrice > 0) {
 
       if (packageItems.length === 0) {
         await conn.rollback();
-        return res.status(400).json({ 
-          error: "No items found for package or inventory mismatch" 
-        });
+        return res.status(400).json({ error: "No items found for package or inventory mismatch" });
       }
 
       const calculatedTotal = packageItems.reduce((sum, item) => {
@@ -182,8 +167,8 @@ if (pkgId && pkgPrice > 0) {
 
       for (const item of packageItems) {
         const subtotal = item.quantity * item.unit_price;
-        const itemType = getItemType(item.item_name); // ✅ Auto-detect type
-        
+        const itemType = getItemType(item.item_name);
+
         await conn.query(`
           INSERT INTO PartnerOrderItems 
           (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
@@ -198,8 +183,18 @@ if (pkgId && pkgPrice > 0) {
 
     await conn.commit();
 
-    res.status(201).json({ 
-      message: "Client added successfully", 
+    await logAudit({
+      req,
+      action: 'CREATE',
+      module: 'Partners',
+      target: gym_name,
+      target_id: admin_id,
+      description: `Added partner ${gym_name}`,
+      payload: req.body,
+    });
+
+    res.status(201).json({
+      message: "Client added successfully",
       id: admin_id,
       profile_image_url: imagePath,
       subscription_start_date: startDate,
@@ -213,7 +208,7 @@ if (pkgId && pkgPrice > 0) {
     conn.release();
   }
 });
-// --- Update Admin RFID (Handles Both Slots) ---
+
 router.put("/update-admin-rfid/:id", async (req, res) => {
   const { id } = req.params;
   const { new_rfid_tag, new_rfid_tag_2 } = req.body;
@@ -222,7 +217,6 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // 1️⃣ Get current RFID values and admin name
     const [[admin]] = await conn.query(
       "SELECT rfid_tag, rfid_tag_2, previous_rfid, previous_rfid_2, admin_name FROM AdminAccounts WHERE id = ?",
       [id]
@@ -232,16 +226,13 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
       return res.status(404).json({ error: "Admin not found" });
     }
 
-    // 2️⃣ Prepare variables
     let updateFields = [];
     let values = [];
 
-    // ✅ Slot 1
     if (new_rfid_tag && new_rfid_tag !== admin.rfid_tag) {
       updateFields.push("previous_rfid = ?", "rfid_tag = ?");
       values.push(admin.rfid_tag || null, new_rfid_tag);
 
-      // Update RegisteredRfid for slot 1
       if (new_rfid_tag) {
         await conn.query(
           `UPDATE RegisteredRfid 
@@ -255,7 +246,6 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
         );
       }
 
-      // Clear old RFID if exists
       if (admin.rfid_tag) {
         await conn.query(
           `UPDATE RegisteredRfid 
@@ -270,12 +260,10 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
       }
     }
 
-    // ✅ Slot 2
     if (new_rfid_tag_2 && new_rfid_tag_2 !== admin.rfid_tag_2) {
       updateFields.push("previous_rfid_2 = ?", "rfid_tag_2 = ?");
       values.push(admin.rfid_tag_2 || null, new_rfid_tag_2);
 
-      // Update RegisteredRfid for slot 2
       if (new_rfid_tag_2) {
         await conn.query(
           `UPDATE RegisteredRfid 
@@ -289,7 +277,6 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
         );
       }
 
-      // Clear old RFID if exists
       if (admin.rfid_tag_2) {
         await conn.query(
           `UPDATE RegisteredRfid 
@@ -304,13 +291,11 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
       }
     }
 
-    // If nothing to update
     if (updateFields.length === 0) {
       await conn.rollback();
       return res.json({ message: "No RFID changes detected." });
     }
 
-    // Add common fields
     updateFields.push("replaced_by = 'SuperAdmin'", "replaced_at = NOW()");
     const updateQuery = `
       UPDATE AdminAccounts
@@ -319,10 +304,18 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
     `;
     values.push(id);
 
-    // 3️⃣ Execute update
     await conn.query(updateQuery, values);
-
     await conn.commit();
+
+    await logAudit({
+      req,
+      action: 'RFID_REPLACEMENT',
+      module: 'Partners',
+      target: admin.admin_name,
+      target_id: parseInt(id),
+      description: `Replaced RFID of partner ${admin.admin_name}`,
+      payload: req.body,
+    });
 
     res.json({
       message: "RFID(s) updated successfully",
@@ -340,51 +333,55 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
   }
 });
 
+router.put("/replace-admin-rfid/:id", async (req, res) => {
+  const { id } = req.params;
+  const { new_rfid_tag, rfid_slot } = req.body;
 
+  try {
+    const [[admin]] = await query("SELECT rfid_tag, rfid_tag_2, admin_name FROM AdminAccounts WHERE id = ?", [id]);
+    if (!admin) return res.status(404).json({ error: "Admin not found" });
 
+    const isSlot2 = rfid_slot === 2;
+    const oldRfid = isSlot2 ? admin.rfid_tag_2 : admin.rfid_tag;
+    const columnPrefix = isSlot2 ? "_2" : "";
 
-  // -
-  // -- Replace RFID ---
-  router.put("/replace-admin-rfid/:id", async (req, res) => {
-    const { id } = req.params;
-    const { new_rfid_tag, rfid_slot } = req.body;
+    await query(`
+      UPDATE AdminAccounts
+      SET previous_rfid${columnPrefix}=?, rfid_tag${columnPrefix}=?, replaced_by='SuperAdmin', replaced_at=NOW()
+      WHERE id=?`, [oldRfid, new_rfid_tag, id]);
 
-    try {
-      const [[admin]] = await query("SELECT rfid_tag, rfid_tag_2 FROM AdminAccounts WHERE id = ?", [id]);
-      if (!admin) return res.status(404).json({ error: "Admin not found" });
+    await logAudit({
+      req,
+      action: 'RFID_REPLACEMENT',
+      module: 'Partners',
+      target: admin.admin_name,
+      target_id: parseInt(id),
+      description: `Replaced RFID of partner ${admin.admin_name}`,
+      payload: req.body,
+    });
 
-      const isSlot2 = rfid_slot === 2;
-      const oldRfid = isSlot2 ? admin.rfid_tag_2 : admin.rfid_tag;
-      const columnPrefix = isSlot2 ? "_2" : "";
+    res.json({ message: `RFID ${rfid_slot} replaced successfully`, old_rfid: oldRfid, new_rfid_tag });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
-      await query(`
-        UPDATE AdminAccounts
-        SET previous_rfid${columnPrefix}=?, rfid_tag${columnPrefix}=?, replaced_by='SuperAdmin', replaced_at=NOW()
-        WHERE id=?`, [oldRfid, new_rfid_tag, id]);
-
-      res.json({ message: `RFID ${rfid_slot} replaced successfully`, old_rfid: oldRfid, new_rfid_tag });
-    } catch (err) {
-      res.status(500).json({ error: "Server error" });
-    }
-  });
-
-// --- Get Admins ---
 router.get("/admins", async (_, res) => {
   try {
-const [rows] = await query(`
-  SELECT 
-    a.id, a.admin_name, a.email, a.address, a.gym_name, a.gym_code, a.system_type,
-    a.profile_image_url, a.rfid_tag, a.rfid_tag_2, a.is_archived,
-    a.subscription_start_date, a.subscription_end_date, a.package_id,
-    DATEDIFF(a.subscription_end_date, NOW()) as days_remaining,
-    sp.name as package_name,
-    sp.description as package_description,
-    sp.price as package_price,
-    sp.duration_days as package_duration
-  FROM AdminAccounts a
-  LEFT JOIN SubscriptionPackages sp ON a.package_id = sp.id
-  ORDER BY a.is_archived ASC, a.admin_name ASC
-`);
+    const [rows] = await query(`
+      SELECT 
+        a.id, a.admin_name, a.email, a.address, a.gym_name, a.gym_code, a.system_type,
+        a.profile_image_url, a.rfid_tag, a.rfid_tag_2, a.is_archived,
+        a.subscription_start_date, a.subscription_end_date, a.package_id,
+        DATEDIFF(a.subscription_end_date, NOW()) as days_remaining,
+        sp.name as package_name,
+        sp.description as package_description,
+        sp.price as package_price,
+        sp.duration_days as package_duration
+      FROM AdminAccounts a
+      LEFT JOIN SubscriptionPackages sp ON a.package_id = sp.id
+      ORDER BY a.is_archived ASC, a.admin_name ASC
+    `);
     res.json(rows);
   } catch (err) {
     console.error("Get admins error:", err);
@@ -392,17 +389,33 @@ const [rows] = await query(`
   }
 });
 
-// --- Archive / Restore ---
 ["archive", "restore"].forEach(action => {
   const archived = action === "archive" ? 1 : 0;
   router.put(`/${action}-admin/:id`, async (req, res) => {
-    const [result] = await query(
-      `UPDATE AdminAccounts SET is_archived=? WHERE id=? AND is_archived!=?`,
-      [archived, req.params.id, archived]
-    );
-    if (!result.affectedRows)
-      return res.status(404).json({ error: `Admin not found or already ${action}d` });
-    res.json({ message: `Admin ${action}d successfully` });
+    try {
+      const [[admin]] = await query(`SELECT admin_name, gym_name FROM AdminAccounts WHERE id = ?`, [req.params.id]);
+
+      const [result] = await query(
+        `UPDATE AdminAccounts SET is_archived=? WHERE id=? AND is_archived!=?`,
+        [archived, req.params.id, archived]
+      );
+      if (!result.affectedRows)
+        return res.status(404).json({ error: `Admin not found or already ${action}d` });
+
+      await logAudit({
+        req,
+        action: 'UPDATE',
+        module: 'Partners',
+        target: admin ? admin.gym_name : req.params.id,
+        target_id: parseInt(req.params.id),
+        description: `${action === 'archive' ? 'Archived' : 'Restored'} partner ${admin ? admin.gym_name : req.params.id}`,
+        payload: req.body,
+      });
+
+      res.json({ message: `Admin ${action}d successfully` });
+    } catch (err) {
+      res.status(500).json({ error: "Server error" });
+    }
   });
 });
 
@@ -424,10 +437,8 @@ router.get("/admins/:status(active|archived)", async (req, res) => {
   res.json(rows);
 });
 
-// --- Check Expired Packages (Cron Job / Scheduled Task) ---
 router.post("/check-expired-subscriptions", async (req, res) => {
   try {
-    // Find all partners whose package has expired (BOTH system types)
     const [expiredPartners] = await query(`
       SELECT id, admin_name, gym_name, email, system_type, subscription_end_date
       FROM AdminAccounts
@@ -440,14 +451,13 @@ router.post("/check-expired-subscriptions", async (req, res) => {
       return res.json({ message: "No expired packages found", expired_count: 0 });
     }
 
-    // Archive expired partners
     for (const partner of expiredPartners) {
       await query(`UPDATE AdminAccounts SET is_archived = 1 WHERE id = ?`, [partner.id]);
       console.log(`⚠️ Archived expired package: ${partner.gym_name} (${partner.email}) - System: ${partner.system_type}`);
     }
 
-    res.json({ 
-      message: "Expired packages processed", 
+    res.json({
+      message: "Expired packages processed",
       expired_count: expiredPartners.length,
       expired_partners: expiredPartners.map(p => ({
         id: p.id,
@@ -463,7 +473,6 @@ router.post("/check-expired-subscriptions", async (req, res) => {
   }
 });
 
-// --- Renew Package ---
 router.post("/renew-subscription/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -487,23 +496,29 @@ router.post("/renew-subscription/:id", async (req, res) => {
       WHERE id = ?
     `, [package_id, startDate, endDate, id]);
 
-    // Record renewal transaction
-// Record renewal transaction
-const { payment_method, reference_number } = req.body;
-const [txn] = await query(`
-  INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount, payment_method, reference_number)
-  VALUES (?, 'Package Renewal', ?, ?, ?)`, 
-  [id, pkg.price, payment_method || 'Cash', reference_number || null]);
-await query(`
-  INSERT INTO SuperAdminTransactionItems
-  (transaction_id, item_name, quantity, unit_price, total_price)
-  VALUES (?, ?, ?, ?, ?)`,
-  [txn.insertId, pkg.name, 1, pkg.price, pkg.price]  // total_price = unit_price * quantity
-);
+    const { payment_method, reference_number } = req.body;
+    const [txn] = await query(`
+      INSERT INTO SuperAdminTransactions (admin_id, transaction_type, amount, payment_method, reference_number)
+      VALUES (?, 'Package Renewal', ?, ?, ?)`,
+      [id, pkg.price, payment_method || 'Cash', reference_number || null]);
+    await query(`
+      INSERT INTO SuperAdminTransactionItems
+      (transaction_id, item_name, quantity, unit_price, total_price)
+      VALUES (?, ?, ?, ?, ?)`,
+      [txn.insertId, pkg.name, 1, pkg.price, pkg.price]
+    );
 
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: 'Partners',
+      target: admin.gym_name,
+      target_id: parseInt(id),
+      description: `Renewed subscription of partner ${admin.gym_name}`,
+      payload: req.body,
+    });
 
-
-    res.json({ 
+    res.json({
       message: "Package renewed successfully",
       subscription_start_date: startDate,
       subscription_end_date: endDate,
@@ -515,30 +530,20 @@ await query(`
   }
 });
 
-// --- Delete Admin ---
 router.delete("/delete-admin/:id", async (req, res) => {
   const conn = await db.promise().getConnection();
   try {
     await conn.beginTransaction();
 
-    const [[admin]] = await conn.query(`SELECT id, is_archived, admin_name FROM AdminAccounts WHERE id=?`, [req.params.id]);
+    const [[admin]] = await conn.query(`SELECT id, is_archived, admin_name, gym_name FROM AdminAccounts WHERE id=?`, [req.params.id]);
     if (!admin) return res.status(404).json({ error: "Admin not found" });
     if (!admin.is_archived) return res.status(400).json({ error: "Please archive before deleting" });
 
     const cleanupTables = [
-      "SuperAdminTransactionItems",
-      "SuperAdminTransactions",
-      "AdminTransactions",
-      "AdminMembersTransactions",
-      "AdminPaymentMethods",
-      "AdminPricingOptions",
-      "AdminRFIDCards",
-      "StaffActivityLogs",
-      "StaffSessionLogs",
-      "StaffAccounts",
-      "AdminEntryLogs",
-      "DayPassGuests",
-      "MembersAccounts"
+      "SuperAdminTransactionItems", "SuperAdminTransactions", "AdminTransactions",
+      "AdminMembersTransactions", "AdminPaymentMethods", "AdminPricingOptions",
+      "AdminRFIDCards", "StaffActivityLogs", "StaffSessionLogs", "StaffAccounts",
+      "AdminEntryLogs", "DayPassGuests", "MembersAccounts"
     ];
     for (const table of cleanupTables) {
       try { await conn.query(`DELETE FROM ${table} WHERE admin_id=?`, [req.params.id]); }
@@ -547,6 +552,16 @@ router.delete("/delete-admin/:id", async (req, res) => {
 
     await conn.query(`DELETE FROM AdminAccounts WHERE id=?`, [req.params.id]);
     await conn.commit();
+
+    await logAudit({
+      req,
+      action: 'DELETE',
+      module: 'Partners',
+      target: admin.gym_name,
+      target_id: parseInt(req.params.id),
+      description: `Deleted partner ${admin.gym_name}`,
+      payload: req.body,
+    });
 
     res.json({ message: "Admin and related data deleted successfully", admin_name: admin.admin_name });
   } catch (err) {
@@ -557,6 +572,7 @@ router.delete("/delete-admin/:id", async (req, res) => {
     conn.release();
   }
 });
+
 router.get("/subscription-packages", async (req, res) => {
   try {
     const [packages] = await query(`
@@ -570,6 +586,7 @@ router.get("/subscription-packages", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch subscription packages" });
   }
 });
+
 router.get("/payment-options", async (req, res) => {
   try {
     const [options] = await query(`
@@ -598,7 +615,6 @@ router.put("/update-admin/:id", upload.single("profile_image_url"), async (req, 
       return res.status(404).json({ error: "Admin not found" });
     }
 
-    // Check gym_code uniqueness (excluding self)
     if (gym_code) {
       const [[existing]] = await conn.query(
         `SELECT id FROM AdminAccounts WHERE gym_code = ? AND id != ?`, [gym_code, id]
@@ -626,6 +642,17 @@ router.put("/update-admin/:id", upload.single("profile_image_url"), async (req, 
     `, [admin_name, email, address, gym_name, gym_code, system_type, hashedPassword, imagePath, id]);
 
     await conn.commit();
+
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: 'Partners',
+      target: gym_name,
+      target_id: parseInt(id),
+      description: `Edited partner ${gym_name}`,
+      payload: req.body,
+    });
+
     res.json({ message: "Admin updated successfully", profile_image_url: imagePath });
   } catch (err) {
     await conn.rollback();
@@ -635,4 +662,5 @@ router.put("/update-admin/:id", upload.single("profile_image_url"), async (req, 
     conn.release();
   }
 });
+
 module.exports = router;

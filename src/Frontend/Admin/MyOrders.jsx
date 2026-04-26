@@ -4,6 +4,7 @@ import OwnerSidebar from '../../components/OwnerSidebar';
 import { useToast } from '../../components/ToastManager';
 import OrderDetailsModal from '../../components/Modals/orderdetailsModal';
 import api from '../../api';
+import { FiRefreshCw, FiPackage, FiShoppingCart } from 'react-icons/fi';
 
 const TYPE_CONFIG = {
   onboarding:      { badge: 'bg-purple-50 text-purple-700 border-purple-100', label: 'Onboarding' },
@@ -13,9 +14,9 @@ const TYPE_CONFIG = {
 };
 
 const ORDER_TYPES = [
-  { value: 'renewal',       label: 'Renewal',       icon: '🔄', desc: 'Extend your subscription', pkgTypes: ['subscription'] },
-  { value: 'package_order', label: 'Package Order',  icon: '📦', desc: 'Hardware modules & RFID bundles', pkgTypes: ['hardware_module', 'rfid_bundle'] },
-  { value: 'reorder',       label: 'Items Order',    icon: '🛒', desc: 'Individual parts & stock', pkgTypes: [] },
+  { value: 'renewal',       label: 'Renewal',      icon: FiRefreshCw,    desc: 'Extend your subscription',          pkgTypes: ['subscription'] },
+  { value: 'package_order', label: 'Package Order', icon: FiPackage,      desc: 'Hardware modules & RFID bundles',   pkgTypes: ['hardware_module', 'rfid_bundle'] },
+  { value: 'reorder',       label: 'Items Order',   icon: FiShoppingCart, desc: 'Individual parts & stock',          pkgTypes: [] },
 ];
 
 export default function MyOrders() {
@@ -419,7 +420,7 @@ export default function MyOrders() {
                         onClick={() => handleSelectOrderType(type)}
                         className="flex flex-col items-center gap-2 p-4 bg-white border border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all text-center group"
                       >
-                        <span className="text-2xl">{type.icon}</span>
+                        <type.icon className="w-5 h-5 text-gray-500 group-hover:text-blue-600" />
                         <p className="text-xs font-semibold text-gray-900 group-hover:text-blue-700">
                           {type.label}
                         </p>

@@ -3,6 +3,7 @@ import SuperAdminSidebar from '../../components/SuperAdminSidebar';
 import { useToast } from '../../components/ToastManager';
 import PaymentModal from '../../components/Modals/paymentModal';
 import OrderDetailsModal from '../../components/Modals/orderdetailsModal';
+import { FiRefreshCw, FiPackage, FiShoppingCart, FiStar } from 'react-icons/fi';
 import api from '../../api';
 
 const OrdersPage = () => {
@@ -300,10 +301,11 @@ return (
         <p className="text-xs font-semibold text-gray-900 truncate">
           {order.order_number}
         </p>
-        <p className="text-[11px] text-gray-400 mt-0.5">
-  {order.order_type === 'renewal' ? '🔄 Renewal' :
-   order.order_type === 'package_order' ? '📦 Package' :
-   order.order_type === 'initial_package' ? '🚀 Onboarding' : '🛒 Items'}
+<p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
+  {order.order_type === 'renewal'         && <><FiRefreshCw className="w-3 h-3" /> Renewal</>}
+  {order.order_type === 'package_order'   && <><FiPackage className="w-3 h-3" /> Package</>}
+  {order.order_type === 'initial_package' && <><FiStar className="w-3 h-3" /> Onboarding</>}
+  {order.order_type === 'reorder'         && <><FiShoppingCart className="w-3 h-3" /> Items</>}
 </p>
 
         <p className="text-[11px] text-gray-500 truncate">

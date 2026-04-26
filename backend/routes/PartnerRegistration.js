@@ -204,16 +204,17 @@ router.put("/pending-registrations/:registration_number/approve", async (req, re
 router.get("/subscription-packages-with-items", async (req, res) => {
   try {
     const [packages] = await query(`
-      SELECT id, name, description, price, duration_days, created_at
+      SELECT id, name, description, price, duration_days, created_at, package_type
       FROM SubscriptionPackages
+      WHERE package_type IN ('onboarding', 'hardware_module')
       ORDER BY price ASC
     `);
 
-    const [items] = await query(`
-      SELECT package_id, item_name, quantity
-      FROM PackageItems
-    `);
-
+const [items] = await query(`
+  SELECT package_id, item_name, quantity
+  FROM PackageItems
+  WHERE item_name IS NOT NULL AND item_name != ''
+`);
     const result = packages.map(pkg => ({
       ...pkg,
       items: items.filter(item => item.package_id === pkg.id)

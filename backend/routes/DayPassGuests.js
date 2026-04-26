@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const daypassUpload = require("../middleware/daypassUploads");
-const { logAudit } = require("../middleware/auditLogger");
+const logAudit = require("../middleware/auditLogger");
 
 router.get("/session-fee", async (req, res) => {
   const { admin_id } = req.query;

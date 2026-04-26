@@ -5,7 +5,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { authenticateJWT } = require("../middleware/auth");
-const { logAudit } = require("../middleware/auditLogger");
+const logAudit = require("../middleware/auditLogger");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {

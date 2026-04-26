@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
-const { logAudit } = require("../middleware/auditLogger");
+const logAudit = require("../middleware/auditLogger");
 
 router.put("/replace-member-rfid/:id", async (req, res) => {
   const memberId = req.params.id;

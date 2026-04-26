@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
-const { logAudit } = require("../middleware/auditLogger");
+const logAudit = require("../middleware/auditLogger");
 
 const query = (sql, params = []) => db.promise().query(sql, params);
 

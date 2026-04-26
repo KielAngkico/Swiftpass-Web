@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require("bcrypt");
 const dbSuperAdmin = require("../db");
 const upload = require("../middleware/upload");
-const { logAudit } = require("../middleware/auditLogger");
+const logAudit = require("../middleware/auditLogger");
 
 router.post("/add-member", upload.single("member_image"), async (req, res) => {
   console.log("Received req.body:", req.body);

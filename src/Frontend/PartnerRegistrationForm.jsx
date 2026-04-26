@@ -38,14 +38,15 @@ const PartnerRegistration = () => {
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-    if (name === 'package_id') {
-      const pkg = packages.find(p => p.id === parseInt(value));
-      setSelectedPackage(pkg || null);
-    }
-  };
+// In handleChange, keep as-is but also grab hardware modules
+const handleChange = (e) => {
+  const { name, value } = e.target;
+  setFormData({ ...formData, [name]: value });
+  if (name === 'package_id') {
+    const pkg = packages.find(p => p.id === parseInt(value));
+    setSelectedPackage(pkg || null);
+  }
+};
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -213,59 +214,83 @@ const PartnerRegistration = () => {
               </div>
             </div>
 
-            <div className="space-y-3 mt-6 md:mt-0">
-              <p className="text-sm font-medium text-gray-900 pb-3 border-b border-gray-100">Package</p>
+  <div className="space-y-3 mt-6 md:mt-0">
+  <p className="text-sm font-medium text-gray-900 pb-3 border-b border-gray-100">Package</p>
 
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Select Package</label>
-                <select
-                  name="package_id"
-                  value={formData.package_id}
-                  onChange={handleChange}
-                  className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                >
-                  <option value="">Select a package</option>
-                  {packages.map((pkg) => (
-                    <option key={pkg.id} value={pkg.id}>
-                      {pkg.name} — ₱{parseFloat(pkg.price).toLocaleString('en-PH', { minimumFractionDigits: 2 })} ({pkg.duration_days} days)
-                    </option>
-                  ))}
-                </select>
-              </div>
+  <div>
+    <label className="block text-xs text-gray-500 mb-1">Select Package</label>
+    <select
+      name="package_id"
+      value={formData.package_id}
+      onChange={handleChange}
+      className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+      required
+    >
+      <option value="">Select a package</option>
+      {packages
+        .filter((pkg) => pkg.package_type === 'onboarding')
+        .map((pkg) => (
+          <option key={pkg.id} value={pkg.id}>
+            {pkg.name} — ₱{parseFloat(pkg.price).toLocaleString('en-PH', { minimumFractionDigits: 2 })} ({pkg.duration_days} days)
+          </option>
+        ))}
+    </select>
+  </div>
 
-              {selectedPackage ? (
-                <div className="bg-white border border-blue-400 ring-1 ring-blue-200 rounded-xl p-4 flex flex-col">
-                  <div className="flex items-start justify-between mb-1">
-                    <p className="text-xs font-medium text-gray-900">{selectedPackage.name}</p>
-                    <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2.5 py-0.5 w-fit flex-shrink-0 ml-2">{selectedPackage.duration_days} days</span>
-                  </div>
-                  <p className="text-base font-semibold text-blue-600 mb-3">
-                    ₱{parseFloat(selectedPackage.price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                  </p>
+  {selectedPackage ? (
+    <div className="bg-white border border-blue-400 ring-1 ring-blue-200 rounded-xl p-4 flex flex-col">
+      <div className="flex items-start justify-between mb-1">
+        <p className="text-xs font-medium text-gray-900">{selectedPackage.name}</p>
+        <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2.5 py-0.5 w-fit flex-shrink-0 ml-2">
+          {selectedPackage.duration_days} days
+        </span>
+      </div>
+      <p className="text-base font-semibold text-blue-600 mb-3">
+        ₱{parseFloat(selectedPackage.price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+      </p>
 
-                  {selectedPackage.items && selectedPackage.items.length > 0 && (
-                    <div>
-                      <p className="text-xs text-gray-500 mb-2">Included Items</p>
-                      <div className="overflow-y-auto space-y-1" style={{ maxHeight: '160px' }}>
-                        {selectedPackage.items.map((item, index) => (
-                          <div key={index} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                            <span className="text-xs text-gray-700">{item.item_name}</span>
-                            <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5 font-medium flex-shrink-0 ml-2">
-                              {item.quantity} {item.quantity > 1 ? 'pcs' : 'pc'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="bg-white border border-gray-200 rounded-xl p-6 flex items-center justify-center">
-                  <p className="text-xs text-gray-400">Select a package to see details</p>
-                </div>
-              )}
+      <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Included</p>
+
+      <div className="overflow-y-auto space-y-1" style={{ maxHeight: '260px' }}>
+
+        {/* Hardware Components - single box */}
+        {packages.filter(p => p.package_type === 'hardware_module').length > 0 && (
+          <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+            <span className="text-xs text-gray-700">Hardware Components</span>
+          </div>
+        )}
+
+        {/* Subscription duration - single box */}
+        <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+          <span className="text-xs text-gray-700">
+            {selectedPackage.duration_days >= 365
+              ? `${Math.round(selectedPackage.duration_days / 365)} Year Subscription`
+              : selectedPackage.duration_days >= 30
+              ? `${Math.round(selectedPackage.duration_days / 30)} Month Subscription`
+              : `${selectedPackage.duration_days} Day Subscription`}
+          </span>
+        </div>
+
+        {/* RFID / subscription items */}
+        {selectedPackage.items && selectedPackage.items.length > 0 &&
+          selectedPackage.items.map((item, index) => (
+            <div key={index} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <span className="text-xs text-gray-700">{item.item_name}</span>
+              <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5 font-medium flex-shrink-0 ml-2">
+                {item.quantity} {item.quantity > 1 ? 'pcs' : 'pc'}
+              </span>
             </div>
+          ))
+        }
+
+      </div>
+    </div>
+  ) : (
+    <div className="bg-white border border-gray-200 rounded-xl p-6 flex items-center justify-center">
+      <p className="text-xs text-gray-400">Select a package to see details</p>
+    </div>
+  )}
+</div>
 
             <div className="space-y-3 mt-6 md:mt-0">
               <p className="text-sm font-medium text-gray-900 pb-3 border-b border-gray-100">Profile Photo</p>

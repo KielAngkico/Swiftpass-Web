@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
-const { logAudit } = require("../middleware/auditLogger");
+const logAudit = require("../middleware/auditLogger");
 
 router.post("/splits", async (req, res) => {
   const { split_name, workout_days, target_gender, days } = req.body;

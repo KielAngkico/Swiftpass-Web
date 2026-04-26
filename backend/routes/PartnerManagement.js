@@ -3,7 +3,7 @@ const bcrypt = require("bcrypt");
 const router = express.Router();
 const db = require("../db");
 const upload = require("../middleware/partnersUpload");
-const { logAudit } = require("../middleware/auditLogger");
+const logAudit = require("../middleware/auditLogger");
 
 const query = (sql, params = []) => db.promise().query(sql, params);
 
@@ -148,37 +148,39 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
         WHERE pi.package_id = ?
       `, [pkgId]);
 
-      if (packageItems.length === 0) {
-        await conn.rollback();
-        return res.status(400).json({ error: "No items found for package or inventory mismatch" });
-      }
+if (packageItems.length === 0) {
+  // Subscription-only packages have no physical items — skip order creation
+  console.log(`ℹ️ Package ${pkgId} is subscription-only, skipping order creation`);
+} else {
+  const calculatedTotal = packageItems.reduce((sum, item) =>
+    sum + (item.quantity * item.unit_price), 0
+  );
 
-      const calculatedTotal = packageItems.reduce((sum, item) => {
-        return sum + (item.quantity * item.unit_price);
-      }, 0);
+  const timestamp = Date.now().toString().slice(-8);
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  const order_number = `ORD-${timestamp}${random}`;
 
-      const [orderResult] = await conn.query(`
-        INSERT INTO PartnerOrders 
-        (order_number, admin_id, order_type, total_amount, payment_status, status)
-        VALUES (?, ?, 'initial_package', ?, 'paid', 'pending')
-      `, [order_number, admin_id, calculatedTotal]);
+  const [orderResult] = await conn.query(`
+    INSERT INTO PartnerOrders 
+    (order_number, admin_id, order_type, total_amount, payment_status, status)
+    VALUES (?, ?, 'initial_package', ?, 'paid', 'pending')
+  `, [order_number, admin_id, calculatedTotal]);
 
-      const order_id = orderResult.insertId;
+  const order_id = orderResult.insertId;
 
-      for (const item of packageItems) {
-        const subtotal = item.quantity * item.unit_price;
-        const itemType = getItemType(item.item_name);
+  for (const item of packageItems) {
+    const subtotal = item.quantity * item.unit_price;
+    const itemType = getItemType(item.item_name);
+    await conn.query(`
+      INSERT INTO PartnerOrderItems 
+      (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending')
+    `, [order_id, item.item_name, itemType, item.quantity, item.unit_price, subtotal]);
+  }
 
-        await conn.query(`
-          INSERT INTO PartnerOrderItems 
-          (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
-          VALUES (?, ?, ?, ?, ?, ?, 'pending')
-        `, [order_id, item.item_name, itemType, item.quantity, item.unit_price, subtotal]);
-      }
-
-      console.log(`✅ Created initial order ${order_number} for partner ${admin_id}`);
-      console.log(`   Total: ₱${calculatedTotal.toFixed(2)}`);
-      console.log(`   Items: ${packageItems.map(i => `${i.item_name}(${i.quantity})`).join(', ')}`);
+  console.log(` Created initial order ${order_number} for partner ${admin_id}`);
+}
+ 
     }
 
     await conn.commit();
@@ -484,8 +486,14 @@ router.post("/renew-subscription/:id", async (req, res) => {
     const [[pkg]] = await query(`SELECT * FROM SubscriptionPackages WHERE id = ?`, [package_id]);
     if (!pkg) return res.status(404).json({ error: "Package not found" });
 
-    const startDate = new Date();
-    const endDate = new Date(Date.now() + pkg.duration_days * 86400000);
+const now = new Date();
+const currentEnd = admin?.subscription_end_date
+  ? new Date(admin.subscription_end_date)
+  : now;
+const baseDate = currentEnd > now ? currentEnd : now;
+const startDate = now;
+const endDate = new Date(baseDate);
+endDate.setDate(baseDate.getDate() + pkg.duration_days);
 
     await query(`
       UPDATE AdminAccounts

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
-const { logAudit } = require("../middleware/auditLogger");
+const logAudit = require("../middleware/auditLogger");
 
 router.get("/allergens", (req, res) => {
   db.query("SELECT * FROM Allergens ORDER BY name ASC", (err, results) => {

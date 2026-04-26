@@ -3,14 +3,41 @@ import API from "../../api";
 import SuperAdminSidebar from "../../components/SuperAdminSidebar";
 import { useToast } from "../../components/ToastManager";
 
+const PACKAGE_TYPES = [
+  { value: "onboarding",      label: "Onboarding",       desc: "Hardware + subscription + RFIDs" },
+  { value: "subscription",    label: "Subscription",     desc: "Renewal only, no inventory" },
+  { value: "hardware_module", label: "Hardware module",  desc: "Assembled unit, deducts parts" },
+  { value: "rfid_bundle",     label: "RFID bundle",      desc: "RFID tags only" },
+];
+
+const typeBadge = (type) => {
+  switch (type) {
+    case "onboarding":      return "bg-purple-50 text-purple-700 border-purple-100";
+    case "hardware_module": return "bg-amber-50 text-amber-700 border-amber-100";
+    case "rfid_bundle":     return "bg-green-50 text-green-700 border-green-100";
+    default:                return "bg-blue-50 text-blue-700 border-blue-100";
+  }
+};
+
+const typeLabel = (type) => {
+  return PACKAGE_TYPES.find((t) => t.value === type)?.label || "Subscription";
+};
+
 export default function PricingManagement() {
   const [packages, setPackages] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [paymentOptions, setPaymentOptions] = useState([]);
   const [activeTab, setActiveTab] = useState("packages");
+  const [itemMode, setItemMode] = useState("inventory"); // "inventory" | "package"
+const [selectedSubPackage, setSelectedSubPackage] = useState("");
 
   // Package form
-  const [form, setForm] = useState({ name: "", price: "", duration_days: "" });
+  const [form, setForm] = useState({
+    name: "",
+    price: "",
+    duration_days: "",
+    package_type: "subscription",
+  });
   const [packageItems, setPackageItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState("");
   const [selectedQty, setSelectedQty] = useState(1);
@@ -67,14 +94,30 @@ export default function PricingManagement() {
   };
 
   // ========== PACKAGE FUNCTIONS ==========
-  const addItem = () => {
+const addItem = () => {
+  if (itemMode === "inventory") {
     if (!selectedItem || selectedQty <= 0) return;
     const item = inventory.find((i) => i.id === parseInt(selectedItem));
     if (!item) return;
     setPackageItems([...packageItems, { item_name: item.name, quantity: selectedQty }]);
     setSelectedItem("");
-    setSelectedQty(1);
-  };
+  } else {
+    if (!selectedSubPackage) return;
+    const pkg = packages.find((p) => p.id === parseInt(selectedSubPackage));
+    if (!pkg) return;
+    // prevent adding a package to itself
+    if (editingPackage && pkg.id === editingPackage.id) return;
+    setPackageItems([...packageItems, {
+      sub_package_id: pkg.id,
+      item_name: null,
+      sub_package_name: pkg.name,
+      sub_package_type: pkg.package_type,
+      quantity: 1,
+    }]);
+    setSelectedSubPackage("");
+  }
+  setSelectedQty(1);
+};
 
   const removeItem = (index) => {
     setPackageItems(packageItems.filter((_, i) => i !== index));
@@ -90,7 +133,7 @@ export default function PricingManagement() {
         await API.post("/api/packages", { ...form, items: packageItems });
         showToast({ message: "Package created successfully!", type: "success" });
       }
-      setForm({ name: "", price: "", duration_days: "" });
+      setForm({ name: "", price: "", duration_days: "", package_type: "subscription" });
       setPackageItems([]);
       setEditingPackage(null);
       fetchPackages();
@@ -115,16 +158,22 @@ export default function PricingManagement() {
 
   const handleEditPackage = (pkg) => {
     setEditingPackage(pkg);
-    setForm({ name: pkg.name, price: pkg.price, duration_days: pkg.duration_days });
+    setForm({
+      name: pkg.name,
+      price: pkg.price,
+      duration_days: pkg.duration_days,
+      package_type: pkg.package_type || "subscription",
+    });
     setPackageItems(pkg.items || []);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const cancelEditPackage = () => {
-    setEditingPackage(null);
-    setForm({ name: "", price: "", duration_days: "" });
-    setPackageItems([]);
-  };
+const cancelEditPackage = () => {
+  setEditingPackage(null);
+  setForm({ name: "", price: "", duration_days: "", package_type: "subscription" });
+  setPackageItems([]);
+  setItemMode("inventory"); // add this
+};
 
   // ========== PAYMENT FUNCTIONS ==========
   const handlePaymentSubmit = async (e) => {
@@ -196,6 +245,12 @@ export default function PricingManagement() {
     }
   };
 
+  // Whether the selected package type needs duration_days
+  const needsDuration = form.package_type !== "hardware_module" && form.package_type !== "rfid_bundle";
+
+  // Whether the selected type shows the items selector
+  const needsItems = form.package_type !== "subscription";
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <SuperAdminSidebar />
@@ -207,7 +262,7 @@ export default function PricingManagement() {
             Pricing & Payment Management
           </h1>
           <p className="text-xs text-gray-500 mt-0.5">
-            Manage subscription packages and payment options
+            Manage packages, modules, and payment options
           </p>
         </div>
 
@@ -250,11 +305,13 @@ export default function PricingManagement() {
                 </h2>
 
                 <div className="space-y-3">
+
+                  {/* Package name */}
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Package name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Monthly Basic"
+                      placeholder="e.g. SwiftPass Starter"
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -262,7 +319,27 @@ export default function PricingManagement() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* Package type */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Package type</label>
+                    <select
+                      value={form.package_type}
+                      onChange={(e) => setForm({ ...form, package_type: e.target.value })}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      {PACKAGE_TYPES.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      {PACKAGE_TYPES.find((t) => t.value === form.package_type)?.desc}
+                    </p>
+                  </div>
+
+                  {/* Price + Duration */}
+                  <div className={needsDuration ? "grid grid-cols-2 gap-2" : ""}>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Price (₱)</label>
                       <input
@@ -274,97 +351,151 @@ export default function PricingManagement() {
                         required
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Duration (days)</label>
-                      <input
-                        type="number"
-                        placeholder="30"
-                        value={form.duration_days}
-                        onChange={(e) => setForm({ ...form, duration_days: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* Included items */}
-                  {/* Included items */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">
-                      Included items
-                    </label>
-
-                    {/* Selector FIRST */}
-                    <div className="flex flex-col gap-2 mb-3">
-                      <select
-                        value={selectedItem}
-                        onChange={(e) => setSelectedItem(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                      >
-                        <option value="">Select item...</option>
-                        {inventory.map((inv) => (
-                          <option key={inv.id} value={inv.id}>
-                            {inv.name} ({inv.quantity} avail.)
-                          </option>
-                        ))}
-                      </select>
-
-                      <div className="flex gap-2">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={selectedQty}
-                            onChange={(e) => {
-                              const val = e.target.value;
-
-                              // allow only digits or empty input
-                              if (/^\d*$/.test(val)) {
-                                setSelectedQty(val === "" ? "" : Number(val));
-                              }
-                            }}
-                            onBlur={() => {
-                              if (!selectedQty || selectedQty < 1) {
-                                setSelectedQty(1);
-                              }
-                            }}
-                            className="w-20 border border-gray-200 rounded-lg px-2 py-2 text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="1"
-                          />
-
-                        <button
-                          type="button"
-                          onClick={addItem}
-                          disabled={!selectedItem}
-                          className="flex-1 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        >
-                          Add item
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Included items BELOW */}
-                    {packageItems.length > 0 && (
-                      <div className="space-y-1">
-                        {packageItems.map((item, i) => (
-                          <div
-                            key={i}
-                            className="flex justify-between items-center bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5"
-                          >
-                            <span className="text-xs text-gray-700">
-                              {item.item_name} — {item.quantity} pcs
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => removeItem(i)}
-                              className="text-xs text-red-500 hover:text-red-700 font-medium ml-2"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ))}
+                    {needsDuration && (
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Duration (days)</label>
+                        <input
+                          type="number"
+                          placeholder="30"
+                          value={form.duration_days}
+                          onChange={(e) => setForm({ ...form, duration_days: e.target.value })}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
                       </div>
                     )}
                   </div>
+
+                  {/* Included items — hidden for pure subscription renewals */}
+{needsItems && (
+  <div>
+    <label className="block text-xs font-medium text-gray-700 mb-2">
+      Included items
+    </label>
+
+    {/* Toggle: inventory item vs sub-package */}
+    <div className="flex gap-1 mb-2 bg-gray-100 rounded-lg p-0.5">
+      <button
+        type="button"
+        onClick={() => setItemMode("inventory")}
+        className={`flex-1 py-1 rounded-md text-[11px] font-medium transition-colors ${
+          itemMode === "inventory"
+            ? "bg-white text-gray-800 shadow-sm"
+            : "text-gray-500 hover:text-gray-700"
+        }`}
+      >
+        Inventory item
+      </button>
+      <button
+        type="button"
+        onClick={() => setItemMode("package")}
+        className={`flex-1 py-1 rounded-md text-[11px] font-medium transition-colors ${
+          itemMode === "package"
+            ? "bg-white text-gray-800 shadow-sm"
+            : "text-gray-500 hover:text-gray-700"
+        }`}
+      >
+        Sub-package
+      </button>
+    </div>
+
+    <div className="flex flex-col gap-2 mb-3">
+      {itemMode === "inventory" ? (
+        <>
+          <select
+            value={selectedItem}
+            onChange={(e) => setSelectedItem(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Select inventory item...</option>
+            {inventory.map((inv) => (
+              <option key={inv.id} value={inv.id}>
+                {inv.name} ({inv.quantity} avail.)
+              </option>
+            ))}
+          </select>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={selectedQty}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (/^\d*$/.test(val)) setSelectedQty(val === "" ? "" : Number(val));
+              }}
+              onBlur={() => { if (!selectedQty || selectedQty < 1) setSelectedQty(1); }}
+              className="w-20 border border-gray-200 rounded-lg px-2 py-2 text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="1"
+            />
+            <button
+              type="button"
+              onClick={addItem}
+              disabled={!selectedItem}
+              className="flex-1 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Add item
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <select
+            value={selectedSubPackage}
+            onChange={(e) => setSelectedSubPackage(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Select package...</option>
+            {packages
+              .filter((p) => !editingPackage || p.id !== editingPackage.id)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.package_type})
+                </option>
+              ))}
+          </select>
+          <button
+            type="button"
+            onClick={addItem}
+            disabled={!selectedSubPackage}
+            className="py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-xs font-medium hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Add sub-package
+          </button>
+        </>
+      )}
+    </div>
+
+    {packageItems.length > 0 && (
+      <div className="space-y-1">
+        {packageItems.map((item, i) => (
+          <div
+            key={i}
+            className={`flex justify-between items-center rounded-lg px-3 py-1.5 border ${
+              item.sub_package_id
+                ? "bg-amber-50 border-amber-100"
+                : "bg-gray-50 border-gray-100"
+            }`}
+          >
+            <span className="text-xs text-gray-700">
+              {item.sub_package_id ? (
+                <> <span className="font-medium">{item.sub_package_name}</span> <span className="text-gray-400">(package)</span></>
+              ) : (
+                <>{item.item_name} — {item.quantity} pcs</>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => removeItem(i)}
+              className="text-xs text-red-500 hover:text-red-700 font-medium ml-2"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
                 </div>
 
                 <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
@@ -412,28 +543,43 @@ export default function PricingManagement() {
                           : "border-gray-200"
                       }`}
                     >
-                      <p className="text-xs font-medium text-gray-900 leading-snug mb-1">{pkg.name}</p>
+                      {/* Type badge */}
+                      <span className={`inline-block text-[11px] rounded-full px-2.5 py-0.5 w-fit mb-2 border ${typeBadge(pkg.package_type)}`}>
+                        {typeLabel(pkg.package_type)}
+                      </span>
+
+                      <p className="text-xs font-medium text-gray-900 leading-snug mb-1">
+                        {pkg.name}
+                      </p>
 
                       <p className="text-base font-semibold text-blue-600 mb-1.5">
                         ₱{Number(pkg.price).toLocaleString()}
                       </p>
 
-                      <span className="inline-block text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2.5 py-0.5 w-fit mb-3">
-                        {pkg.duration_days} days
-                      </span>
-
-                      {pkg.items?.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {pkg.items.map((it, j) => (
-                            <span
-                              key={j}
-                              className="text-[11px] bg-gray-50 text-gray-500 border border-gray-200 rounded-full px-2 py-0.5"
-                            >
-                              {it.item_name} ×{it.quantity}
-                            </span>
-                          ))}
-                        </div>
+                      {/* Duration — only show if relevant */}
+                      {pkg.duration_days > 0 && (
+                        <span className="inline-block text-[11px] bg-gray-50 text-gray-500 border border-gray-200 rounded-full px-2.5 py-0.5 w-fit mb-3">
+                          {pkg.duration_days} days
+                        </span>
                       )}
+
+                      {/* Included items */}
+{pkg.items?.length > 0 && (
+  <div className="flex flex-wrap gap-1 mb-3">
+    {pkg.items.map((it, j) => (
+      <span
+        key={j}
+        className={`text-[11px] rounded-full px-2 py-0.5 border ${
+          it.sub_package_id
+            ? "bg-amber-50 text-amber-700 border-amber-100"
+            : "bg-gray-50 text-gray-500 border-gray-200"
+        }`}
+      >
+        {it.sub_package_id ? ` ${it.sub_package_name}` : `${it.item_name} ×${it.quantity}`}
+      </span>
+    ))}
+  </div>
+)}
 
                       <div className="flex gap-1.5 mt-auto pt-2.5 border-t border-gray-100">
                         <button

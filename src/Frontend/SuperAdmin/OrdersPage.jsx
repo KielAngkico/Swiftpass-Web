@@ -126,47 +126,55 @@ const OrdersPage = () => {
     setShowPaymentModal(true);
   };
 
-  const handleCompleteOrder = async (e) => {
-    e.preventDefault();
-    if (!selectedOrder) return;
+const handleCompleteOrder = async (e) => {
+  e.preventDefault();
+  if (!selectedOrder) return;
 
-    if (selectedOrder.order_type !== 'initial_package') {
-      if (!paymentData.payment_method) {
-        showToast({ message: 'Please select a payment method', type: 'error' });
-        return;
-      }
-      if (paymentData.payment_method.toLowerCase() !== 'cash' && !paymentData.reference_number.trim()) {
-        showToast({ message: 'Reference number is required for non-cash payments', type: 'error' });
-        return;
-      }
+  if (selectedOrder.order_type !== 'initial_package') {
+    if (!paymentData.payment_method) {
+      showToast({ message: 'Please select a payment method', type: 'error' });
+      return;
     }
+    if (paymentData.payment_method.toLowerCase() !== 'cash' && !paymentData.reference_number.trim()) {
+      showToast({ message: 'Reference number is required for non-cash payments', type: 'error' });
+      return;
+    }
+  }
 
-    try {
-      setCompletingOrder(true);
+  try {
+    setCompletingOrder(true);
+
+    // Renewals go through /process which saves transaction + extends subscription
+    if (selectedOrder.order_type === 'renewal') {
+      await api.put(
+        `/api/partner-orders/${selectedOrder.id}/process`,
+        paymentData
+      );
+      showToast({ message: 'Renewal processed! Subscription extended.', type: 'success' });
+    } else {
       const { data } = await api.put(
         `/api/partner-orders/${selectedOrder.id}/complete-with-payment`,
         paymentData
       );
-
       if (data.skipped_payment) {
         showToast({ message: 'Order completed! (Payment already recorded at signup)', type: 'success' });
       } else {
         showToast({ message: `Order completed! Payment recorded: ₱${data.amount_paid.toLocaleString()}`, type: 'success' });
       }
-
-      setShowPaymentModal(false);
-      setSelectedOrder(null);
-      fetchOrders();
-    } catch (error) {
-      console.error('Complete order error:', error);
-      showToast({
-        message: error.response?.data?.error || 'Failed to complete order',
-        type: 'error'
-      });
-    } finally {
-      setCompletingOrder(false);
     }
-  };
+
+    setShowPaymentModal(false);
+    setSelectedOrder(null);
+    fetchOrders();
+  } catch (error) {
+    showToast({
+      message: error.response?.data?.error || 'Failed to process order',
+      type: 'error'
+    });
+  } finally {
+    setCompletingOrder(false);
+  }
+};
 
   const handleCancelOrder = async (orderId) => {
     showConfirm(
@@ -292,6 +300,11 @@ return (
         <p className="text-xs font-semibold text-gray-900 truncate">
           {order.order_number}
         </p>
+        <p className="text-[11px] text-gray-400 mt-0.5">
+  {order.order_type === 'renewal' ? '🔄 Renewal' :
+   order.order_type === 'package_order' ? '📦 Package' :
+   order.order_type === 'initial_package' ? '🚀 Onboarding' : '🛒 Items'}
+</p>
 
         <p className="text-[11px] text-gray-500 truncate">
           {order.gym_name}
@@ -345,15 +358,26 @@ return (
           View
         </button>
 
-        {order.status === "pending" && (
-          <button
-            onClick={() => handleProcessOrder(order.id)}
-            disabled={processingOrderId === order.id}
-            className="px-2.5 py-1 rounded-lg text-[12px] bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            Process
-          </button>
-        )}
+{/* Renewal: Process opens payment modal directly */}
+{order.status === "pending" && order.order_type === "renewal" && (
+  <button
+    onClick={() => handleOpenCompleteModal(order)}
+    className="px-2.5 py-1 rounded-lg text-[12px] bg-blue-600 text-white hover:bg-blue-700"
+  >
+    Process
+  </button>
+)}
+
+{/* Non-renewal: normal Process */}
+{order.status === "pending" && order.order_type !== "renewal" && (
+  <button
+    onClick={() => handleProcessOrder(order.id)}
+    disabled={processingOrderId === order.id}
+    className="px-2.5 py-1 rounded-lg text-[12px] bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+  >
+    {processingOrderId === order.id ? "Processing..." : "Process"}
+  </button>
+)}
 
         {order.status === "processing" && (
           <button

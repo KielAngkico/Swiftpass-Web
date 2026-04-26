@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
-const { logAudit } = require("../middleware/auditLogger");
+const logAudit = require("../middleware/auditLogger");
 
 const query = (sql, params = []) => db.promise().query(sql, params);
 
@@ -20,6 +20,26 @@ const getItemType = (itemName) => {
   return 'other';
 };
 
+async function resolveItems(conn, packageId, visited = new Set()) {
+  if (visited.has(packageId)) return [];
+  visited.add(packageId);
+
+  const [items] = await conn.query(
+    "SELECT * FROM PackageItems WHERE package_id = ?", [packageId]
+  );
+
+  let resolved = [];
+  for (const item of items) {
+    if (item.sub_package_id) {
+      const childItems = await resolveItems(conn, item.sub_package_id, visited);
+      resolved.push(...childItems);
+    } else {
+      resolved.push(item);
+    }
+  }
+  return resolved;
+}
+
 router.get("/available-inventory", async (req, res) => {
   try {
     const [items] = await query(`
@@ -37,6 +57,106 @@ router.get("/available-inventory", async (req, res) => {
   } catch (err) {
     console.error("Get available inventory error:", err);
     res.status(500).json({ error: "Server error", details: err.message });
+  }
+});
+
+router.get("/available-packages", async (req, res) => {
+  try {
+    const [packages] = await db.promise().query(`
+      SELECT sp.*, 
+        JSON_ARRAYAGG(
+          JSON_OBJECT('item_name', pi.item_name, 'quantity', pi.quantity, 
+                      'sub_package_id', pi.sub_package_id,
+                      'sub_package_name', sp2.name)
+        ) as items
+      FROM SubscriptionPackages sp
+      LEFT JOIN PackageItems pi ON pi.package_id = sp.id
+      LEFT JOIN SubscriptionPackages sp2 ON sp2.id = pi.sub_package_id
+      WHERE sp.package_type IN ('subscription', 'hardware_module', 'rfid_bundle')
+      GROUP BY sp.id
+      ORDER BY sp.package_type, sp.name
+    `);
+
+    // Clean up null items arrays
+    const cleaned = packages.map(pkg => ({
+      ...pkg,
+      items: pkg.items?.filter(i => i.item_name || i.sub_package_name) || []
+    }));
+
+    res.json(cleaned);
+  } catch (err) {
+    console.error("Get available packages error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/order-package", async (req, res) => {
+  const conn = await db.promise().getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const { admin_id, package_id, notes } = req.body;
+    if (!admin_id || !package_id) {
+      await conn.rollback();
+      return res.status(400).json({ error: "Admin ID and Package ID required" });
+    }
+
+    const [[pkg]] = await conn.query(
+      "SELECT * FROM SubscriptionPackages WHERE id = ?", [package_id]
+    );
+    if (!pkg) {
+      await conn.rollback();
+      return res.status(404).json({ error: "Package not found" });
+    }
+
+    const order_type = pkg.package_type === "subscription" ? "renewal" : "package_order";
+    const order_number = generateOrderNumber();
+
+    const [orderResult] = await conn.query(`
+      INSERT INTO PartnerOrders 
+      (order_number, admin_id, order_type, package_id, total_amount, payment_status, notes, status)
+      VALUES (?, ?, ?, ?, ?, 'unpaid', ?, 'pending')
+    `, [order_number, admin_id, order_type, package_id, pkg.price, notes || null]);
+
+    const order_id = orderResult.insertId;
+
+    // Flatten package items and store them as order items
+    const resolvedItems = await resolveItems(conn, package_id);
+
+    for (const item of resolvedItems) {
+      await conn.query(`
+        INSERT INTO PartnerOrderItems 
+        (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'pending')
+      `, [order_id, item.item_name, getItemType(item.item_name), item.quantity, 0, 0]);
+    }
+
+    await conn.commit();
+
+    await logAudit({
+      req,
+      action: 'CREATE',
+      module: 'Orders',
+      target: order_number,
+      target_id: order_id,
+      description: `Created ${order_type} order ${order_number} for package "${pkg.name}"`,
+      payload: req.body,
+    });
+
+    res.status(201).json({
+      message: "Order created successfully",
+      order_id,
+      order_number,
+      order_type,
+      total_amount: pkg.price,
+    });
+
+  } catch (err) {
+    await conn.rollback();
+    console.error("Order package error:", err);
+    res.status(500).json({ error: "Server error", details: err.message });
+  } finally {
+    conn.release();
   }
 });
 
@@ -202,11 +322,41 @@ router.put("/:id/complete-with-payment", async (req, res) => {
       WHERE id = ?
     `, [id]);
 
-    await conn.query(`
+await conn.query(`
       UPDATE RegisteredRfid 
       SET status = 'in_use'
       WHERE order_id = ? AND status = 'allocated'
     `, [id]);
+
+    // ── Extend subscription if this order has a package with duration_days ──
+    if (order.package_id) {
+      const [[pkg]] = await conn.query(
+        "SELECT duration_days FROM SubscriptionPackages WHERE id = ?",
+        [order.package_id]
+      );
+
+      if (pkg?.duration_days > 0) {
+        const [[admin]] = await conn.query(
+          "SELECT subscription_end_date FROM AdminAccounts WHERE id = ?",
+          [order.admin_id]
+        );
+
+        const now = new Date();
+        const currentEnd = admin?.subscription_end_date
+          ? new Date(admin.subscription_end_date)
+          : now;
+        const baseDate = currentEnd > now ? currentEnd : now;
+        const newEnd = new Date(baseDate);
+        newEnd.setDate(baseDate.getDate() + pkg.duration_days);
+
+        await conn.query(
+          `UPDATE AdminAccounts 
+           SET subscription_end_date = ?, package_id = ?
+           WHERE id = ?`,
+          [newEnd, order.package_id, order.admin_id]
+        );
+      }
+    }
 
     await conn.commit();
 
@@ -343,7 +493,85 @@ router.put("/:id/process", async (req, res) => {
       await conn.rollback();
       return res.status(404).json({ error: "Order not found or already processed" });
     }
+    if (order.order_type === 'renewal') {
+  const { payment_method, reference_number } = req.body;
 
+  if (!payment_method) {
+    await conn.rollback();
+    return res.status(400).json({ error: "Payment method is required for renewals" });
+  }
+
+  // Extend subscription
+  if (order.package_id) {
+    const [[pkg]] = await conn.query(
+      "SELECT duration_days FROM SubscriptionPackages WHERE id = ?",
+      [order.package_id]
+    );
+
+    if (pkg?.duration_days > 0) {
+      const [[admin]] = await conn.query(
+        "SELECT subscription_end_date FROM AdminAccounts WHERE id = ?",
+        [order.admin_id]
+      );
+
+      const now = new Date();
+      const currentEnd = admin?.subscription_end_date
+        ? new Date(admin.subscription_end_date) : now;
+      const baseDate = currentEnd > now ? currentEnd : now;
+      const newEnd = new Date(baseDate);
+      newEnd.setDate(baseDate.getDate() + pkg.duration_days);
+
+      await conn.query(
+        `UPDATE AdminAccounts 
+         SET subscription_end_date = ?, package_id = ?, is_archived = 0
+         WHERE id = ?`,
+        [newEnd, order.package_id, order.admin_id]
+      );
+    }
+  }
+
+  // Record transaction
+  const [txnResult] = await conn.query(`
+    INSERT INTO SuperAdminTransactions 
+    (admin_id, order_id, transaction_type, amount, payment_method, reference_number)
+    VALUES (?, ?, 'Renewal Payment', ?, ?, ?)
+  `, [order.admin_id, id, order.total_amount, payment_method, reference_number || null]);
+
+  const transaction_id = txnResult.insertId;
+
+  await conn.query(`
+    INSERT INTO SuperAdminTransactionItems
+    (transaction_id, item_name, quantity, unit_price, total_price)
+    VALUES (?, ?, ?, ?, ?)
+  `, [transaction_id, 'Subscription Renewal', 1, order.total_amount, order.total_amount]);
+
+  // Go straight to completed
+  await conn.query(`
+    UPDATE PartnerOrders 
+    SET status = 'completed', payment_status = 'paid', 
+        processed_at = NOW(), completed_at = NOW()
+    WHERE id = ?
+  `, [id]);
+
+  await conn.commit();
+
+  await logAudit({
+    req,
+    action: 'UPDATE',
+    module: 'Orders',
+    target: order.order_number,
+    target_id: parseInt(id),
+    description: `Processed renewal order ${order.order_number} — subscription extended`,
+    payload: req.body,
+  });
+
+  return res.json({
+    message: "Renewal processed and subscription extended successfully",
+    transaction_id,
+    payment_method,
+    amount_paid: order.total_amount
+  });
+}
     const [orderItems] = await conn.query(
       `SELECT * FROM PartnerOrderItems WHERE order_id = ? AND status != 'fully_allocated'`, [id]
     );
@@ -529,5 +757,7 @@ router.get("/:id/allocated-rfids", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+
 
 module.exports = router;

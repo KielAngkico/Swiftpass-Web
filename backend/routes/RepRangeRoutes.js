@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
-const { logAudit } = require("../middleware/auditLogger");
+const logAudit = require("../middleware/auditLogger");
 
 router.post("/rep-ranges", async (req, res) => {
   const { body_goal, gender, reps_low, reps_high } = req.body;

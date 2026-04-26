@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
 const exerciseUpload = require("../middleware/exerciseUpload");
-const { logAudit } = require("../middleware/auditLogger");
+const logAudit = require("../middleware/auditLogger");
 
 router.post("/exercises", exerciseUpload.single("image"), async (req, res) => {
   try {

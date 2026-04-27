@@ -426,59 +426,98 @@ async function handleMessage(ws, message) {
 
     console.log("✅ Authentication check passed");
     
-    // ============= ENTRY/EXIT LOCATION =============
-    if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
-      console.log(`\n📍 ===== ENTRY/EXIT SCAN =====`);
-      console.log(`   RFID Tag: ${rfid_tag}`);
-      console.log(`   Location: ${location}`);
-      console.log(`   Scanner Admin ID: ${scanner_admin_id}`);
+// ============= ENTRY/EXIT LOCATION =============
+if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
+  console.log(`\n📍 ===== ENTRY/EXIT SCAN =====`);
+  console.log(`   RFID Tag: ${rfid_tag}`);
+  console.log(`   Location: ${location}`);
+  console.log(`   Scanner Admin ID: ${scanner_admin_id}`);
 
-      // ✅ ALWAYS get allocation first for ENTRY/EXIT
-      console.log("🔍 Getting RFID allocation...");
-      const allocation = await getRfidAllocation(rfid_tag);
-      console.log("Allocation result:", allocation);
-      
-      if (!allocation || !allocation.isValid) {
-        console.log(`❌ RFID not found or invalid`);
-        broadcastToClients({
-          type: "member-update",
-          data: {
-            rfid_tag,
-            status: "unregistered",
-            reason: allocation ? allocation.reason : "RFID not registered with SwiftPass",
-            location,
-            timestamp: new Date().toISOString()
-          }
-        });
-        console.log(`===== END ENTRY/EXIT SCAN =====\n`);
-        return;
+  // ✅ CHECK SUPERADMIN FIRST — before allocation (SuperAdmin RFIDs may not be in RegisteredRfid)
+  const superAdminMember = await getSuperAdminByRfid(rfid_tag);
+  if (superAdminMember) {
+    console.log(`✅ SuperAdmin Found: ${superAdminMember.superadmin_name}`);
+    broadcastToClients({
+      type: "member-update",
+      data: {
+        rfid_tag,
+        full_name: superAdminMember.superadmin_name,
+        status: "admin_granted",
+        reason: "System access",
+        location,
+        admin_id: scanner_admin_id || null,
+        timestamp: new Date().toISOString()
       }
+    });
+    console.log(`===== END ENTRY/EXIT SCAN =====\n`);
+    return;
+  }
 
-      // ✅ USE ALLOCATION'S ADMIN_ID (not scanner's admin_id)
-      const target_admin_id = allocation.allocated_to_admin;
-      
-      console.log(`✅ RFID Allocated to Admin: ${target_admin_id}`);
-      console.log(`   Role: ${allocation.role}`);
-      console.log(`   RFID Type: ${allocation.rfid_type}`);
-      console.log(`   Status: ${allocation.status}`);
+  // ✅ CHECK ADMIN SECOND — same reason
+  const adminMember = await getAdminByRfid(rfid_tag);
+  if (adminMember) {
+    console.log(`✅ Admin Found: ${adminMember.admin_name}`);
+    broadcastToClients({
+      type: "member-update",
+      data: {
+        rfid_tag,
+        full_name: adminMember.admin_name,
+        status: "admin_granted",
+        reason: "Admin access - door open",
+        location,
+        admin_id: scanner_admin_id || null,
+        timestamp: new Date().toISOString()
+      }
+    });
+    console.log(`===== END ENTRY/EXIT SCAN =====\n`);
+    return;
+  }
 
-      // ✅ Call handler with correct admin_id from allocation
-      console.log("📞 Calling handleEntryExit...");
-      await handleEntryExit(rfid_tag, location, target_admin_id, allocation, {
-        isRfidRegistered,
-        getStaffByRfid,
-        getAdminByRfid,
-        getSuperAdminByRfid,
-        logStaffActivity,
-        broadcastToClients,
-        handleDayPassGuest,
-        handleMember,
-        dbSuperAdmin
-      });
-      
-      console.log(`===== END ENTRY/EXIT SCAN =====\n`);
-      return;
-    }
+  // NOW check allocation (only for regular members/staff/daypass)
+  console.log("🔍 Getting RFID allocation...");
+  const allocation = await getRfidAllocation(rfid_tag);
+  console.log("Allocation result:", allocation);
+
+  if (!allocation || !allocation.isValid) {
+    console.log(`❌ RFID not found or invalid`);
+    broadcastToClients({
+      type: "member-update",
+      data: {
+        rfid_tag,
+        status: "unregistered",
+        reason: allocation ? allocation.reason : "RFID not registered with SwiftPass",
+        location,
+        admin_id: scanner_admin_id || null,
+        timestamp: new Date().toISOString()
+      }
+    });
+    console.log(`===== END ENTRY/EXIT SCAN =====\n`);
+    return;
+  }
+
+  const target_admin_id = allocation.allocated_to_admin;
+
+  console.log(`✅ RFID Allocated to Admin: ${target_admin_id}`);
+  console.log(`   Role: ${allocation.role}`);
+  console.log(`   RFID Type: ${allocation.rfid_type}`);
+  console.log(`   Status: ${allocation.status}`);
+
+  console.log("📞 Calling handleEntryExit...");
+  await handleEntryExit(rfid_tag, location, target_admin_id, allocation, {
+    isRfidRegistered,
+    getStaffByRfid,
+    getAdminByRfid,
+    getSuperAdminByRfid,
+    logStaffActivity,
+    broadcastToClients,
+    handleDayPassGuest,
+    handleMember,
+    dbSuperAdmin
+  });
+
+  console.log(`===== END ENTRY/EXIT SCAN =====\n`);
+  return;
+}
 
 // ============= STAFF LOCATION =============
 if (location.toUpperCase() === "STAFF") {

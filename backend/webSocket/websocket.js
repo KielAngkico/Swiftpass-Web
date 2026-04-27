@@ -433,35 +433,43 @@ if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
   console.log(`   Location: ${location}`);
   console.log(`   Scanner Admin ID: ${scanner_admin_id}`);
 
-  // ✅ CHECK SUPERADMIN FIRST — before allocation (SuperAdmin RFIDs may not be in RegisteredRfid)
+  // ✅ CHECK SUPERADMIN FIRST
   const superAdminMember = await getSuperAdminByRfid(rfid_tag);
   if (superAdminMember) {
     console.log(`✅ SuperAdmin Found: ${superAdminMember.superadmin_name}`);
-      console.log(`📊 Total connected clients: ${connectedClients.length}`);
-  connectedClients.forEach(c => {
-    console.log(`   - type: ${c.clientType} | location: ${c.location} | open: ${c.readyState === WebSocket.OPEN}`);
-  });
-    broadcastToClients({
+
+    const payload = JSON.stringify({
       type: "member-update",
       data: {
         rfid_tag,
         full_name: superAdminMember.superadmin_name,
-        status: "access_grantedd",
+        status: "admin_granted",
         reason: "System access",
         location,
-        admin_id: scanner_admin_id || null,
         timestamp: new Date().toISOString()
       }
     });
+
+    connectedClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN && client.clientType === "arduino") {
+        if (client.location?.toUpperCase() === location.toUpperCase() ||
+            client.location?.toUpperCase() === "LOCK") {
+          client.send(payload);
+          console.log(`   ✅ Sent to Arduino at ${client.location}`);
+        }
+      }
+    });
+
     console.log(`===== END ENTRY/EXIT SCAN =====\n`);
     return;
   }
 
-  // ✅ CHECK ADMIN SECOND — same reason
+  // ✅ CHECK ADMIN SECOND
   const adminMember = await getAdminByRfid(rfid_tag);
   if (adminMember) {
     console.log(`✅ Admin Found: ${adminMember.admin_name}`);
-    broadcastToClients({
+
+    const payload = JSON.stringify({
       type: "member-update",
       data: {
         rfid_tag,
@@ -469,10 +477,20 @@ if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
         status: "admin_granted",
         reason: "Admin access - door open",
         location,
-        admin_id: scanner_admin_id || null,
         timestamp: new Date().toISOString()
       }
     });
+
+    connectedClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN && client.clientType === "arduino") {
+        if (client.location?.toUpperCase() === location.toUpperCase() ||
+            client.location?.toUpperCase() === "LOCK") {
+          client.send(payload);
+          console.log(`   ✅ Sent to Arduino at ${client.location}`);
+        }
+      }
+    });
+
     console.log(`===== END ENTRY/EXIT SCAN =====\n`);
     return;
   }

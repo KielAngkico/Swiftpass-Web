@@ -437,12 +437,16 @@ if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
   const superAdminMember = await getSuperAdminByRfid(rfid_tag);
   if (superAdminMember) {
     console.log(`✅ SuperAdmin Found: ${superAdminMember.superadmin_name}`);
+      console.log(`📊 Total connected clients: ${connectedClients.length}`);
+  connectedClients.forEach(c => {
+    console.log(`   - type: ${c.clientType} | location: ${c.location} | open: ${c.readyState === WebSocket.OPEN}`);
+  });
     broadcastToClients({
       type: "member-update",
       data: {
         rfid_tag,
         full_name: superAdminMember.superadmin_name,
-        status: "admin_granted",
+        status: "access_grantedd",
         reason: "System access",
         location,
         admin_id: scanner_admin_id || null,

@@ -28,18 +28,18 @@ const AddSplitModal = ({ isOpen, onClose, onSplitAdded, splitToEdit = null }) =>
   }, [isOpen, splitToEdit]);
 
   // FIX: fetchExercises now calls populateForm after load when editing
-  const fetchExercises = async () => {
+const fetchExercises = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/exercises`);
-      setExercises(res.data);
+      const res = await axios.get(`${API_URL}/api/exercises?limit=1000`);
+      const list = res.data?.data || res.data;
+      setExercises(list);
       if (isEditing && splitToEdit) {
-        populateForm(splitToEdit, res.data);
+        populateForm(splitToEdit, list);
       }
     } catch {
       setError("Failed to load exercises");
     }
   };
-
   const resetForm = () => {
     setStep(1);
     setSplitForm({ split_name: "", target_gender: "unisex", num_days: 1, days: [] });

@@ -11,6 +11,7 @@ const ExerciseModal = ({ isOpen, onClose, onSave, mode = "add", initialData = nu
     exercise_type: "",
     equipment: "",
     instructions: "",
+    category: "strength",
     image_file: null,
     image_url: null,
     alt_exercise_ids: [],
@@ -20,6 +21,8 @@ const ExerciseModal = ({ isOpen, onClose, onSave, mode = "add", initialData = nu
   const [allExercises, setAllExercises] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAlts, setSelectedAlts] = useState([]);
+
+  const isCardio = form.category === "cardio";
 
   useEffect(() => {
     if (isOpen) {
@@ -37,8 +40,8 @@ const ExerciseModal = ({ isOpen, onClose, onSave, mode = "add", initialData = nu
 
   const fetchExercises = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/exercises`);
-      setAllExercises(res.data);
+      const res = await axios.get(`${API_URL}/api/exercises?limit=1000`);
+      setAllExercises(res.data.data || []);
     } catch (err) {
       console.error("Failed to fetch exercises:", err);
     }
@@ -90,8 +93,21 @@ const ExerciseModal = ({ isOpen, onClose, onSave, mode = "add", initialData = nu
         </div>
 
         <div className="p-5">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className={`grid grid-cols-1 ${isCardio ? "md:grid-cols-2" : "md:grid-cols-3"} gap-5`}>
+
+            {/* Column 1 */}
             <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Category</label>
+                <select
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                >
+                  <option value="strength">Strength</option>
+                  <option value="cardio">Cardio</option>
+                </select>
+              </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Exercise Name</label>
                 <input
@@ -101,33 +117,48 @@ const ExerciseModal = ({ isOpen, onClose, onSave, mode = "add", initialData = nu
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
               </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Level</label>
-                <select
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  value={form.level}
-                  onChange={(e) => setForm({ ...form, level: e.target.value })}
-                >
-                  <option value="">Select level</option>
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Muscle Group</label>
-                <input
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g. Quadriceps"
-                  value={form.muscle_group}
-                  onChange={(e) => setForm({ ...form, muscle_group: e.target.value })}
-                />
-              </div>
+              {isCardio && (
+  <div>
+    <label className="block text-xs text-gray-500 mb-1">Equipment</label>
+    <input
+      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+      placeholder="e.g. Treadmill, Bike, None"
+      value={form.equipment}
+      onChange={(e) => setForm({ ...form, equipment: e.target.value })}
+    />
+  </div>
+)}
+              {!isCardio && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Level</label>
+                  <select
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    value={form.level}
+                    onChange={(e) => setForm({ ...form, level: e.target.value })}
+                  >
+                    <option value="">Select level</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </div>
+              )}
+              {!isCardio && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Muscle Group</label>
+                  <input
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g. Quadriceps"
+                    value={form.muscle_group}
+                    onChange={(e) => setForm({ ...form, muscle_group: e.target.value })}
+                  />
+                </div>
+              )}
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Instructions</label>
                 <textarea
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  placeholder="Step-by-step instructions..."
+                  placeholder={isCardio ? "e.g. Jog 10 minutes at moderate pace..." : "Step-by-step instructions..."}
                   value={form.instructions}
                   onChange={(e) => setForm({ ...form, instructions: e.target.value })}
                   rows={10}
@@ -135,80 +166,90 @@ const ExerciseModal = ({ isOpen, onClose, onSave, mode = "add", initialData = nu
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Sub Target</label>
-                <input
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g. Glutes, Hamstrings"
-                  value={form.sub_target}
-                  onChange={(e) => setForm({ ...form, sub_target: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Exercise Type</label>
-                <select
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  value={form.exercise_type}
-                  onChange={(e) => setForm({ ...form, exercise_type: e.target.value })}
-                >
-                  <option value="">Select type</option>
-                  <option value="compound">Compound</option>
-                  <option value="isolation">Isolation</option>
-                  <option value="hybrid">Hybrid</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Equipment</label>
-                <input
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g. Barbell, Rack"
-                  value={form.equipment}
-                  onChange={(e) => setForm({ ...form, equipment: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Alternative Exercises</label>
-                <div className="border border-gray-200 rounded-lg p-3 space-y-2">
+            {/* Column 2 */}
+            {!isCardio && (
+  <div className="space-y-3">
+              {!isCardio && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Sub Target</label>
                   <input
-                    type="text"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Search exercises..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="e.g. Glutes, Hamstrings"
+                    value={form.sub_target}
+                    onChange={(e) => setForm({ ...form, sub_target: e.target.value })}
                   />
-                  <div className="max-h-36 overflow-y-auto divide-y divide-gray-50">
-                    {filteredExercises.length === 0 ? (
-                      <p className="text-xs text-gray-400 py-2">No exercises found</p>
-                    ) : (
-                      filteredExercises.map((ex) => (
-                        <label
-                          key={ex.id}
-                          className="flex items-center gap-2 text-xs py-1.5 hover:bg-gray-50 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedAlts.includes(ex.id)}
-                            onChange={() => toggleAlt(ex.id)}
-                            className="w-3.5 h-3.5 accent-blue-600"
-                          />
-                          <span className="flex-1 text-gray-900">{ex.name}</span>
-                          <span className="text-gray-400">{ex.muscle_group}</span>
-                        </label>
-                      ))
+                </div>
+              )}
+              {!isCardio && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Exercise Type</label>
+                  <select
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    value={form.exercise_type}
+                    onChange={(e) => setForm({ ...form, exercise_type: e.target.value })}
+                  >
+                    <option value="">Select type</option>
+                    <option value="compound">Compound</option>
+                    <option value="isolation">Isolation</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
+                </div>
+              )}
+ {!isCardio && (
+  <div>
+    <label className="block text-xs text-gray-500 mb-1">Equipment</label>
+    <input
+      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+      placeholder="e.g. Barbell, Rack"
+      value={form.equipment}
+      onChange={(e) => setForm({ ...form, equipment: e.target.value })}
+    />
+  </div>
+)}
+              {!isCardio && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Alternative Exercises</label>
+                  <div className="border border-gray-200 rounded-lg p-3 space-y-2">
+                    <input
+                      type="text"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Search exercises..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <div className="max-h-36 overflow-y-auto divide-y divide-gray-50">
+                      {filteredExercises.length === 0 ? (
+                        <p className="text-xs text-gray-400 py-2">No exercises found</p>
+                      ) : (
+                        filteredExercises.map((ex) => (
+                          <label
+                            key={ex.id}
+                            className="flex items-center gap-2 text-xs py-1.5 hover:bg-gray-50 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedAlts.includes(ex.id)}
+                              onChange={() => toggleAlt(ex.id)}
+                              className="w-3.5 h-3.5 accent-blue-600"
+                            />
+                            <span className="flex-1 text-gray-900">{ex.name}</span>
+                            <span className="text-gray-400">{ex.muscle_group}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                    {selectedAlts.length > 0 && (
+                      <p className="text-xs text-blue-600">{selectedAlts.length} selected</p>
                     )}
                   </div>
-                  {selectedAlts.length > 0 && (
-                    <p className="text-xs text-blue-600">{selectedAlts.length} selected</p>
-                  )}
                 </div>
-              </div>
+              )}
             </div>
-
-            <div className="flex flex-col items-center gap-3">
+            )}
+{/* Column 3 - Image */}
+<div className={`flex flex-col items-center gap-3 ${isCardio ? "md:max-w-xs mx-auto w-full" : "w-full"}`}>
               <label className="block text-xs text-gray-500 self-start">Exercise Image</label>
-              <div className="w-full aspect-square bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center overflow-hidden">
-                {form.image_file ? (
+<div className={`w-full ${isCardio ? "max-w-xs" : ""} aspect-square bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center overflow-hidden`}>                {form.image_file ? (
                   <img src={URL.createObjectURL(form.image_file)} alt="Exercise" className="w-full h-full object-cover" />
                 ) : form.image_url ? (
                   <img src={`${API_URL}${form.image_url}`} alt="Exercise" className="w-full h-full object-cover" />

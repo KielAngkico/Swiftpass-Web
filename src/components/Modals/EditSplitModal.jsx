@@ -26,11 +26,10 @@ const EditSplitModal = ({ isOpen, onClose, onSplitUpdated, split }) => {
       setStep(1);
     }
   }, [isOpen, split]);
-
-  const fetchExercises = async () => {
+const fetchExercises = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/exercises`);
-      setExercises(res.data);
+      const res = await axios.get(`${API_URL}/api/exercises?limit=1000`);
+      setExercises(res.data?.data || res.data);
     } catch {
       setError("Failed to load exercises");
     }

@@ -184,13 +184,15 @@ router.post("/rfid", (req, res) => {
           DayPass: "Day Pass - KeyFob"
         };
 
-        const inventoryName = inventoryNameMap[role];
+const inventoryName = inventoryNameMap[role];
         if (inventoryName) {
           db.query(
             "UPDATE SuperAdminInventory SET quantity = quantity + 1 WHERE name = ?",
             [inventoryName]
           );
         }
+
+        res.json({ success: true, warehouse_number: warehouseNumber });
       }
     );
   });

@@ -582,8 +582,7 @@ if (allocation.role === 'Partner') {
   }
 
   console.log("Calling handleEntryExit...");
-  await handleEntryExit(rfid_tag, location, target_admin_id, allocation, {
-    isRfidRegistered,
+await handleEntryExit(rfid_tag, location, target_admin_id, allocation, {
     getStaffByRfid,
     getAdminByRfid,
     getSuperAdminByRfid,

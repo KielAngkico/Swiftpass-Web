@@ -567,18 +567,43 @@ const payload = JSON.stringify({
 
 if (allocation.role === 'Partner') {
   const staffCheck = await getStaffByRfid(rfid_tag, target_admin_id);
-  
-  if (staffCheck) {
-    // Staff using Partner card — log activity and grant access
-    await logStaffActivity(rfid_tag, staffCheck, location, location.toUpperCase());
+
+  if (!staffCheck) {
+    // Not in StaffAccounts and not in AdminAccounts (already checked above) — deny
+    console.log(`❌ Partner card not assigned to any staff or admin — denying`);
+    const denyPayload = JSON.stringify({
+      type: "member-update",
+      data: {
+        rfid_tag,
+        visitor_type: "Partner",
+        status: "denied",
+        reason: "Partner card not assigned to any user",
+        location,
+        admin_id: target_admin_id,
+        timestamp: new Date().toISOString()
+      }
+    });
+    connectedClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN && client.clientType === "arduino") {
+        if (client.location?.toUpperCase() === location.toUpperCase() ||
+            client.location?.toUpperCase() === "LOCK") {
+          client.send(denyPayload);
+          console.log(`   ✅ Sent denied to Arduino at ${client.location}`);
+        }
+      }
+    });
+    console.log(`===== END ENTRY/EXIT SCAN =====\n`);
+    return;
   }
-  
-  // Both staff and owner — always grant, no inside/outside tracking
+
+  // Staff using Partner card — log activity and grant access
+  await logStaffActivity(rfid_tag, staffCheck, location, location.toUpperCase());
+
   const payload = JSON.stringify({
     type: "member-update",
     data: {
       rfid_tag,
-      full_name: staffCheck ? staffCheck.staff_name : allocation.assigned_to_name,
+      full_name: staffCheck.staff_name,
       visitor_type: "Staff",
       status: "staff_granted",
       reason: "Access granted",
@@ -593,9 +618,11 @@ if (allocation.role === 'Partner') {
       if (client.location?.toUpperCase() === location.toUpperCase() ||
           client.location?.toUpperCase() === "LOCK") {
         client.send(payload);
+        console.log(`   ✅ Sent to Arduino at ${client.location}`);
       }
     }
   });
+  console.log(`===== END ENTRY/EXIT SCAN =====\n`);
   return;
 }
 

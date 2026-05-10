@@ -81,15 +81,27 @@ const PrepaidReplacement = ({ staffUser }) => {
     fetchPaymentMethods();
   }, [adminId]);
 
-  useEffect(() => {
-    if (replacementScannedRfid && scanActive) {
-      const scannedTag = replacementScannedRfid.rfid_tag || replacementScannedRfid;
-      setNewRfidTag(scannedTag);
+useEffect(() => {
+  if (replacementScannedRfid && scanActive) {
+    if (replacementScannedRfid.status === "error") {
+      showToast({
+        message: replacementScannedRfid.reason || "Invalid RFID for replacement",
+        type: "error"
+      });
       setScanActive(false);
-      showToast({ message: `✅ RFID captured: ${scannedTag}`, type: "success" });
       clearReplacementScannedRfid();
+      toggleReplacementScanMode(false);
+      return;
     }
-  }, [replacementScannedRfid, scanActive, clearReplacementScannedRfid, showToast]);
+
+    const scannedTag = replacementScannedRfid.rfid_tag || replacementScannedRfid;
+    setNewRfidTag(scannedTag);
+    setScanActive(false);
+    showToast({ message: `✅ RFID captured: ${scannedTag}`, type: "success" });
+    clearReplacementScannedRfid();
+    toggleReplacementScanMode(false);
+  }
+}, [replacementScannedRfid, scanActive, clearReplacementScannedRfid, showToast, toggleReplacementScanMode]);
 
   const fetchMember = async () => {
     if (!searchTerm) return;

@@ -566,20 +566,38 @@ const payload = JSON.stringify({
   console.log(`   Status: ${allocation.status}`);
 
 if (allocation.role === 'Partner') {
-    broadcastToClients({
-      type: "member-update",
-      data: {
-        rfid_tag,
-        visitor_type: "Partner",
-        status: "denied",
-        reason: "Partner card not permitted at entry/exit",
-        location,
-        admin_id: target_admin_id,
-        timestamp: new Date().toISOString()
-      }
-    }, true);
-    return;
+  const staffCheck = await getStaffByRfid(rfid_tag, target_admin_id);
+  
+  if (staffCheck) {
+    // Staff using Partner card — log activity and grant access
+    await logStaffActivity(rfid_tag, staffCheck, location, location.toUpperCase());
   }
+  
+  // Both staff and owner — always grant, no inside/outside tracking
+  const payload = JSON.stringify({
+    type: "member-update",
+    data: {
+      rfid_tag,
+      full_name: staffCheck ? staffCheck.staff_name : allocation.assigned_to_name,
+      visitor_type: "Staff",
+      status: "staff_granted",
+      reason: "Access granted",
+      location,
+      admin_id: target_admin_id,
+      timestamp: new Date().toISOString()
+    }
+  });
+
+  connectedClients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN && client.clientType === "arduino") {
+      if (client.location?.toUpperCase() === location.toUpperCase() ||
+          client.location?.toUpperCase() === "LOCK") {
+        client.send(payload);
+      }
+    }
+  });
+  return;
+}
 
   console.log("Calling handleEntryExit...");
 await handleEntryExit(rfid_tag, location, target_admin_id, allocation, {

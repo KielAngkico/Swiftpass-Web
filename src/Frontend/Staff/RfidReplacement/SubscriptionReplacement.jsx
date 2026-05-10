@@ -364,8 +364,8 @@ const SubscriptionReplacement = ({ staffUser }) => {
             <p className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">Member Preview</p>
             <div className="flex flex-col items-center gap-2">
               <div className="w-70 h-70 border border-gray-200 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden flex-shrink-0">
-{selectedMember?.profile_image_url ? (
-  <img src={getImageUrl(selectedMember.profile_image_url)} alt="Member Photo" className="w-full h-full object-cover" />
+{selectedMember?.member_image || selectedMember?.profile_image_url ? (
+  <img src={selectedMember.member_image || selectedMember.profile_image_url} alt="Member Photo" className="w-full h-full object-cover" />
 ) : (
                   <span className="text-3xl font-medium text-gray-300">
                     {selectedMember?.full_name || selectedMember?.member_name

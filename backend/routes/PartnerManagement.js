@@ -545,9 +545,20 @@ router.delete("/delete-admin/:id", async (req, res) => {
 
     const [[admin]] = await conn.query(`SELECT id, is_archived, admin_name, gym_name FROM AdminAccounts WHERE id=?`, [req.params.id]);
     if (!admin) return res.status(404).json({ error: "Admin not found" });
-    if (!admin.is_archived) return res.status(400).json({ error: "Please archive before deleting" });
+if (!admin.is_archived) return res.status(400).json({ error: "Please archive before deleting" });
 
-    const cleanupTables = [
+await conn.query(
+  `UPDATE RegisteredRfid 
+   SET status = 'deactivated',
+       assigned_to_id = NULL,
+       assigned_to_name = NULL,
+       assigned_to_type = NULL,
+       assignment_date = NULL
+   WHERE allocated_to_admin = ?`,
+  [req.params.id]
+);
+
+const cleanupTables = [
       "SuperAdminTransactionItems", "SuperAdminTransactions", "AdminTransactions",
       "AdminMembersTransactions", "AdminPaymentMethods", "AdminPricingOptions",
       "AdminRFIDCards", "StaffActivityLogs", "StaffSessionLogs", "StaffAccounts",

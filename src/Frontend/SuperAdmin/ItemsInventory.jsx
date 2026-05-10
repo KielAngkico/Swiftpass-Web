@@ -20,7 +20,8 @@ const ItemsInventory = () => {
   const { showToast, showConfirm } = useToast();
   const [inventoryPage, setInventoryPage] = useState(1);
 const [rfidPage, setRfidPage] = useState(1);
-const inventoryPerPage = 10;
+const [rfidStatusFilter, setRfidStatusFilter] = useState("all");
+const [rfidRoleFilter, setRfidRoleFilter] = useState("all");const inventoryPerPage = 10;
 const rfidPerPage = 10;
 
   const rfidOptions = [
@@ -202,10 +203,18 @@ const rfidPerPage = 10;
 const inventoryTotalPages = Math.ceil(filteredItems.length / inventoryPerPage);
 const inventoryStartIndex = (inventoryPage - 1) * inventoryPerPage;
 const currentInventoryItems = filteredItems.slice(inventoryStartIndex, inventoryStartIndex + inventoryPerPage);
-
-const rfidTotalPages = Math.ceil(rfids.length / rfidPerPage);
+const filteredRfids = rfids.filter((r) => {
+  const matchesStatus = rfidStatusFilter === "all"
+    ? true
+    : rfidStatusFilter === "allocated"
+      ? r.status === "allocated" || r.status === "in_use"
+      : r.status === rfidStatusFilter;
+  const matchesRole = rfidRoleFilter === "all" ? true : r.role === rfidRoleFilter;
+  return matchesStatus && matchesRole;
+});
+const rfidTotalPages = Math.ceil(filteredRfids.length / rfidPerPage);
 const rfidStartIndex = (rfidPage - 1) * rfidPerPage;
-const currentRfids = rfids.slice(rfidStartIndex, rfidStartIndex + rfidPerPage);
+const currentRfids = filteredRfids.slice(rfidStartIndex, rfidStartIndex + rfidPerPage);
 
 const PaginationBar = ({ page, totalPages, onPageChange }) => (
   <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100 bg-white">
@@ -254,6 +263,12 @@ const PaginationBar = ({ page, totalPages, onPageChange }) => (
     </div>
   </div>
 );
+const getStatusDisplay = (status) => {
+  if (status === "in_stock") return { label: "In Stock", color: "bg-green-50 text-green-700 border-green-100" };
+  if (status === "allocated" || status === "in_use") return { label: "Allocated", color: "bg-blue-50 text-blue-700 border-blue-100" };
+  if (status === "deactivated") return { label: "Deactivated", color: "bg-red-50 text-red-700 border-red-100" };
+  return { label: status || "N/A", color: "bg-gray-50 text-gray-500 border-gray-200" };
+};
   if (!user) return <div>Checking authentication...</div>;
 
   return (
@@ -546,12 +561,34 @@ const PaginationBar = ({ page, totalPages, onPageChange }) => (
 
             {/* RFID table */}
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="flex justify-between items-center px-4 py-2.5 bg-gray-50 border-b border-gray-100">
-                <span className="text-sm font-medium text-gray-900">Registered RFIDs</span>
-                <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
-                  {rfids.length} {rfids.length === 1 ? "tag" : "tags"}
-                </span>
-              </div>
+<div className="flex justify-between items-center px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+  <span className="text-sm font-medium text-gray-900">Registered RFIDs</span>
+  <div className="flex items-center gap-2">
+    <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
+      {filteredRfids.length} {filteredRfids.length === 1 ? "tag" : "tags"}
+    </span>
+<select
+  value={rfidRoleFilter}
+  onChange={(e) => { setRfidRoleFilter(e.target.value); setRfidPage(1); }}
+  className="border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+>
+  <option value="all">All Types</option>
+  <option value="Partner">Partner / Staff</option>
+  <option value="Member">Member</option>
+  <option value="DayPass">Day Pass</option>
+</select>
+<select
+  value={rfidStatusFilter}
+  onChange={(e) => { setRfidStatusFilter(e.target.value); setRfidPage(1); }}
+  className="border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+>
+  <option value="all">All Status</option>
+  <option value="in_stock">In Stock</option>
+  <option value="allocated">Allocated</option>
+  <option value="deactivated">Deactivated</option>
+</select>
+  </div>
+</div>
 
               {rfidError && (
                 <div className="px-4 py-2 bg-red-50 text-red-600 text-xs border-b border-red-100">
@@ -576,7 +613,7 @@ const PaginationBar = ({ page, totalPages, onPageChange }) => (
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {rfids.map((rfid, index) => (
+                      {currentRfids.map((rfid, index) => (
                         <tr key={rfid.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3 text-xs text-gray-400">{index + 1}</td>
 
@@ -598,15 +635,9 @@ const PaginationBar = ({ page, totalPages, onPageChange }) => (
                           </td>
 
                           <td className="px-4 py-3">
-                            <span className={`text-xs rounded-full px-2.5 py-0.5 border ${
-                              rfid.status === "in_stock"
-                                ? "bg-green-50 text-green-700 border-green-100"
-                                : rfid.status === "allocated"
-                                ? "bg-yellow-50 text-yellow-700 border-yellow-100"
-                                : "bg-gray-50 text-gray-500 border-gray-200"
-                            }`}>
-                              {rfid.status || "N/A"}
-                            </span>
+                          <span className={`text-xs rounded-full px-2.5 py-0.5 border ${getStatusDisplay(rfid.status).color}`}>
+                            {getStatusDisplay(rfid.status).label}
+                          </span>
                           </td>
 
                           <td className="px-4 py-3">
@@ -627,7 +658,13 @@ const PaginationBar = ({ page, totalPages, onPageChange }) => (
                     </tbody>
                   </table>
                 )}
-              </div>
+         </div>
+                <PaginationBar
+  page={rfidPage}
+  totalPages={rfidTotalPages}
+  onPageChange={setRfidPage}
+/>
+     
             </div>
 
           </div>

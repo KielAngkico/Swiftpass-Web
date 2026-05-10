@@ -30,20 +30,7 @@ const generateWarehouseNumber = (role, callback) => {
 };
 
 router.get("/inventory", (req, res) => {
-  const query = `
-    SELECT 
-      i.*,
-      COALESCE(
-        CASE 
-          WHEN i.name = 'Partner/Staff - Card' THEN (SELECT COUNT(*) FROM RegisteredRfid WHERE role = 'Partner' AND rfid_type = 'card' AND status = 'in_stock')
-          WHEN i.name = 'Member - Wristband' THEN (SELECT COUNT(*) FROM RegisteredRfid WHERE role = 'Member' AND rfid_type = 'wristband' AND status = 'in_stock')
-          WHEN i.name = 'Day Pass - KeyFob' THEN (SELECT COUNT(*) FROM RegisteredRfid WHERE role = 'DayPass' AND rfid_type = 'key_fob' AND status = 'in_stock')
-          ELSE i.quantity
-        END, 
-        i.quantity
-      ) as quantity
-    FROM SuperAdminInventory i
-  `;
+const query = `SELECT * FROM SuperAdminInventory`;
 
   db.query(query, (err, results) => {
     if (err) return res.status(500).json({ error: err });
@@ -190,10 +177,20 @@ router.post("/rfid", (req, res) => {
           payload: req.body,
         });
 
-        res.json({
-          id: result.insertId,
-          warehouse_number: warehouseNumber
-        });
+        
+        const inventoryNameMap = {
+          Partner: "Partner/Staff - Card",
+          Member: "Member - Wristband",
+          DayPass: "Day Pass - KeyFob"
+        };
+
+        const inventoryName = inventoryNameMap[role];
+        if (inventoryName) {
+          db.query(
+            "UPDATE SuperAdminInventory SET quantity = quantity + 1 WHERE name = ?",
+            [inventoryName]
+          );
+        }
       }
     );
   });

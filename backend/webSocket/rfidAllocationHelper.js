@@ -79,57 +79,14 @@ async function getRfidAllocation(rfidTag) {
  * @param {number} adminId - The admin ID to check against
  * @returns {boolean} - True if allocated to this admin
  */
-async function isRfidAllocatedToAdmin(rfidTag, adminId) {
-  try {
-    const allocation = await getRfidAllocation(rfidTag);
-    
-    if (!allocation || !allocation.isValid) {
-      return false;
-    }
 
-    // Partner RFIDs must match allocated_to_admin exactly
-    if (allocation.role === 'Partner') {
-      return allocation.allocated_to_admin === adminId;
-    }
-
-    // Member/DayPass RFIDs - check if allocated to this admin
-    return allocation.allocated_to_admin === adminId;
-
-  } catch (error) {
-    console.error("❌ RFID admin check error:", error.message);
-    return false;
-  }
-}
 
 /**
  * Get all RFIDs allocated to a specific admin
  * @param {number} adminId - The admin ID
  * @returns {Array} - Array of allocated RFIDs
  */
-async function getAdminAllocatedRfids(adminId) {
-  try {
-    const [rows] = await dbSuperAdmin.promise().query(
-      `SELECT 
-        rfid_tag,
-        rfid_type,
-        role,
-        status,
-        warehouse_number,
-        allocation_date,
-        assigned_to_name
-      FROM RegisteredRfid 
-      WHERE allocated_to_admin = ? AND status IN ('allocated', 'in_use')
-      ORDER BY allocation_date DESC`,
-      [adminId]
-    );
 
-    return rows;
-
-  } catch (error) {
-    console.error("❌ Admin RFIDs lookup error:", error.message);
-    return [];
-  }
-}
 
 /**
  * Determine routing destination based on RFID allocation
@@ -137,66 +94,7 @@ async function getAdminAllocatedRfids(adminId) {
  * @param {string} location - Scan location (STAFF, ENTRY, EXIT)
  * @returns {Object} - Routing instructions
  */
-function determineRouting(allocation, location) {
-  if (!allocation || !allocation.isValid) {
-    return {
-      route: 'error',
-      reason: allocation ? allocation.reason : 'RFID not found in system'
-    };
-  }
 
-  const { role, rfid_type, allocated_to_admin } = allocation;
-
-  // STAFF Location Routing
-  if (location.toUpperCase() === 'STAFF') {
-    if (role === 'Member') {
-      return {
-        route: 'check_member_exists',
-        action: 'navigate_to_renewal_or_add',
-        rfid_type,
-        admin_id: allocated_to_admin
-      };
-    }
-
-    if (role === 'DayPass') {
-      return {
-        route: 'daypass_registration',
-        action: 'navigate_to_daypass_form',
-        rfid_type,
-        admin_id: allocated_to_admin
-      };
-    }
-
-    if (role === 'Partner') {
-      return {
-        route: 'partner_check',
-        action: 'verify_admin_match',
-        rfid_type,
-        admin_id: allocated_to_admin,
-        requiresAdminMatch: true
-      };
-    }
-  }
-
-  // ENTRY/EXIT Location Routing
-  if (['ENTRY', 'EXIT'].includes(location.toUpperCase())) {
-    return {
-      route: 'entry_exit_flow',
-      action: 'check_member_staff_admin',
-      rfid_type,
-      admin_id: allocated_to_admin,
-      role
-    };
-  }
-
-  return {
-    route: 'default',
-    action: 'standard_flow',
-    rfid_type,
-    admin_id: allocated_to_admin,
-    role
-  };
-}
 
 /**
  * Validate RFID allocation for scan mode (Partner/Staff Registration)
@@ -243,6 +141,13 @@ async function validateScanModeRfid(rfidTag, requestingAdminId) {
     }
 
     // ✅ NEW: Check if already assigned to a staff member
+if (allocation.status === 'in_use') {
+      return {
+        valid: false,
+        reason: 'This RFID card is already in use'
+      };
+    }
+
     const [staffRows] = await dbSuperAdmin.promise().query(
       `SELECT staff_name FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ? LIMIT 1`,
       [rfidTag, requestingAdminId]
@@ -255,11 +160,15 @@ async function validateScanModeRfid(rfidTag, requestingAdminId) {
       };
     }
 
-    // ✅ NEW: Check if status is already 'in_use'
-    if (allocation.status === 'in_use') {
+    const [adminRows] = await dbSuperAdmin.promise().query(
+      `SELECT admin_name FROM AdminAccounts WHERE rfid_tag = ? OR rfid_tag_2 = ? LIMIT 1`,
+      [rfidTag, rfidTag]
+    );
+
+    if (adminRows.length > 0) {
       return {
         valid: false,
-        reason: 'This RFID card is already in use'
+        reason: `RFID already assigned to Admin: ${adminRows[0].admin_name}`
       };
     }
 
@@ -281,24 +190,9 @@ async function validateScanModeRfid(rfidTag, requestingAdminId) {
  * @param {string} rfidTag - The RFID tag
  * @returns {boolean} - True if exists
  */
-async function isRfidRegistered(rfidTag) {
-  try {
-    const [rows] = await dbSuperAdmin.promise().query(
-      "SELECT id FROM RegisteredRfid WHERE rfid_tag = ? LIMIT 1",
-      [rfidTag]
-    );
-    return rows.length > 0;
-  } catch (error) {
-    console.error("❌ RFID registration check error:", error.message);
-    return false;
-  }
-}
+
 
 module.exports = {
   getRfidAllocation,
-  isRfidAllocatedToAdmin,
-  getAdminAllocatedRfids,
-  determineRouting,
-  validateScanModeRfid,
-  isRfidRegistered
+  validateScanModeRfid
 };

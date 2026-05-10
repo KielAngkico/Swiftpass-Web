@@ -10,8 +10,7 @@ const {
 } = require("./handlers");
 const {
   getRfidAllocation,
-  validateScanModeRfid,
-  isRfidRegistered
+  validateScanModeRfid
 } = require("./rfidAllocationHelper");
 
 let connectedClients = [];
@@ -219,7 +218,7 @@ function broadcastToClients(data, arduinoOnly = false) {
   return; // stop here — don't send to dashboards
 }
 // Handle SuperAdmin RFID registration checks + partner slot results
-  if (data.type === "rfid-registration-check" || data.type === "partner-slot-scan-result") {
+if (data.type === "rfid-registration-check" || data.type === "partner-slot-scan-result") {
     connectedClients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN &&
           client.clientType === "dashboard" &&
@@ -229,11 +228,39 @@ function broadcastToClients(data, arduinoOnly = false) {
     });
     return;
   }
+
+  if (data.type === "dashboard-alert") {
+    if (!data.data || !data.data.admin_id) return;
+
+    const targetAdminId = data.data.admin_id;
+    connectedClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN &&
+          client.clientType === "dashboard" &&
+          client.admin_id === targetAdminId) {
+        client.send(JSON.stringify(data));
+      }
+    });
+    return;
+  }
   // Handle staff scan mode messages
-  if (data.type === "rfid-scanned-for-staff" ||
+if (data.type === "rfid-scanned-for-staff" ||
       data.type === "scan-mode-updated" ||
       data.type === "rfid-replacement-scanned" ||
       data.type === "replacement-scan-mode-updated") {
+    if (!data.data || !data.data.admin_id) return;
+
+    const targetAdminId = data.data.admin_id;
+    connectedClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN &&
+          client.clientType === "dashboard" &&
+          client.admin_id === targetAdminId) {
+        client.send(JSON.stringify(data));
+      }
+    });
+    return;
+  }
+
+  if (data.type === "staff-scan") {
     if (!data.data || !data.data.admin_id) return;
 
     const targetAdminId = data.data.admin_id;
@@ -251,12 +278,7 @@ function broadcastToClients(data, arduinoOnly = false) {
  // ✅ Handle member-update messages (ENTRY/EXIT logs)
 if (data.type === "member-update") {
   if (!data.data || !data.data.admin_id) {
-    console.log("⚠️ member-update missing admin_id, broadcasting to all");
-    connectedClients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN && client.clientType === "dashboard") {
-        client.send(JSON.stringify(data));
-      }
-    });
+    console.log("member-update dropped - missing admin_id");
     return;
   }
 
@@ -378,17 +400,34 @@ async function handleMessage(ws, message) {
       });
       return;
     }
-    if (parsed.type === "toggle-partner-slot-mode") {
-      console.log("📍 Handling toggle-partner-slot-mode");
+if (parsed.type === "toggle-partner-slot-mode") {
+      if (!adminScanModes.partnerSlot) {
+        adminScanModes.partnerSlot = {};
+      }
+      if (!adminScanModes.partnerSlotTimers) {
+        adminScanModes.partnerSlotTimers = {};
+      }
       if (parsed.enabled) {
-        adminScanModes.partnerSlot = {
-          admin_id: parsed.admin_id,
-          slot: parsed.slot
-        };
-        console.log(`🔄 Partner slot mode ENABLED for admin ${parsed.admin_id}, slot ${parsed.slot}`);
+        adminScanModes.partnerSlot[parsed.admin_id] = { slot: parsed.slot };
+        adminScanModes.partnerSlotTimers[parsed.admin_id] = setTimeout(() => {
+          delete adminScanModes.partnerSlot[parsed.admin_id];
+          delete adminScanModes.partnerSlotTimers[parsed.admin_id];
+          broadcastToClients({
+            type: "partner-slot-scan-result",
+            data: {
+              status: "timeout",
+              slot: parsed.slot,
+              reason: "Partner slot scan timed out",
+              admin_id: parsed.admin_id
+            }
+          });
+        }, 60000);
       } else {
-        delete adminScanModes.partnerSlot;
-        console.log("🔄 Partner slot mode DISABLED");
+        delete adminScanModes.partnerSlot[parsed.admin_id];
+        if (adminScanModes.partnerSlotTimers[parsed.admin_id]) {
+          clearTimeout(adminScanModes.partnerSlotTimers[parsed.admin_id]);
+          delete adminScanModes.partnerSlotTimers[parsed.admin_id];
+        }
       }
       return;
     }
@@ -438,11 +477,12 @@ if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
   if (superAdminMember) {
     console.log(`✅ SuperAdmin Found: ${superAdminMember.superadmin_name}`);
 
-    const payload = JSON.stringify({
+const payload = JSON.stringify({
       type: "member-update",
       data: {
         rfid_tag,
         full_name: superAdminMember.superadmin_name,
+        visitor_type: "Admin",
         status: "admin_granted",
         reason: "System access",
         location,
@@ -469,11 +509,12 @@ if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
   if (adminMember) {
     console.log(`✅ Admin Found: ${adminMember.admin_name}`);
 
-    const payload = JSON.stringify({
+const payload = JSON.stringify({
       type: "member-update",
       data: {
         rfid_tag,
         full_name: adminMember.admin_name,
+        visitor_type: "Admin",
         status: "admin_granted",
         reason: "Admin access - door open",
         location,
@@ -524,7 +565,23 @@ if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
   console.log(`   RFID Type: ${allocation.rfid_type}`);
   console.log(`   Status: ${allocation.status}`);
 
-  console.log("📞 Calling handleEntryExit...");
+if (allocation.role === 'Partner') {
+    broadcastToClients({
+      type: "member-update",
+      data: {
+        rfid_tag,
+        visitor_type: "Partner",
+        status: "denied",
+        reason: "Partner card not permitted at entry/exit",
+        location,
+        admin_id: target_admin_id,
+        timestamp: new Date().toISOString()
+      }
+    }, true);
+    return;
+  }
+
+  console.log("Calling handleEntryExit...");
   await handleEntryExit(rfid_tag, location, target_admin_id, allocation, {
     isRfidRegistered,
     getStaffByRfid,
@@ -633,7 +690,7 @@ if (location.toUpperCase() === "STAFF") {
     const [guestRows] = await dbSuperAdmin.promise().query(
 `SELECT id, guest_name, gender, mobile_number, email, profile_image_url, expires_at, status, paid_amount
  FROM DayPassGuests 
- WHERE rfid_tag = ? AND admin_id = ? AND status = 'active'
+ WHERE rfid_tag = ? AND admin_id = ? AND status IN ('active', 'expired')
  LIMIT 1`,
       [rfid_tag, targetAdminId]
     );
@@ -782,17 +839,28 @@ if (allocation.role === 'Partner') {
 // ============= SUPERADMIN LOCATION =============
 if (location.toUpperCase() === "SUPERADMIN") {
   const allocation = await getRfidAllocation(rfid_tag);
-  console.log("🔍 SUPERADMIN allocation check result:", allocation);
 
-  // ✅ NEW: Check if waiting for partner slot scan
-  if (adminScanModes.partnerSlot) {
-    const { admin_id: targetAdminId, slot } = adminScanModes.partnerSlot;
+  if (!adminScanModes.partnerSlot) {
+    adminScanModes.partnerSlot = {};
+  }
+
+  const partnerSlotEntries = adminScanModes.partnerSlot || {};
+  const partnerSlotAdminId = Object.keys(partnerSlotEntries)[0];
+
+  if (partnerSlotAdminId) {
+    const targetAdminId = parseInt(partnerSlotAdminId);
+    const { slot } = partnerSlotEntries[partnerSlotAdminId];
 
     if (!allocation) {
       broadcastToClients({
         type: "partner-slot-scan-result",
         data: { status: "error", slot, reason: "RFID not registered in SwiftPass inventory", admin_id: targetAdminId }
       });
+      delete adminScanModes.partnerSlot[partnerSlotAdminId];
+      if (adminScanModes.partnerSlotTimers?.[partnerSlotAdminId]) {
+        clearTimeout(adminScanModes.partnerSlotTimers[partnerSlotAdminId]);
+        delete adminScanModes.partnerSlotTimers[partnerSlotAdminId];
+      }
       return;
     }
 
@@ -801,6 +869,11 @@ if (location.toUpperCase() === "SUPERADMIN") {
         type: "partner-slot-scan-result",
         data: { status: "error", slot, reason: "This is not a Partner card", admin_id: targetAdminId }
       });
+      delete adminScanModes.partnerSlot[partnerSlotAdminId];
+      if (adminScanModes.partnerSlotTimers?.[partnerSlotAdminId]) {
+        clearTimeout(adminScanModes.partnerSlotTimers[partnerSlotAdminId]);
+        delete adminScanModes.partnerSlotTimers[partnerSlotAdminId];
+      }
       return;
     }
 
@@ -809,6 +882,11 @@ if (location.toUpperCase() === "SUPERADMIN") {
         type: "partner-slot-scan-result",
         data: { status: "error", slot, reason: "This card belongs to a different partner", admin_id: targetAdminId }
       });
+      delete adminScanModes.partnerSlot[partnerSlotAdminId];
+      if (adminScanModes.partnerSlotTimers?.[partnerSlotAdminId]) {
+        clearTimeout(adminScanModes.partnerSlotTimers[partnerSlotAdminId]);
+        delete adminScanModes.partnerSlotTimers[partnerSlotAdminId];
+      }
       return;
     }
 
@@ -817,20 +895,26 @@ if (location.toUpperCase() === "SUPERADMIN") {
         type: "partner-slot-scan-result",
         data: { status: "error", slot, reason: "This card is already assigned to a slot", admin_id: targetAdminId }
       });
+      delete adminScanModes.partnerSlot[partnerSlotAdminId];
+      if (adminScanModes.partnerSlotTimers?.[partnerSlotAdminId]) {
+        clearTimeout(adminScanModes.partnerSlotTimers[partnerSlotAdminId]);
+        delete adminScanModes.partnerSlotTimers[partnerSlotAdminId];
+      }
       return;
     }
 
-    // ✅ Valid partner card
-    console.log(`✅ Valid partner card for slot ${slot}:`, rfid_tag);
     broadcastToClients({
       type: "partner-slot-scan-result",
       data: { status: "success", slot, rfid_tag, admin_id: targetAdminId }
     });
-    delete adminScanModes.partnerSlot; // Auto-clear after successful scan
+    delete adminScanModes.partnerSlot[partnerSlotAdminId];
+    if (adminScanModes.partnerSlotTimers?.[partnerSlotAdminId]) {
+      clearTimeout(adminScanModes.partnerSlotTimers[partnerSlotAdminId]);
+      delete adminScanModes.partnerSlotTimers[partnerSlotAdminId];
+    }
     return;
   }
 
-  // ✅ RFID NOT FOUND -> Go to INVENTORY (register new)
   if (!allocation) {
     broadcastToClients({
       type: "rfid-registration-check",
@@ -845,7 +929,20 @@ if (location.toUpperCase() === "SUPERADMIN") {
     return;
   }
 
-  // ✅ RFID FOUND -> Go to INVENTORY
+  if (!allocation.isValid && allocation.status === 'in_stock') {
+    broadcastToClients({
+      type: "rfid-registration-check",
+      data: {
+        rfid_tag,
+        is_registered: false,
+        next_action: "in_stock_error",
+        message: "This RFID is in stock and has not been allocated to any gym yet.",
+        timestamp: new Date().toISOString()
+      }
+    });
+    return;
+  }
+
   if (allocation.isValid) {
     broadcastToClients({
       type: "rfid-registration-check",
@@ -862,7 +959,6 @@ if (location.toUpperCase() === "SUPERADMIN") {
     return;
   }
 
-  // ⚠️ If RFID exists but invalid status
   broadcastToClients({
     type: "rfid-registration-check",
     data: {
@@ -873,7 +969,7 @@ if (location.toUpperCase() === "SUPERADMIN") {
       timestamp: new Date().toISOString()
     }
   });
-return;
+  return;
 } // closes SUPERADMIN if-block
 
 console.log("⚠️ Location not handled:", location);

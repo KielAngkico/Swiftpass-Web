@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import StaffSidebar from "../../components/StaffSidebar";
 import { useWebSocket } from "../../contexts/WebSocketContext";
-import api from "../../api";
+import { useToast } from "../../components/ToastManager";import api from "../../api";
 import { IP } from "../../IpConfig";
 import { useAuth } from "../../App";
 
@@ -12,7 +12,16 @@ const MemberEntryBranch = () => {
   const [lastEntry, setLastEntry] = useState(null);
   const [lastExit, setLastExit] = useState(null);
   const [loading, setLoading] = useState(true);
-  const processedTimestamps = useRef(new Set());
+const processedTimestamps = useRef(new Set());
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    const handleAlert = (e) => {
+      showToast({ message: `${e.detail.full_name} - ${e.detail.reason}`, type: "error" });
+    };
+    window.addEventListener("dashboard-alert", handleAlert);
+    return () => window.removeEventListener("dashboard-alert", handleAlert);
+  }, [showToast]);
 
   const getImageUrl = (profileImageUrl) => {
     if (!profileImageUrl) return `${IP}/uploads/members/default.jpg`;
@@ -178,10 +187,11 @@ const MemberEntryBranch = () => {
     );
   }
 
-  return (
+return (
     <div className="flex min-h-screen bg-gray-50">
       <StaffSidebar />
       <div className="flex-1 min-w-0 p-6 overflow-auto">
+
 
         <div className="mb-5">
           <h1 className="text-xl font-semibold text-gray-900">Member Entry / Exit Status</h1>

@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAccessToken } from "../tokenMemory";
-import api from "../api"; // ✅ Import your API instance
+import api from "../api"; 
+import { useToast } from "../components/ToastManager";
 
 const WebSocketContext = createContext(null);
 
 export const WebSocketProvider = ({ children, navigate: customNavigate }) => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const ws = useRef(null);
   const [rfidData, setRfidData] = useState(null);
   const [globalEntryLogs, setGlobalEntryLogs] = useState([]);
@@ -101,11 +103,10 @@ const socketBaseUrl = import.meta.env.VITE_WS_URL || "ws://localhost:5000";
             console.log("Not on SuperAdmin page - ignoring RFID");
             return;
           }
-
-          if (error) {
-            alert(error);
-            return;
-          }
+if (error) {
+  showToast({ message: error, type: "error" });
+  return;
+}
 
           // ✅ NEW: Check if on AddClient page for slot selection
           const isOnAddClientPage = currentPath === "/SuperAdmin/AddClient";
@@ -120,8 +121,12 @@ const socketBaseUrl = import.meta.env.VITE_WS_URL || "ws://localhost:5000";
           }
 
           // ✅ RFID EXISTS → Go to AddPartner (open modal)
+if (msg.data.next_action === "in_stock_error") {
+  showToast({ message: msg.data.message, type: "error" });
+  return;
+}
+
           if (is_registered) {
-            console.log("✅ RFID exists - navigating to AddClient with modal");
             customNavigate("/SuperAdmin/AddClient", {
               state: { 
                 openModal: true, 
@@ -129,9 +134,7 @@ const socketBaseUrl = import.meta.env.VITE_WS_URL || "ws://localhost:5000";
               },
             }, "superadmin");
           } 
-          // 🚫 RFID NOT FOUND → Go to ItemsInventory
           else {
-            console.log("🆕 RFID not registered - navigating to ItemsInventory");
             customNavigate("/SuperAdmin/ItemsInventory", {
               state: { rfid_tag, is_registered: false },
             }, "superadmin");
@@ -174,9 +177,10 @@ case "partner-slot-scan-result":
         if (msg.data?.rfid_tag) {
           console.log("📡 RFID Scanned for Staff Registration:", msg.data);
 
-          if (msg.data.status === "error") {
-            console.log("❌ RFID Validation Error:", msg.data.reason);
-            alert(`Cannot use this RFID: ${msg.data.reason}`);
+if (msg.data.status === "error") {
+            window.dispatchEvent(new CustomEvent("dashboard-alert", {
+              detail: { full_name: "RFID Error", reason: msg.data.reason }
+            }));
             setScannedRfidForStaff(null);
             return;
           }
@@ -192,8 +196,20 @@ setScannedRfidForStaff(msg.data.rfid_tag);
         setScanModeEnabled(msg.data?.enabled || false);
         console.log("🔄 Staff registration scan mode:", msg.data?.enabled ? "ENABLED" : "DISABLED");
         return;
- 
+        case "dashboard-alert":
+        if (!msg.data) return;
+        window.dispatchEvent(new CustomEvent("dashboard-alert", {
+          detail: {
+            reason: msg.data.reason,
+            full_name: msg.data.full_name,
+            admin_id: msg.data.admin_id,
+            timestamp: msg.data.timestamp
+          }
+        }));
+        return;
+
       case "member-update":
+ 
         if (!msg.data || msg.data.status === "unregistered") return;
         
         console.log("📥 Received member-update:", msg.data);
@@ -259,15 +275,19 @@ case "staff-scan":
   }
 
   // Partner scan mode check
-  if (partnerScanModeEnabled) {
+if (partnerScanModeEnabled) {
     if (role !== "Partner") {
-      alert("This RFID is not assigned to a partner role. Please use a partner RFID card.");
+      window.dispatchEvent(new CustomEvent("dashboard-alert", {
+        detail: { full_name: "RFID Error", reason: "This RFID is not assigned to a partner role. Please use a partner RFID card." }
+      }));
       return;
     }
     if (reason && (reason.includes("not registered with SwiftPass") || 
                    reason.includes("Duplicate") || 
                    reason.includes("already assigned"))) {
-      alert(`Cannot use this RFID: ${reason}`);
+      window.dispatchEvent(new CustomEvent("dashboard-alert", {
+        detail: { full_name: "RFID Error", reason: reason }
+      }));
       return;
     }
     console.log("✅ Valid partner RFID scanned:", rfid_tag);
@@ -292,18 +312,22 @@ case "staff-scan":
   }
 
   // Handle errors
-  if (reason && (reason.includes("not registered with SwiftPass") || 
+if (reason && (reason.includes("not registered with SwiftPass") || 
                  reason.includes("Duplicate") || 
                  reason.includes("already assigned"))) {
-    alert(reason);
+    window.dispatchEvent(new CustomEvent("dashboard-alert", {
+      detail: { full_name: "RFID Error", reason: reason }
+    }));
     return;
   }
 
   console.log(`🔍 Navigation - Role: ${role}, Status: ${status}`);
 
   // Partner card - block
-  if (role === "Partner") {
-    alert("This is a Partner card - for admin use only");
+if (role === "Partner") {
+    window.dispatchEvent(new CustomEvent("dashboard-alert", {
+      detail: { full_name: "RFID Error", reason: "This is a Partner card - for admin use only" }
+    }));
     return;
   }
 

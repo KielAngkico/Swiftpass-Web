@@ -276,25 +276,22 @@ const AppRoutes = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
- if (!user) {
+if (!user) {
   return (
-    <ToastProvider>
-      <Suspense fallback={<p>Loading page...</p>}>
-        <Routes>
-          <Route path="/" element={<Homepage />} />
-          <Route path="/partner-registration" element={<PartnerRegistration />} />
-          <Route path="/daypass-registration" element={<DayPassRegistration />} />
-          <Route path="/member-registration" element={<MemberRegistration />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
-    </ToastProvider>
+    <Suspense fallback={<p>Loading page...</p>}>
+      <Routes>
+        <Route path="/" element={<Homepage />} />
+        <Route path="/partner-registration" element={<PartnerRegistration />} />
+        <Route path="/daypass-registration" element={<DayPassRegistration />} />
+        <Route path="/member-registration" element={<MemberRegistration />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 
-  return (  
-    <ToastProvider>
-      <Suspense fallback={<p>Loading page...</p>}>
+return (  
+    <Suspense fallback={<p>Loading page...</p>}>
         <Routes>
           <Route path="/" element={<Homepage />} />
 
@@ -363,8 +360,7 @@ const AppRoutes = () => {
             }
           />
         </Routes>
-      </Suspense>
-    </ToastProvider>
+</Suspense>
   );
 };
 
@@ -442,9 +438,11 @@ const App = () => {
 const AppWrapper = () => (
   <Router>
     <AuthProvider>
-      <WebSocketWrapper>
-        <App />
-      </WebSocketWrapper>
+      <ToastProvider>        
+        <WebSocketWrapper>
+          <App />
+        </WebSocketWrapper>
+      </ToastProvider>
     </AuthProvider>
   </Router>
 );

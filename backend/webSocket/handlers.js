@@ -1,21 +1,5 @@
 async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers) {
-  const { isRfidRegistered, getStaffByRfid, getAdminByRfid, getMemberByRfid, broadcastToClients, dbSuperAdmin } = helpers;
-
-  const isRegistered = await isRfidRegistered(rfid_tag);
-  if (!isRegistered) {
-    broadcastToClients({
-      type: "staff-scan",
-      data: {
-        rfid_tag,
-        status: "unregistered",
-        reason: "RFID not registered with SwiftPass company",
-        location,
-        admin_id,
-        timestamp: new Date().toISOString()
-      }
-    });
-    return;
-  }
+  const { getStaffByRfid, getAdminByRfid, getMemberByRfid, broadcastToClients, dbSuperAdmin } = helpers;
 
   if (!allocation || !allocation.isValid) {
     broadcastToClients({
@@ -190,61 +174,25 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
     console.log(`✅ Staff Found: ${staffMember.staff_name}`);
     await logStaffActivity(rfid_tag, staffMember, location, location.toUpperCase());
 
-    broadcastToClients({
+broadcastToClients({
       type: "member-update",
       data: {
         rfid_tag,
         full_name: staffMember.staff_name,
+        visitor_type: "Staff",
         status: "staff_granted",
         reason: "Staff access - door open",
         location,
         admin_id: staffMember.admin_id,
         timestamp: new Date().toISOString()
       }
-    }); 
+    });
     
     console.log(`⏭️ Staff access granted - Arduino notified, dashboard NOT notified`);
     console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
     return;
   }
 
-  console.log(`🔍 Checking AdminAccounts...`);
-  const adminMember = await getAdminByRfid(rfid_tag);
-  if (adminMember) {
-    console.log(`✅ Admin Found: ${adminMember.admin_name}`);
-    
-    broadcastToClients({
-      type: "member-update",
-      data: {
-        rfid_tag,
-        full_name: adminMember.admin_name,
-        status: "admin_granted",
-        reason: "Admin access - door open",
-        location,
-        admin_id: target_admin_id,
-        timestamp: new Date().toISOString()
-      }
-    }); 
-    console.log(`⏭️ Admin access granted - Arduino notified, dashboard NOT notified`);
-    console.log(`===== END HANDLE ENTRY/EXIT =====\n`);
-    return;
-  }
-  const superAdminMember = await helpers.getSuperAdminByRfid(rfid_tag);
-if (superAdminMember) {
-  broadcastToClients({
-    type: "member-update",
-    data: {
-      rfid_tag,
-      full_name: superAdminMember.superadmin_name,
-      status: "admin_granted",
-      reason: "System access",
-      location,
-      admin_id: target_admin_id,
-      timestamp: new Date().toISOString()
-    }
-  });
-  return;
-}
 
   if (allocation.role === 'Member') {
     console.log(`🔍 Checking MembersAccounts for admin ${target_admin_id}...`);
@@ -397,8 +345,7 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
         accessGranted = true;
       }
 
-      const memberStatus = accessGranted ? (isEntry ? "inside" : "outside") : (isEntry ? "outside" : "inside");
-      const entryTime = accessGranted && isEntry ? new Date() : (lastLog.entry_time || null);
+const memberStatus = accessGranted ? (isEntry ? "inside" : "outside") : "denied";      const entryTime = accessGranted && isEntry ? new Date() : (lastLog.entry_time || null);
       const exitTime = accessGranted && !isEntry ? new Date() : (lastLog.exit_time || null);
 
       if (accessGranted) {
@@ -455,6 +402,18 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
 
       console.log(`📡 Broadcasting DayPass ${isEntry ? 'entry' : 'exit'}:`, JSON.stringify(broadcastData, null, 2));
       broadcastToClients(broadcastData);
+
+      if (!accessGranted) {
+        broadcastToClients({
+          type: "dashboard-alert",
+          data: {
+            full_name: guest.guest_name,
+            reason: reason || "Access denied",
+            admin_id: guest.admin_id,
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
     }
 
   } catch (error) {
@@ -707,7 +666,19 @@ async function handleMember(member, rfid_tag, location) {
     };
 
     console.log(`📡 Broadcasting member ${isEntry ? 'entry' : 'exit'}:`, JSON.stringify(broadcastData, null, 2));
-    broadcastToClients(broadcastData);
+   broadcastToClients(broadcastData);
+
+    if (!accessGranted) {
+      broadcastToClients({
+        type: "dashboard-alert",
+        data: {
+          full_name: member.full_name,
+          reason: reason || "Access denied",
+          admin_id: member.admin_id,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
 
   } catch (error) {
     console.error("❌ Member handler error:", error.message);

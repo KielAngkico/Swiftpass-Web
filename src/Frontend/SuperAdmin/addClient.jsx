@@ -168,7 +168,7 @@ const AddClient = () => {
     }
   }, [location.state]);
 
-  useEffect(() => {
+useEffect(() => {
     if (scannedRfidForPartner && waitingForSlot) {
       const { rfid_tag, slot } = scannedRfidForPartner;
       if (slot === 1) {
@@ -183,6 +183,18 @@ const AddClient = () => {
       clearScannedPartnerRfid();
     }
   }, [scannedRfidForPartner, waitingForSlot]);
+
+  useEffect(() => {
+    const handleTimeout = (e) => {
+      if (e.detail?.status === "timeout") {
+        setWaitingForSlot(null);
+        disablePartnerScanMode();
+        showToast({ message: "Scan timed out — please try again", type: "warning" });
+      }
+    };
+    window.addEventListener("partner-slot-scan-result", handleTimeout);
+    return () => window.removeEventListener("partner-slot-scan-result", handleTimeout);
+  }, []);
 
   const handleChange = (e) => {
     if (e.target.type === "file") {

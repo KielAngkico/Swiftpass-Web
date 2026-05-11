@@ -42,10 +42,24 @@ const AddEmployeeModal = ({
     }
   }, [mode, editingEmployee, isOpen]);
 
-  useEffect(() => {
+useEffect(() => {
     if (scannedRfidForStaff && isOpen) {
       const rfidTag = typeof scannedRfidForStaff === 'string' ? scannedRfidForStaff : scannedRfidForStaff.rfid_tag;
-      if (!rfidTag) { showToast({ message: "Invalid RFID data received", type: "error" }); return; }
+      const status = scannedRfidForStaff?.status;
+      const reason = scannedRfidForStaff?.reason;
+
+      if (status === "error") {
+        showToast({ message: reason || "RFID scan failed.", type: "error" });
+        clearScannedRfid();
+        return;
+      }
+
+      if (!rfidTag) {
+        showToast({ message: "Invalid RFID data received.", type: "error" });
+        clearScannedRfid();
+        return;
+      }
+
       setFormData(prev => ({ ...prev, rfid_tag: rfidTag }));
       clearScannedRfid();
       if (scanModeEnabled) toggleScanMode(false);

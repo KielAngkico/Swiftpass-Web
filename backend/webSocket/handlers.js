@@ -320,12 +320,12 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
     if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
       const isEntry = location.toUpperCase() === "ENTRY";
 
-      const [lastLogRows] = await dbSuperAdmin.promise().query(
+const [lastLogRows] = await dbSuperAdmin.promise().query(
         `SELECT id, member_status, entry_time, exit_time
          FROM AdminEntryLogs
-         WHERE rfid_tag = ? AND admin_id = ?
+         WHERE member_id = ? AND admin_id = ?
          ORDER BY id DESC LIMIT 1`,
-        [rfid_tag, admin_id]
+        [guest.id, admin_id]
       );
 
       const lastLog = lastLogRows[0] || {};
@@ -461,11 +461,11 @@ async function handleMember(member, rfid_tag, location) {
 
     const isEntry = location.toUpperCase() === "ENTRY";
     
-    const [lastLogRows] = await dbSuperAdmin.promise().query(
+const [lastLogRows] = await dbSuperAdmin.promise().query(
       `SELECT * FROM AdminEntryLogs
-      WHERE rfid_tag = ? AND admin_id = ?
+      WHERE member_id = ? AND admin_id = ?
       ORDER BY id DESC LIMIT 1`,
-      [rfid_tag, member.admin_id]
+      [member.id, member.admin_id]
     );
     const lastLog = lastLogRows[0];
     
@@ -552,11 +552,12 @@ async function handleMember(member, rfid_tag, location) {
             }
 
             try {
-              const [logResult] = await dbSuperAdmin.promise().query(
+const [logResult] = await dbSuperAdmin.promise().query(
                 `INSERT INTO AdminEntryLogs
-                (rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, deducted_amount, member_status, entry_time, location)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (member_id, rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, deducted_amount, member_status, entry_time, location)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
+                  member.id,
                   rfid_tag, 
                   member.full_name, 
                   member.admin_id, 
@@ -597,11 +598,11 @@ async function handleMember(member, rfid_tag, location) {
 
         if (accessGranted) {
           try {
-            const [logResult] = await dbSuperAdmin.promise().query(
+const [logResult] = await dbSuperAdmin.promise().query(
               `INSERT INTO AdminEntryLogs
-              (rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, member_status, entry_time, location)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [rfid_tag, member.full_name, member.admin_id, staff_name, "Member", admin.system_type, "inside", new Date(), location]
+              (member_id, rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, member_status, entry_time, location)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [member.id, rfid_tag, member.full_name, member.admin_id, staff_name, "Member", admin.system_type, "inside", new Date(), location]
             );
             logId = logResult.insertId;
             console.log(`💾 Subscription entry logged with ID: ${logId}`);

@@ -196,7 +196,7 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
           <div className="flex flex-col gap-4 h-full self-stretch">
             <p className="text-sm font-medium text-gray-900 pb-3 border-b border-gray-100">Top-Up & Payment</p>
             <div className="space-y-3">
-              <div>
+<div>
                 <label className={labelClass}>Select Plan</label>
                 <select
                   value={selectedPlan?.plan_name || ""}
@@ -207,23 +207,35 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
                   }}
                   className={`${inputClass} bg-white`}
                 >
-                  <option value="">Choose a plan or enter custom</option>
+                  <option value="">No plan / Custom amount</option>
                   {plans.map((plan) => (
                     <option key={plan.id} value={plan.plan_name}>
-                      {plan.plan_name} — ₱{plan.amount_to_pay} → ₱{plan.amount_to_credit}
+                      {plan.plan_name}
                     </option>
                   ))}
                 </select>
               </div>
-              {!selectedPlan && (
+<div>
+                <label className={labelClass}>Amount to Pay</label>
+                <input
+                  type="text"
+                  value={selectedPlan ? `₱${Number(selectedPlan.amount_to_pay).toFixed(2)}` : customAmount}
+                  onChange={(e) => {
+                    if (!selectedPlan) setCustomAmount(e.target.value.replace(/[^0-9.]/g, ""));
+                  }}
+                  readOnly={!!selectedPlan}
+                  placeholder="Enter amount"
+                  className={selectedPlan ? readonlyClass : inputClass}
+                />
+              </div>
+              {selectedPlan && (
                 <div>
-                  <label className={labelClass}>Custom Amount</label>
+                  <label className={labelClass}>Amount to Credit</label>
                   <input
                     type="text"
-                    placeholder="Enter amount"
-                    value={customAmount}
-                    onChange={(e) => setCustomAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-                    className={inputClass}
+                    value={`₱${Number(selectedPlan.amount_to_credit).toFixed(2)}`}
+                    readOnly
+                    className={readonlyClass}
                   />
                 </div>
               )}

@@ -342,7 +342,7 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
                     <option value="">Select</option>
                     <option>Male</option>
                     <option>Female</option>
-                    <option>Other</option>
+                    
                   </select>
                 </div>
               </div>

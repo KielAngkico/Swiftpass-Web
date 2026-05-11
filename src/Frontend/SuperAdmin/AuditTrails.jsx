@@ -6,7 +6,7 @@ import { useToast } from "../../components/ToastManager";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
-const ROWS_PER_PAGE = 50;
+const ROWS_PER_PAGE = 20;
 
 const KpiBox = ({ title, value, color }) => (
   <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1">
@@ -132,17 +132,17 @@ const AuditTrails = () => {
     return map[role] || "bg-gray-50 text-gray-400 border-gray-200";
   };
 
-  return (
+return (
     <div className="flex min-h-screen bg-gray-50">
       <SuperAdminSidebar />
+      <main className="flex-1 min-w-0 p-6 flex flex-col h-screen overflow-hidden">
 
-      <div className="flex-1 min-w-0 p-6">
         <div className="mb-5">
           <h1 className="text-xl font-semibold text-gray-900">Audit Trails</h1>
           <p className="text-xs text-gray-500 mt-0.5">Full activity log of all system actions</p>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
           <KpiBox title="Total Logs" value={totalLogs} color="text-blue-600" />
           <KpiBox title="Created" value={createCount} color="text-green-700" />
           <KpiBox title="Updated" value={updateCount} color="text-blue-600" />
@@ -150,18 +150,18 @@ const AuditTrails = () => {
           <KpiBox title="Failed Logins" value={failedLogins} color="text-red-500" />
         </div>
 
+        {/* Filters */}
         <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
-          <p className="text-sm font-medium text-gray-900 mb-3 pb-3 border-b border-gray-100">Filters</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="flex flex-wrap gap-2 items-center">
             <input
               type="text"
-              placeholder="Search user, target, description..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Search user, target..."
+              className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-48"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             <select
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               value={filterModule}
               onChange={(e) => setFilterModule(e.target.value)}
             >
@@ -170,7 +170,7 @@ const AuditTrails = () => {
               ))}
             </select>
             <select
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               value={filterAction}
               onChange={(e) => setFilterAction(e.target.value)}
             >
@@ -179,7 +179,7 @@ const AuditTrails = () => {
               ))}
             </select>
             <select
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value)}
             >
@@ -192,7 +192,7 @@ const AuditTrails = () => {
               onChange={(date) => setStartDate(date)}
               maxDate={new Date()}
               dateFormat="yyyy-MM-dd"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-32"
               placeholderText="Start date"
               isClearable
             />
@@ -202,31 +202,28 @@ const AuditTrails = () => {
               minDate={startDate}
               maxDate={new Date()}
               dateFormat="yyyy-MM-dd"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-32"
               placeholderText="End date"
               isClearable
             />
-          </div>
-          <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
-            <button
-              type="button"
-              className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
-              onClick={handleClearFilters}
-            >
-              Clear Filters
-            </button>
+            {(search || filterModule !== "All" || filterAction !== "All" || filterRole !== "All" || startDate || endDate) && (
+              <button
+                type="button"
+                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                onClick={handleClearFilters}
+              >
+                Clear
+              </button>
+            )}
+            <span className="ml-auto text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5 whitespace-nowrap">
+              {filtered.length} records
+            </span>
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100">
-            <p className="text-sm font-medium text-gray-900">Activity Log</p>
-            <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
-              {filtered.length}
-            </span>
-          </div>
-
-          <div className="overflow-x-auto">
+{/* Table */}
+        <div className="bg-white border border-gray-200 rounded-xl flex flex-col min-h-0 flex-1">
+          <div className="overflow-auto min-h-0 flex-1">
             {loading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -234,17 +231,14 @@ const AuditTrails = () => {
               </div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-12">
-                <svg className="w-10 h-10 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
                 <p className="text-xs font-medium text-gray-500">No audit logs found</p>
-                <p className="text-xs text-gray-400 mt-0.5">Try adjusting your filters or search criteria.</p>
+                <p className="text-xs text-gray-400 mt-0.5">Try adjusting your filters.</p>
               </div>
             ) : (
               <table className="min-w-full">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    {["ID", "User", "Role", "Action", "Module", "Target", "Description", "IP Address", "Payload", "Date"].map((h) => (
+                    {["ID", "User", "Role", "Action", "Module", "Target", "Description", "IP", "Payload", "Date"].map((h) => (
                       <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">{h}</th>
                     ))}
                   </tr>
@@ -262,9 +256,7 @@ const AuditTrails = () => {
                           <span className={`text-[11px] border rounded-full px-2.5 py-0.5 font-medium ${roleBadge(log.user_role)}`}>
                             {log.user_role}
                           </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">—</span>
-                        )}
+                        ) : <span className="text-xs text-gray-400">—</span>}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-[11px] border rounded-full px-2.5 py-0.5 font-medium ${actionBadge(log.action)}`}>
@@ -274,9 +266,7 @@ const AuditTrails = () => {
                       <td className="px-4 py-3 text-xs text-gray-500">{log.module || "—"}</td>
                       <td className="px-4 py-3">
                         <p className="text-xs font-medium text-gray-800">{log.target || "—"}</p>
-                        {log.target_id && (
-                          <p className="text-xs text-gray-400">ID: {log.target_id}</p>
-                        )}
+                        {log.target_id && <p className="text-xs text-gray-400">ID: {log.target_id}</p>}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate" title={log.description}>
                         {log.description || "—"}
@@ -290,9 +280,7 @@ const AuditTrails = () => {
                           >
                             {expandedPayload === log.id ? "Hide" : "View"}
                           </button>
-                        ) : (
-                          <span className="text-xs text-gray-400">—</span>
-                        )}
+                        ) : <span className="text-xs text-gray-400">—</span>}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
                         {new Date(log.created_at).toLocaleString()}
@@ -313,57 +301,49 @@ const AuditTrails = () => {
                 </tbody>
               </table>
             )}
-          </div>
+</div>
 
+          {/* Pagination */}
           {!loading && filtered.length > 0 && (
-            <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100">
+            <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100 flex-shrink-0 bg-white">
               <p className="text-xs text-gray-400">
-                Showing {(page - 1) * ROWS_PER_PAGE + 1}–{Math.min(page * ROWS_PER_PAGE, filtered.length)} of {filtered.length}
+                {(page - 1) * ROWS_PER_PAGE + 1}–{Math.min(page * ROWS_PER_PAGE, filtered.length)} of {filtered.length}
               </p>
               <div className="flex items-center gap-1">
                 <button
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                >
+                  «
+                </button>
+                <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+                  className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                 >
                   Prev
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-                  .reduce((acc, p, idx, arr) => {
-                    if (idx > 0 && p - arr[idx - 1] > 1) acc.push("...");
-                    acc.push(p);
-                    return acc;
-                  }, [])
-                  .map((p, idx) =>
-                    p === "..." ? (
-                      <span key={`ellipsis-${idx}`} className="text-xs text-gray-400 px-1">...</span>
-                    ) : (
-                      <button
-                        key={p}
-                        onClick={() => setPage(p)}
-                        className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors border ${
-                          page === p
-                            ? "bg-blue-600 text-white border-blue-600"
-                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    )
-                  )}
+                <span className="text-xs text-gray-500 px-2">Page {page} of {totalPages}</span>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+                  className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                 >
                   Next
+                </button>
+                <button
+                  onClick={() => setPage(totalPages)}
+                  disabled={page === totalPages}
+                  className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                >
+                  »
                 </button>
               </div>
             </div>
           )}
-        </div>
-      </div>
+</div>
+      </main>
     </div>
   );
 };

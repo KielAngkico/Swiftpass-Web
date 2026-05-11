@@ -67,13 +67,14 @@ router.get("/gym-by-code/:gym_code", async (req, res) => {
 // --- Member Registration Form Submission ---
 router.post("/member-registration", async (req, res) => {
   try {
-    const {
+const {
       full_name,
       gender,
       age,
       phone_number,
       email,
       password,
+      address,
       emergency_contact_person,
       emergency_contact_number,
       emergency_contact_relationship,
@@ -115,10 +116,10 @@ router.post("/member-registration", async (req, res) => {
     // Insert into member_registrations table
     await query(`
       INSERT INTO member_registrations
-      (registration_number, full_name, gender, age, phone_number, email, password,
-       emergency_contact_person, emergency_contact_number, emergency_contact_relationship,
+(registration_number, full_name, gender, age, phone_number, email, password,
+       address, emergency_contact_person, emergency_contact_number, emergency_contact_relationship,
        admin_id, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
     `, [
       registrationNumber,
       full_name,
@@ -126,7 +127,8 @@ router.post("/member-registration", async (req, res) => {
       age,
       phone_number,
       email,
-      password, // Store plain password for admin to process
+      password,
+      address || null,
       emergency_contact_person || null,
       emergency_contact_number || null,
       emergency_contact_relationship || null,
@@ -152,8 +154,8 @@ router.get("/pending-member-registrations", async (req, res) => {
 
     let sql = `
       SELECT
-        mr.id, mr.registration_number, mr.full_name, mr.gender, mr.age,
-        mr.phone_number, mr.email, mr.password,
+mr.id, mr.registration_number, mr.full_name, mr.gender, mr.age,
+        mr.phone_number, mr.address, mr.email, mr.password,
         mr.emergency_contact_person, mr.emergency_contact_number,
         mr.emergency_contact_relationship, mr.admin_id, mr.status, mr.created_at,
         aa.gym_name, aa.admin_name, aa.system_type

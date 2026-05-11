@@ -144,6 +144,18 @@ router.post("/login", async (req, res) => {
       payload: { email, role: user.role },
     });
 
+if (user.role === "staff") {
+      try {
+        await dbSuperAdmin.promise().query(
+          `INSERT INTO StaffSessionLogs (staff_id, staff_name, admin_id, system_type, status)
+           VALUES (?, ?, ?, ?, 'online')`,
+          [user.id, user.name, user.admin_id, user.systemType || user.system_type]
+        );
+      } catch (err) {
+        console.error("Failed to log staff session on login:", err);
+      }
+    }
+
     return res.json({
       success: true,
       message: "Login successful",

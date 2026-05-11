@@ -559,7 +559,7 @@ await conn.query(
 );
 
 const cleanupTables = [
-      "SuperAdminTransactionItems", "SuperAdminTransactions", "AdminTransactions",
+      "AdminTransactions",
       "AdminMembersTransactions", "AdminPaymentMethods", "AdminPricingOptions",
       "AdminRFIDCards", "StaffActivityLogs", "StaffSessionLogs", "StaffAccounts",
       "AdminEntryLogs", "DayPassGuests", "MembersAccounts"

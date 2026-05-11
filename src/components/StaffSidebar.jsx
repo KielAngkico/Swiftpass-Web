@@ -23,7 +23,7 @@ const StaffSidebar = () => {
   const navItems = useMemo(() => {
     if (!user) return [];
     return [
-{ path: "/Staff/member-entry",            label: "Member Entry",         icon: <FiLogIn /> },
+{ path: "/Staff/member-entry",            label: "Activity Logs",         icon: <FiLogIn /> },
 { path: "/Staff/view-members",            label: "View Members",         icon: <FiUsers /> },
 { path: "/Staff/view-daypass",            label: "View Day Pass Guests", icon: <FiUsers /> },
 { path: "/Staff/DayPass",                 label: "Day Pass",             icon: <FiSun /> },

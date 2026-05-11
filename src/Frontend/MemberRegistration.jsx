@@ -17,6 +17,7 @@ const MemberRegistration = () => {
     age: '',
     phone_number: '',
     email: '',
+    address: '', 
     emergency_contact_person: '',
     emergency_contact_number: '',
     emergency_contact_relationship: '',
@@ -140,7 +141,7 @@ const MemberRegistration = () => {
                     <option value="">Select</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
-                    <option value="Other">Other</option>
+                   
                   </select>
                 </div>
                 <div>
@@ -158,11 +159,18 @@ const MemberRegistration = () => {
                   placeholder="e.g. 09123456789" required />
               </div>
 
-              <div>
+<div>
                 <label className="block text-xs text-gray-500 mb-1">Email Address</label>
                 <input type="email" name="email" value={formData.email} onChange={handleChange}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="you@example.com" required />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Address</label>
+                <textarea name="address" value={formData.address} onChange={handleChange}
+                  placeholder="Enter your address" rows={2}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
               </div>
                 <div>
                 <label className="block text-xs text-gray-500 mb-1">Gym Code</label>

@@ -24,13 +24,41 @@ router.get("/member-by-rfid/:rfid", async (req, res) => {
 
     return res.status(200).json(member);
   } catch (err) {
-    console.error("❌ Error fetching member by RFID:", err);
+    console.error("Error fetching member by RFID:", err);
     return res.status(500).json({ message: "Server error." });
   }
 });
 
+router.get("/member-by-id/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [rows] = await dbSuperAdmin.promise().query(
+      "SELECT * FROM MembersAccounts WHERE id = ? LIMIT 1",
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Member not found." });
+    }
+
+    let member = rows[0];
+
+    if (member.profile_image_url && !member.profile_image_url.startsWith("/")) {
+      member.profile_image_url = `/${member.profile_image_url}`;
+    }
+
+    return res.status(200).json(member);
+  } catch (err) {
+    console.error("Error fetching member by ID:", err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+
 router.post("/renew-subscription", async (req, res) => {
-  const {
+const {
+    member_id,
     rfid_tag,
     full_name,
     admin_id,
@@ -44,8 +72,8 @@ router.post("/renew-subscription", async (req, res) => {
     reference
   } = req.body;
 
-  if (
-    !rfid_tag || !full_name || !admin_id || !staff_name || !plan_name ||
+if (
+    !member_id || !full_name || !admin_id || !staff_name || !plan_name ||
     !payment || !subscription_type || !subscription_start || !subscription_expiry || !payment_Method
   ) {
     return res.status(400).json({ message: "All fields are required." });
@@ -59,9 +87,9 @@ router.post("/renew-subscription", async (req, res) => {
   }
 
   try {
-    const [memberRows] = await dbSuperAdmin.promise().query(
-      "SELECT id, subscription_expiry FROM MembersAccounts WHERE rfid_tag = ? AND system_type = 'subscription' LIMIT 1",
-      [rfid_tag]
+const [memberRows] = await dbSuperAdmin.promise().query(
+      "SELECT id, rfid_tag, subscription_expiry FROM MembersAccounts WHERE id = ? AND system_type = 'subscription' LIMIT 1",
+      [member_id]
     );
 
     if (memberRows.length === 0) {
@@ -69,6 +97,7 @@ router.post("/renew-subscription", async (req, res) => {
     }
 
     const memberId = memberRows[0].id;
+    const currentRfid = memberRows[0].rfid_tag;
     const currentExpiry = memberRows[0].subscription_expiry;
 
     let startDate, expiryDate;
@@ -104,15 +133,14 @@ router.post("/renew-subscription", async (req, res) => {
       expiryDate: formattedExpiry,
       durationInDays
     });
-
-    const updateSql = `
+const updateSql = `
       UPDATE MembersAccounts
       SET subscription_type = ?, 
           subscription_fee = ?, 
           subscription_start = ?, 
           subscription_expiry = ?,
           status = 'active'
-      WHERE rfid_tag = ? AND system_type = 'subscription'
+      WHERE id = ? AND system_type = 'subscription'
     `;
 
     const [updateResult] = await dbSuperAdmin.promise().query(updateSql, [
@@ -120,7 +148,7 @@ router.post("/renew-subscription", async (req, res) => {
       paymentNumber,
       formattedStart,
       formattedExpiry,
-      rfid_tag
+      memberId
     ]);
 
     if (updateResult.affectedRows === 0) {
@@ -145,16 +173,17 @@ router.post("/renew-subscription", async (req, res) => {
       plan_name
     ]);
 
-    const insertMemberTxnSql = `
+const insertMemberTxnSql = `
       INSERT INTO AdminMembersTransactions 
-      (admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance, 
+      (member_id, admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance, 
        payment_method, reference, tax, processed_by, subscription_type, subscription_start, subscription_expiry)
-      VALUES (?, ?, ?, 'renew_subscription', ?, 0.00, 0.00, ?, ?, 1.00, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, 'renew_subscription', ?, 0.00, 0.00, ?, ?, 1.00, ?, ?, ?, ?)
     `;
 
     await dbSuperAdmin.promise().query(insertMemberTxnSql, [
+      memberId,
       admin_id,
-      rfid_tag,
+      currentRfid,
       full_name,
       paymentNumber,
       paymentMethodFormatted,
@@ -189,7 +218,8 @@ router.post("/renew-subscription", async (req, res) => {
 });
 
 router.post("/tapup-member", async (req, res) => {
-  const {
+const {
+    member_id,
     rfid_tag,
     full_name,
     admin_id,
@@ -201,7 +231,7 @@ router.post("/tapup-member", async (req, res) => {
     reference
   } = req.body;
 
-  if (!rfid_tag || !admin_id || !plan_name || !amount_to_pay || !amount_to_credit || !payment_method) {
+if (!member_id || !admin_id || !plan_name || !amount_to_pay || !amount_to_credit || !payment_method) {
     return res.status(400).json({ message: "Missing required fields." });
   }
 
@@ -215,14 +245,14 @@ router.post("/tapup-member", async (req, res) => {
 
     console.log(`💰 Minimum Session Fee from AdminPricingOptions: ₱${minimumSessionFee}`);
 
-    const updateSql = `
+const updateSql = `
       UPDATE MembersAccounts
       SET current_balance = current_balance + ?
-      WHERE rfid_tag = ? AND system_type = 'prepaid_entry'
+      WHERE id = ? AND system_type = 'prepaid_entry'
     `;
     const [updateResult] = await dbSuperAdmin.promise().query(updateSql, [
       parseFloat(amount_to_credit),
-      rfid_tag
+      member_id
     ]);
     console.log("Update affected rows:", updateResult.affectedRows);
 
@@ -231,19 +261,20 @@ router.post("/tapup-member", async (req, res) => {
     }
 
     const [memberRow] = await dbSuperAdmin.promise().query(
-      "SELECT id, current_balance FROM MembersAccounts WHERE rfid_tag = ? LIMIT 1",
-      [rfid_tag]
+      "SELECT id, rfid_tag, current_balance FROM MembersAccounts WHERE id = ? LIMIT 1",
+      [member_id]
     );
     const memberId = memberRow[0]?.id;
+    const currentRfid = memberRow[0]?.rfid_tag;
     const newBalance = parseFloat(memberRow[0]?.current_balance || 0);
 
     const newStatus = newBalance >= minimumSessionFee ? 'active' : 'inactive';
 
     console.log(`📊 Balance Check: ₱${newBalance} ${newBalance >= minimumSessionFee ? '≥' : '<'} ₱${minimumSessionFee} → Status: ${newStatus}`);
 
-    await dbSuperAdmin.promise().query(
-      "UPDATE MembersAccounts SET status = ? WHERE rfid_tag = ?",
-      [newStatus, rfid_tag]
+await dbSuperAdmin.promise().query(
+      "UPDATE MembersAccounts SET status = ? WHERE id = ?",
+      [newStatus, memberId]
     );
 
     await dbSuperAdmin.promise().query(
@@ -257,13 +288,13 @@ router.post("/tapup-member", async (req, res) => {
       ]
     );
 
-    await dbSuperAdmin.promise().query(
+await dbSuperAdmin.promise().query(
       `INSERT INTO AdminMembersTransactions 
-       (admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance, 
+       (member_id, admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance, 
         payment_method, reference, tax, processed_by, subscription_type)
-       VALUES (?, ?, ?, 'top_up', ?, ?, ?, ?, ?, 1.00, ?, ?)`,
+       VALUES (?, ?, ?, ?, 'top_up', ?, ?, ?, ?, ?, 1.00, ?, ?)`,
       [
-        admin_id, rfid_tag, full_name, amount_to_pay, amount_to_credit, newBalance,
+        memberId, admin_id, currentRfid, full_name, amount_to_pay, amount_to_credit, newBalance,
         payment_method,
         payment_method.toLowerCase() === "gcash" ? reference : null,
         staff_name, plan_name

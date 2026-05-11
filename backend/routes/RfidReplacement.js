@@ -73,12 +73,26 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
       member_id: memberId
     });
 
-    await dbSuperAdmin.promise().query(updateSql, [
-      oldRfid,
-      new_rfid_tag,
-      staff_name,
-      memberId,
-    ]);
+// Mark old RFID as replaced
+    await dbSuperAdmin.promise().query(
+      `UPDATE RegisteredRfid
+       SET status = 'replaced',
+           assignment_date = NOW()
+       WHERE rfid_tag = ? AND role = 'Member'`,
+      [oldRfid]
+    );
+
+    // Mark new RFID as in_use
+    await dbSuperAdmin.promise().query(
+      `UPDATE RegisteredRfid
+       SET assigned_to_id = ?,
+           assigned_to_name = ?,
+           assigned_to_type = 'Member',
+           status = 'in_use',
+           assignment_date = NOW()
+       WHERE rfid_tag = ? AND role = 'Member'`,
+      [member.id, member.full_name, new_rfid_tag]
+    );
 
     const txnSql = `
       INSERT INTO AdminTransactions
@@ -96,13 +110,14 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
       staff_name,
     ]);
 
-    const memberTxnSql = `
+const memberTxnSql = `
       INSERT INTO AdminMembersTransactions
-      (admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance,
+      (member_id, admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance,
        payment_method, reference, tax, processed_by, subscription_type)
-      VALUES (?, ?, ?, 'rfid_replacement', ?, 0.00, 0.00, ?, ?, 1.00, ?, ?)
+      VALUES (?, ?, ?, ?, 'rfid_replacement', ?, 0.00, 0.00, ?, ?, 1.00, ?, ?)
     `;
     await dbSuperAdmin.promise().query(memberTxnSql, [
+      member.id,
       admin_id,
       new_rfid_tag,
       member.full_name,

@@ -3,8 +3,7 @@ import axios from "axios";
 import SuperAdminSidebar from "../../components/SuperAdminSidebar";
 import { API_URL } from "../../config";
 import { useToast } from "../../components/ToastManager";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+
 
 const ROWS_PER_PAGE = 10;
 
@@ -21,8 +20,9 @@ const SuperAdminTransactions = () => {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [filterMethod, setFilterMethod] = useState("All");
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
+const [filterRange, setFilterRange] = useState("all");
+const [startDate, setStartDate] = useState("");
+const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const { showToast } = useToast();
@@ -45,8 +45,20 @@ const SuperAdminTransactions = () => {
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
     let data = transactions;
+
+    const now = new Date();
+    if (filterRange === "today") {
+      data = data.filter((txn) => new Date(txn.created_at).toDateString() === now.toDateString());
+    } else if (filterRange === "this_week") {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      weekStart.setHours(0, 0, 0, 0);
+      data = data.filter((txn) => new Date(txn.created_at) >= weekStart);
+    } else if (filterRange === "this_year") {
+      data = data.filter((txn) => new Date(txn.created_at).getFullYear() === now.getFullYear());
+    }
 
     if (search) {
       data = data.filter((txn) => {
@@ -78,19 +90,20 @@ const SuperAdminTransactions = () => {
 
     setFiltered(data);
     setPage(1);
-  }, [search, filterType, filterMethod, transactions, startDate, endDate]);
-
+}, [search, filterType, filterMethod, transactions, startDate, endDate, filterRange]);
   const totalRevenue = filtered.reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
   const totalTransactions = filtered.length;
   const cashRevenue = filtered
     .filter((txn) => txn.payment_method.toLowerCase() === "cash")
     .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
   const gcashRevenue = filtered
-    .filter((txn) => txn.payment_method.toLowerCase() === "gcash")
+    .filter((txn) => txn.payment_method.toLowerCase() === "cashless")
     .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
   const packagePurchases = filtered.filter((txn) => txn.transaction_type === "Package Purchase").length;
   const orderPayments = filtered.filter((txn) => txn.transaction_type === "Order Payment").length;
-
+const subscriptionRevenue = filtered
+  .filter((txn) => txn.transaction_type === "Subscription")
+  .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
   const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
   const paginated = filtered.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
 
@@ -98,8 +111,9 @@ const SuperAdminTransactions = () => {
     setSearch("");
     setFilterType("All");
     setFilterMethod("All");
-    setStartDate(null);
-    setEndDate(null);
+setFilterRange("all");
+    setStartDate("");
+    setEndDate("");
   };
 
   return (
@@ -112,71 +126,104 @@ const SuperAdminTransactions = () => {
           <p className="text-xs text-gray-500 mt-0.5">Overview of all admin transactions</p>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
-          <KpiBox title="Total Revenue" value={`₱${totalRevenue.toFixed(2)}`} color="text-green-700" />
+<div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 mb-6">          <KpiBox title="Total Revenue" value={`₱${totalRevenue.toFixed(2)}`} color="text-green-700" />
           <KpiBox title="Total Transactions" value={totalTransactions} color="text-blue-600" />
           <KpiBox title="Cash Revenue" value={`₱${cashRevenue.toFixed(2)}`} color="text-gray-900" />
-          <KpiBox title="GCash Revenue" value={`₱${gcashRevenue.toFixed(2)}`} color="text-blue-600" />
+          <KpiBox title="Cashless Revenue" value={`₱${gcashRevenue.toFixed(2)}`} color="text-blue-600" />
+<KpiBox title="Subscription Total" value={`₱${subscriptionRevenue.toFixed(2)}`} color="text-violet-600" />
           <KpiBox title="Package Purchases" value={packagePurchases} color="text-gray-900" />
           <KpiBox title="Order Payments" value={orderPayments} color="text-gray-900" />
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
-          <p className="text-sm font-medium text-gray-900 mb-3 pb-3 border-b border-gray-100">Filters</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <input
-              type="text"
-              placeholder="Search reference / order / ID"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-            >
-              <option value="All">All Types</option>
-              <option value="Package Purchase">Package Purchase</option>
-              <option value="Order Payment">Order Payment</option>
-            </select>
-            <select
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              value={filterMethod}
-              onChange={(e) => setFilterMethod(e.target.value)}
-            >
-              <option value="All">All Methods</option>
-              <option value="Cash">Cash</option>
-              <option value="GCash">GCash</option>
-            </select>
-            <DatePicker
-              selected={startDate}
-              onChange={(date) => setStartDate(date)}
-              maxDate={new Date()}
-              dateFormat="yyyy-MM-dd"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              placeholderText="Start date"
-              isClearable
-            />
-            <DatePicker
-              selected={endDate}
-              onChange={(date) => setEndDate(date)}
-              minDate={startDate}
-              maxDate={new Date()}
-              dateFormat="yyyy-MM-dd"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              placeholderText="End date"
-              isClearable
-            />
-          </div>
-          <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
-            <button
-              type="button"
-              className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
-              onClick={handleClearFilters}
-            >
-              Clear Filters
-            </button>
+ <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-5">
+          <div className="p-3 border-b border-gray-100 flex flex-wrap gap-2 items-center justify-between">
+            <div className="bg-gray-100 border border-gray-200 rounded-lg p-1 flex items-center gap-0.5 flex-wrap">
+              {[
+                { value: "today", label: "Today" },
+                { value: "this_week", label: "This Week" },
+                { value: "this_year", label: "This Year" },
+                { value: "all", label: "All Time" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => { setFilterRange(opt.value); setStartDate(""); setEndDate(""); }}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    filterRange === opt.value
+                      ? "bg-white text-gray-900 border border-gray-200 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setFilterRange("custom")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    filterRange === "custom"
+                      ? "bg-white text-gray-900 border border-gray-200 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Custom
+                </button>
+                {filterRange === "custom" && (
+                  <>
+                    <input
+                      type="date"
+                      value={startDate}
+                      max={new Date().toISOString().split("T")[0]}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white w-32"
+                    />
+                    <input
+                      type="date"
+                      value={endDate}
+                      min={startDate || undefined}
+                      max={new Date().toISOString().split("T")[0]}
+                      disabled={!startDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white w-32 disabled:opacity-40 disabled:cursor-not-allowed"
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <input
+                type="text"
+                placeholder="Search ref / order / ID"
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 w-44"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <select
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+              >
+                <option value="All">All Types</option>
+                <option value="Package Purchase">Package Purchase</option>
+                <option value="Order Payment">Order Payment</option>
+                <option value="Subscription">Subscription</option>
+              </select>
+              <select
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={filterMethod}
+                onChange={(e) => setFilterMethod(e.target.value)}
+              >
+                <option value="All">All Methods</option>
+                <option value="Cash">Cash</option>
+                <option value="Cashless">Cashless</option>
+              </select>
+              <button
+                type="button"
+                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                onClick={handleClearFilters}
+              >
+                Clear
+              </button>
+            </div>
           </div>
         </div>
 
@@ -206,8 +253,8 @@ const SuperAdminTransactions = () => {
               <table className="min-w-full">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    {["ID", "Admin ID", "Type", "Amount", "Total Amount", "Method", "Reference", "Order ID", "Date"].map((h) => (
-                      <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">{h}</th>
+{["ID", "Admin ID", "Type", "Amount", "Method", "Reference", "Order ID", "Date"].map((h) => (     
+                   <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -228,9 +275,7 @@ const SuperAdminTransactions = () => {
                       <td className="px-4 py-3 text-xs font-medium text-green-700">
                         ₱{parseFloat(txn.amount).toFixed(2)}
                       </td>
-                      <td className="px-4 py-3 text-xs font-medium text-gray-800">
-                        ₱{parseFloat(txn.total_amount).toFixed(2)}
-                      </td>
+
                       <td className="px-4 py-3">
                         <span className={`text-[11px] border rounded-full px-2.5 py-0.5 font-medium ${
                           txn.payment_method.toLowerCase() === "cash"

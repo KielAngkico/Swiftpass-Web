@@ -176,7 +176,7 @@ const validate = () => {
                   name="gym_name"
                   value={formData.gym_name}
                   onChange={handleChange}
-                  placeholder="e.g. Iron Peak Fitness"
+                  placeholder="Enter Business Name"
 className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.gym_name ? 'border-red-400' : 'border-gray-200'}`}
                 />
                 {errors.gym_name && <p className="text-xs text-red-500 mt-1">{errors.gym_name}</p>}
@@ -189,7 +189,7 @@ className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder
                   value={formData.address}
                   onChange={handleChange}
                   rows="3"
-                  placeholder="Full address"
+                  placeholder="Enter Full address"
 className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none ${errors.address ? 'border-red-400' : 'border-gray-200'}`}
                 />
                 {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
@@ -202,7 +202,7 @@ className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder
                   name="admin_name"
                   value={formData.admin_name}
                   onChange={handleChange}
-placeholder="Full name"
+placeholder="Enter Full name"
                   className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.admin_name ? 'border-red-400' : 'border-gray-200'}`}
                 />
                 {errors.admin_name && <p className="text-xs text-red-500 mt-1">{errors.admin_name}</p>}
@@ -215,7 +215,7 @@ placeholder="Full name"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-placeholder="you@example.com"
+placeholder="Enter Email Address"
                   className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.email ? 'border-red-400' : 'border-gray-200'}`}
                 />
                 {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}

@@ -58,7 +58,8 @@ const SubscriptionAnalytical = () => {
   const [filterType, setFilterType] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [loading, setLoading] = useState(true);
+const [loading, setLoading] = useState(true);
+  const [insideFilter, setInsideFilter] = useState("All");
   const { showToast } = useToast();
 
   const today = new Date().toISOString().split("T")[0];
@@ -144,6 +145,7 @@ const SubscriptionAnalytical = () => {
         membersInside: 0,
         dayPassInside: 0,
         totalTransactions: 0,
+totalLogins: 0,
         peakHour: "—",
         revenueCard: { labels: [], values: [] },
         transactionTypeBreakdown: { labels: [], values: [] },
@@ -159,6 +161,7 @@ const SubscriptionAnalytical = () => {
       membersInside: analyticsData.summary?.membersInside || 0,
       dayPassInside: analyticsData.summary?.dayPassInside || 0,
       totalTransactions: analyticsData.summary?.totalTransactions || 0,
+totalLogins: analyticsData.summary?.totalLogins || 0,
       peakHour: analyticsData.summary?.peakHour || "—",
       revenueCard: {
         labels: analyticsData.revenueCard?.labels || [],
@@ -221,10 +224,17 @@ const SubscriptionAnalytical = () => {
     },
   };
 
+const filteredInside = sampleData.currentlyInside.filter((m) => {
+    if (insideFilter === "All") return true;
+    if (insideFilter === "Member") return m.visitor_type === "Member";
+    if (insideFilter === "Day Pass") return m.visitor_type !== "Member";
+    return true;
+  });
+
   const hasRevenueCard = sampleData.revenueCard.values.some((v) => v > 0);
   const hasTransaction = sampleData.transactionTypeBreakdown.values.some((v) => v > 0);
   const hasRevenueByType = sampleData.revenueByMembershipType.values.some((v) => v > 0);
-  const hasPeakData = sampleData.peakHourAnalysis.values.some((v) => v > 0);
+  const hasPeakData = (sampleData.peakHourAnalysis.values || []).some((v) => v > 0);
 
   const revenueCardData = hasRevenueCard
     ? { labels: sampleData.revenueCard.labels, datasets: [{ data: sampleData.revenueCard.values, backgroundColor: ["#10B981", "#6366F1"], borderWidth: 0 }] }
@@ -239,12 +249,18 @@ const SubscriptionAnalytical = () => {
     : EMPTY_PIE_DATA;
 
   // Peak hour chart — always renders 24 hours, line shows when data exists
+const FIXED_HOURS = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+  const fixedPeakValues = FIXED_HOURS.map((label) => {
+    const idx = sampleData.peakHourAnalysis.labels.indexOf(label);
+    return idx !== -1 ? sampleData.peakHourAnalysis.values[idx] : 0;
+  });
+
   const peakLineData = {
-    labels: sampleData.peakHourAnalysis.labels,
+    labels: FIXED_HOURS,
     datasets: [
       {
         label: "Check-ins",
-        data: sampleData.peakHourAnalysis.values,
+        data: fixedPeakValues,
         fill: true,
         backgroundColor: "rgba(139, 92, 246, 0.1)",
         borderColor: hasPeakData ? "#8B5CF6" : "#E5E7EB",
@@ -270,9 +286,10 @@ const SubscriptionAnalytical = () => {
       },
     },
     scales: {
-      y: {
+y: {
         beginAtZero: true,
         min: 0,
+        max: hasPeakData ? undefined : 5,
         ticks: {
           font: { size: 10 },
           color: "#9CA3AF",
@@ -305,11 +322,9 @@ const SubscriptionAnalytical = () => {
   return (
     <div className="flex flex-col gap-5">
       {/* Filter Bar */}
-<div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-  <div className="p-4 border-b border-gray-100 flex flex-wrap gap-2 items-center">
-    
-    <div className="flex flex-wrap gap-2 items-center">
-      <div className="bg-gray-100 border border-gray-200 rounded-lg p-1 flex items-center gap-0.5">
+<div className="bg-white border border-gray-200 rounded-xl overflow-hidden w-fit">
+  <div className="p-4 flex flex-wrap gap-2 items-center">
+      <div className="bg-gray-100 border border-gray-200 rounded-lg p-1 flex items-center gap-0.5 w-fit">
         
         {FILTER_OPTIONS.filter((opt) => opt.value !== "custom").map((opt) => (
           <button
@@ -362,18 +377,15 @@ const SubscriptionAnalytical = () => {
             </>
           )}
         </div>
-      </div>
-    </div>
-
+</div>
   </div>
 </div>
-
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <KpiCard title="Total Revenue" value={`₱${sampleData.totalRevenue.toLocaleString()}`} color="text-green-600" />
+<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">        <KpiCard title="Total Revenue" value={`₱${sampleData.totalRevenue.toLocaleString()}`} color="text-green-600" />
+        <KpiCard title="Total Transactions" value={sampleData.totalTransactions} color="text-purple-600" />
+        <KpiCard title="Total Logins" value={sampleData.totalLogins} color="text-indigo-600" />
         <KpiCard title="Members Inside" value={sampleData.membersInside} color="text-blue-600" />
         <KpiCard title="Day Pass Guests" value={sampleData.dayPassInside} color="text-amber-600" />
-        <KpiCard title="Total Transactions" value={sampleData.totalTransactions} color="text-purple-600" />
         <KpiCard title="Peak Hour" value={sampleData.peakHour} color="text-gray-700" />
       </div>
 
@@ -391,7 +403,7 @@ const SubscriptionAnalytical = () => {
               const member = sampleData.topMembers[i];
               return member ? (
                 <div
-                  key={member.rfidTag || i}
+                  key={member.rfidTag || member.full_name || i}
                   className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-center ${
                     i === 0 ? "bg-yellow-50 border-yellow-200"
                     : i === 1 ? "bg-gray-50 border-gray-200"
@@ -424,11 +436,28 @@ const SubscriptionAnalytical = () => {
         </div>
 
         <div className="w-80 flex-shrink-0 bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
-          <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100">
-            <p className="text-sm font-medium text-gray-900">Currently Inside</p>
-            <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
-              {sampleData.currentlyInside.length}
-            </span>
+<div className="px-4 py-3 border-b border-gray-100 flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <p className="text-sm font-medium text-gray-900">Currently Inside</p>
+              <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
+                {filteredInside.length}
+              </span>
+            </div>
+            <div className="bg-gray-100 rounded-lg p-0.5 flex gap-0.5">
+              {["All", "Member", "Day Pass"].map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setInsideFilter(opt)}
+                  className={`flex-1 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                    insideFilter === opt
+                      ? "bg-white text-gray-900 border border-gray-200 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
           </div>
           <table className="w-full">
             <thead>
@@ -442,8 +471,8 @@ const SubscriptionAnalytical = () => {
           <div className="overflow-y-auto flex-1">
             <table className="w-full">
               <tbody className="divide-y divide-gray-50">
-                {sampleData.currentlyInside.length > 0 ? (
-                  sampleData.currentlyInside.map((member, idx) => (
+{filteredInside.length > 0 ? (
+                  filteredInside.map((member, idx) => (
                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 text-xs font-medium text-gray-800">{member.full_name}</td>
                       <td className="px-4 py-3">
@@ -466,11 +495,13 @@ const SubscriptionAnalytical = () => {
                     </tr>
                   ))
                 ) : (
-                  <tr>
+<tr>
                     <td colSpan="3">
                       <div className="flex flex-col items-center justify-center py-10 gap-2">
                         <div className="w-10 h-10 rounded-full bg-gray-100 border border-gray-200" />
-                        <p className="text-xs text-gray-400">No one is currently inside</p>
+                        <p className="text-xs text-gray-400">
+                          {insideFilter === "All" ? "No one is currently inside" : `No ${insideFilter}s inside`}
+                        </p>
                       </div>
                     </td>
                   </tr>

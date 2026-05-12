@@ -252,7 +252,7 @@ if (!adminId || !staffName) {
                 value={mobileNumber}
                 onChange={(e) => setMobileNumber(e.target.value)}
                 required
-                placeholder="09xxxxxxxxx"
+                placeholder="Enter Phone Number"
                 className={inputClass}
               />
             </div>

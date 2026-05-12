@@ -156,7 +156,7 @@ const validate = () => {
 
         <div className="mb-5">
           <h1 className="text-xl font-semibold text-gray-900">Member Registration</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Join your gym with SwiftPass Tech</p>
+
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-6">
@@ -169,7 +169,7 @@ const validate = () => {
                 <label className="block text-xs text-gray-500 mb-1">Full Name</label>
 <input type="text" name="full_name" value={formData.full_name} onChange={handleChange}
                   className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.full_name ? 'border-red-400' : 'border-gray-200'}`}
-                  placeholder="Full name" />
+                  placeholder="Enter Full name" />
                 {errors.full_name && <p className="text-xs text-red-500 mt-1">{errors.full_name}</p>}
               </div>
 
@@ -188,7 +188,7 @@ const validate = () => {
                   <label className="block text-xs text-gray-500 mb-1">Age</label>
 <input type="number" name="age" value={formData.age} onChange={handleChange}
                     className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.age ? 'border-red-400' : 'border-gray-200'}`}
-                    placeholder="Age" />
+                    placeholder="Enter Age" />
                   {errors.age && <p className="text-xs text-red-500 mt-1">{errors.age}</p>}
                 </div>
               </div>
@@ -197,7 +197,7 @@ const validate = () => {
                 <label className="block text-xs text-gray-500 mb-1">Phone Number</label>
 <input type="text" name="phone_number" value={formData.phone_number} onChange={handleChange}
                   className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.phone_number ? 'border-red-400' : 'border-gray-200'}`}
-                  placeholder="e.g. 09123456789" />
+                  placeholder="Enter Phone Number" />
                 {errors.phone_number && <p className="text-xs text-red-500 mt-1">{errors.phone_number}</p>}
               </div>
 
@@ -205,7 +205,7 @@ const validate = () => {
                 <label className="block text-xs text-gray-500 mb-1">Email Address</label>
 <input type="email" name="email" value={formData.email} onChange={handleChange}
                   className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.email ? 'border-red-400' : 'border-gray-200'}`}
-                  placeholder="you@example.com" />
+                  placeholder="Enter Email Address" />
                 {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
               </div>
 
@@ -219,7 +219,7 @@ const validate = () => {
                 <div>
                 <label className="block text-xs text-gray-500 mb-1">Gym Code</label>
 <input type="text" name="gym_code_input" value={formData.gym_code_input || ''}
-                  onChange={handleChange} placeholder="e.g. AFTS" maxLength={10}
+                  placeholder="Enter GYM CODE" onChange={handleChange}  maxLength={10}
                   className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 uppercase ${errors.gym_code_input ? 'border-red-400' : 'border-gray-200'}`} />
                 {errors.gym_code_input && <p className="text-xs text-red-500 mt-1">{errors.gym_code_input}</p>}
               </div>
@@ -250,7 +250,7 @@ const validate = () => {
   <div>
     <label className="block text-xs text-gray-500 mb-1">Relationship</label>
 <input type="text" name="emergency_contact_relationship" value={formData.emergency_contact_relationship}
-      onChange={handleChange} placeholder="e.g. Mother, Father, Spouse"
+      onChange={handleChange} placeholder="e.g. Father"
       className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.emergency_contact_relationship ? 'border-red-400' : 'border-gray-200'}`} />
     {errors.emergency_contact_relationship && <p className="text-xs text-red-500 mt-1">{errors.emergency_contact_relationship}</p>}
   </div>
@@ -302,15 +302,40 @@ const validate = () => {
 
             <div ref={termsContentRef} onScroll={handleTermsScroll}
               className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              {[
-                { title: "1. Account Registration", body: "By registering, you agree to provide accurate information and maintain the confidentiality of your account credentials. You are responsible for all activities under your account." },
-                { title: "2. Service Usage", body: "SwiftPass Tech provides gym management software. You agree to use the service in compliance with all applicable laws. Misuse may result in account suspension or termination." },
-                { title: "3. Data Privacy", body: "We collect and process your data in accordance with the Data Privacy Act of 2012 and applicable data protection laws. We implement industry-standard security measures to protect your data." },
-                { title: "4. Payment Terms", body: "Fees are charged based on your selected plan. Payment is due at the beginning of each billing cycle. We reserve the right to modify pricing with 30 days advance notice." },
-                { title: "5. Service Availability", body: "We strive to maintain high uptime for our services but do not guarantee uninterrupted service and are not liable for downtime due to maintenance or circumstances beyond our control." },
-                { title: "6. Intellectual Property", body: "All content and features of SwiftPass Tech are protected by intellectual property laws. You may not reproduce or distribute any part without our explicit permission." },
-                { title: "7. Termination", body: "Either party may terminate this agreement with 30 days written notice. Upon termination, you will have 30 days to export your data before it is permanently deleted." },
-              ].map((section, i, arr) => (
+{[
+  {
+    title: "1. Member Registration",
+    body: "Members must provide accurate and complete personal information during registration. False information may result in suspension or denial of access."
+  },
+  {
+    title: "2. RFID Access Usage",
+    body: "RFID cards, tags, or wristbands are personal and non-transferable. Sharing or unauthorized use may result in deactivation or suspension."
+  },
+  {
+    title: "3. Facility Access",
+    body: "Access to gym facilities is only allowed during active membership periods or valid day-pass sessions. Expired memberships may restrict entry."
+  },
+  {
+    title: "4. Data Privacy",
+    body: "Member information, attendance logs, and transaction records are processed in accordance with the Data Privacy Act of 2012."
+  },
+  {
+    title: "5. Payments & Renewals",
+    body: "Membership fees, renewals, and other charges must be settled according to the gym's payment policies before access is granted."
+  },
+  {
+    title: "6. Lost or Damaged RFID",
+    body: "Lost, stolen, or damaged RFID cards must be reported immediately. Replacement fees may apply depending on gym policy."
+  },
+  {
+    title: "7. Conduct & Misuse",
+    body: "Members are expected to follow gym rules and proper conduct. Misuse of facilities or the SwiftPass access system may result in suspension or termination of membership."
+  },
+  {
+    title: "8. Acceptance",
+    body: "By using the SwiftPass-enabled gym system, you acknowledge and agree to these terms and conditions."
+  },
+].map((section, i, arr) => (
                 <div key={i} className={`pb-4 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                   <p className="text-xs font-medium text-gray-900 mb-1">{section.title}</p>
                   <p className="text-xs text-gray-500 leading-relaxed">{section.body}</p>

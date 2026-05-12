@@ -609,8 +609,8 @@ const handleSubmit = async (e) => {
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-gray-400 truncate mb-0.5">{admin.admin_name}</p>
-                      <p className="text-[11px] text-gray-400 line-clamp-2 mb-auto">{admin.address}</p>
+                      <p className="text-[11px] text-gray-400 truncate mb-0.5"><b>Admin:</b> {admin.admin_name}</p>
+                      
                       <span className="mt-2 text-[11px] bg-green-50 text-green-600 border border-green-100 rounded-full px-2 py-0.5 w-fit">
                         Active
                       </span>

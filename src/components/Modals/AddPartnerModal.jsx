@@ -61,6 +61,7 @@ const AddPartnerModal = ({
                   name="gym_name"
                   value={formData.gym_name}
                   onChange={onFormChange}
+                  placeholder='Enter Gym Name'
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
@@ -74,7 +75,7 @@ const AddPartnerModal = ({
                   value={formData.gym_code}
                   onChange={onFormChange}
                   maxLength={10}
-                  placeholder="e.g. AFTS"
+                  placeholder='Enter Gym Code'
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
@@ -87,6 +88,7 @@ const AddPartnerModal = ({
                   name="address"
                   value={formData.address}
                   onChange={onFormChange}
+                  placeholder='Enter Gym Address'
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
                   rows="3"
                   required
@@ -100,6 +102,7 @@ const AddPartnerModal = ({
                   name="admin_name"
                   value={formData.admin_name}
                   onChange={onFormChange}
+                  placeholder='Enter Admin Name'
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
@@ -112,6 +115,7 @@ const AddPartnerModal = ({
                   name="email"
                   value={formData.email}
                   onChange={onFormChange}
+                  placeholder='Enter Email Address'
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
@@ -276,7 +280,7 @@ const AddPartnerModal = ({
 
             <div className="flex flex-col items-center gap-3">
               <p className="text-xs font-medium text-gray-900 pb-2 border-b border-gray-100 w-full text-center">Profile Photo</p>
-              <div className="w-40 h-40 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center overflow-hidden">
+              <div className="w-80 h-80 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center overflow-hidden">
                 {formData.profile_image_url ? (
                   <img
                     src={

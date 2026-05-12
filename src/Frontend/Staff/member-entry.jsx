@@ -196,11 +196,7 @@ return (
 
         <div className="mb-5">
           <h1 className="text-xl font-semibold text-gray-900">Member Entry / Exit Status</h1>
-          {user && (
-            <p className="text-xs text-gray-500 mt-0.5">
-              Logged in as: {user.name} ({user.role})
-            </p>
-          )}
+
         </div>
 
         <div className="flex justify-between items-center mb-6">

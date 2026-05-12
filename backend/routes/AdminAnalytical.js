@@ -152,18 +152,19 @@ const peakHour = h !== null ? `${h}:00-${(h + 1) % 24}:00` : "N/A";
 
 const [topMembers] = await dbSuperAdmin.promise().query(
   `SELECT 
-     e.full_name,
-     e.rfid_tag,
+     m.id AS member_id,
+     m.full_name,
+     m.rfid_tag,
      m.profile_image_url,
      COUNT(*) AS visit_count
    FROM AdminEntryLogs e
-   LEFT JOIN MembersAccounts m ON m.rfid_tag = e.rfid_tag AND m.admin_id = e.admin_id
+   INNER JOIN MembersAccounts m ON m.rfid_tag = e.rfid_tag AND m.admin_id = e.admin_id
    WHERE e.admin_id = ? 
      AND e.visitor_type = 'Member'
      AND ${entryDateCondition}
-   GROUP BY e.full_name, e.rfid_tag, m.profile_image_url
+   GROUP BY m.id, m.full_name, m.rfid_tag, m.profile_image_url
    ORDER BY visit_count DESC
-   LIMIT 3`,
+   LIMIT 4`,
   [admin_id]
 );
 
@@ -203,6 +204,7 @@ const [topMembers] = await dbSuperAdmin.promise().query(
       })),
 topMembers: topMembers.map((member, index) => ({
   rank: index + 1,
+  memberId: member.member_id,
   name: member.full_name,
   rfidTag: member.rfid_tag,
   profileImageUrl: member.profile_image_url,

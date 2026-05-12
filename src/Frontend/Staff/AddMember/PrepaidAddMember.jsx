@@ -387,7 +387,7 @@ const validate = () => {
               </div>
               <div>
                 <label className={labelClass}>Relationship</label>
-                <input type="text" name="emergency_contact_relationship" value={formData.emergency_contact_relationship} onChange={handleChange} placeholder="e.g. Spouse" className={inputClass} />
+                <input type="text" name="emergency_contact_relationship" value={formData.emergency_contact_relationship} onChange={handleChange} placeholder="e.g. Father" className={inputClass} />
               </div>
             </div>
 

@@ -192,8 +192,7 @@ const validate = () => {
     }
   };
 
-  const fieldClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500";
-
+const fieldClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 read-only:bg-gray-50 read-only:cursor-not-allowed";
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white border border-gray-200 rounded-xl shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -240,18 +239,19 @@ const validate = () => {
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Password</label>
                 <input type="text" value="pass123" readOnly className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-400 cursor-not-allowed" />
-                <p className="text-[11px] text-gray-400 mt-1">Default password — can be changed after login</p>
+                <p className="text-[11px] text-gray-400 mt-1">Default password </p>
               </div>
 
               <div>
                 <label className="block text-xs text-gray-500 mb-1">
-                  RFID Tag {mode === "add" && <span className="text-gray-400">(Optional)</span>}
+                  RFID Tag {mode === "add" && <span className="text-gray-400"></span>}
                 </label>
                 <div className="flex gap-1.5">
                   <input
                     type="text" name="rfid_tag" value={formData.rfid_tag} onChange={handleChange}
                     placeholder={scanModeEnabled ? "Scanning..." : mode === "edit" ? "Scan to replace RFID" : "Scan or enter manually"}
-                    className={`${fieldClass} flex-1`} readOnly={scanModeEnabled}
+                    className={`${fieldClass} flex-1`}
+readOnly
                   />
                   <button type="button" onClick={handleScanRfid}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${scanModeEnabled ? "bg-blue-50 text-blue-600 border-blue-200 animate-pulse" : "bg-white text-blue-600 border-blue-200 hover:bg-blue-50"}`}>
@@ -268,8 +268,7 @@ const validate = () => {
     Profile Photo
   </p>
 
-  <div className="w-40 h-40 bg-gray-50 border border-gray-200 rounded-xl overflow-hidden flex items-center justify-center">
-    {isWebcamActive ? (
+<div className="w-full aspect-square max-w-[260px] bg-gray-50 border border-gray-200 rounded-xl overflow-hidden flex items-center justify-center">    {isWebcamActive ? (
       <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
     ) : imagePreview ? (
       <img src={imagePreview} alt="Profile" className="w-full h-full object-cover" />

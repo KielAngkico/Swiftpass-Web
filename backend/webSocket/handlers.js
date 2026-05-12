@@ -118,12 +118,13 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
     return;
   }
 
-  const memberCheck = await getMemberByRfid(rfid_tag, admin_id);
+const memberCheck = await getMemberByRfid(rfid_tag, admin_id);
   if (memberCheck) {
     broadcastToClients({
       type: "staff-scan",
       data: {
         rfid_tag,
+        member_id: memberCheck.id,
         status: "member_found",
         full_name: memberCheck.full_name,
         location,
@@ -323,9 +324,9 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
 const [lastLogRows] = await dbSuperAdmin.promise().query(
         `SELECT id, member_status, entry_time, exit_time
          FROM AdminEntryLogs
-         WHERE member_id = ? AND admin_id = ?
+         WHERE (member_id = ? OR rfid_tag = ?) AND admin_id = ?
          ORDER BY id DESC LIMIT 1`,
-        [guest.id, admin_id]
+        [guest.id, rfid_tag, admin_id]
       );
 
       const lastLog = lastLogRows[0] || {};
@@ -463,9 +464,9 @@ async function handleMember(member, rfid_tag, location) {
     
 const [lastLogRows] = await dbSuperAdmin.promise().query(
       `SELECT * FROM AdminEntryLogs
-      WHERE member_id = ? AND admin_id = ?
+      WHERE (member_id = ? OR rfid_tag = ?) AND admin_id = ?
       ORDER BY id DESC LIMIT 1`,
-      [member.id, member.admin_id]
+      [member.id, rfid_tag, member.admin_id]
     );
     const lastLog = lastLogRows[0];
     

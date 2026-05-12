@@ -783,12 +783,13 @@ if (location.toUpperCase() === "STAFF") {
   if (allocation.role === 'Member') {
     const memberCheck = await getMemberByRfid(rfid_tag, targetAdminId);
     
-    if (memberCheck) {
+if (memberCheck) {
       console.log("✅ Found existing Member:", memberCheck.full_name);
       broadcastToClients({
         type: "staff-scan",
         data: {
           rfid_tag,
+          member_id: memberCheck.id,
           status: "member_found",
           full_name: memberCheck.full_name,
           rfid_type: allocation.rfid_type,

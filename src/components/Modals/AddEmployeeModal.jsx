@@ -97,8 +97,30 @@ useEffect(() => {
     }
   };
 
+const validate = () => {
+    if (!formData.name.trim()) return 'Name is required';
+    if (!/^[a-zA-Z\s\-']+$/.test(formData.name.trim())) return 'Name must be letters and spaces only';
+    if (formData.name.trim().length < 2) return 'Name must be at least 2 characters';
+
+    if (!formData.age) return 'Age is required';
+    if (formData.age < 1 || formData.age > 120) return 'Age must be between 1 and 120';
+
+    if (!formData.email.trim()) return 'Email is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) return 'Invalid email address';
+
+    if (!formData.contact_number.trim()) return 'Contact number is required';
+    if (!/^09\d{9}$/.test(formData.contact_number)) return 'Must be a valid PH number (09XXXXXXXXX)';
+
+    if (!formData.address.trim()) return 'Address is required';
+    if (formData.address.trim().length < 10) return 'Address must be at least 10 characters';
+
+    return null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const error = validate();
+    if (error) { showToast({ message: error, type: 'error' }); return; }
     setIsSubmitting(true);
     try {
       const formPayload = new FormData();

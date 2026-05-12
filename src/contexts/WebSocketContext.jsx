@@ -173,21 +173,26 @@ case "partner-slot-scan-result":
     });
   }
   return;
-      case "rfid-scanned-for-staff":
+case "rfid-scanned-for-staff":
         if (msg.data?.rfid_tag) {
           console.log("📡 RFID Scanned for Staff Registration:", msg.data);
 
-if (msg.data.status === "error") {
-            window.dispatchEvent(new CustomEvent("dashboard-alert", {
-              detail: { full_name: "RFID Error", reason: msg.data.reason }
-            }));
+          if (msg.data.status === "error") {
+            showToast({ 
+              message: msg.data.reason || "Invalid RFID card. Please use a Partner card.", 
+              type: "error" 
+            });
             setScannedRfidForStaff(null);
             return;
           }
 
           if (msg.data.status === "success") {
             console.log("✅ RFID is valid for staff registration");
-setScannedRfidForStaff(msg.data.rfid_tag);
+            showToast({ 
+              message: `RFID scanned successfully!`, 
+              type: "success" 
+            });
+            setScannedRfidForStaff(msg.data);
           }
         }
         return;

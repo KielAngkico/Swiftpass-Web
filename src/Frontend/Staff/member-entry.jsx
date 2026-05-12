@@ -23,9 +23,10 @@ const processedTimestamps = useRef(new Set());
     return () => window.removeEventListener("dashboard-alert", handleAlert);
   }, [showToast]);
 
-  const getImageUrl = (profileImageUrl) => {
+const getImageUrl = (profileImageUrl) => {
     if (!profileImageUrl) return `${IP}/uploads/members/default.jpg`;
     if (profileImageUrl.startsWith("http")) return profileImageUrl;
+    if (profileImageUrl.startsWith("/uploads/")) return `${IP}${profileImageUrl}`;
     if (profileImageUrl.startsWith("uploads/")) return `${IP}/${profileImageUrl}`;
     return `${IP}/uploads/members/${profileImageUrl}`;
   };

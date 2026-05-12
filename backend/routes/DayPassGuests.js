@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../db");
 const daypassUpload = require("../middleware/daypassUploads");
 const logAudit = require("../middleware/auditLogger");
+const formatPaymentMethod = require('../helpers/formatPaymentMethod');
 
 router.get("/session-fee", async (req, res) => {
   const { admin_id } = req.query;
@@ -149,8 +150,7 @@ router.post("/register-session", daypassUpload.single("guest_image"), async (req
       `INSERT INTO AdminTransactions
       (admin_id, member_name, rfid_tag, amount, payment_method, staff_name, transaction_type, transaction_date, cashless_reference)
       VALUES (?, ?, ?, ?, ?, ?, 'day_pass_session', NOW(), ?)`,
-      [admin_id, guest_name, rfid_tag, totalAmount, payment_method, staff_name, cashless_reference || null]
-    );
+[admin_id, guest_name, rfid_tag, totalAmount, formatPaymentMethod(payment_method), staff_name, cashless_reference || null]    );
 
     await conn.commit();
 
@@ -236,8 +236,7 @@ router.post("/renew-daypass", async (req, res) => {
       `INSERT INTO AdminTransactions
       (admin_id, member_name, rfid_tag, amount, payment_method, staff_name, transaction_type, transaction_date, cashless_reference)
       VALUES (?, ?, ?, ?, ?, ?, 'day_pass_renewal', NOW(), ?)`,
-      [admin_id, guestName, rfid_tag, sessionFeeAmount, payment_method, staff_name, cashless_reference || null]
-    );
+[admin_id, guestName, rfid_tag, sessionFeeAmount, formatPaymentMethod(payment_method), staff_name, cashless_reference || null]    );
 
     console.log("✅ Transaction recorded");
 

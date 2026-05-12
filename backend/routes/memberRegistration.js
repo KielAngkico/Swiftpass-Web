@@ -12,22 +12,7 @@ const generateRegistrationNumber = () => {
   return `MEM${timestamp}${random}`;
 };
 
-// --- Get Available Gyms ---
-router.get("/available-gyms", async (req, res) => {
-  try {
-    const [gyms] = await query(`
-      SELECT id, gym_name, admin_name, address, system_type
-      FROM AdminAccounts
-      WHERE is_archived = 0 AND status = 'active'
-      ORDER BY gym_name ASC
-    `);
 
-    res.json(gyms);
-  } catch (err) {
-    console.error("Get gyms error:", err);
-    res.status(500).json({ error: "Failed to fetch gyms" });
-  }
-});
 router.get("/available-gyms", async (req, res) => {
   try {
     const [gyms] = await query(`

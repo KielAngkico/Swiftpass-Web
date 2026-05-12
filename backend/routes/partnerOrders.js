@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const logAudit = require("../middleware/auditLogger");
+const formatPaymentMethod = require('../helpers/formatPaymentMethod');
 
 const query = (sql, params = []) => db.promise().query(sql, params);
 
@@ -291,7 +292,7 @@ router.put("/:id/complete-with-payment", async (req, res) => {
       return res.status(400).json({ error: "Payment method is required" });
     }
 
-    if (payment_method.toLowerCase() !== 'cash' && !reference_number) {
+   if (formatPaymentMethod(payment_method) !== 'Cash' && !reference_number) {
       await conn.rollback();
       return res.status(400).json({ error: "Reference number is required for non-cash payments" });
     }
@@ -300,7 +301,7 @@ router.put("/:id/complete-with-payment", async (req, res) => {
       INSERT INTO SuperAdminTransactions 
       (admin_id, order_id, transaction_type, amount, payment_method, reference_number)
       VALUES (?, ?, 'Order Payment', ?, ?, ?)
-    `, [order.admin_id, id, order.total_amount, payment_method, reference_number || null]);
+    `, [order.admin_id, id, order.total_amount, formatPaymentMethod(payment_method), reference_number || null]);
 
     const transaction_id = txnResult.insertId;
 
@@ -532,7 +533,7 @@ router.put("/:id/process", async (req, res) => {
     INSERT INTO SuperAdminTransactions 
     (admin_id, order_id, transaction_type, amount, payment_method, reference_number)
     VALUES (?, ?, 'Renewal Payment', ?, ?, ?)
-  `, [order.admin_id, id, order.total_amount, payment_method, reference_number || null]);
+  `, [order.admin_id, id, order.total_amount, formatPaymentMethod(payment_method), reference_number || null]);
 
   const transaction_id = txnResult.insertId;
 
@@ -737,9 +738,9 @@ router.get("/:id/allocated-rfids", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [rfids] = await query(`
-      SELECT id, rfid_tag, rfid_type, role, status, allocation_date
-      FROM RegisteredRfid WHERE order_id = ? ORDER BY role, rfid_tag
+const [rfids] = await query(`
+      SELECT id, rfid_tag, warehouse_number, rfid_type, role, status, allocation_date
+      FROM RegisteredRfid WHERE order_id = ? ORDER BY role, warehouse_number
     `, [id]);
 
     const grouped = rfids.reduce((acc, rfid) => {

@@ -48,11 +48,7 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
     capturePhoto,
   } = useWebcam(showToast);
 
-  const validateEmail = (email) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const validateMobile = (number) =>
-    /^[0-9]{7,15}$/.test(number);
 
   useEffect(() => {
     if (rfid_tag) {
@@ -116,29 +112,33 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
       setImagePreview(preview);
     });
   };
+  const validate = () => {
+  if (!guestName.trim()) return 'Guest name is required';
+  if (!/^[a-zA-Z\s\-']+$/.test(guestName.trim())) return 'Guest name must be letters and spaces only';
+
+  if (!email.trim()) return 'Email is required';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Invalid email address';
+
+  if (!mobileNumber.trim()) return 'Mobile number is required';
+  if (!/^09\d{9}$/.test(mobileNumber)) return 'Must be a valid PH number (09XXXXXXXXX)';
+
+  if (!gender) return 'Gender is required';
+
+  if (!paymentMethod) return 'Payment method is required';
+  if (paymentMethod.toLowerCase() !== 'cash' && !cashlessRef.trim()) return 'Reference number is required';
+
+  return null;
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+const error = validate();
+if (error) { showToast({ message: error, type: 'error' }); return; }
 
-    if (!validateEmail(email)) {
-      showToast({ message: "Please enter a valid email address.", type: "error" });
-      return;
-    }
-
-    if (!validateMobile(mobileNumber)) {
-      showToast({ message: "Please enter a valid mobile number (7-15 digits).", type: "error" });
-      return;
-    }
-
-    if (paymentMethod && paymentMethod.toLowerCase() !== "cash" && cashlessRef.trim() === "") {
-      showToast({ message: "Please enter your cashless payment reference number.", type: "error" });
-      return;
-    }
-
-    if (!adminId || !staffName) {
-      showToast({ message: "Staff info missing. Please log in again.", type: "error" });
-      return;
-    }
+if (!adminId || !staffName) {
+  showToast({ message: "Staff info missing. Please log in again.", type: "error" });
+  return;
+}
 
     setSubmitting(true);
 
@@ -344,7 +344,7 @@ const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
             Guest Photo
           </p>
 
-          <div className="w-40 h-52 border border-gray-200 rounded-lg bg-gray-50 overflow-hidden mx-auto">
+          <div className="w-80 h-80 border border-gray-200 rounded-lg bg-gray-50 overflow-hidden mx-auto">
             {isWebcamActive ? (
               <video
                 ref={videoRef}

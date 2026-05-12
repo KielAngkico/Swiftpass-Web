@@ -146,11 +146,12 @@ const OrderDetailsModal = ({ order, onClose, getStatusBadge, getPaymentBadge, sh
                 {Object.entries(allocatedRfids.rfids).map(([role, rfids]) => (
                   <div key={role}>
                     <p className="text-xs text-gray-500 mb-2">{role} RFIDs</p>
-                    <div className="grid grid-cols-2 gap-2">
+<div className="grid grid-cols-2 gap-2">
                       {rfids.map((rfid) => (
                         <div key={rfid.id} className="px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg">
-                          <p className="font-mono text-xs font-medium text-blue-700">{rfid.rfid_tag}</p>
-                          <p className="text-[11px] text-gray-400 mt-0.5">{rfid.rfid_type}</p>
+                          <p className="text-xs font-medium text-blue-700">{rfid.warehouse_number}</p>
+                          <p className="font-mono text-[11px] text-gray-400 mt-0.5">{rfid.rfid_tag}</p>
+                          <p className="text-[11px] text-gray-400">{rfid.rfid_type}</p>
                         </div>
                       ))}
                     </div>

@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 const dbSuperAdmin = require("../db");
 const upload = require("../middleware/upload");
 const logAudit = require("../middleware/auditLogger");
+const formatPaymentMethod = require('../helpers/formatPaymentMethod');
 
 router.post("/add-member", upload.single("member_image"), async (req, res) => {
   console.log("Received req.body:", req.body);
@@ -47,11 +48,19 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
       "SELECT 1 FROM MembersAccounts WHERE rfid_tag = ? LIMIT 1",
       [rfid_tag]
     );
-    if (existing.length > 0) {
-      return res.status(400).json({ message: "RFID tag already exists." });
-    }
+ if (existing.length > 0) {
+  return res.status(400).json({ message: "RFID tag already exists." });
+}
 
-    const [adminData] = await dbSuperAdmin.promise().query(
+const [emailCheck] = await dbSuperAdmin.promise().query(
+  "SELECT 1 FROM MembersAccounts WHERE email = ? AND admin_id = ? LIMIT 1",
+  [email, admin_id]
+);
+if (emailCheck.length > 0) {
+  return res.status(409).json({ message: "This email is already registered in this gym." });
+}
+
+const [adminData] = await dbSuperAdmin.promise().query(
       "SELECT session_fee FROM AdminAccounts WHERE id = ? LIMIT 1",
       [admin_id]
     );
@@ -94,7 +103,7 @@ router.post("/add-member", upload.single("member_image"), async (req, res) => {
     `;
     await dbSuperAdmin.promise().query(insertTransactionSql, [
       admin_id, memberId, full_name, rfid_tag, paymentNumber,
-      payment_method.charAt(0).toUpperCase() + payment_method.slice(1).toLowerCase(),
+      formatPaymentMethod(payment_method),
       reference || null, staff_name, plan_name || null
     ]);
 
@@ -105,7 +114,7 @@ const insertMemberTxnSql = `
     `;
     await dbSuperAdmin.promise().query(insertMemberTxnSql, [
       memberId, admin_id, rfid_tag, full_name, "new_member", paymentNumber, initialBalance, initialBalance,
-      payment_method.charAt(0).toUpperCase() + payment_method.slice(1).toLowerCase(),
+      formatPaymentMethod(payment_method),
       reference || null, 1.0, staff_name, plan_name || null
     ]);
 
@@ -127,14 +136,24 @@ const insertMemberTxnSql = `
       profile_image_url: profileImage, initial_balance: initialBalance, balance_after: initialBalance,
       payment: paymentNumber, status: memberStatus, minimum_session_fee: minimumSessionFee
     });
-  } catch (err) {
+} catch (err) {
     console.error("❌ Error adding member:", err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      if (err.sqlMessage.includes('email')) {
+        return res.status(409).json({ message: "This email is already registered in this gym." });
+      }
+      if (err.sqlMessage.includes('rfid_tag')) {
+        return res.status(409).json({ message: "This RFID tag is already in use." });
+      }
+      return res.status(409).json({ message: "Duplicate entry detected." });
+    }
     return res.status(500).json({ message: "Server error while adding member." });
   }
 });
 
 
-router.post("/add-subscription-member", upload.single("member_image"), async (req, res) => {
+router.post("/add-subscription-member",
+  upload.single("member_image"), async (req, res) => {
   console.log("Received req.body:", req.body);
   console.log("Received req.file:", req.file);
 
@@ -169,8 +188,16 @@ router.post("/add-subscription-member", upload.single("member_image"), async (re
     const [existing] = await dbSuperAdmin.promise().query(
       "SELECT 1 FROM MembersAccounts WHERE rfid_tag = ? LIMIT 1", [rfid_tag]
     );
-    if (existing.length > 0) {
+if (existing.length > 0) {
       return res.status(400).json({ message: "RFID tag already exists." });
+    }
+
+    const [emailCheck] = await dbSuperAdmin.promise().query(
+      "SELECT 1 FROM MembersAccounts WHERE email = ? AND admin_id = ? LIMIT 1",
+      [email, admin_id]
+    );
+    if (emailCheck.length > 0) {
+      return res.status(409).json({ message: "This email is already registered in this gym." });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -209,7 +236,7 @@ router.post("/add-subscription-member", upload.single("member_image"), async (re
     `;
     await dbSuperAdmin.promise().query(insertTxnSql, [
       admin_id, memberId, full_name, rfid_tag, paymentNumber,
-      payment_method.charAt(0).toUpperCase() + payment_method.slice(1).toLowerCase(),
+      formatPaymentMethod(payment_method),
       reference || null, staff_name, plan_name || 'Membership Fee'
     ]);
 
@@ -221,7 +248,7 @@ const insertMemberTxnSql = `
     `;
     await dbSuperAdmin.promise().query(insertMemberTxnSql, [
       memberId, admin_id, rfid_tag, full_name, "new_member", paymentNumber,
-      payment_method.charAt(0).toUpperCase() + payment_method.slice(1).toLowerCase(),
+      formatPaymentMethod(payment_method),
       reference || null, staff_name, plan_name || 'Membership Fee'
     ]);
 
@@ -240,8 +267,17 @@ const insertMemberTxnSql = `
       rfid_tag, full_name, status: 'inactive', payment: paymentNumber,
       note: "Member needs subscription renewal to become active"
     });
-  } catch (err) {
+} catch (err) {
     console.error("❌ Subscription add error:", err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      if (err.sqlMessage.includes('email')) {
+        return res.status(409).json({ message: "This email is already registered in this gym." });
+      }
+      if (err.sqlMessage.includes('rfid_tag')) {
+        return res.status(409).json({ message: "This RFID tag is already in use." });
+      }
+      return res.status(409).json({ message: "Duplicate entry detected." });
+    }
     return res.status(500).json({ message: "Server error while adding subscription member." });
   }
 });

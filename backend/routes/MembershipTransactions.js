@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
 const logAudit = require("../middleware/auditLogger");
+const paymentMethodFormatted = formatPaymentMethod(payment_Method);
 
 router.get("/member-by-rfid/:rfid", async (req, res) => {
   const { rfid } = req.params;
@@ -79,8 +80,7 @@ if (
     return res.status(400).json({ message: "All fields are required." });
   }
 
-  const paymentMethodFormatted = payment_Method.charAt(0).toUpperCase() + payment_Method.slice(1).toLowerCase();
-  const paymentNumber = parseFloat(payment);
+const paymentMethodFormatted = formatPaymentMethod(payment_Method);  const paymentNumber = parseFloat(payment);
 
   if (isNaN(paymentNumber)) {
     return res.status(400).json({ message: "Invalid payment amount." });
@@ -168,7 +168,7 @@ const updateSql = `
       rfid_tag,
       paymentNumber,
       paymentMethodFormatted,
-      paymentMethodFormatted.toLowerCase() === "gcash" ? reference : null,
+      paymentMethodFormatted !== "Cash" ? reference : null,
       staff_name,
       plan_name
     ]);
@@ -187,7 +187,7 @@ const insertMemberTxnSql = `
       full_name,
       paymentNumber,
       paymentMethodFormatted,
-      paymentMethodFormatted.toLowerCase() === "gcash" ? reference : null,
+      paymentMethodFormatted !== "Cash" ? reference : null,
       staff_name,
       subscription_type,
       formattedStart,
@@ -283,7 +283,7 @@ await dbSuperAdmin.promise().query(
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Tapup', ?)`,
       [
         admin_id, memberId, full_name, rfid_tag, amount_to_pay, payment_method,
-        payment_method.toLowerCase() === "gcash" ? reference : null,
+        formatPaymentMethod(payment_method) !== "Cash" ? reference : null,
         staff_name, plan_name
       ]
     );
@@ -295,8 +295,8 @@ await dbSuperAdmin.promise().query(
        VALUES (?, ?, ?, ?, 'top_up', ?, ?, ?, ?, ?, 1.00, ?, ?)`,
       [
         memberId, admin_id, currentRfid, full_name, amount_to_pay, amount_to_credit, newBalance,
-        payment_method,
-        payment_method.toLowerCase() === "gcash" ? reference : null,
+formatPaymentMethod(payment_method),
+formatPaymentMethod(payment_method) !== "Cash" ? reference : null,
         staff_name, plan_name
       ]
     );

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
 const logAudit = require("../middleware/auditLogger");
+const formatPaymentMethod = require('../helpers/formatPaymentMethod');
 
 router.put("/replace-member-rfid/:id", async (req, res) => {
   const memberId = req.params.id;
@@ -112,8 +113,8 @@ const updateSql = `
       member.full_name,
       new_rfid_tag,
       replacement_fee || 0,
-      payment_method || "Cash",
-      payment_method?.toLowerCase() === "gcash" ? reference : null,
+formatPaymentMethod(payment_method || "Cash"),
+formatPaymentMethod(payment_method || "Cash") !== "Cash" ? reference : null,
       staff_name,
     ]);
 
@@ -129,8 +130,8 @@ const memberTxnSql = `
       new_rfid_tag,
       member.full_name,
       replacement_fee || 0,
-      payment_method || "Cash",
-      payment_method?.toLowerCase() === "gcash" ? reference : null,
+formatPaymentMethod(payment_method || "Cash"),
+formatPaymentMethod(payment_method || "Cash") !== "Cash" ? reference : null,
       staff_name,
       member.subscription_type || null,
     ]);

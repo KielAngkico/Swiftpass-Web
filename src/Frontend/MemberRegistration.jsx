@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { API_URL } from "../config";
+import { useToast } from '../components/ToastManager';
 
 const MemberRegistration = () => {
   const [showTerms, setShowTerms] = useState(false);
@@ -9,8 +10,9 @@ const MemberRegistration = () => {
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [gyms, setGyms] = useState([]);
   const [selectedGym, setSelectedGym] = useState(null);
-  const termsContentRef = useRef(null);
-
+const termsContentRef = useRef(null);
+  const { showToast } = useToast();
+  const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     full_name: '',
     gender: '',
@@ -37,8 +39,9 @@ const MemberRegistration = () => {
     }
   };
 
-  const handleChange = (e) => {
+const handleChange = (e) => {
     const { name, value } = e.target;
+    setErrors(prev => ({ ...prev, [name]: '' }));
 
     if (name === 'gym_code_input') {
       const upper = value.toUpperCase();
@@ -62,20 +65,56 @@ const MemberRegistration = () => {
     }
   }, [showTerms]);
 
+const validate = () => {
+    const e = {};
+    if (!formData.full_name.trim()) e.full_name = 'Full name is required';
+    else if (!/^[a-zA-Z\s\-']+$/.test(formData.full_name.trim())) e.full_name = 'Letters and spaces only';
+    else if (formData.full_name.trim().length < 2) e.full_name = 'Minimum 2 characters';
+
+    if (!formData.gender) e.gender = 'Gender is required';
+
+    if (!formData.age) e.age = 'Age is required';
+    else if (formData.age < 10 || formData.age > 100) e.age = 'Age must be between 10 and 100';
+
+    if (!formData.phone_number.trim()) e.phone_number = 'Phone number is required';
+    else if (!/^09\d{9}$/.test(formData.phone_number)) e.phone_number = 'Must be 09XXXXXXXXX format';
+
+    if (!formData.email.trim()) e.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = 'Invalid email address';
+
+    if (!formData.address.trim()) e.address = 'Address is required';
+    else if (formData.address.trim().length < 10) e.address = 'Minimum 10 characters';
+
+    if (!formData.emergency_contact_person.trim()) e.emergency_contact_person = 'Contact person is required';
+    else if (!/^[a-zA-Z\s\-']+$/.test(formData.emergency_contact_person.trim())) e.emergency_contact_person = 'Letters and spaces only';
+
+    if (!formData.emergency_contact_number.trim()) e.emergency_contact_number = 'Contact number is required';
+    else if (!/^09\d{9}$/.test(formData.emergency_contact_number)) e.emergency_contact_number = 'Must be 09XXXXXXXXX format';
+
+    if (!formData.emergency_contact_relationship.trim()) e.emergency_contact_relationship = 'Relationship is required';
+    else if (!/^[a-zA-Z\s\-']+$/.test(formData.emergency_contact_relationship.trim())) e.emergency_contact_relationship = 'Letters and spaces only';
+
+    if (!formData.gym_code_input.trim()) e.gym_code_input = 'Gym code is required';
+    else if (!selectedGym) e.gym_code_input = 'Gym code not found';
+
+    return e;
+  };
+
   const handleSubmit = async () => {
-    if (!termsAccepted) { alert('Please accept the terms and conditions'); return; }
-    const gymCode = formData.gym_code_input?.trim().toUpperCase();
-    if (!gymCode) { alert('Please enter a gym code'); return; }
+    if (!termsAccepted) { showToast({ message: 'Please accept the terms and conditions', type: 'error' }); return; }
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      showToast({ message: 'Please fix the errors below', type: 'error' });
+      return;
+    }
+    setErrors({});
 
     try {
-      const gymRes = await fetch(`${API_URL}/api/gym-by-code/${gymCode}`);
-      const gymData = await gymRes.json();
-      if (!gymRes.ok) { alert('Gym code not found. Please check and try again.'); return; }
-
       const response = await fetch(`${API_URL}/api/member-registration`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, admin_id: gymData.id, password: 'pass123' })
+        body: JSON.stringify({ ...formData, admin_id: selectedGym.id, password: 'pass123' })
       });
 
       const data = await response.json();
@@ -83,10 +122,10 @@ const MemberRegistration = () => {
         setRegistrationNumber(data.registration_number);
         setSubmitStatus('success');
       } else {
-        alert(data.error || 'Registration failed');
+        showToast({ message: data.error || 'Registration failed', type: 'error' });
       }
     } catch (error) {
-      alert(`Network error: ${error.message}`);
+      showToast({ message: `Network error: ${error.message}`, type: 'error' });
     }
   };
 
@@ -128,56 +167,61 @@ const MemberRegistration = () => {
 
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Full Name</label>
-                <input type="text" name="full_name" value={formData.full_name} onChange={handleChange}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Full name" required />
+<input type="text" name="full_name" value={formData.full_name} onChange={handleChange}
+                  className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.full_name ? 'border-red-400' : 'border-gray-200'}`}
+                  placeholder="Full name" />
+                {errors.full_name && <p className="text-xs text-red-500 mt-1">{errors.full_name}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Gender</label>
-                  <select name="gender" value={formData.gender} onChange={handleChange}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" required>
+<select name="gender" value={formData.gender} onChange={handleChange}
+                    className={`w-full bg-white border rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.gender ? 'border-red-400' : 'border-gray-200'}`}>
                     <option value="">Select</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
-                   
                   </select>
+                  {errors.gender && <p className="text-xs text-red-500 mt-1">{errors.gender}</p>}
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Age</label>
-                  <input type="number" name="age" value={formData.age} onChange={handleChange}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Age" required />
+<input type="number" name="age" value={formData.age} onChange={handleChange}
+                    className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.age ? 'border-red-400' : 'border-gray-200'}`}
+                    placeholder="Age" />
+                  {errors.age && <p className="text-xs text-red-500 mt-1">{errors.age}</p>}
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Phone Number</label>
-                <input type="text" name="phone_number" value={formData.phone_number} onChange={handleChange}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g. 09123456789" required />
+<input type="text" name="phone_number" value={formData.phone_number} onChange={handleChange}
+                  className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.phone_number ? 'border-red-400' : 'border-gray-200'}`}
+                  placeholder="e.g. 09123456789" />
+                {errors.phone_number && <p className="text-xs text-red-500 mt-1">{errors.phone_number}</p>}
               </div>
 
 <div>
                 <label className="block text-xs text-gray-500 mb-1">Email Address</label>
-                <input type="email" name="email" value={formData.email} onChange={handleChange}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="you@example.com" required />
+<input type="email" name="email" value={formData.email} onChange={handleChange}
+                  className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.email ? 'border-red-400' : 'border-gray-200'}`}
+                  placeholder="you@example.com" />
+                {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
               </div>
 
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Address</label>
-                <textarea name="address" value={formData.address} onChange={handleChange}
+<textarea name="address" value={formData.address} onChange={handleChange}
                   placeholder="Enter your address" rows={2}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+                  className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.address ? 'border-red-400' : 'border-gray-200'}`} />
+                {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
               </div>
                 <div>
                 <label className="block text-xs text-gray-500 mb-1">Gym Code</label>
-                <input type="text" name="gym_code_input" value={formData.gym_code_input || ''}
+<input type="text" name="gym_code_input" value={formData.gym_code_input || ''}
                   onChange={handleChange} placeholder="e.g. AFTS" maxLength={10}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 uppercase"
-                  required />
+                  className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 uppercase ${errors.gym_code_input ? 'border-red-400' : 'border-gray-200'}`} />
+                {errors.gym_code_input && <p className="text-xs text-red-500 mt-1">{errors.gym_code_input}</p>}
               </div>
             </div>
 
@@ -189,23 +233,26 @@ const MemberRegistration = () => {
 
   <div>
     <label className="block text-xs text-gray-500 mb-1">Contact Person</label>
-    <input type="text" name="emergency_contact_person" value={formData.emergency_contact_person}
+<input type="text" name="emergency_contact_person" value={formData.emergency_contact_person}
       onChange={handleChange} placeholder="Full name"
-      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+      className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.emergency_contact_person ? 'border-red-400' : 'border-gray-200'}`} />
+    {errors.emergency_contact_person && <p className="text-xs text-red-500 mt-1">{errors.emergency_contact_person}</p>}
   </div>
 
   <div>
     <label className="block text-xs text-gray-500 mb-1">Contact Number</label>
-    <input type="text" name="emergency_contact_number" value={formData.emergency_contact_number}
+<input type="text" name="emergency_contact_number" value={formData.emergency_contact_number}
       onChange={handleChange} placeholder="Phone number"
-      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+      className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.emergency_contact_number ? 'border-red-400' : 'border-gray-200'}`} />
+    {errors.emergency_contact_number && <p className="text-xs text-red-500 mt-1">{errors.emergency_contact_number}</p>}
   </div>
 
   <div>
     <label className="block text-xs text-gray-500 mb-1">Relationship</label>
-    <input type="text" name="emergency_contact_relationship" value={formData.emergency_contact_relationship}
+<input type="text" name="emergency_contact_relationship" value={formData.emergency_contact_relationship}
       onChange={handleChange} placeholder="e.g. Mother, Father, Spouse"
-      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+      className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.emergency_contact_relationship ? 'border-red-400' : 'border-gray-200'}`} />
+    {errors.emergency_contact_relationship && <p className="text-xs text-red-500 mt-1">{errors.emergency_contact_relationship}</p>}
   </div>
 </div>
 

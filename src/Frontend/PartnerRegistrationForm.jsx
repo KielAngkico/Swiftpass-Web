@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { API_URL } from "../config";
+import { useToast } from '../components/ToastManager';
 
 const PartnerRegistration = () => {
   const [showTerms, setShowTerms] = useState(false);
@@ -11,8 +12,9 @@ const PartnerRegistration = () => {
   const [packages, setPackages] = useState([]);
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const termsContentRef = useRef(null);
-
+const termsContentRef = useRef(null);
+  const { showToast } = useToast();
+  const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     gym_name: '',
     admin_name: '',
@@ -41,6 +43,7 @@ const PartnerRegistration = () => {
 // In handleChange, keep as-is but also grab hardware modules
 const handleChange = (e) => {
   const { name, value } = e.target;
+  setErrors(prev => ({ ...prev, [name]: '' }));
   setFormData({ ...formData, [name]: value });
   if (name === 'package_id') {
     const pkg = packages.find(p => p.id === parseInt(value));
@@ -48,9 +51,18 @@ const handleChange = (e) => {
   }
 };
 
-  const handleImageChange = (e) => {
+const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        showToast({ message: 'Only JPG, PNG, or WEBP images are allowed', type: 'error' });
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast({ message: 'Image must be under 5MB', type: 'error' });
+        return;
+      }
+      setErrors(prev => ({ ...prev, profile_image_url: '' }));
       setFormData({ ...formData, profile_image_url: file });
       setImagePreview(URL.createObjectURL(file));
     }
@@ -70,9 +82,37 @@ const handleChange = (e) => {
     }
   }, [showTerms]);
 
+const validate = () => {
+    const e = {};
+    if (!formData.gym_name.trim()) e.gym_name = 'Gym name is required';
+    else if (formData.gym_name.trim().length < 3) e.gym_name = 'Minimum 3 characters';
+
+    if (!formData.address.trim()) e.address = 'Address is required';
+    else if (formData.address.trim().length < 10) e.address = 'Minimum 10 characters';
+
+    if (!formData.admin_name.trim()) e.admin_name = 'Admin name is required';
+    else if (!/^[a-zA-Z\s\-']+$/.test(formData.admin_name.trim())) e.admin_name = 'Letters and spaces only';
+    else if (formData.admin_name.trim().length < 2) e.admin_name = 'Minimum 2 characters';
+
+    if (!formData.email.trim()) e.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = 'Invalid email address';
+
+    if (!formData.system_type) e.system_type = 'Please select a system type';
+
+    if (!formData.package_id) e.package_id = 'Please select a package';
+
+    return e;
+  };
+
   const handleSubmit = async () => {
-    if (!termsAccepted) { alert('Please accept the terms and conditions'); return; }
-    if (!formData.package_id) { alert('Please select a package'); return; }
+    if (!termsAccepted) { showToast({ message: 'Please accept the terms and conditions', type: 'error' }); return; }
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      showToast({ message: 'Please fix the errors below', type: 'error' });
+      return;
+    }
+    setErrors({});
 
     const payload = new FormData();
     Object.keys(formData).forEach(key => {
@@ -86,10 +126,10 @@ const handleChange = (e) => {
         setRegistrationNumber(data.registration_number);
         setSubmitStatus('success');
       } else {
-        alert(data.error || 'Registration failed');
+        showToast({ message: data.error || 'Registration failed', type: 'error' });
       }
     } catch (error) {
-      alert(`Network error: ${error.message}`);
+      showToast({ message: `Network error: ${error.message}`, type: 'error' });
     }
   };
 
@@ -137,9 +177,9 @@ const handleChange = (e) => {
                   value={formData.gym_name}
                   onChange={handleChange}
                   placeholder="e.g. Iron Peak Fitness"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  required
+className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.gym_name ? 'border-red-400' : 'border-gray-200'}`}
                 />
+                {errors.gym_name && <p className="text-xs text-red-500 mt-1">{errors.gym_name}</p>}
               </div>
 
               <div>
@@ -150,9 +190,9 @@ const handleChange = (e) => {
                   onChange={handleChange}
                   rows="3"
                   placeholder="Full address"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  required
+className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none ${errors.address ? 'border-red-400' : 'border-gray-200'}`}
                 />
+                {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
               </div>
 
               <div>
@@ -162,10 +202,10 @@ const handleChange = (e) => {
                   name="admin_name"
                   value={formData.admin_name}
                   onChange={handleChange}
-                  placeholder="Full name"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  required
+placeholder="Full name"
+                  className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.admin_name ? 'border-red-400' : 'border-gray-200'}`}
                 />
+                {errors.admin_name && <p className="text-xs text-red-500 mt-1">{errors.admin_name}</p>}
               </div>
 
               <div>
@@ -175,10 +215,10 @@ const handleChange = (e) => {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="you@example.com"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  required
+placeholder="you@example.com"
+                  className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.email ? 'border-red-400' : 'border-gray-200'}`}
                 />
+                {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
               </div>
 
               <div>
@@ -200,17 +240,17 @@ const handleChange = (e) => {
                   </div>
                 )}
 
-                <select
+<select
                   name="system_type"
                   value={formData.system_type}
                   onChange={handleChange}
-                  className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  required
+                  className={`w-full bg-white border rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.system_type ? 'border-red-400' : 'border-gray-200'}`}
                 >
                   <option value="">Select system type</option>
                   <option value="subscription">Subscription Membership</option>
                   <option value="prepaid_entry">Prepaid Entry</option>
                 </select>
+                {errors.system_type && <p className="text-xs text-red-500 mt-1">{errors.system_type}</p>}
               </div>
             </div>
 
@@ -219,12 +259,11 @@ const handleChange = (e) => {
 
   <div>
     <label className="block text-xs text-gray-500 mb-1">Select Package</label>
-    <select
+<select
       name="package_id"
       value={formData.package_id}
       onChange={handleChange}
-      className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-      required
+      className={`w-full bg-white border rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.package_id ? 'border-red-400' : 'border-gray-200'}`}
     >
       <option value="">Select a package</option>
       {packages
@@ -235,6 +274,7 @@ const handleChange = (e) => {
           </option>
         ))}
     </select>
+{errors.package_id && <p className="text-xs text-red-500 mt-1">{errors.package_id}</p>}
   </div>
 
   {selectedPackage ? (

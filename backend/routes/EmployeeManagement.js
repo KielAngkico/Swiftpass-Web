@@ -24,10 +24,13 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
       return res.status(400).json({ message: "Email must be a valid Gmail address." });
     }
 
-    const [existing] = await conn.query("SELECT * FROM StaffAccounts WHERE email = ?", [email]);
+const [existing] = await conn.query(
+      "SELECT 1 FROM StaffAccounts WHERE email = ? AND admin_id = ? LIMIT 1",
+      [email, admin_id]
+    );
     if (existing.length > 0) {
       await conn.rollback();
-      return res.status(400).json({ message: "Email already exists. Use a different one." });
+      return res.status(409).json({ message: "This email is already registered under this gym." });
     }
 
     if (rfid_tag && rfid_tag.trim() !== "") {
@@ -108,16 +111,23 @@ router.post("/add-employee", staffUpload.single("profile_image"), async (req, re
       rfid_tag: rfid_tag || null,
     });
 
-  } catch (err) {
+} catch (err) {
     await conn.rollback();
     console.error("Add employee error:", err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      if (err.sqlMessage.includes('email')) {
+        return res.status(409).json({ message: "This email is already registered under this gym." });
+      }
+      return res.status(409).json({ message: "Duplicate entry detected." });
+    }
     res.status(500).json({ message: "Server error adding employee." });
   } finally {
     conn.release();
   }
 });
 
-router.put("/update-employee/:id", staffUpload.single("profile_image"), async (req, res) => {
+router.put("/update-employee/:id",
+  staffUpload.single("profile_image"), async (req, res) => {
   const employeeId = req.params.id;
 
   try {
@@ -132,13 +142,13 @@ router.put("/update-employee/:id", staffUpload.single("profile_image"), async (r
       return res.status(404).json({ error: "Employee not found" });
     }
 
-    if (email !== currentEmployee[0].email) {
+if (email !== currentEmployee[0].email) {
       const [existingEmail] = await dbSuperAdmin.promise().query(
-        "SELECT * FROM StaffAccounts WHERE email = ? AND id != ?",
-        [email, employeeId]
+        "SELECT 1 FROM StaffAccounts WHERE email = ? AND admin_id = ? AND id != ? LIMIT 1",
+        [email, currentEmployee[0].admin_id, employeeId]
       );
       if (existingEmail.length > 0) {
-        return res.status(400).json({ message: "Email already exists. Use a different one." });
+        return res.status(400).json({ message: "This email is already registered under this gym." });
       }
     }
 
@@ -179,13 +189,20 @@ router.put("/update-employee/:id", staffUpload.single("profile_image"), async (r
 
     res.json({ message: "Employee updated successfully", profile_image_url });
 
-  } catch (error) {
+} catch (error) {
     console.error("Update employee error:", error);
-    res.status(500).json({ error: "Server error" });
+    if (error.code === 'ER_DUP_ENTRY') {
+      if (error.sqlMessage.includes('email')) {
+        return res.status(409).json({ message: "This email is already registered under this gym." });
+      }
+      return res.status(409).json({ message: "Duplicate entry detected." });
+    }
+    res.status(500).json({ message: "Server error updating employee." });
   }
 });
 
-router.put("/replace-employee-rfid/:id", async (req, res) => {
+router.put("/replace-employee-rfid/:id",
+  async (req, res) => {
   const employeeId = req.params.id;
   const { new_rfid_tag } = req.body;
 

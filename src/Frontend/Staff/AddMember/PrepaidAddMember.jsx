@@ -162,8 +162,38 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+const validate = () => {
+    if (!formData.full_name.trim()) return 'Full name is required';
+    if (!/^[a-zA-Z\s\-']+$/.test(formData.full_name.trim())) return 'Full name must be letters and spaces only';
+
+    if (!formData.email.trim()) return 'Email is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) return 'Invalid email address';
+
+    if (!formData.phone_number.trim()) return 'Phone number is required';
+    if (!/^09\d{9}$/.test(formData.phone_number)) return 'Must be a valid PH number (09XXXXXXXXX)';
+
+    if (!formData.age) return 'Age is required';
+    if (formData.age < 10 || formData.age > 100) return 'Age must be between 10 and 100';
+
+    if (!formData.gender) return 'Gender is required';
+
+    if (!formData.address.trim()) return 'Address is required';
+    if (formData.address.trim().length < 10) return 'Address must be at least 10 characters';
+
+    if (!formData.payment_method) return 'Payment method is required';
+    if (formData.payment_method !== 'cash' && !formData.reference.trim()) return 'Reference number is required';
+
+    if (formData.emergency_contact_number && !/^09\d{9}$/.test(formData.emergency_contact_number)) {
+      return 'Emergency contact number must be a valid PH number (09XXXXXXXXX)';
+    }
+
+    return null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const error = validate();
+    if (error) { showToast({ message: error, type: 'error' }); return; }
     if (!staffName || !adminId) {
       showToast({ message: "Staff info missing. Please login again.", type: "error" });
       return;
@@ -395,7 +425,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
           <div className="flex flex-col gap-4 h-full self-stretch">
             <p className="text-sm font-medium text-gray-900 pb-3 border-b border-gray-100">Profile Picture</p>
             <div className="flex flex-col items-center gap-3">
-              <div className="w-full aspect-square border border-gray-200 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
+              <div className="w-80 h-80 aspect-square border border-gray-200 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
                 {isWebcamActive ? (
                   <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
                 ) : imagePreview ? (

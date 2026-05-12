@@ -356,7 +356,7 @@ useEffect(() => {
           <div className="flex flex-col gap-3">
             <p className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">Member Preview</p>
             <div className="flex flex-col items-center gap-2">
-              <div className="w-70 h-70 border border-gray-200 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden flex-shrink-0">
+              <div className="w-80 h-80 border border-gray-200 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden flex-shrink-0">
                 {selectedMember?.member_image ? (
                   <img src={selectedMember.member_image} alt="Member Photo" className="w-full h-full object-cover" />
                 ) : (

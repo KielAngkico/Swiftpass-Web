@@ -134,52 +134,65 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
         [txn.insertId, pkg.name, 1, pkgPrice, pkgPrice]
       );
 
-      const timestamp = Date.now().toString().slice(-8);
-      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      const order_number = `ORD-${timestamp}${random}`;
+ // Recursively resolve all items including nested sub-packages
+      const resolveItemsWithPricing = async (packageId, visited = new Set()) => {
+        if (visited.has(packageId)) return [];
+        visited.add(packageId);
 
-      const [packageItems] = await conn.query(`
-        SELECT 
-          pi.item_name, 
-          pi.quantity,
-          si.selling_price as unit_price
-        FROM PackageItems pi
-        INNER JOIN SuperAdminInventory si ON pi.item_name = si.name
-        WHERE pi.package_id = ?
-      `, [pkgId]);
+        const [items] = await conn.query(
+          "SELECT * FROM PackageItems WHERE package_id = ?", [packageId]
+        );
 
-if (packageItems.length === 0) {
-  // Subscription-only packages have no physical items — skip order creation
-  console.log(`ℹ️ Package ${pkgId} is subscription-only, skipping order creation`);
-} else {
-  const calculatedTotal = packageItems.reduce((sum, item) =>
-    sum + (item.quantity * item.unit_price), 0
-  );
+        let resolved = [];
+        for (const item of items) {
+          if (item.sub_package_id) {
+            const childItems = await resolveItemsWithPricing(item.sub_package_id, visited);
+            resolved.push(...childItems);
+          } else if (item.item_name) {
+            const [[inv]] = await conn.query(
+              "SELECT selling_price FROM SuperAdminInventory WHERE name = ?",
+              [item.item_name]
+            );
+            resolved.push({ ...item, unit_price: inv?.selling_price ?? 0 });
+          }
+        }
+        return resolved;
+      };
 
-  const timestamp = Date.now().toString().slice(-8);
-  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  const order_number = `ORD-${timestamp}${random}`;
+      const resolvedItems = await resolveItemsWithPricing(pkgId);
+      const physicalItems = resolvedItems.filter(item => item.item_name);
 
-  const [orderResult] = await conn.query(`
-    INSERT INTO PartnerOrders 
-    (order_number, admin_id, order_type, total_amount, payment_status, status)
-    VALUES (?, ?, 'initial_package', ?, 'paid', 'pending')
-  `, [order_number, admin_id, calculatedTotal]);
+      if (physicalItems.length === 0) {
+        console.log(`ℹ️ Package ${pkgId} is subscription-only, skipping order creation`);
+      } else {
+        const calculatedTotal = physicalItems.reduce((sum, item) =>
+          sum + (item.quantity * (item.unit_price ?? 0)), 0
+        );
 
-  const order_id = orderResult.insertId;
+        const timestamp = Date.now().toString().slice(-8);
+        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        const order_number = `ORD-${timestamp}${random}`;
 
-  for (const item of packageItems) {
-    const subtotal = item.quantity * item.unit_price;
-    const itemType = getItemType(item.item_name);
-    await conn.query(`
-      INSERT INTO PartnerOrderItems 
-      (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
-      VALUES (?, ?, ?, ?, ?, ?, 'pending')
-    `, [order_id, item.item_name, itemType, item.quantity, item.unit_price, subtotal]);
-  }
+        const [orderResult] = await conn.query(`
+          INSERT INTO PartnerOrders 
+          (order_number, admin_id, order_type, total_amount, payment_status, status)
+          VALUES (?, ?, 'initial_package', ?, 'paid', 'pending')
+        `, [order_number, admin_id, calculatedTotal]);
 
-  console.log(` Created initial order ${order_number} for partner ${admin_id}`);
-}
+        const order_id = orderResult.insertId;
+
+        for (const item of physicalItems) {
+          const subtotal = item.quantity * (item.unit_price ?? 0);
+          const itemType = getItemType(item.item_name);
+          await conn.query(`
+            INSERT INTO PartnerOrderItems 
+            (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'pending')
+          `, [order_id, item.item_name, itemType, item.quantity, item.unit_price ?? 0, subtotal]);
+        }
+
+        console.log(`✅ Created initial order ${order_number} for partner ${admin_id} with ${physicalItems.length} items`);
+      }
  
     }
 

@@ -223,8 +223,42 @@ useEffect(() => {
     }, 10000);
   };
 
-  const handleSubmit = async (e) => {
+const validate = () => {
+    const e = {};
+    if (!formData.gym_name.trim()) e.gym_name = 'Gym name is required';
+    else if (formData.gym_name.trim().length < 3) e.gym_name = 'Minimum 3 characters';
+
+    if (!formData.gym_code.trim()) e.gym_code = 'Gym code is required';
+
+    if (!formData.address.trim()) e.address = 'Address is required';
+    else if (formData.address.trim().length < 10) e.address = 'Minimum 10 characters';
+
+    if (!formData.admin_name.trim()) e.admin_name = 'Admin name is required';
+    else if (!/^[a-zA-Z\s\-']+$/.test(formData.admin_name.trim())) e.admin_name = 'Letters and spaces only';
+
+    if (!formData.email.trim()) e.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = 'Invalid email address';
+
+    if (!formData.system_type) e.system_type = 'Please select a system type';
+
+    const isEditMode = modalMode === 'edit' && editingAdmin && !editingAdmin.registrationNumber;
+    if (!isEditMode && !formData.package_id) e.package_id = 'Please select a package';
+
+    if (!isEditMode && formData.payment_method && formData.payment_method !== 'Cash') {
+      if (!formData.reference_number?.trim()) e.reference_number = 'Reference number is required';
+    }
+
+    return e;
+  };
+
+const handleSubmit = async (e) => {
     e.preventDefault();
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      const first = Object.values(validationErrors)[0];
+      showToast({ message: first, type: 'error' });
+      return;
+    }
     try {
       if (modalMode === "edit" && editingAdmin && !editingAdmin.registrationNumber) {
         const formPayload = new FormData();

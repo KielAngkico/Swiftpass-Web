@@ -80,9 +80,10 @@ export const useWebcam = (showToast) => {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0);
       
-      canvas.toBlob((blob) => {
-const uniqueName = `captured-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.jpg`;
-const file = new File([blob], uniqueName, { type: "image/jpeg" });
+canvas.toBlob((blob) => {
+        const uniqueName = `captured-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.jpg`;
+        const file = new File([blob], uniqueName, { type: "image/jpeg" });
+        const preview = canvas.toDataURL('image/jpeg', 0.95);
         
         onCapture(file, preview);
         stopWebcam();

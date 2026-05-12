@@ -134,8 +134,9 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
         [txn.insertId, pkg.name, 1, pkgPrice, pkgPrice]
       );
 
- // Recursively resolve all items including nested sub-packages
-      const resolveItemsWithPricing = async (packageId, visited = new Set()) => {
+// Store one row per direct child (sub-package name or RFID item)
+      // Inventory deduction happens at process time, not here
+      const buildOrderItems = async (packageId, visited = new Set()) => {
         if (visited.has(packageId)) return [];
         visited.add(packageId);
 
@@ -143,30 +144,54 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
           "SELECT * FROM PackageItems WHERE package_id = ?", [packageId]
         );
 
-        let resolved = [];
+        let orderItems = [];
         for (const item of items) {
           if (item.sub_package_id) {
-            const childItems = await resolveItemsWithPricing(item.sub_package_id, visited);
-            resolved.push(...childItems);
+            // Check if this sub-package is itself a hardware module (leaf level)
+            const [[subPkg]] = await conn.query(
+              "SELECT id, name, price, package_type FROM SubscriptionPackages WHERE id = ?",
+              [item.sub_package_id]
+            );
+            if (subPkg && subPkg.package_type === 'hardware_module') {
+              // Store as a single module line item
+              orderItems.push({
+                item_name: subPkg.name,
+                sub_package_id: subPkg.id,
+                quantity: item.quantity,
+                unit_price: subPkg.price,
+                item_type: 'other'
+              });
+            } else {
+              // Go one level deeper (e.g. Hardware Kit Total → its modules)
+              const childItems = await buildOrderItems(item.sub_package_id, visited);
+              orderItems.push(...childItems);
+            }
           } else if (item.item_name) {
+            // Direct item (RFID cards, etc.) — look up inventory price
             const [[inv]] = await conn.query(
               "SELECT selling_price FROM SuperAdminInventory WHERE name = ?",
               [item.item_name]
             );
-            resolved.push({ ...item, unit_price: inv?.selling_price ?? 0 });
+            orderItems.push({
+              item_name: item.item_name,
+              sub_package_id: null,
+              quantity: item.quantity,
+              unit_price: inv?.selling_price ?? 0,
+              item_type: getItemType(item.item_name)
+            });
           }
         }
-        return resolved;
+        return orderItems;
       };
 
-      const resolvedItems = await resolveItemsWithPricing(pkgId);
-      const physicalItems = resolvedItems.filter(item => item.item_name);
+      const orderItems = await buildOrderItems(pkgId);
+      const hasPhysicalItems = orderItems.length > 0;
 
-      if (physicalItems.length === 0) {
+      if (!hasPhysicalItems) {
         console.log(`ℹ️ Package ${pkgId} is subscription-only, skipping order creation`);
       } else {
-        const calculatedTotal = physicalItems.reduce((sum, item) =>
-          sum + (item.quantity * (item.unit_price ?? 0)), 0
+        const calculatedTotal = orderItems.reduce((sum, item) =>
+          sum + (item.quantity * item.unit_price), 0
         );
 
         const timestamp = Date.now().toString().slice(-8);
@@ -181,17 +206,16 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
 
         const order_id = orderResult.insertId;
 
-        for (const item of physicalItems) {
-          const subtotal = item.quantity * (item.unit_price ?? 0);
-          const itemType = getItemType(item.item_name);
+        for (const item of orderItems) {
+          const subtotal = item.quantity * item.unit_price;
           await conn.query(`
             INSERT INTO PartnerOrderItems 
-            (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
-            VALUES (?, ?, ?, ?, ?, ?, 'pending')
-          `, [order_id, item.item_name, itemType, item.quantity, item.unit_price ?? 0, subtotal]);
+            (order_id, item_name, sub_package_id, item_type, quantity, unit_price, subtotal, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+          `, [order_id, item.item_name, item.sub_package_id, item.item_type, item.quantity, item.unit_price, subtotal]);
         }
 
-        console.log(`✅ Created initial order ${order_number} for partner ${admin_id} with ${physicalItems.length} items`);
+        console.log(`✅ Created initial order ${order_number} for partner ${admin_id} with ${orderItems.length} line items`);
       }
  
     }

@@ -121,15 +121,60 @@ router.post("/order-package", async (req, res) => {
 
     const order_id = orderResult.insertId;
 
-    // Flatten package items and store them as order items
-    const resolvedItems = await resolveItems(conn, package_id);
+// Store one row per direct child (module name or direct item) — same logic as add-client
+    const buildOrderItems = async (packageId, visited = new Set()) => {
+      if (visited.has(packageId)) return [];
+      visited.add(packageId);
 
-    for (const item of resolvedItems) {
+      const [items] = await conn.query(
+        "SELECT * FROM PackageItems WHERE package_id = ?", [packageId]
+      );
+
+      let orderItems = [];
+      for (const item of items) {
+        if (item.sub_package_id) {
+          const [[subPkg]] = await conn.query(
+            "SELECT id, name, price, package_type FROM SubscriptionPackages WHERE id = ?",
+            [item.sub_package_id]
+          );
+          if (subPkg && subPkg.package_type === 'hardware_module') {
+            orderItems.push({
+              item_name: subPkg.name,
+              sub_package_id: subPkg.id,
+              quantity: item.quantity,
+              unit_price: subPkg.price,
+              item_type: 'other'
+            });
+          } else {
+            const childItems = await buildOrderItems(item.sub_package_id, visited);
+            orderItems.push(...childItems);
+          }
+        } else if (item.item_name) {
+          const [[inv]] = await conn.query(
+            "SELECT selling_price FROM SuperAdminInventory WHERE name = ?",
+            [item.item_name]
+          );
+          orderItems.push({
+            item_name: item.item_name,
+            sub_package_id: null,
+            quantity: item.quantity,
+            unit_price: inv?.selling_price ?? 0,
+            item_type: getItemType(item.item_name)
+          });
+        }
+      }
+      return orderItems;
+    };
+
+    const orderItems = await buildOrderItems(package_id);
+
+    for (const item of orderItems) {
+      const subtotal = item.quantity * item.unit_price;
       await conn.query(`
         INSERT INTO PartnerOrderItems 
-        (order_id, item_name, item_type, quantity, unit_price, subtotal, status)
-        VALUES (?, ?, ?, ?, ?, ?, 'pending')
-      `, [order_id, item.item_name, getItemType(item.item_name), item.quantity, 0, 0]);
+        (order_id, item_name, sub_package_id, item_type, quantity, unit_price, subtotal, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+      `, [order_id, item.item_name, item.sub_package_id, item.item_type, item.quantity, item.unit_price, subtotal]);
     }
 
     await conn.commit();
@@ -620,8 +665,60 @@ router.put("/:id/process", async (req, res) => {
           item: item.item_name, type: 'RFID', requested: remainingQty,
           allocated: availableRfids.length, rfids: availableRfids.map(r => r.rfid_tag)
         });
+} else if (item.sub_package_id) {
+        // This is a hardware module — resolve its components and deduct each from inventory
+        const [components] = await conn.query(
+          "SELECT * FROM PackageItems WHERE package_id = ?", [item.sub_package_id]
+        );
+
+        let allComponentsAvailable = true;
+        let componentErrors = [];
+
+        // Check availability first before deducting anything
+        for (const component of components) {
+          if (!component.item_name) continue;
+          const needed = component.quantity * remainingQty;
+          const [[inv]] = await conn.query(
+            "SELECT id, quantity FROM SuperAdminInventory WHERE name = ?",
+            [component.item_name]
+          );
+          if (!inv || inv.quantity < needed) {
+            allComponentsAvailable = false;
+            componentErrors.push(`${component.item_name}: need ${needed}, have ${inv?.quantity || 0}`);
+          }
+        }
+
+        if (!allComponentsAvailable) {
+          allocationResults.push({
+            item: item.item_name, requested: remainingQty, allocated: 0,
+            error: `Insufficient components: ${componentErrors.join(', ')}`
+          });
+          continue;
+        }
+
+        // All components available — deduct them
+        for (const component of components) {
+          if (!component.item_name) continue;
+          const needed = component.quantity * remainingQty;
+          await conn.query(`
+            UPDATE SuperAdminInventory 
+            SET quantity = quantity - ?, updated_at = NOW()
+            WHERE name = ?
+          `, [needed, component.item_name]);
+        }
+
+        await conn.query(`
+          UPDATE PartnerOrderItems SET allocated_quantity = quantity, status = 'fully_allocated' WHERE id = ?
+        `, [item.id]);
+
+        allocationResults.push({
+          item: item.item_name, type: 'Hardware Module',
+          requested: remainingQty, allocated: remainingQty,
+          components: components.map(c => ({ name: c.item_name, deducted: c.quantity * remainingQty }))
+        });
 
       } else {
+        // Direct inventory item
         const [[inventoryItem]] = await conn.query(`
           SELECT id, name, quantity FROM SuperAdminInventory WHERE name = ?
         `, [item.item_name]);

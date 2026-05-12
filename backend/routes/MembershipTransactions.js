@@ -2,8 +2,7 @@ const express = require("express");
 const router = express.Router();
 const dbSuperAdmin = require("../db");
 const logAudit = require("../middleware/auditLogger");
-const paymentMethodFormatted = formatPaymentMethod(payment_Method);
-
+const formatPaymentMethod = require('../helpers/formatPaymentMethod');
 router.get("/member-by-rfid/:rfid", async (req, res) => {
   const { rfid } = req.params;
 

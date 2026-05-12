@@ -117,7 +117,7 @@ const payload = {
         payment_Method: paymentMethod.toLowerCase().includes("gcash") ? "gcash" : paymentMethod,
         reference: paymentMethod.toLowerCase().includes("gcash") ? reference || "" : null
       };
-
+      console.log("🔍 Renewal payload:", JSON.stringify(payload, null, 2));
       await api.post("/api/renew-subscription", payload);
 
       showToast({ message: "Subscription renewed successfully!", type: "success" });

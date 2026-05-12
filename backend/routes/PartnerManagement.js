@@ -184,7 +184,22 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
         return orderItems;
       };
 
-      const orderItems = await buildOrderItems(pkgId);
+      // If the package is itself a hardware module, store it as one line item
+      let orderItems = [];
+      const [[rootPkg]] = await conn.query(
+        "SELECT id, name, price, package_type FROM SubscriptionPackages WHERE id = ?", [pkgId]
+      );
+      if (rootPkg && rootPkg.package_type === 'hardware_module') {
+        orderItems = [{
+          item_name: rootPkg.name,
+          sub_package_id: rootPkg.id,
+          quantity: 1,
+          unit_price: rootPkg.price,
+          item_type: 'other'
+        }];
+      } else {
+        orderItems = await buildOrderItems(pkgId);
+      }
       const hasPhysicalItems = orderItems.length > 0;
 
       if (!hasPhysicalItems) {

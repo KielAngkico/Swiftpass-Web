@@ -166,7 +166,19 @@ router.post("/order-package", async (req, res) => {
       return orderItems;
     };
 
-    const orderItems = await buildOrderItems(package_id);
+   // If the ordered package is itself a hardware module, store it as one line item
+    let orderItems = [];
+    if (pkg.package_type === 'hardware_module') {
+      orderItems = [{
+        item_name: pkg.name,
+        sub_package_id: pkg.id,
+        quantity: 1,
+        unit_price: pkg.price,
+        item_type: 'other'
+      }];
+    } else {
+      orderItems = await buildOrderItems(package_id);
+    }
 
     for (const item of orderItems) {
       const subtotal = item.quantity * item.unit_price;

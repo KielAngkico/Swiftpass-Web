@@ -119,7 +119,8 @@ const payload = {
       reference: paymentMethod.toLowerCase().includes("gcash") || paymentMethod.toLowerCase() !== "cash" ? reference || "" : null
     };
 
-    try {
+    try 
+    {console.log("🔍 Tapup payload:", JSON.stringify(payload, null, 2));
       await api.post("/api/tapup-member", payload);
       showToast({ message: "Tap-up successful!", type: "success" });
       setMember(null);

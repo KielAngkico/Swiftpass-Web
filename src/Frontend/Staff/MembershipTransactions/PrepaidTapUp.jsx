@@ -70,9 +70,10 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
     if (!rfid || !adminId) return;
     setLoading(true);
     try {
-      const { data } = await api.get(`/api/member-by-rfid/${rfid}`);
+const { data } = await api.get(`/api/member-by-rfid/${rfid}`);
       if (data && data.system_type === "prepaid_entry") {
         data.admin_id = data.admin_id || adminId;
+        data.member_id = data.id;
         setMember(data);
       } else {
         setMember(null);
@@ -104,7 +105,8 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
     const amountToPay = selectedPlan?.amount_to_pay || parseFloat(customAmount);
     const amountToCredit = selectedPlan?.amount_to_credit || parseFloat(customAmount);
 
-    const payload = {
+const payload = {
+      member_id: member.member_id || member.id,
       rfid_tag: member.rfid_tag,
       full_name: member.full_name,
       admin_id: member.admin_id || adminId,

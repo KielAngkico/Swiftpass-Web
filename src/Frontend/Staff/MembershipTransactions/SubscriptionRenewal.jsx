@@ -66,13 +66,14 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
     }
   }, [rfid, adminId]);
 
-  const fetchMember = async () => {
+const fetchMember = async () => {
     if (!rfid || !adminId) return;
     setLoading(true);
     try {
       const { data } = await api.get(`/api/member-by-rfid/${rfid}`);
       if (data && data.system_type === "subscription") {
         data.admin_id = data.admin_id || adminId;
+        data.member_id = data.id;
         setMember(data);
       } else {
         setMember(null);
@@ -102,7 +103,8 @@ const SubscriptionRenewal = ({ rfid_tag, full_name, subscription_expiry, staffUs
       expiry.setDate(expiry.getDate() + selectedPlan.duration_in_days);
       const end = expiry.toISOString().split("T")[0];
 
-      const payload = {
+const payload = {
+        member_id: member.member_id || member.id,
         rfid_tag: member.rfid_tag,
         full_name: member.full_name,
         admin_id: member.admin_id || adminId,

@@ -17,7 +17,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
     phone_number: "",
     address: "",
     email: "",
-    password: "pass123",
+    password: "1234",
     payment_method: "",
     reference: "",
     emergency_contact_person: "",
@@ -108,7 +108,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
       phone_number: registration.phone_number || "",
       address: "",
       email: registration.email || "",
-      password: registration.password || "pass123",
+      password: registration.password || "1234",
       payment_method: "",
       reference: "",
       emergency_contact_person: registration.emergency_contact_person || "",
@@ -204,7 +204,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
 
       setFormData({
         full_name: "", gender: "", age: "", rfid_tag: "", phone_number: "",
-        address: "", email: "", password: "pass123", payment_method: "", reference: "",
+        address: "", email: "", password: "1234", payment_method: "", reference: "",
         emergency_contact_person: "", emergency_contact_number: "", emergency_contact_relationship: "",
       });
       setSelectedImage(null);

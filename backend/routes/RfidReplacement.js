@@ -57,7 +57,7 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
       });
     }
 
-    const updateSql = `
+const updateSql = `
       UPDATE MembersAccounts
       SET previous_rfid = ?, 
           rfid_tag = ?, 
@@ -73,7 +73,14 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
       member_id: memberId
     });
 
-// Mark old RFID as replaced
+    await dbSuperAdmin.promise().query(updateSql, [
+      oldRfid,
+      new_rfid_tag,
+      staff_name,
+      memberId,
+    ]);
+
+    // Mark old RFID as replaced
     await dbSuperAdmin.promise().query(
       `UPDATE RegisteredRfid
        SET status = 'replaced',

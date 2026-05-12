@@ -322,11 +322,8 @@ router.put("/:id/complete-with-payment", async (req, res) => {
       WHERE id = ?
     `, [id]);
 
-await conn.query(`
-      UPDATE RegisteredRfid 
-      SET status = 'in_use'
-      WHERE order_id = ? AND status = 'allocated'
-    `, [id]);
+// RFIDs stay as 'allocated' until assigned to a specific member
+// status = 'in_use' is only set when a member is actually registered with the card
 
     // ── Extend subscription if this order has a package with duration_days ──
     if (order.package_id) {

@@ -220,47 +220,51 @@ const AddPartnerModal = ({
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">
-                  Package / Promo {!isEditMode && <span className="text-red-500">*</span>}
-                </label>
-                <select
-                  name="package_id"
-                  value={formData.package_id || ""}
-                  onChange={onFormChange}
-                  className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  required={!isEditMode}
-                >
-                  <option value="">Select package</option>
-                  {formData.packages?.map((pkg) => (
-                    <option key={pkg.id} value={pkg.id}>
-                      {pkg.name} — ₱{parseFloat(pkg.price).toLocaleString("en-PH", { minimumFractionDigits: 2 })} ({pkg.duration_days} days)
-                    </option>
-                  ))}
-                </select>
-              </div>
+{!isEditMode && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Package / Promo <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="package_id"
+                    value={formData.package_id || ""}
+                    onChange={onFormChange}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="">Select package</option>
+                    {formData.packages?.map((pkg) => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.name} — ₱{parseFloat(pkg.price).toLocaleString("en-PH", { minimumFractionDigits: 2 })} ({pkg.duration_days} days)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">
-                  Payment Method {!isEditMode && <span className="text-red-500">*</span>}
-                </label>
-                <select
-                  name="payment_method"
-                  value={formData.payment_method || "Cash"}
-                  onChange={onFormChange}
-                  className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  required={!isEditMode}
-                >
-                  <option value="Cash">Cash</option>
-                  {formData.paymentOptions?.map((option) => (
-                    <option key={option.id} value={option.payment_method}>
-                      {option.payment_method}
-                    </option>
-                  ))}
-                </select>
-              </div>
+ {!isEditMode && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Payment Method <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="payment_method"
+                    value={formData.payment_method || "Cash"}
+                    onChange={onFormChange}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="Cash">Cash</option>
+                    {formData.paymentOptions?.map((option) => (
+                      <option key={option.id} value={option.payment_method}>
+                        {option.payment_method}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              {formData.payment_method && formData.payment_method !== "Cash" && (
+              {!isEditMode && formData.payment_method && formData.payment_method !== "Cash" && (
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">
                     Reference Number <span className="text-red-500">*</span>

@@ -301,6 +301,15 @@ if (partnerScanModeEnabled) {
     return;
   }
 
+// Block non-Partner cards when scan mode is active
+  if (scanModeEnabled && role !== "Partner") {
+    showToast({ 
+      message: "Invalid card — please use a Partner RFID card", 
+      type: "error" 
+    });
+    return;
+  }
+
   // Duplicate check
   if (rfid_tag === lastProcessedRfid.current) {
     console.log("⏭️ Skipping duplicate RFID scan");

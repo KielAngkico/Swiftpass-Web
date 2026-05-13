@@ -10,7 +10,8 @@ const {
 } = require("./handlers");
 const {
   getRfidAllocation,
-  validateScanModeRfid
+  validateScanModeRfid,
+  validateReplacementRfid
 } = require("./rfidAllocationHelper");
 
 let connectedClients = [];
@@ -671,7 +672,7 @@ if (location.toUpperCase() === "STAFF") {
   if (targetAdminId && adminScanModes.replacement?.[targetAdminId]) {
     console.log("🔄 REPLACEMENT SCAN MODE ACTIVE");
 
-    const validation = await validateScanModeRfid(rfid_tag, targetAdminId);
+const validation = await validateReplacementRfid(rfid_tag, targetAdminId);
 
     if (!validation.valid) {
       broadcastToClients({
@@ -763,6 +764,10 @@ if (location.toUpperCase() === "STAFF") {
   
     // ✅ NEW: No existing DayPass guest — new registration
     console.log("🆕 New DayPass registration");
+const [[daypassRfidRow]] = await dbSuperAdmin.promise().query(
+      `SELECT customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'DayPass' LIMIT 1`,
+      [rfid_tag]
+    );
     broadcastToClients({
       type: "staff-scan",
       data: {
@@ -771,6 +776,7 @@ if (location.toUpperCase() === "STAFF") {
         reason: "Ready for new DayPass registration",
         rfid_type: allocation.rfid_type,
         role: allocation.role,
+        customer_number_display: daypassRfidRow?.customer_number_display || null,
         location,
         admin_id: targetAdminId,
         timestamp: new Date().toISOString()
@@ -804,6 +810,10 @@ if (memberCheck) {
     }
  // ✅ NEW: No existing member — new registration
     console.log("🆕 New Member registration");
+const [[memberRfidRow]] = await dbSuperAdmin.promise().query(
+      `SELECT customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Member' LIMIT 1`,
+      [rfid_tag]
+    );
     broadcastToClients({
       type: "staff-scan",
       data: {
@@ -812,6 +822,7 @@ if (memberCheck) {
         reason: "Ready for new Member registration",
         rfid_type: allocation.rfid_type,
         role: allocation.role,
+        customer_number_display: memberRfidRow?.customer_number_display || null,
         location,
         admin_id: targetAdminId,
         timestamp: new Date().toISOString()

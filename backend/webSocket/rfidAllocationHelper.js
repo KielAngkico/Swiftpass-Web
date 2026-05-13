@@ -191,8 +191,63 @@ if (allocation.status === 'in_use') {
  * @returns {boolean} - True if exists
  */
 
+async function validateReplacementRfid(rfidTag, requestingAdminId) {
+  try {
+    const allocation = await getRfidAllocation(rfidTag);
 
+    if (!allocation) {
+      return {
+        valid: false,
+        reason: 'RFID not registered with SwiftPass'
+      };
+    }
+
+    if (!allocation.isValid) {
+      return {
+        valid: false,
+        reason: allocation.reason
+      };
+    }
+
+    // Must be allocated to the same admin
+    if (allocation.allocated_to_admin !== requestingAdminId) {
+      return {
+        valid: false,
+        reason: 'This RFID is allocated to a different gym'
+      };
+    }
+
+    // Must be a Member wristband
+    if (allocation.role !== 'Member') {
+      return {
+        valid: false,
+        reason: `This is a ${allocation.role} card — only Member wristbands can be replaced here`
+      };
+    }
+
+    // Must not already be in use
+    if (allocation.status === 'in_use') {
+      return {
+        valid: false,
+        reason: 'This RFID card is already assigned to a member'
+      };
+    }
+
+    return {
+      valid: true,
+      allocation
+    };
+
+  } catch (error) {
+    console.error("❌ Replacement RFID validation error:", error.message);
+    return {
+      valid: false,
+      reason: 'System error during validation'
+    };
+  }
+}
 module.exports = {
   getRfidAllocation,
-  validateScanModeRfid
+  validateScanModeRfid,
+  validateReplacementRfid
 };

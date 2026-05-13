@@ -88,7 +88,7 @@ const validate = () => {
     else if (formData.gym_name.trim().length < 3) e.gym_name = 'Minimum 3 characters';
 
     if (!formData.address.trim()) e.address = 'Address is required';
-    else if (formData.address.trim().length < 10) e.address = 'Minimum 10 characters';
+    else if (formData.address.trim().length < 5) e.address = 'Minimum 10 characters';
 
     if (!formData.admin_name.trim()) e.admin_name = 'Admin name is required';
     else if (!/^[a-zA-Z\s\-']+$/.test(formData.admin_name.trim())) e.admin_name = 'Letters and spaces only';

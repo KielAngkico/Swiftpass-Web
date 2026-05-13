@@ -83,7 +83,7 @@ const validate = () => {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = 'Invalid email address';
 
     if (!formData.address.trim()) e.address = 'Address is required';
-    else if (formData.address.trim().length < 10) e.address = 'Minimum 10 characters';
+    else if (formData.address.trim().length < 5) e.address = 'Minimum 10 characters';
 
     if (!formData.emergency_contact_person.trim()) e.emergency_contact_person = 'Contact person is required';
     else if (!/^[a-zA-Z\s\-']+$/.test(formData.emergency_contact_person.trim())) e.emergency_contact_person = 'Letters and spaces only';

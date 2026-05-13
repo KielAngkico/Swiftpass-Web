@@ -702,11 +702,12 @@ const cleanupTables = [
 
 router.get("/subscription-packages", async (req, res) => {
   try {
-    const [packages] = await query(`
-      SELECT id, name, description, price, duration_days, created_at
-      FROM SubscriptionPackages
-      ORDER BY price ASC, duration_days ASC
-    `);
+const [packages] = await query(`
+  SELECT id, name, description, price, duration_days, created_at
+  FROM SubscriptionPackages
+  WHERE package_type = 'onboarding'
+  ORDER BY price ASC, duration_days ASC
+`);
     res.json(packages);
   } catch (err) {
     console.error("Get packages error:", err);

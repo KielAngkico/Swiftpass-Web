@@ -179,7 +179,7 @@ const validate = () => {
     if (!formData.gender) return 'Gender is required';
 
     if (!formData.address.trim()) return 'Address is required';
-    if (formData.address.trim().length < 10) return 'Address must be at least 10 characters';
+    if (formData.address.trim().length < 5) return 'Address must be at least 5 characters';
 
     if (!formData.payment_method) return 'Payment method is required';
     if (formData.payment_method !== 'cash' && !formData.reference.trim()) return 'Reference number is required';
@@ -364,7 +364,7 @@ const validate = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Age</label>
-                  <input type="text" name="age" value={formData.age} onChange={handleChange} required placeholder="Enter Age" className={inputClass} />
+                  <input type="text" name="age" value={formData.age} onChange={handleChange} required placeholder="Relationship" className={inputClass} />
                 </div>
                 <div>
                   <label className={labelClass}>Gender</label>

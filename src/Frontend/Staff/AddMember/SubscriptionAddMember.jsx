@@ -177,7 +177,7 @@ const validate = () => {
     if (!formData.gender) return 'Gender is required';
 
     if (!formData.address.trim()) return 'Address is required';
-    if (formData.address.trim().length < 10) return 'Address must be at least 10 characters';
+    if (formData.address.trim().length < 5) return 'Address must be at least 5 characters';
 
     if (!formData.payment_method) return 'Payment method is required';
     if (formData.payment_method !== 'cash' && !formData.reference.trim()) return 'Reference number is required';
@@ -396,7 +396,7 @@ const validate = () => {
               </div>
               <div>
                 <label className={labelClass}>Relationship</label>
-                <input type="text" name="emergency_contact_relationship" value={formData.emergency_contact_relationship} onChange={handleChange} placeholder="Enter Age" className={inputClass} />
+                <input type="text" name="emergency_contact_relationship" value={formData.emergency_contact_relationship} onChange={handleChange} placeholder="Relationship" className={inputClass} />
               </div>
             </div>
 

@@ -241,5 +241,27 @@ router.put("/food-database/:id", (req, res) => {
     );
   }
 });
+router.delete("/food-database/:id", (req, res) => {
+  const foodId = req.params.id;
+
+  db.query("DELETE FROM FoodAllergens WHERE food_id = ?", [foodId], (err) => {
+    if (err) return res.status(500).json({ error: "Failed to remove allergens" });
+
+    db.query("DELETE FROM FoodLibrary WHERE id = ?", [foodId], (err2, result) => {
+      if (err2) return res.status(500).json({ error: "Failed to delete food" });
+      if (result.affectedRows === 0) return res.status(404).json({ error: "Food not found" });
+
+      logAudit({
+        req,
+        action: "DELETE",
+        module: "FoodLibrary",
+        target_id: parseInt(foodId),
+        description: `Deleted food item ID ${foodId}`,
+      });
+
+      res.json({ success: true });
+    });
+  });
+});
 
 module.exports = router;

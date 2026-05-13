@@ -189,9 +189,16 @@ const payload = {
                   placeholder="No member loaded"
                   className={readonlyClass}
                 />
-                {member?.customer_number_display && (
-                  <p className="text-[11px] text-blue-600 font-medium mt-1">{member.customer_number_display}</p>
-                )}
+<div>
+  <label className={labelClass}>Customer ID</label>
+  <input
+    type="text"
+    value={member?.customer_number_display || ""}
+    readOnly
+    placeholder="—"
+    className={readonlyClass}
+  />
+</div>
               </div>
               <div>
                 <label className={labelClass}>Current Balance</label>

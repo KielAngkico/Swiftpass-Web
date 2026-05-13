@@ -339,12 +339,14 @@ if (reason && (reason.includes("not registered with SwiftPass") ||
   console.log(`🔍 Navigation - Role: ${role}, Status: ${status}`);
 
   // Partner card - block
+// Partner card - block
 if (role === "Partner") {
-    window.dispatchEvent(new CustomEvent("dashboard-alert", {
-      detail: { full_name: "RFID Error", reason: "This is a Partner card - for admin use only" }
-    }));
-    return;
-  }
+  showToast({ 
+    message: "This is a Partner card — for admin use only", 
+    type: "error" 
+  });
+  return;
+}
 // DayPass renewal (existing guest)
   if (status === "daypass_renewal") {
     console.log("🔄 Existing Day Pass - navigating to DayPassRenewal");

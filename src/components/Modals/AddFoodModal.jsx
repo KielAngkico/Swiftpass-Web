@@ -5,8 +5,8 @@ import axios from "axios";
 import { API_URL } from "../../config";
 import { USDA_SEARCH_URL, API_KEY } from "../../usda";
 
-const AddFoodModal = ({ isOpen, onClose, onFoodAdded }) => {
-  const [searchQuery, setSearchQuery] = useState("");
+const AddFoodModal = ({ isOpen, onClose, onFoodAdded, editFood = null }) => {
+    const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [selectedFoodId, setSelectedFoodId] = useState(null);
   const [allergensList, setAllergensList] = useState([]);
@@ -62,7 +62,25 @@ const AddFoodModal = ({ isOpen, onClose, onFoodAdded }) => {
     };
     if (isOpen) fetchFoodGroupNames();
   }, [isOpen]);
-
+useEffect(() => {
+    if (editFood && isOpen) {
+      setFormData({
+        name: editFood.name || "",
+        general_group: editFood.general_group || "",
+        category: editFood.category || "",
+        grams_reference: editFood.grams_reference || 100,
+        calories: editFood.calories ?? "",
+        protein: editFood.protein ?? "",
+        carbs: editFood.carbs ?? "",
+        fats: editFood.fats ?? "",
+        allergens: editFood.allergen_ids || [],
+        is_meat: !!editFood.is_meat,
+        is_red_meat: !!editFood.is_red_meat,
+      });
+    } else if (!editFood && isOpen) {
+      resetForm();
+    }
+  }, [editFood, isOpen]);
   const resetForm = () => {
     setFormData({
       name: "",
@@ -130,18 +148,22 @@ const AddFoodModal = ({ isOpen, onClose, onFoodAdded }) => {
     }));
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_URL}/api/food-database`, {
-        ...formData,
-        created_by: user?.name || "Unknown",
-      });
+      if (editFood) {
+        await axios.put(`${API_URL}/api/food-database/${editFood.id}`, formData);
+      } else {
+        await axios.post(`${API_URL}/api/food-database`, {
+          ...formData,
+          created_by: user?.name || "Unknown",
+        });
+      }
       onFoodAdded();
       onClose();
       resetForm();
     } catch {
-      alert("Failed to save food.");
+      alert(editFood ? "Failed to update food." : "Failed to save food.");
     }
   };
 
@@ -167,8 +189,7 @@ const AddFoodModal = ({ isOpen, onClose, onFoodAdded }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Add New Food Item</h2>
-          <button onClick={handleClose} className="text-gray-500 hover:text-gray-700">
+<h2 className="text-lg font-semibold text-gray-900">{editFood ? "Edit Food Item" : "Add New Food Item"}</h2>          <button onClick={handleClose} className="text-gray-500 hover:text-gray-700">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -392,8 +413,7 @@ const AddFoodModal = ({ isOpen, onClose, onFoodAdded }) => {
               type="submit"
               className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-xs hover:bg-blue-700"
             >
-              Save Food
-            </button>
+{editFood ? "Update Food" : "Save Food"}            </button>
           </div>
         </form>
       </div>

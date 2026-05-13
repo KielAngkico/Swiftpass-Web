@@ -11,6 +11,7 @@ const FoodLibrary = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isAddFoodModalOpen, setIsAddFoodModalOpen] = useState(false);
+  const [editingFoodModal, setEditingFoodModal] = useState(null);
   const [loadingFoods, setLoadingFoods] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -22,8 +23,7 @@ const allergensPerPage = 10;
   const [loadingAllergens, setLoadingAllergens] = useState(true);
   const [editingAllergen, setEditingAllergen] = useState(null);
   const [editAllergenName, setEditAllergenName] = useState("");
-  const [editingFood, setEditingFood] = useState(null);
-  const [editFoodForm, setEditFoodForm] = useState({ name: "", general_group: "", category: "", calories: "", protein: "", carbs: "", fats: "", grams_reference: "" });
+
   const { showToast, showConfirm } = useToast();
 
   const fetchFoodItems = async () => {
@@ -313,145 +313,46 @@ const currentAllergens = allergens.slice(allergenStartIndex, allergenEndIndex);
                       {currentFoods.map((food, index) => (
                         <tr key={food.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3 text-xs text-gray-400">{startIndex + index + 1}</td>
-                          <td className="px-4 py-3">
-                            {editingFood === food.id ? (
-                              <input
-                                type="text"
-                                value={editFoodForm.name}
-                                onChange={(e) => setEditFoodForm({ ...editFoodForm, name: e.target.value })}
-                                className="w-full border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            ) : (
-                              <span className="text-xs font-medium text-gray-800">{food.name}</span>
-                            )}
+<td className="px-4 py-3">
+                            <span className="text-xs font-medium text-gray-800">{food.name}</span>
                           </td>
-                          <td className="px-4 py-3">
-                            {editingFood === food.id ? (
-                              <input
-                                type="text"
-                                value={editFoodForm.general_group}
-                                onChange={(e) => setEditFoodForm({ ...editFoodForm, general_group: e.target.value })}
-                                className="w-full border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-400">{food.general_group}</span>
-                            )}
+<td className="px-4 py-3">
+                            <span className="text-xs text-gray-400">{food.general_group}</span>
                           </td>
-                          <td className="px-4 py-3">
-                            {editingFood === food.id ? (
-                              <select
-                                value={editFoodForm.category}
-                                onChange={(e) => setEditFoodForm({ ...editFoodForm, category: e.target.value })}
-                                className="border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                {categories.filter(c => c !== "all").map(c => (
-                                  <option key={c} value={c}>{c}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2.5 py-0.5">
-                                {food.category}
-                              </span>
-                            )}
+<td className="px-4 py-3">
+                            <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2.5 py-0.5">
+                              {food.category}
+                            </span>
                           </td>
-                          <td className="px-4 py-3">
-                            {editingFood === food.id ? (
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={editFoodForm.calories}
-                                onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setEditFoodForm({ ...editFoodForm, calories: e.target.value }); }}
-                                className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-800">{food.calories ?? "N/A"}</span>
-                            )}
+<td className="px-4 py-3">
+                            <span className="text-xs text-gray-800">{food.calories ?? "N/A"}</span>
                           </td>
-                          <td className="px-4 py-3">
-                            {editingFood === food.id ? (
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={editFoodForm.protein}
-                                onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setEditFoodForm({ ...editFoodForm, protein: e.target.value }); }}
-                                className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-800">{food.protein != null ? `${food.protein}g` : "N/A"}</span>
-                            )}
+<td className="px-4 py-3">
+                            <span className="text-xs text-gray-800">{food.protein != null ? `${food.protein}g` : "N/A"}</span>
                           </td>
-                          <td className="px-4 py-3">
-                            {editingFood === food.id ? (
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={editFoodForm.carbs}
-                                onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setEditFoodForm({ ...editFoodForm, carbs: e.target.value }); }}
-                                className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-800">{food.carbs != null ? `${food.carbs}g` : "N/A"}</span>
-                            )}
+<td className="px-4 py-3">
+                            <span className="text-xs text-gray-800">{food.carbs != null ? `${food.carbs}g` : "N/A"}</span>
                           </td>
-                          <td className="px-4 py-3">
-                            {editingFood === food.id ? (
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={editFoodForm.fats}
-                                onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setEditFoodForm({ ...editFoodForm, fats: e.target.value }); }}
-                                className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-800">{food.fats != null ? `${food.fats}g` : "N/A"}</span>
-                            )}
+<td className="px-4 py-3">
+                            <span className="text-xs text-gray-800">{food.fats != null ? `${food.fats}g` : "N/A"}</span>
                           </td>
-                          <td className="px-4 py-3">
-                            {editingFood === food.id ? (
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={editFoodForm.grams_reference}
-                                onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setEditFoodForm({ ...editFoodForm, grams_reference: e.target.value }); }}
-                                className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-400">{food.grams_reference || 100}g</span>
-                            )}
+<td className="px-4 py-3">
+                            <span className="text-xs text-gray-400">{food.grams_reference || 100}g</span>
                           </td>
-                          <td className="px-4 py-3">
+<td className="px-4 py-3">
                             <div className="flex gap-1.5 justify-end">
-                              {editingFood === food.id ? (
-                                <>
-                                  <button
-                                    onClick={() => saveEditFood(food.id)}
-                                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[13px] font-medium transition-colors"
-                                  >
-                                    Save
-                                  </button>
-                                  <button
-                                    onClick={cancelEditFood}
-                                    className="px-2.5 py-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors"
-                                  >
-                                    Cancel
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <button
-                                    onClick={() => startEditFood(food)}
-                                    className="px-2.5 py-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteFood(food.id)}
-                                    className="px-2.5 py-1 bg-white text-red-500 border border-red-100 hover:bg-red-50 rounded-lg text-[13px] font-medium transition-colors"
-                                  >
-                                    Delete
-                                  </button>
-                                </>
-                              )}
+                              <button
+                                onClick={() => setEditingFoodModal(food)}
+                                className="px-2.5 py-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteFood(food.id)}
+                                className="px-2.5 py-1 bg-white text-red-500 border border-red-100 hover:bg-red-50 rounded-lg text-[13px] font-medium transition-colors"
+                              >
+                                Delete
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -639,10 +540,11 @@ const currentAllergens = allergens.slice(allergenStartIndex, allergenEndIndex);
 </div>
         </div>
 
-        <AddFoodModal
-          isOpen={isAddFoodModalOpen}
-          onClose={() => setIsAddFoodModalOpen(false)}
+<AddFoodModal
+          isOpen={isAddFoodModalOpen || !!editingFoodModal}
+          onClose={() => { setIsAddFoodModalOpen(false); setEditingFoodModal(null); }}
           onFoodAdded={fetchFoodItems}
+          editFood={editingFoodModal}
         />
       </main>
     </div>

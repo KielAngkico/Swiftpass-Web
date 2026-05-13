@@ -16,7 +16,8 @@ const [[{ existingCount }]] = await conn.query(`
   FROM RegisteredRfid
   WHERE allocated_to_admin = ?
     AND role = ?
-    AND status != 'replaced'
+    AND status = 'in_use'
+    AND customer_number IS NOT NULL
     AND id != ?
 `, [adminId, role, rfidIds[i]]);
 

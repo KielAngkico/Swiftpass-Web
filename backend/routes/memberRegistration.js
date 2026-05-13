@@ -241,4 +241,94 @@ router.post("/cleanup-expired-member-registrations", async (req, res) => {
   }
 });
 
+
+
+// --- Generate Daypass Registration Number ---
+const generateDaypassRegistrationNumber = () => {
+  const timestamp = Date.now().toString().slice(-6);
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  return `DAY${timestamp}${random}`;
+};
+
+// --- Daypass Registration Submit ---
+router.post("/daypass-registration", async (req, res) => {
+  try {
+    const { guest_name, gender, phone_number, email, admin_id } = req.body;
+
+    if (!guest_name || !gender || !phone_number || !email || !admin_id) {
+      return res.status(400).json({ error: "All required fields must be filled" });
+    }
+
+    const [[existingReg]] = await query(
+      `SELECT registration_number FROM daypass_registrations
+       WHERE email = ? AND status = 'pending'
+       AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)`,
+      [email]
+    );
+
+    if (existingReg) {
+      return res.status(400).json({
+        error: "You already have a pending day pass request",
+        registration_number: existingReg.registration_number
+      });
+    }
+
+    const registrationNumber = generateDaypassRegistrationNumber();
+
+    await query(`
+      INSERT INTO daypass_registrations
+      (registration_number, guest_name, gender, phone_number, email, admin_id, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())
+    `, [registrationNumber, guest_name, gender, phone_number, email, admin_id]);
+
+    res.status(201).json({
+      message: "Day pass request submitted successfully",
+      registration_number: registrationNumber
+    });
+
+  } catch (err) {
+    console.error("Daypass registration error:", err);
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+});
+
+// --- Get Pending Daypass Registrations ---
+router.get("/pending-daypass-registrations", async (req, res) => {
+  try {
+    const { admin_id, system_type } = req.query;
+
+    let sql = `
+      SELECT dr.*, aa.gym_name, aa.admin_name, aa.system_type
+      FROM daypass_registrations dr
+      INNER JOIN AdminAccounts aa ON dr.admin_id = aa.id
+      WHERE dr.status = 'pending'
+        AND dr.created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
+    `;
+
+    const params = [];
+    if (admin_id) { sql += ` AND dr.admin_id = ?`; params.push(admin_id); }
+    if (system_type) { sql += ` AND aa.system_type = ?`; params.push(system_type); }
+    sql += ` ORDER BY dr.created_at DESC`;
+
+    const [registrations] = await query(sql, params);
+    res.json(registrations);
+  } catch (err) {
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+});
+
+// --- Delete Pending Daypass Registration ---
+router.delete("/pending-daypass-registrations/:registration_number", async (req, res) => {
+  try {
+    const [result] = await query(
+      `DELETE FROM daypass_registrations WHERE registration_number = ?`,
+      [req.params.registration_number]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Not found" });
+    res.json({ success: true, message: "Deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;

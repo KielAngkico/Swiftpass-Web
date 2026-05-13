@@ -32,13 +32,15 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [cashlessRef, setCashlessRef] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+const [selectedImage, setSelectedImage] = useState(null);
+const [imagePreview, setImagePreview] = useState(null);
+const [pendingRegistrations, setPendingRegistrations] = useState([]);
+const [showRegistrations, setShowRegistrations] = useState(true);
+const [isFromRegistration, setIsFromRegistration] = useState(false);
 
   const adminId = staffUser?.adminId || staffUser?.admin_id || staffUser?.userId;
   const staffName = staffUser?.name || "";
-  const { showToast } = useToast();
-
+const { showToast, showConfirm } = useToast();
   const {
     isWebcamActive,
     videoRef,
@@ -95,7 +97,53 @@ const PrepaidDayPass = ({ rfid_tag, staffUser }) => {
 
     fetchFees();
   }, [adminId]);
+useEffect(() => {
+    if (!adminId) return;
+    fetchPendingRegistrations();
+    const interval = setInterval(fetchPendingRegistrations, 30000);
+    return () => clearInterval(interval);
+  }, [adminId]);
 
+  const fetchPendingRegistrations = async () => {
+    try {
+      const { data } = await api.get('/api/pending-daypass-registrations', {
+        params: { admin_id: adminId, system_type: 'prepaid_entry' }
+      });
+      setPendingRegistrations(data);
+    } catch (error) {
+      console.error("Error fetching pending registrations:", error);
+    }
+  };
+
+  const handleRegistrationClick = (registration) => {
+    setGuestName(registration.guest_name || '');
+    setGender(registration.gender || '');
+    setMobileNumber(registration.phone_number || '');
+    setEmail(registration.email || '');
+    setIsFromRegistration(registration.registration_number);
+    showToast({ message: "Registration loaded! Assign RFID and complete payment.", type: "info" });
+  };
+
+  const handleDeleteRegistration = async (registrationNumber, e) => {
+    e.stopPropagation();
+    showConfirm("Delete this day pass request?", async () => {
+      try {
+        await api.delete(`/api/pending-daypass-registrations/${registrationNumber}`);
+        fetchPendingRegistrations();
+        showToast({ message: "Deleted successfully!", type: "success" });
+      } catch (error) {
+        showToast({ message: "Failed to delete registration", type: "error" });
+      }
+    });
+  };
+
+  const getTimeRemaining = (createdAt) => {
+    const created = new Date(createdAt);
+    const expiresAt = new Date(created.getTime() + 60 * 60 * 1000);
+    const diff = expiresAt - new Date();
+    if (diff <= 0) return "Expired";
+    return `${Math.floor(diff / 60000)} min left`;
+  };
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -172,8 +220,17 @@ if (!adminId || !staffName) {
       await api.post("/api/register-session", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+showToast({ message: "Day pass session registered successfully!", type: "success" });
 
-      showToast({ message: "Day pass session registered successfully!", type: "success" });
+      if (isFromRegistration) {
+        try {
+          await api.delete(`/api/pending-daypass-registrations/${isFromRegistration}`);
+          fetchPendingRegistrations();
+        } catch (error) {
+          console.error("Failed to delete registration:", error);
+        }
+      }
+      setIsFromRegistration(false);
       setGuestName("");
       setGender("");
       setMobileNumber("");
@@ -200,7 +257,56 @@ if (!adminId || !staffName) {
         <p className="text-xs text-gray-500 mt-0.5">
           Register guests with an RFID prepaid day pass and payment details.
         </p>
-      </div>
+{pendingRegistrations.length > 0 && (
+        <div className="mb-6 bg-white border border-gray-200 rounded-xl p-4">
+          <div className="flex justify-between items-center mb-3">
+            <div>
+              <p className="text-xs font-medium text-gray-900">
+                Pending Day Pass Requests
+                <span className="ml-2 text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
+                  {pendingRegistrations.length}
+                </span>
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">Click a request to load guest info</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowRegistrations(!showRegistrations)}
+              className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+            >
+              {showRegistrations ? "Hide" : "Show"}
+            </button>
+          </div>
+          {showRegistrations && (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+              {pendingRegistrations.map((registration) => (
+                <div
+                  key={registration.registration_number}
+                  onClick={() => handleRegistrationClick(registration)}
+                  className="bg-white border border-gray-200 rounded-xl p-3 cursor-pointer hover:border-blue-400 hover:ring-1 hover:ring-blue-200 transition-all flex flex-col"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-[11px] bg-gray-50 text-gray-500 border border-gray-200 rounded-full px-2 py-0.5">
+                      {registration.registration_number}
+                    </span>
+                    <button
+                      onClick={(e) => handleDeleteRegistration(registration.registration_number, e)}
+                      className="bg-white text-red-500 border border-red-100 hover:bg-red-50 w-5 h-5 rounded-full text-xs font-medium transition-colors flex items-center justify-center"
+                    >
+                      x
+                    </button>
+                  </div>
+                  <p className="text-xs font-medium text-gray-900">{registration.guest_name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{registration.email}</p>
+                  <div className="mt-auto pt-2 border-t border-gray-100">
+                    <p className="text-xs text-gray-400">Expires: {getTimeRemaining(registration.created_at)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}      </div>
 
       <form
         onSubmit={handleSubmit}

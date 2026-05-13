@@ -1,60 +1,52 @@
 import React, { useState, useRef, useEffect } from 'react';
-  import { API_URL } from "../config";
+import { API_URL } from "../config";
+import { useToast } from '../components/ToastManager';
 
-  const DayPassRegistration = () => {
-    const [showTerms, setShowTerms] = useState(false);
-    const [termsAccepted, setTermsAccepted] = useState(false);
-    const [hasScrolledTerms, setHasScrolledTerms] = useState(false);
-    const [submitStatus, setSubmitStatus] = useState(null);
-    const [registrationNumber, setRegistrationNumber] = useState('');
-    const [showSystemTypeFAQ, setShowSystemTypeFAQ] = useState(false);
-    const [packages, setPackages] = useState([]);
-    const [selectedPackage, setSelectedPackage] = useState(null);
-    const termsContentRef = useRef(null);
-    
-    const [formData, setFormData] = useState({
-      gym_name: '',
-      admin_name: '',
-      email: '',
-      password: '',
-      address: '',
-      system_type: '',
-      package_id: '',
-      profile_image_url: null
-    });
-    const [imagePreview, setImagePreview] = useState(null);
+const DaypassRegistration = () => {
+  const [showTerms, setShowTerms] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [hasScrolledTerms, setHasScrolledTerms] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
+  const [registrationNumber, setRegistrationNumber] = useState('');
+  const [gyms, setGyms] = useState([]);
+  const [selectedGym, setSelectedGym] = useState(null);
+  const termsContentRef = useRef(null);
+  const { showToast } = useToast();
+  const [errors, setErrors] = useState({});
 
-    useEffect(() => {
-      fetchPackages();
-    }, []);
+  const [formData, setFormData] = useState({
+    guest_name: '',
+    gender: '',
+    phone_number: '',
+    email: '',
+    admin_id: '',
+    gym_code_input: '',
+  });
+useEffect(() => { fetchGyms(); }, []);
 
-    const fetchPackages = async () => {
-      try {
-        const response = await fetch(`${API_URL}/api/subscription-packages-with-items`);
-        const data = await response.json();
-        setPackages(data);
-      } catch (error) {
-        console.error('Failed to fetch packages:', error);
-      }
-    };
+  const fetchGyms = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/available-gyms`);
+      const data = await response.json();
+      setGyms(data);
+    } catch (error) {
+      console.error('Failed to fetch gyms:', error);
+    }
+  };
 
-    const handleChange = (e) => {
-      const { name, value } = e.target;
-      setFormData({ ...formData, [name]: value });
-      
-      if (name === 'package_id') {
-        const pkg = packages.find(p => p.id === parseInt(value));
-        setSelectedPackage(pkg);
-      }
-    };
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setErrors(prev => ({ ...prev, [name]: '' }));
 
-    const handleImageChange = (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        setFormData({ ...formData, profile_image_url: file });
-        setImagePreview(URL.createObjectURL(file));
-      }
-    };
+    if (name === 'gym_code_input') {
+      const upper = value.toUpperCase();
+      const gym = gyms.find(g => g.gym_code === upper);
+      setSelectedGym(gym || null);
+      setFormData(prev => ({ ...prev, gym_code_input: upper, admin_id: gym ? gym.id : '' }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
 
     const handleTermsScroll = (e) => {
       const element = e.target;
@@ -74,398 +66,212 @@ import React, { useState, useRef, useEffect } from 'react';
       }
     }, [showTerms]);
 
-    const handleSubmit = async () => {
-      if (!termsAccepted) {
-        alert('Please accept the terms and conditions');
-        return;
-      }
+  const validate = () => {
+    const e = {};
+    if (!formData.guest_name.trim()) e.guest_name = 'Full name is required';
+    else if (!/^[a-zA-Z\s\-']+$/.test(formData.guest_name.trim())) e.guest_name = 'Letters and spaces only';
 
-      if (!formData.package_id) {
-        alert('Please select a package');
-        return;
-      }
+    if (!formData.gender) e.gender = 'Gender is required';
 
-      const payload = new FormData();
-      Object.keys(formData).forEach(key => {
-        if (formData[key]) payload.append(key, formData[key]);
-      });
+    if (!formData.phone_number.trim()) e.phone_number = 'Phone number is required';
+    else if (!/^09\d{9}$/.test(formData.phone_number)) e.phone_number = 'Must be 09XXXXXXXXX format';
 
-      try {
-        const response = await fetch(`${API_URL}/api/partner-registration`, {
-          method: 'POST',
-          body: payload
-        });
-        
-        const data = await response.json();
+    if (!formData.email.trim()) e.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = 'Invalid email address';
 
-        if (response.ok) {
-          setRegistrationNumber(data.registration_number);
-          setSubmitStatus('success');
-        } else {
-          alert(data.error || 'Registration failed');
-        }
-      } catch (error) {
-        console.error('Fetch error:', error);
-        alert(`Network error: ${error.message}. Please check console for details.`);
-      }
-    };
+    if (!formData.gym_code_input.trim()) e.gym_code_input = 'Gym code is required';
+    else if (!selectedGym) e.gym_code_input = 'Gym code not found';
 
-    if (submitStatus === 'success') {
-      return (
-        <div className="min-h-screen bg-white flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-gray-200 rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Registration Submitted!</h2>
-            <p className="text-gray-600 mb-4">
-              Your registration has been submitted successfully. Our team will review your application shortly.
-            </p>
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-6">
-              <p className="text-sm text-gray-600 mb-2">Your Registration Number:</p>
-              <p className="text-2xl font-bold text-blue-600">{registrationNumber}</p>
-            </div>
-            <p className="text-sm text-gray-500">⏱️ This registration will expire in <strong>1 hour</strong> if not reviewed.</p>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="min-h-screen bg-white py-12 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white border-2 border-gray-200 rounded-lg shadow-lg p-8">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">Partner Registration</h1>
-              <p className="text-gray-600">Join SwiftPass Tech - Gym Management System</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Gym Name *</label>
-                  <input 
-                    type="text" 
-                    name="gym_name" 
-                    value={formData.gym_name} 
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                    required 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Gym Address *</label>
-                  <textarea 
-                    name="address" 
-                    value={formData.address} 
-                    onChange={handleChange} 
-                    rows="3"
-                    className="w-full p-3 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" 
-                    required 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Admin Name *</label>
-                  <input 
-                    type="text" 
-                    name="admin_name" 
-                    value={formData.admin_name} 
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                    required 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
-                  <input 
-                    type="email" 
-                    name="email" 
-                    value={formData.email} 
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                    required 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
-                  <input 
-                    type="password" 
-                    name="password" 
-                    value={formData.password} 
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                    required 
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <label className="block text-sm font-medium text-gray-700">System Type *</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowSystemTypeFAQ(!showSystemTypeFAQ)}
-                      className="text-blue-500 hover:text-blue-700 text-xs font-medium flex items-center gap-1"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      What's this?
-                    </button>
-                  </div>
-                  
-                  {showSystemTypeFAQ && (
-                    <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md text-xs text-gray-700">
-                      <p className="font-semibold mb-2">System Type Guide:</p>
-                      <ul className="space-y-2">
-                        <li>
-                          <strong>Subscription Membership:</strong> Your gym offers monthly or yearly subscription plans. Members pay upfront for a period and get unlimited access during that time.
-                        </li>
-                        <li>
-                          <strong>Prepaid Entry:</strong> Your gym offers per-entry deductions with promos/packages. Members load credits and pay per visit, but you can also offer day passes for non-members.
-                        </li>
-                      </ul>
-                    </div>
-                  )}
-
-                  <select 
-                    name="system_type" 
-                    value={formData.system_type} 
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                    required
-                  >
-                    <option value="">-- Select System Type --</option>
-                    <option value="subscription">Subscription Membership</option>
-                    <option value="prepaid_entry">Prepaid Entry</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture (Optional)</label>
-                  <div className="flex items-center gap-4">
-                    <div className="w-24 h-24 bg-gray-100 border-2 border-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
-                      {imagePreview ? (
-                        <img src={imagePreview} alt="Profile" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-xs text-gray-400">No Image</span>
-                      )}
-                    </div>
-                    <label className="cursor-pointer bg-blue-500 text-white text-sm px-4 py-2 rounded-md hover:bg-blue-600">
-                      Upload Picture
-                      <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Package *</label>
-                  <select 
-                    name="package_id" 
-                    value={formData.package_id} 
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                    required
-                  >
-                    <option value="">-- Select Package --</option>
-                    {packages.map((pkg) => (
-                      <option key={pkg.id} value={pkg.id}>
-                        {pkg.name} - ₱{parseFloat(pkg.price).toLocaleString('en-PH', {minimumFractionDigits: 2})} ({pkg.duration_days} days)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {selectedPackage && (
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
-                    <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                      </svg>
-                      {selectedPackage.name} Package
-                    </h3>
-                    
-                    <div className="mb-4 pb-3 border-b border-blue-200">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-sm font-medium text-gray-700">Price:</span>
-                        <span className="text-xl font-bold text-blue-600">
-                          ₱{parseFloat(selectedPackage.price).toLocaleString('en-PH', {minimumFractionDigits: 2})}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">Duration:</span>
-                        <span className="text-sm font-semibold text-gray-800">{selectedPackage.duration_days} days</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Included Items:
-                      </h4>
-                      <ul className="space-y-1.5">
-                        {selectedPackage.items.map((item, index) => (
-                          <li key={index} className="flex items-center justify-between text-xs bg-white rounded-md p-2 shadow-sm">
-                            <span className="text-gray-700 flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                              {item.item_name}
-                            </span>
-                            <span className="font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
-                              {item.quantity} {item.quantity > 1 ? 'pcs' : 'pc'}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-6 pt-6 border-t">
-              <label className="flex items-start cursor-pointer mb-4">
-                <input 
-                  type="checkbox" 
-                  checked={termsAccepted} 
-                  onChange={(e) => setTermsAccepted(e.target.checked)}
-                  className="w-5 h-5 mt-0.5 mr-3 text-blue-600 border-gray-300 rounded" 
-                  required
-                />
-                <span className="text-sm text-gray-700">
-                  I agree to the{' '}
-                  <button
-                    type="button"
-                    onClick={() => setShowTerms(true)}
-                    className="text-blue-500 hover:text-blue-700 font-medium underline"
-                  >
-                    Terms & Conditions
-                  </button>
-                </span>
-              </label>
-
-              <button
-                type="button"
-                onClick={handleSubmit}
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium px-4 py-3 rounded-md text-sm transition-colors"
-              >
-                Submit Registration
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {showTerms && (
-          <div 
-            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4"
-            onClick={() => setShowTerms(false)}
-          >
-            <div 
-              className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-4 pb-3 border-b">
-                <h2 className="text-xl font-bold text-gray-800">Terms and Conditions</h2>
-                <button 
-                  onClick={() => setShowTerms(false)} 
-                  className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
-                >
-                  ×
-                </button>
-              </div>
-              
-              <div 
-                ref={termsContentRef}
-                onScroll={handleTermsScroll}
-                className="space-y-4 text-sm text-gray-700 overflow-y-auto flex-1 pr-2"
-                style={{ maxHeight: 'calc(85vh - 200px)' }}
-              >
-                <section>
-                  <h3 className="font-bold text-base mb-2">1. Account Registration</h3>
-                  <p>By registering as a partner, you agree to provide accurate, current, and complete information about your gym and maintain the confidentiality of your account credentials. You are responsible for all activities that occur under your account.</p>
-                </section>
-                
-                <section>
-                  <h3 className="font-bold text-base mb-2">2. Service Usage</h3>
-                  <p>SwiftPass Tech provides gym management software designed to streamline your operations. You agree to use the service in compliance with all applicable laws and regulations. Any misuse of the platform may result in account suspension or termination.</p>
-                </section>
-                
-                <section>
-                  <h3 className="font-bold text-base mb-2">3. Data Privacy</h3>
-                  <p>We collect and process your data in accordance with our Privacy Policy and applicable data protection laws. You retain ownership of your gym's data, including member information. We implement industry-standard security measures to protect your data.</p>
-                </section>
-                
-                <section>
-                  <h3 className="font-bold text-base mb-2">4. Payment Terms</h3>
-                  <p>Subscription fees are charged based on your selected plan. Payment is due at the beginning of each billing cycle. We reserve the right to modify pricing with 30 days advance notice. Failure to pay may result in service suspension.</p>
-                </section>
-                
-                <section>
-                  <h3 className="font-bold text-base mb-2">5. Service Availability</h3>
-                  <p>We strive to maintain 99.9% uptime for our services. However, we do not guarantee uninterrupted service and are not liable for any downtime due to maintenance, technical issues, or circumstances beyond our control.</p>
-                </section>
-
-                <section>
-                  <h3 className="font-bold text-base mb-2">6. Intellectual Property</h3>
-                  <p>All content, features, and functionality of SwiftPass Tech are owned by us and protected by intellectual property laws. You may not reproduce, distribute, or create derivative works without our explicit permission.</p>
-                </section>
-
-                <section>
-                  <h3 className="font-bold text-base mb-2">7. Termination</h3>
-                  <p>Either party may terminate this agreement with 30 days written notice. Upon termination, you will have 60 days to export your data before it is permanently deleted from our servers.</p>
-                </section>
-              </div>
-
-              <div className="mt-4 pt-4 border-t">
-                <label className="flex items-start cursor-pointer mb-4">
-                  <input 
-                    type="checkbox" 
-                    checked={termsAccepted} 
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                    disabled={!hasScrolledTerms}
-                    className="w-5 h-5 mt-0.5 mr-3 text-blue-600 border-gray-300 rounded disabled:opacity-50" 
-                  />
-                  <span className="text-sm text-gray-700">
-                    {hasScrolledTerms ? (
-                      "I have read and agree to the Terms and Conditions"
-                    ) : (
-                      <span className="text-gray-500">Please scroll to the bottom to enable acceptance</span>
-                    )}
-                  </span>
-                </label>
-
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowTerms(false)}
-                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium px-4 py-2 rounded-md text-sm"
-                  >
-                    Close
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowTerms(false)}
-                    disabled={!termsAccepted}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium px-4 py-2 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Accept & Continue
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
+    return e;
   };
 
-  export default DayPassRegistration;
+  const handleSubmit = async () => {
+    if (!termsAccepted) { showToast({ message: 'Please accept the terms and conditions', type: 'error' }); return; }
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      showToast({ message: 'Please fix the errors below', type: 'error' });
+      return;
+    }
+    setErrors({});
+
+    try {
+      const response = await fetch(`${API_URL}/api/daypass-registration`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, admin_id: selectedGym.id })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setRegistrationNumber(data.registration_number);
+        setSubmitStatus('success');
+      } else {
+        showToast({ message: data.error || 'Registration failed', type: 'error' });
+      }
+    } catch (error) {
+      showToast({ message: `Network error: ${error.message}`, type: 'error' });
+    }
+  };
+if (submitStatus === 'success') {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <div className="bg-white border border-gray-200 rounded-xl p-8 max-w-sm w-full text-center">
+        <div className="w-12 h-12 bg-green-50 border border-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-6 h-6 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-1">Request Submitted</h2>
+        <p className="text-xs text-gray-500 mb-6">The gym staff will review your day pass request shortly.</p>
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
+          <p className="text-xs text-gray-500 mb-1">Your Registration Number</p>
+          <p className="text-xl font-semibold text-blue-600">{registrationNumber}</p>
+        </div>
+        <p className="text-xs text-gray-400">This request expires in <span className="text-gray-600 font-medium">1 hour</span> if not reviewed.</p>
+      </div>
+    </div>
+  );
+}
+
+return (
+    <div className="min-h-screen bg-gray-50 py-10 px-4">
+      <div className="max-w-md mx-auto">
+
+        <div className="mb-5">
+          <h1 className="text-xl font-semibold text-gray-900">Day Pass Registration</h1>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-gray-900 pb-3 border-b border-gray-100">Guest Information</p>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Full Name</label>
+              <input type="text" name="guest_name" value={formData.guest_name} onChange={handleChange}
+                className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.guest_name ? 'border-red-400' : 'border-gray-200'}`}
+                placeholder="Enter full name" />
+              {errors.guest_name && <p className="text-xs text-red-500 mt-1">{errors.guest_name}</p>}
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Gender</label>
+              <select name="gender" value={formData.gender} onChange={handleChange}
+                className={`w-full bg-white border rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.gender ? 'border-red-400' : 'border-gray-200'}`}>
+                <option value="">Select</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+              {errors.gender && <p className="text-xs text-red-500 mt-1">{errors.gender}</p>}
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Phone Number</label>
+              <input type="text" name="phone_number" value={formData.phone_number} onChange={handleChange}
+                className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.phone_number ? 'border-red-400' : 'border-gray-200'}`}
+                placeholder="Enter Phone Number" />
+              {errors.phone_number && <p className="text-xs text-red-500 mt-1">{errors.phone_number}</p>}
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Email Address</label>
+              <input type="email" name="email" value={formData.email} onChange={handleChange}
+                className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.email ? 'border-red-400' : 'border-gray-200'}`}
+                placeholder="Enter Email Address" />
+              {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Gym Code</label>
+              <input type="text" name="gym_code_input" value={formData.gym_code_input || ''}
+                placeholder="Enter GYM CODE" onChange={handleChange} maxLength={10}
+                className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 uppercase ${errors.gym_code_input ? 'border-red-400' : 'border-gray-200'}`} />
+              {errors.gym_code_input && <p className="text-xs text-red-500 mt-1">{errors.gym_code_input}</p>}
+
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 mt-6 pt-4 border-t border-gray-100">
+            <input type="checkbox" id="terms" checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ accentColor: '#2563eb' }} />
+            <label htmlFor="terms" className="text-xs text-gray-500 cursor-pointer">
+              I agree to the{' '}
+              <button type="button" onClick={() => setShowTerms(true)} className="text-blue-600 font-medium hover:underline">
+                Terms and Conditions
+              </button>
+            </label>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-gray-100">
+            <button type="button" onClick={handleSubmit}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors">
+              Submit Request
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {showTerms && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setShowTerms(false)}>
+          <div className="bg-white border border-gray-200 rounded-xl shadow-lg w-full max-w-xl max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}>
+
+            <div className="flex justify-between items-center px-5 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-sm font-medium text-gray-900">Terms and Conditions</h2>
+                <p className="text-xs text-gray-500 mt-0.5">SwiftPass Day Pass Agreement</p>
+              </div>
+              <button onClick={() => setShowTerms(false)}
+                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center">
+                ×
+              </button>
+            </div>
+
+            <div ref={termsContentRef} onScroll={handleTermsScroll}
+              className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {[
+                { title: "1. Day Pass Usage", body: "Day passes are valid for a single day only and expire at midnight of the day of purchase. Passes are non-transferable and non-refundable." },
+                { title: "2. RFID Access", body: "An RFID card or tag will be assigned upon entry. It must be returned at the end of your session. Lost or damaged RFID cards may incur a replacement fee." },
+                { title: "3. Facility Access", body: "Access is limited to the gym's operating hours on the day of the pass. Re-entry on the same day is subject to gym policy." },
+                { title: "4. Data Privacy", body: "Your personal information is collected and processed in accordance with the Data Privacy Act of 2012 and will only be used for gym access purposes." },
+                { title: "5. Conduct", body: "Guests are expected to follow gym rules and proper conduct. Misuse of facilities may result in removal without refund." },
+                { title: "6. Acceptance", body: "By submitting this form, you acknowledge and agree to these terms and conditions for the day pass." },
+              ].map((section, i, arr) => (
+                <div key={i} className={`pb-4 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                  <p className="text-xs font-medium text-gray-900 mb-1">{section.title}</p>
+                  <p className="text-xs text-gray-500 leading-relaxed">{section.body}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-5 py-4 border-t border-gray-100">
+              <div className="flex items-start gap-3 mb-4">
+                <input type="checkbox" id="terms-modal" checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  disabled={!hasScrolledTerms}
+                  className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 disabled:opacity-40"
+                  style={{ accentColor: '#2563eb' }} />
+                <label htmlFor="terms-modal" className={`text-xs cursor-pointer ${hasScrolledTerms ? 'text-gray-700' : 'text-gray-400'}`}>
+                  {hasScrolledTerms ? "I have read and agree to the Terms and Conditions" : "Scroll to the bottom to enable acceptance"}
+                </label>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowTerms(false)}
+                  className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors">
+                  Close
+                </button>
+                <button type="button" onClick={() => setShowTerms(false)} disabled={!termsAccepted}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  Accept and Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default DaypassRegistration;

@@ -11,15 +11,14 @@ async function assignCustomerNumbers(conn, adminId, rfidIds, role) {
   console.log(`   RFID IDs: ${JSON.stringify(rfidIds)}`);
 
   for (let i = 0; i < rfidIds.length; i++) {
-    const [[{ existingCount }]] = await conn.query(`
-      SELECT COUNT(*) as existingCount
-      FROM RegisteredRfid
-      WHERE allocated_to_admin = ?
-        AND role = ?
-        AND status != 'replaced'
-        AND id != ?
-        AND customer_number IS NOT NULL
-    `, [adminId, role, rfidIds[i]]);
+const [[{ existingCount }]] = await conn.query(`
+  SELECT COUNT(*) as existingCount
+  FROM RegisteredRfid
+  WHERE allocated_to_admin = ?
+    AND role = ?
+    AND status = 'in_use'
+    AND id != ?
+`, [adminId, role, rfidIds[i]]);
 
     console.log(`   Existing count (excluding id ${rfidIds[i]}): ${existingCount}`);
 

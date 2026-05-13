@@ -5,18 +5,20 @@ const roleLabel = {
 };
 
 async function assignCustomerNumbers(conn, adminId, rfidIds, role) {
-  const [[{ existingCount }]] = await conn.query(`
-    SELECT COUNT(*) as existingCount
-    FROM RegisteredRfid
-    WHERE allocated_to_admin = ?
-      AND role = ?
-      AND status != 'replaced'
-      AND id NOT IN (?)
-  `, [adminId, role, rfidIds]);
-
   for (let i = 0; i < rfidIds.length; i++) {
-    const customerNumber = existingCount + i + 1;
+    const [[{ existingCount }]] = await conn.query(`
+      SELECT COUNT(*) as existingCount
+      FROM RegisteredRfid
+      WHERE allocated_to_admin = ?
+        AND role = ?
+        AND status != 'replaced'
+        AND id != ?
+        AND customer_number IS NOT NULL
+    `, [adminId, role, rfidIds[i]]);
+
+    const customerNumber = existingCount + 1;
     const display = `${roleLabel[role]} #${customerNumber}`;
+
     await conn.query(`
       UPDATE RegisteredRfid
       SET customer_number = ?, customer_number_display = ?

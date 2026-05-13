@@ -315,7 +315,7 @@ showToast({ message: "Day pass session registered successfully!", type: "success
             Add Guest
           </p>
 
-          <div className="grid grid-cols-2 gap-3">
+<div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-xs text-gray-500 mb-1">Guest Name</label>
               <input
@@ -327,20 +327,25 @@ showToast({ message: "Day pass session registered successfully!", type: "success
                 className={inputClass}
               />
             </div>
-<div>
-  <label className="block text-xs text-gray-500 mb-1">RFID Tag</label>
-  <input
-    type="text"
-    value={rfid}
-    onChange={(e) => setRfid(e.target.value)}
-    placeholder="Scan RFID tag"
-    className={readonlyInputClass}
-  />
-  {customerNumberDisplay && (
-    <p className="text-[11px] text-blue-600 font-medium mt-1">{customerNumberDisplay}</p>
-  )}
-</div>
-
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">RFID Tag</label>
+              <input
+                type="text"
+                value={rfid}
+                readOnly
+                placeholder="—"
+                className={readonlyInputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">RFID</label>
+              <input
+                type="text"
+                value={customerNumberDisplay || "—"}
+                readOnly
+                className={readonlyInputClass}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

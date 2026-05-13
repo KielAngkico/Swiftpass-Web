@@ -153,7 +153,7 @@ const MyRfidsInventory = () => {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">#</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Customer No.</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">RFID</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">RFID Tag</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Type</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Allocated To</th>

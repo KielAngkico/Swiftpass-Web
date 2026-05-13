@@ -66,11 +66,18 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
     }
   }, [rfid, adminId]);
 
-  const fetchMember = async () => {
+const fetchMember = async () => {
     if (!rfid || !adminId) return;
     setLoading(true);
     try {
-const { data } = await api.get(`/api/member-by-rfid/${rfid}`);
+      let data;
+      try {
+        const res = await api.get(`/api/member-by-rfid/${rfid}`);
+        data = res.data;
+      } catch {
+        const res = await api.get(`/api/member-by-id/${rfid}`);
+        data = res.data;
+      }
       if (data && data.system_type === "prepaid_entry") {
         data.admin_id = data.admin_id || adminId;
         data.member_id = data.id;
@@ -81,7 +88,7 @@ const { data } = await api.get(`/api/member-by-rfid/${rfid}`);
       }
     } catch (err) {
       console.error("Error fetching member:", err);
-      showToast({ message: "Error fetching member data.", type: "error" });
+      showToast({ message: "Member not found.", type: "error" });
       setMember(null);
     } finally {
       setLoading(false);
@@ -155,7 +162,7 @@ const payload = {
             <p className="text-sm font-medium text-gray-900 pb-3 border-b border-gray-100">Member Lookup</p>
             <div className="space-y-3">
               <div>
-                <label className={labelClass}>Scan or Enter RFID</label>
+                <label className={labelClass}>Scan RFID or Enter Member ID</label>
                 <div className="flex gap-2">
                   <input
                     type="text"

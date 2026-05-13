@@ -323,22 +323,27 @@ const validate = () => {
           <div className="flex flex-col gap-4 h-full self-stretch">
             <p className="text-sm font-medium text-gray-900 pb-3 border-b border-gray-100">Personal Information</p>
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelClass}>Full Name</label>
-                  <input type="text" name="full_name" value={formData.full_name} onChange={handleChange} required placeholder="Enter full name" className={inputClass} />
+<div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className={labelClass}>Full Name</label>
+                    <input type="text" name="full_name" value={formData.full_name} onChange={handleChange} required placeholder="Enter full name" className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Email</label>
+                    <input type="email" name="email" value={formData.email} onChange={handleChange} required placeholder="Enter email" className={inputClass} />
+                  </div>
                 </div>
-<div>
-                  <label className={labelClass}>RFID Tag</label>
-                  <input type="text" name="rfid_tag" value={formData.rfid_tag} readOnly className={readonlyClass} />
-                  {customerNumberDisplay && (
-                    <p className="text-[11px] text-blue-600 font-medium mt-1">{customerNumberDisplay}</p>
-                  )}
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className={labelClass}>RFID</label>
+                    <input type="text" value={customerNumberDisplay || "—"} readOnly className={readonlyClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>RFID Tag</label>
+                    <input type="text" name="rfid_tag" value={formData.rfid_tag} readOnly className={readonlyClass} />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className={labelClass}>Email</label>
-                <input type="email" name="email" value={formData.email} onChange={handleChange} required placeholder="Enter email" className={inputClass} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

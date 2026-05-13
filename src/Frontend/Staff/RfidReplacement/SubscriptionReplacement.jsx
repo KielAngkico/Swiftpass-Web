@@ -111,11 +111,13 @@ const SubscriptionReplacement = ({ staffUser }) => {
       const { data } = await api.get(`/api/get-members?admin_id=${adminId}`);
       const allMembers = data.members || [];
 
-      const filtered = allMembers.filter(member =>
+const filtered = allMembers.filter(member =>
         member.system_type === "subscription" &&
         (member.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           member.member_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          member.rfid_tag?.toLowerCase().includes(searchTerm.toLowerCase()))
+          member.rfid_tag?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          String(member.id).includes(searchTerm) ||
+          member.customer_number?.toLowerCase().includes(searchTerm.toLowerCase()))
       );
 
       if (filtered.length === 1) {
@@ -233,7 +235,7 @@ const SubscriptionReplacement = ({ staffUser }) => {
             <p className="text-sm font-medium text-gray-900 pb-2 border-b border-gray-100">Member Lookup</p>
             <div className="space-y-2">
               <div>
-                <label className={labelClass}>Search Member (Name or RFID)</label>
+                <label className={labelClass}>Search Member (Name, RFID, or Member ID)</label>
                 <div className="flex gap-2">
                   <input
                     type="text"

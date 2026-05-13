@@ -36,12 +36,12 @@ router.get("/member-by-id/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-const [rows] = await dbSuperAdmin.promise().query(
+    const [rows] = await dbSuperAdmin.promise().query(
       `SELECT m.*, r.customer_number_display
        FROM MembersAccounts m
        LEFT JOIN RegisteredRfid r ON r.rfid_tag = m.rfid_tag AND r.role = 'Member'
-       WHERE m.id = ? LIMIT 1`,
-      [id]
+       WHERE m.id = ? OR r.customer_number = ? LIMIT 1`,
+      [id, id]
     );
 
     if (rows.length === 0) {

@@ -5,7 +5,6 @@ const dbSuperAdmin = require("../db");
 const upload = require("../middleware/upload");
 const logAudit = require("../middleware/auditLogger");
 const formatPaymentMethod = require('../helpers/formatPaymentMethod');
-const assignCustomerNumbers = require('../helpers/assignCustomerNumbers');
 
 router.post("/add-member", upload.single("member_image"), async (req, res) => {
   console.log("Received req.body:", req.body);
@@ -96,13 +95,7 @@ const [adminData] = await dbSuperAdmin.promise().query(
        WHERE rfid_tag = ? AND role = 'Member'`,
       [memberId, full_name, rfid_tag]
     );
-const [rfidRow] = await dbSuperAdmin.promise().query(
-      `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Member' LIMIT 1`,
-      [rfid_tag]
-    );
-    if (rfidRow.length > 0) {
-      await assignCustomerNumbers(dbSuperAdmin.promise(), admin_id, [rfidRow[0].id], 'Member');
-    }
+
     const insertTransactionSql =
      `
       INSERT INTO AdminTransactions
@@ -235,13 +228,7 @@ if (existing.length > 0) {
        WHERE rfid_tag = ? AND role = 'Member'`,
       [memberId, full_name, rfid_tag]
     );
-const [rfidRow] = await dbSuperAdmin.promise().query(
-      `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Member' LIMIT 1`,
-      [rfid_tag]
-    );
-    if (rfidRow.length > 0) {
-      await assignCustomerNumbers(dbSuperAdmin.promise(), admin_id, [rfidRow[0].id], 'Member');
-    }
+
     const insertTxnSql = `
       INSERT INTO AdminTransactions
       (admin_id, member_id, member_name, rfid_tag, amount, payment_method, reference, staff_name,

@@ -18,7 +18,6 @@ const [[{ existingCount }]] = await conn.query(`
     AND role = ?
     AND status != 'replaced'
     AND id != ?
-    AND customer_number IS NOT NULL
 `, [adminId, role, rfidIds[i]]);
 
     console.log(`   Existing count (excluding id ${rfidIds[i]}): ${existingCount}`);

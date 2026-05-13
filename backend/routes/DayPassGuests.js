@@ -137,14 +137,21 @@ router.post("/register-session", daypassUpload.single("guest_image"), async (req
     }
 
 if (guestRows.length === 0) {
-      const [rfidRow] = await conn.query(
-        `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'DayPass' LIMIT 1`,
-        [rfid_tag]
-      );
-      if (rfidRow.length > 0) {
-        await assignCustomerNumbers(conn, admin_id, [rfidRow[0].id], 'DayPass');
-      }
-    }
+  const [rfidRow] = await conn.query(
+    `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'DayPass' LIMIT 1`,
+    [rfid_tag]
+  );
+  if (rfidRow.length > 0) {
+    // Ensure allocated_to_admin is set before counting
+    await conn.query(`
+      UPDATE RegisteredRfid 
+      SET allocated_to_admin = ?, allocation_date = COALESCE(allocation_date, NOW())
+      WHERE id = ? AND allocated_to_admin IS NULL
+    `, [admin_id, rfidRow[0].id]);
+
+    await assignCustomerNumbers(conn, admin_id, [rfidRow[0].id], 'DayPass');
+  }
+}
 
     await conn.query(
       `INSERT INTO AdminTransactions

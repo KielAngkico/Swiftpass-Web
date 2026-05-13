@@ -64,7 +64,7 @@ const PrepaidViewDayPass = () => {
         <label className="block text-xs text-gray-500 mb-1">Search by Guest</label>
         <input
           type="text"
-          placeholder="e.g. Juan Dela Cruz"
+          placeholder="Enter Guest Name"
           className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-64"
           value={search}
           onChange={(e) => setSearch(e.target.value)}

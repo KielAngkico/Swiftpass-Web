@@ -355,7 +355,7 @@ const validate = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Age</label>
-                  <input type="text" name="age" value={formData.age} onChange={handleChange} required placeholder="e.g. 25" className={inputClass} />
+                  <input type="text" name="age" value={formData.age} onChange={handleChange} required placeholder="Enter Age" className={inputClass} />
                 </div>
                 <div>
                   <label className={labelClass}>Gender</label>

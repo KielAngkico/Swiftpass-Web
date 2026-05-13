@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import StaffSidebar from "../../components/StaffSidebar";
 import { useWebSocket } from "../../contexts/WebSocketContext";
 import { useToast } from "../../components/ToastManager";import api from "../../api";
-import { IP } from "../../IpConfig";
+import { getImageUrl } from "../../utils/getImageUrl";
 import { useAuth } from "../../App";
 
 const MemberEntryBranch = () => {
@@ -23,13 +23,7 @@ const processedTimestamps = useRef(new Set());
     return () => window.removeEventListener("dashboard-alert", handleAlert);
   }, [showToast]);
 
-const getImageUrl = (profileImageUrl) => {
-    if (!profileImageUrl) return `${IP}/uploads/members/default.jpg`;
-    if (profileImageUrl.startsWith("http")) return profileImageUrl;
-    if (profileImageUrl.startsWith("/uploads/")) return `${IP}${profileImageUrl}`;
-    if (profileImageUrl.startsWith("uploads/")) return `${IP}/${profileImageUrl}`;
-    return `${IP}/uploads/members/${profileImageUrl}`;
-  };
+
 
   const fetchLogs = useCallback(async () => {
     if (!user?.adminId) return;
@@ -229,7 +223,7 @@ return (
                   src={lastEntry.profile_image_url}
                   alt={lastEntry.full_name}
                   className="w-14 h-14 rounded-lg object-cover border border-gray-200 flex-shrink-0"
-                  onError={(e) => { e.currentTarget.src = `${IP}/uploads/members/default.jpg`; }}
+                  onError={(e) => {e.currentTarget.src = `https://swiftpasstech.com/uploads/members/default.jpg`; }}
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-gray-900 truncate">{lastEntry.full_name}</p>
@@ -265,7 +259,7 @@ return (
                   src={lastExit.profile_image_url}
                   alt={lastExit.full_name}
                   className="w-14 h-14 rounded-lg object-cover border border-gray-200 flex-shrink-0"
-                  onError={(e) => { e.currentTarget.src = `${IP}/uploads/members/default.jpg`; }}
+                  onError={(e) => { e.currentTarget.src = `https://swiftpasstech.com/uploads/members/default.jpg`; }}
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-gray-900 truncate">{lastExit.full_name}</p>

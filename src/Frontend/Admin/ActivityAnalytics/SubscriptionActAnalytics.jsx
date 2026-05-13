@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import api from "../../../api";
 import { generateSubscriptionActivityPDF } from "../../../utils/activityReport";
 import { useToast } from "../../../components/ToastManager";
+import { getImageUrl } from "../../../utils/getImageUrl";
 
 const KpiBox = ({ title, value, color }) => (
   <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1">
@@ -248,10 +249,10 @@ const SubscriptionActAnalytics = () => {
                     <td className="px-4 py-3 text-xs text-gray-400">{i + 1}</td>
                     <td className="px-4 py-3">
                       {log.profile_image_url ? (
-                        <img
-                          src={log.profile_image_url}
+<img
+                          src={getImageUrl(log.profile_image_url, "members")}
                           alt={log.full_name}
-                          onError={(e) => { e.target.src = `${import.meta.env.VITE_IP}/uploads/members/default.jpg`; }}
+                          onError={(e) => { e.target.src = `https://swiftpasstech.com/uploads/members/default.jpg`; }}
                           className="w-7 h-7 rounded-full object-cover border border-gray-200"
                         />
                       ) : (

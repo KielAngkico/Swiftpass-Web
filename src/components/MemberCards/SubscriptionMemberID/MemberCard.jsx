@@ -1,27 +1,10 @@
 import React from "react";
+import { getImageUrl } from "../../../utils/getImageUrl";
 
 const MemberCard = ({ member, onClose }) => {
   if (!member) return null;
-
-  const baseUrl = import.meta.env.VITE_IP;
   
-  // ✅ FIXED: Check if already full URL, don't add baseUrl again
-  const getImageUrl = () => {
-    const imageUrl = member.profile_image_url || member.member_image;
-    
-    // If already full URL, return as is
-    if (imageUrl && imageUrl.startsWith('http')) {
-      return imageUrl;
-    }
-    
-    // If relative path, construct full URL
-    if (imageUrl) {
-      return `${baseUrl}/${imageUrl}`;
-    }
-    
-    // Default fallback
-    return `${baseUrl}/uploads/members/default.jpg`;
-  };
+
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -109,11 +92,11 @@ const MemberCard = ({ member, onClose }) => {
 
             <div className="flex-shrink-0">
               <img
-                src={getImageUrl()}
+                src={getImageUrl(member.profile_image_url || member.member_image, "members")}
                 alt={member.full_name}
                 className="w-50 h-70 object-cover rounded border border-gray-300"
                 onError={(e) => {
-                  e.currentTarget.src = `${baseUrl}/uploads/members/default.jpg`;
+                  e.currentTarget.src = `https://swiftpasstech.com/uploads/members/default.jpg`;
                 }}
               />
             </div>

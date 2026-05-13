@@ -349,7 +349,7 @@ showToast({ message: "Day pass session registered successfully!", type: "success
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="guest@email.com"
+                placeholder="Enter Email Address"
                 className={inputClass}
               />
             </div>

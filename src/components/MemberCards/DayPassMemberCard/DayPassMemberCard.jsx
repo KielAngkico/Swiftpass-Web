@@ -1,17 +1,10 @@
 import React from "react";
+import { getImageUrl } from "../../../utils/getImageUrl";
 
 const DayPassMemberCard = ({ guest, onClose }) => {
   if (!guest) return null;
 
-  const baseUrl = import.meta.env.VITE_IP;
 
-  const getImageUrl = () => {
-    const imageUrl = guest.profile_image_url;
-
-    if (imageUrl && imageUrl.startsWith("http")) return imageUrl;
-    if (imageUrl) return `${baseUrl}/${imageUrl}`;
-    return `${baseUrl}/uploads/members/default.jpg`;
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -108,11 +101,11 @@ const DayPassMemberCard = ({ guest, onClose }) => {
 
             <div className="flex-shrink-0">
               <img
-                src={getImageUrl()}
+                src={getImageUrl(guest.profile_image_url, "daypass")}
                 alt={guest.guest_name}
                 className="w-50 h-70 object-cover rounded border border-gray-300"
-                onError={(e) => {
-                  e.currentTarget.src = `${baseUrl}/uploads/members/default.jpg`;
+onError={(e) => {
+                  e.currentTarget.src = `https://swiftpasstech.com/uploads/members/default.jpg`;
                 }}
               />
             </div>

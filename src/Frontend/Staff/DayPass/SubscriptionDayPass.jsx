@@ -19,8 +19,8 @@ const inputClass =
 const readonlyInputClass =
   "w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 bg-gray-50 cursor-not-allowed";
 
-const SubscriptionDayPass = ({ rfid_tag, staffUser }) => {
-  const [rfid, setRfid] = useState(rfid_tag || "");
+const SubscriptionDayPass = ({ rfid_tag, staffUser, customerNumberDisplay }) => { 
+   const [rfid, setRfid] = useState(rfid_tag || "");
   const [guestName, setGuestName] = useState("");
   const [gender, setGender] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
@@ -336,6 +336,9 @@ showToast({ message: "Day pass session registered successfully!", type: "success
     placeholder="Scan RFID tag"
     className={readonlyInputClass}
   />
+  {customerNumberDisplay && (
+    <p className="text-[11px] text-blue-600 font-medium mt-1">{customerNumberDisplay}</p>
+  )}
 </div>
 
           </div>

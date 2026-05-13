@@ -8,13 +8,15 @@ router.get("/staff-entry-logs/:admin_id", async (req, res) => {
   
   try {
     // ✅ Join with BOTH MembersAccounts AND DayPassGuests
-    const queryAllLogs = `
+const queryAllLogs = `
       SELECT 
         logs.*,
-        COALESCE(m.profile_image_url, d.profile_image_url) AS profile_image_url
+        COALESCE(m.profile_image_url, d.profile_image_url) AS profile_image_url,
+        r.customer_number_display
       FROM AdminEntryLogs logs
       LEFT JOIN MembersAccounts m ON logs.rfid_tag = m.rfid_tag AND logs.admin_id = m.admin_id
       LEFT JOIN DayPassGuests d ON logs.rfid_tag = d.rfid_tag AND logs.admin_id = d.admin_id
+      LEFT JOIN RegisteredRfid r ON logs.rfid_tag = r.rfid_tag
       WHERE logs.admin_id = ?
       ORDER BY logs.entry_time DESC
     `;
@@ -58,7 +60,7 @@ router.get("/staff-entry-logs/:admin_id", async (req, res) => {
         subscription_expiry: row.subscription_expiry,
         location: row.location,
         staff_name: row.staff_name,
-        timestamp: row.exit_time || row.entry_time,
+        customer_number_display: row.customer_number_display || null,
       };
     });
 

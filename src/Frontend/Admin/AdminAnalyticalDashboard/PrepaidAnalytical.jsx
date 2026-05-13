@@ -82,12 +82,10 @@ const [insideFilter, setInsideFilter] = useState("All");
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-        const params = { admin_id: adminId, system_type: "prepaid_entry" };
- if (filterType === "custom") {
+const params = { admin_id: adminId, system_type: "prepaid_entry", filter_type: filterType };
+if (filterType === "custom") {
   params.start_date = startDate;
   params.end_date = endDate;
-} else {
-  params.filter_type = filterType;
 }
         const { data } = await api.get("/api/prepaid-activity-analytics", { params });
         setAnalyticsData(data);

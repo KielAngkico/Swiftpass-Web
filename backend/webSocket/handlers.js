@@ -52,12 +52,19 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
         imageUrl = `https://swiftpasstech.com/${imageUrl}`;
       }
       
+const [renewRfidRow] = await dbSuperAdmin.promise().query(
+        `SELECT customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'DayPass' LIMIT 1`,
+        [rfid_tag]
+      );
+      const renewCustomerDisplay = renewRfidRow.length > 0 ? renewRfidRow[0].customer_number_display : null;
+
       broadcastToClients({
         type: "staff-scan",
         data: {
           rfid_tag,
           status: "daypass_renewal",
           full_name: guest.guest_name,
+          customer_number_display: renewCustomerDisplay,
           guest_data: {
             id: guest.id,
             guest_name: guest.guest_name,
@@ -82,7 +89,12 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
       });
       return;
     }
-    
+    // Fetch customer_number_display for new DayPass registration
+    const [dpRfidRow] = await dbSuperAdmin.promise().query(
+      `SELECT customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'DayPass' LIMIT 1`,
+      [rfid_tag]
+    );
+    const dpCustomerDisplay = dpRfidRow.length > 0 ? dpRfidRow[0].customer_number_display : null;
     console.log("⚠️ Day Pass RFID not assigned yet - route to new registration");
   }
 
@@ -120,6 +132,12 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
 
 const memberCheck = await getMemberByRfid(rfid_tag, admin_id);
   if (memberCheck) {
+const [foundRfidRow] = await dbSuperAdmin.promise().query(
+      `SELECT customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Member' LIMIT 1`,
+      [rfid_tag]
+    );
+    const foundCustomerDisplay = foundRfidRow.length > 0 ? foundRfidRow[0].customer_number_display : null;
+
     broadcastToClients({
       type: "staff-scan",
       data: {
@@ -127,6 +145,7 @@ const memberCheck = await getMemberByRfid(rfid_tag, admin_id);
         member_id: memberCheck.id,
         status: "member_found",
         full_name: memberCheck.full_name,
+        customer_number_display: foundCustomerDisplay,
         location,
         admin_id,
         timestamp: new Date().toISOString()
@@ -134,6 +153,13 @@ const memberCheck = await getMemberByRfid(rfid_tag, admin_id);
     });
     return;
   }
+
+// Fetch customer_number_display for new Member registration
+  const [memRfidRow] = await dbSuperAdmin.promise().query(
+    `SELECT customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Member' LIMIT 1`,
+    [rfid_tag]
+  );
+  const memCustomerDisplay = memRfidRow.length > 0 ? memRfidRow[0].customer_number_display : null;
 
   broadcastToClients({
     type: "staff-scan",
@@ -143,6 +169,7 @@ const memberCheck = await getMemberByRfid(rfid_tag, admin_id);
       reason: "Ready for new member registration",
       rfid_type: allocation.rfid_type,
       role: allocation.role,
+      customer_number_display: allocation.role === 'DayPass' ? dpCustomerDisplay : memCustomerDisplay,
       location,
       admin_id,
       timestamp: new Date().toISOString()
@@ -373,6 +400,12 @@ const memberStatus = accessGranted ? (isEntry ? "inside" : "outside") : "denied"
         }
       }
 
+const [dpGuestRfidRow] = await dbSuperAdmin.promise().query(
+        `SELECT customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'DayPass' LIMIT 1`,
+        [rfid_tag]
+      );
+      const dpGuestCustomerDisplay = dpGuestRfidRow.length > 0 ? dpGuestRfidRow[0].customer_number_display : null;
+
       const broadcastData = {
         type: "member-update",
         data: {
@@ -380,6 +413,7 @@ const memberStatus = accessGranted ? (isEntry ? "inside" : "outside") : "denied"
           rfid_tag,
           full_name: guest.guest_name,
           profile_image_url: guest.profile_image_url,
+          customer_number_display: dpGuestCustomerDisplay,
           visitor_type: "Day Pass",
           system_type: guest.system_type,
           status: memberStatus,
@@ -638,6 +672,12 @@ const [logResult] = await dbSuperAdmin.promise().query(
 
     const finalStatus = accessGranted ? (isEntry ? "inside" : "outside") : "denied";
 
+const [memberRfidRow] = await dbSuperAdmin.promise().query(
+      `SELECT customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Member' LIMIT 1`,
+      [rfid_tag]
+    );
+    const memberCustomerDisplay = memberRfidRow.length > 0 ? memberRfidRow[0].customer_number_display : null;
+
     const broadcastData = {
       type: "member-update",
       data: {
@@ -645,6 +685,7 @@ const [logResult] = await dbSuperAdmin.promise().query(
         rfid_tag,
         full_name: member.full_name,
         profile_image_url: member.profile_image_url,
+        customer_number_display: memberCustomerDisplay,
         visitor_type: "Member",
         system_type: admin.system_type,
         status: finalStatus,

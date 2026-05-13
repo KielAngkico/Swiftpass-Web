@@ -3,8 +3,11 @@ const router = express.Router();
 const db = require("../db");
 const logAudit = require("../middleware/auditLogger");
 const formatPaymentMethod = require('../helpers/formatPaymentMethod');
-
+const assignCustomerNumbers = require('../helpers/assignCustomerNumbers');
 const query = (sql, params = []) => db.promise().query(sql, params);
+
+
+
 
 const generateOrderNumber = () => {
   const timestamp = Date.now().toString().slice(-8);
@@ -673,10 +676,12 @@ router.put("/:id/process", async (req, res) => {
           UPDATE PartnerOrderItems SET allocated_quantity = ?, status = ? WHERE id = ?
         `, [newAllocated, newStatus, item.id]);
 
-        allocationResults.push({
-          item: item.item_name, type: 'RFID', requested: remainingQty,
-          allocated: availableRfids.length, rfids: availableRfids.map(r => r.rfid_tag)
-        });
+await assignCustomerNumbers(
+  conn,
+  order.admin_id,
+  availableRfids.map(r => r.id),
+  rfidRole
+);
 } else if (item.sub_package_id) {
         // This is a hardware module — resolve its components and deduct each from inventory
         const [components] = await conn.query(

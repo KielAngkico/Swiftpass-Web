@@ -268,9 +268,12 @@ useEffect(() => {
                 <label className={labelClass}>Member Name</label>
                 <input type="text" value={selectedMember?.full_name || selectedMember?.member_name || ""} readOnly placeholder="No member loaded" className={readonlyClass} />
               </div>
-              <div>
+<div>
                 <label className={labelClass}>Current RFID Tag</label>
                 <input type="text" value={selectedMember?.rfid_tag || ""} readOnly placeholder="Current RFID will appear here" className={readonlyClass} />
+                {selectedMember?.customer_number_display && (
+                  <p className="text-[11px] text-blue-600 font-medium mt-1">{selectedMember.customer_number_display}</p>
+                )}
               </div>
             </div>
           </div>

@@ -13,6 +13,7 @@ const DayPass = () => {
   const [error, setError] = useState(null);
 
   const rfid_tag = location.state?.rfid_tag || "";
+  const customerNumberDisplay = location.state?.customer_number_display || null;
 
   useEffect(() => {
     const fetchStaff = async () => {
@@ -101,10 +102,10 @@ const DayPass = () => {
     <div className="flex min-h-screen bg-gray-50">
       <StaffSidebar />
       <div className="flex-1 min-w-0 p-6">
-        {systemType === "prepaid_entry" ? (
-          <PrepaidDayPass rfid_tag={rfid_tag} staffUser={staffUser} />
+{systemType === "prepaid_entry" ? (
+          <PrepaidDayPass rfid_tag={rfid_tag} staffUser={staffUser} customerNumberDisplay={customerNumberDisplay} />
         ) : (
-          <SubscriptionDayPass rfid_tag={rfid_tag} staffUser={staffUser} />
+          <SubscriptionDayPass rfid_tag={rfid_tag} staffUser={staffUser} customerNumberDisplay={customerNumberDisplay} />
         )}
       </div>
     </div>

@@ -173,7 +173,7 @@ const payload = {
                   </button>
                 </div>
               </div>
-              <div>
+<div>
                 <label className={labelClass}>Member Name</label>
                 <input
                   type="text"
@@ -182,6 +182,9 @@ const payload = {
                   placeholder="No member loaded"
                   className={readonlyClass}
                 />
+                {member?.customer_number_display && (
+                  <p className="text-[11px] text-blue-600 font-medium mt-1">{member.customer_number_display}</p>
+                )}
               </div>
               <div>
                 <label className={labelClass}>Current Balance</label>

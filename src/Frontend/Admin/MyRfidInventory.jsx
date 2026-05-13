@@ -54,7 +54,7 @@ const MyRfidsInventory = () => {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (rfid) =>
-          rfid.warehouse_number?.toLowerCase().includes(term) ||
+          rfid.customer_number_display?.toLowerCase().includes(term) ||
           rfid.assigned_to_name?.toLowerCase().includes(term) ||
           rfid.rfid_tag?.toLowerCase().includes(term)
       );
@@ -153,7 +153,7 @@ const MyRfidsInventory = () => {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">#</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Warehouse No.</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Customer No.</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">RFID Tag</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Type</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Allocated To</th>
@@ -177,7 +177,15 @@ const MyRfidsInventory = () => {
                 filteredRfids.map((rfid) => (
                   <tr key={rfid.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-xs text-gray-400">{rfid.customer_number || "—"}</td>
-                    <td className="px-4 py-3 text-xs font-medium text-gray-800 font-mono">{rfid.warehouse_number}</td>
+                    <td className="px-4 py-3 text-xs font-medium text-gray-800">
+                      {rfid.customer_number_display ? (
+                        rfid.customer_number_display
+                      ) : (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[11px] border bg-green-50 text-green-700 border-green-100 font-medium">
+                          Available
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs text-gray-600 font-mono">{rfid.rfid_tag}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] border font-medium ${getRoleBadge(rfid.role)}`}>

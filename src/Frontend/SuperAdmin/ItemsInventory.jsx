@@ -607,6 +607,7 @@ const getStatusDisplay = (status) => {
                         <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Warehouse #</th>
                         <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">RFID tag / type</th>
                         <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Role</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Customer No.</th>
                         <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Status</th>
                         <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Allocated to</th>
                         <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Created at</th>
@@ -633,7 +634,9 @@ const getStatusDisplay = (status) => {
                               {rfid.role || "N/A"}
                             </span>
                           </td>
-
+<td className="px-4 py-3 text-xs text-gray-600">
+                            {rfid.customer_number_display || "—"}
+                          </td>
                           <td className="px-4 py-3">
                           <span className={`text-xs rounded-full px-2.5 py-0.5 border ${getStatusDisplay(rfid.status).color}`}>
                             {getStatusDisplay(rfid.status).label}

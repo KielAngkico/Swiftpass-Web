@@ -49,6 +49,7 @@ const SubscriptionAddMember = ({ rfid_tag, staffUser }) => {
       setFormData((prev) => ({ ...prev, rfid_tag: rfidFromState }));
     }
   }, [location.state, formData.rfid_tag]);
+  const customerNumberDisplay = location.state?.customer_number_display || null;
 
   useEffect(() => {
     if (!adminId) return;
@@ -338,6 +339,9 @@ const validate = () => {
     }
     className={readonlyClass}
   />
+  {customerNumberDisplay && (
+    <p className="text-[11px] text-blue-600 font-medium mt-1">{customerNumberDisplay}</p>
+  )}
 </div>
 
               </div>

@@ -147,19 +147,21 @@ const SubscriptionView = () => {
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">#</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Profile</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Name</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Phone</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Status</th>
+<th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Phone</th>
+<th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Joined At</th>
+<th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Expires At</th>
+<th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Status</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-xs text-gray-400">Loading members...</td>
+                  <td colSpan={8} className="px-4 py-6 text-center text-xs text-gray-400">Loading members...</td>
                 </tr>
               ) : filteredMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-xs text-gray-400">No members found.</td>
+                  <td colSpan={8} className="px-4 py-6 text-center text-xs text-gray-400">No members found.</td>
                 </tr>
               ) : (
                 filteredMembers.map((member, index) => (
@@ -174,13 +176,19 @@ const SubscriptionView = () => {
                       />
                     </td>
                     <td className="px-4 py-3 text-xs font-medium text-gray-800">{member.full_name}</td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{member.phone_number}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${member.status === "active" ? "bg-green-50 text-green-700 border-green-100" : "bg-red-50 text-red-600 border-red-100"}`}>
-                        {member.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-xs text-gray-400">{member.phone_number}</td>
+                  <td className="px-4 py-3 text-xs text-gray-400">
+                    {member.subscription_start ? new Date(member.subscription_start).toLocaleDateString() : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-400">
+                    {member.subscription_expiry ? new Date(member.subscription_expiry).toLocaleDateString() : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs px-2 py-0.5 rounded-full border ${member.status === "active" ? "bg-green-50 text-green-700 border-green-100" : "bg-red-50 text-red-600 border-red-100"}`}>
+                      {member.status}
+                    </span>
+                  </td>
+                                      <td className="px-4 py-3">
                       <button
                         onClick={() => setSelectedMember(member)}
                         className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-colors"

@@ -107,11 +107,12 @@ const processedTimestamps = useRef(new Set());
         }
 
         if (existingIndex !== -1) {
-          updated[existingIndex] = {
+updated[existingIndex] = {
             ...updated[existingIndex],
             id: logEntry.id || updated[existingIndex].id,
             full_name: logEntry.full_name || updated[existingIndex].full_name,
             profile_image_url: logEntry.profile_image_url || updated[existingIndex].profile_image_url,
+            customer_number_display: logEntry.customer_number_display || updated[existingIndex].customer_number_display,
             entry_time: logEntry.entry_time || updated[existingIndex].entry_time,
             exit_time: logEntry.exit_time || updated[existingIndex].exit_time,
             status: logEntry.status || logEntry.member_status || updated[existingIndex].status,
@@ -142,6 +143,7 @@ const processedTimestamps = useRef(new Set());
             subscription_expiry: logEntry.subscription_expiry,
             staff_name: logEntry.staff_name,
             last_activity: timestamp,
+            customer_number_display: logEntry.customer_number_display || null,
           });
         }
 
@@ -331,8 +333,11 @@ return (
                             <span className="text-xs font-medium text-gray-800">{log.full_name || "Unknown"}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs text-gray-400 font-mono">{log.rfid_tag}</span>
+<td className="px-4 py-3">
+                          {log.customer_number_display && (
+                            <p className="text-xs text-gray-600 font-medium">{log.customer_number_display}</p>
+                          )}
+                          <p className="text-[11px] text-gray-400 font-mono mt-0.5">{log.rfid_tag}</p>
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-xs text-gray-400">

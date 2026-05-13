@@ -5,6 +5,7 @@ const bcrypt = require("bcrypt");
 const staffUpload = require("../middleware/staffupload");
 const path = require("path");
 const logAudit = require("../middleware/auditLogger");
+const assignCustomerNumbers = require('../helpers/assignCustomerNumbers');
 
 router.post("/add-employee", staffUpload.single("profile_image"), async (req, res) => {
   const conn = await dbSuperAdmin.promise().getConnection();
@@ -87,7 +88,15 @@ const [existing] = await conn.query(
         console.warn(`RFID ${rfid_tag} was NOT updated in RegisteredRfid`);
       }
     }
-
+if (rfid_tag && rfid_tag.trim() !== "") {
+      const [rfidRow] = await conn.query(
+        `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Partner' LIMIT 1`,
+        [rfid_tag]
+      );
+      if (rfidRow.length > 0) {
+        await assignCustomerNumbers(conn, admin_id, [rfidRow[0].id], 'Partner');
+      }
+    }
     await conn.commit();
 
     await logAudit({
@@ -273,7 +282,15 @@ router.put("/replace-employee-rfid/:id",
         [employeeId, staffName, new_rfid_tag]
       );
     }
-
+if (new_rfid_tag && new_rfid_tag.trim() !== "") {
+      const [rfidRow] = await conn.query(
+        `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Partner' LIMIT 1`,
+        [new_rfid_tag]
+      );
+      if (rfidRow.length > 0) {
+        await assignCustomerNumbers(conn, adminId, [rfidRow[0].id], 'Partner');
+      }
+    }
     await conn.commit();
 
     await logAudit({
@@ -442,7 +459,15 @@ router.put("/staff/:id/restore", async (req, res) => {
         [staffData.id, staffData.staff_name, staffData.rfid_tag]
       );
     }
-
+if (staffData.rfid_tag) {
+      const [rfidRow] = await conn.query(
+        `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Partner' LIMIT 1`,
+        [staffData.rfid_tag]
+      );
+      if (rfidRow.length > 0) {
+        await assignCustomerNumbers(conn, staffData.admin_id, [rfidRow[0].id], 'Partner');
+      }
+    }
     await conn.query("DELETE FROM StaffAccounts_Archived WHERE id = ?", [id]);
     await conn.commit();
 

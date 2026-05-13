@@ -6,6 +6,7 @@ const upload = require("../middleware/partnersUpload");
 const logAudit = require("../middleware/auditLogger");
 
 const query = (sql, params = []) => db.promise().query(sql, params);
+const assignCustomerNumbers = require('../helpers/assignCustomerNumbers');
 
 const insertDefaultPricing = async (conn, admin_id, system_type) => {
   const defaults = [
@@ -87,6 +88,8 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
 
     const admin_id = result.insertId;
 
+const partnerRfidIds = [];
+
     if (rfid_tag && rfid_tag.trim() !== "") {
       await conn.query(
         `UPDATE RegisteredRfid 
@@ -98,6 +101,10 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
          WHERE rfid_tag = ? AND role = 'Partner'`,
         [admin_id, admin_name, rfid_tag]
       );
+      const [[r1]] = await conn.query(
+        `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Partner'`, [rfid_tag]
+      );
+      if (r1) partnerRfidIds.push(r1.id);
     }
 
     if (rfid_tag_2 && rfid_tag_2.trim() !== "") {
@@ -111,6 +118,14 @@ router.post("/add-client", upload.single("profile_image_url"), async (req, res) 
          WHERE rfid_tag = ? AND role = 'Partner'`,
         [admin_id, admin_name, rfid_tag_2]
       );
+      const [[r2]] = await conn.query(
+        `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Partner'`, [rfid_tag_2]
+      );
+      if (r2) partnerRfidIds.push(r2.id);
+    }
+
+    if (partnerRfidIds.length > 0) {
+      await assignCustomerNumbers(conn, admin_id, partnerRfidIds, 'Partner');
     }
 
     await conn.query(`INSERT INTO AdminPaymentMethods (admin_id, name, is_default, is_enabled)
@@ -283,20 +298,28 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
     let updateFields = [];
     let values = [];
 
-    if (new_rfid_tag && new_rfid_tag !== admin.rfid_tag) {
+if (new_rfid_tag && new_rfid_tag !== admin.rfid_tag) {
       updateFields.push("previous_rfid = ?", "rfid_tag = ?");
       values.push(admin.rfid_tag || null, new_rfid_tag);
 
       if (new_rfid_tag) {
+        // Get old RFID's customer number to inherit
+        const [[oldRfid1]] = await conn.query(
+          `SELECT customer_number, customer_number_display FROM RegisteredRfid 
+           WHERE rfid_tag = ? AND role = 'Partner'`, [admin.rfid_tag]
+        );
+
         await conn.query(
           `UPDATE RegisteredRfid 
            SET assigned_to_id = ?,
                assigned_to_name = ?,
                assigned_to_type = 'Admin',
                status = 'in_use',
-               assignment_date = NOW()
+               assignment_date = NOW(),
+               customer_number = ?,
+               customer_number_display = ?
            WHERE rfid_tag = ? AND role = 'Partner'`,
-          [id, admin.admin_name, new_rfid_tag]
+          [id, admin.admin_name, oldRfid1?.customer_number || null, oldRfid1?.customer_number_display || null, new_rfid_tag]
         );
       }
 
@@ -306,28 +329,35 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
            SET assigned_to_id = NULL,
                assigned_to_name = NULL,
                assigned_to_type = NULL,
-               status = 'allocated',
+               status = 'replaced',
                assignment_date = NULL
            WHERE rfid_tag = ? AND role = 'Partner'`,
           [admin.rfid_tag]
         );
       }
     }
-
-    if (new_rfid_tag_2 && new_rfid_tag_2 !== admin.rfid_tag_2) {
+if (new_rfid_tag_2 && new_rfid_tag_2 !== admin.rfid_tag_2) {
       updateFields.push("previous_rfid_2 = ?", "rfid_tag_2 = ?");
       values.push(admin.rfid_tag_2 || null, new_rfid_tag_2);
 
       if (new_rfid_tag_2) {
+        // Get old RFID's customer number to inherit
+        const [[oldRfid2]] = await conn.query(
+          `SELECT customer_number, customer_number_display FROM RegisteredRfid 
+           WHERE rfid_tag = ? AND role = 'Partner'`, [admin.rfid_tag_2]
+        );
+
         await conn.query(
           `UPDATE RegisteredRfid 
            SET assigned_to_id = ?,
                assigned_to_name = ?,
                assigned_to_type = 'Admin',
                status = 'in_use',
-               assignment_date = NOW()
+               assignment_date = NOW(),
+               customer_number = ?,
+               customer_number_display = ?
            WHERE rfid_tag = ? AND role = 'Partner'`,
-          [id, admin.admin_name, new_rfid_tag_2]
+          [id, admin.admin_name, oldRfid2?.customer_number || null, oldRfid2?.customer_number_display || null, new_rfid_tag_2]
         );
       }
 
@@ -337,7 +367,7 @@ router.put("/update-admin-rfid/:id", async (req, res) => {
            SET assigned_to_id = NULL,
                assigned_to_name = NULL,
                assigned_to_type = NULL,
-               status = 'allocated',
+               status = 'replaced',
                assignment_date = NULL
            WHERE rfid_tag = ? AND role = 'Partner'`,
           [admin.rfid_tag_2]
@@ -395,9 +425,35 @@ router.put("/replace-admin-rfid/:id", async (req, res) => {
     const [[admin]] = await query("SELECT rfid_tag, rfid_tag_2, admin_name FROM AdminAccounts WHERE id = ?", [id]);
     if (!admin) return res.status(404).json({ error: "Admin not found" });
 
-    const isSlot2 = rfid_slot === 2;
+const isSlot2 = rfid_slot === 2;
     const oldRfid = isSlot2 ? admin.rfid_tag_2 : admin.rfid_tag;
     const columnPrefix = isSlot2 ? "_2" : "";
+
+    // Inherit customer number from old RFID
+    const [[oldRfidRecord]] = await query(
+      `SELECT customer_number, customer_number_display FROM RegisteredRfid 
+       WHERE rfid_tag = ? AND role = 'Partner'`, [oldRfid]
+    );
+
+    // Mark old RFID as replaced
+    await query(
+      `UPDATE RegisteredRfid SET status = 'replaced' WHERE rfid_tag = ? AND role = 'Partner'`,
+      [oldRfid]
+    );
+
+    // Assign customer number to new RFID
+    await query(
+      `UPDATE RegisteredRfid 
+       SET status = 'in_use',
+           assigned_to_id = ?,
+           assigned_to_name = ?,
+           assigned_to_type = 'Admin',
+           assignment_date = NOW(),
+           customer_number = ?,
+           customer_number_display = ?
+       WHERE rfid_tag = ? AND role = 'Partner'`,
+      [id, admin.admin_name, oldRfidRecord?.customer_number || null, oldRfidRecord?.customer_number_display || null, new_rfid_tag]
+    );
 
     await query(`
       UPDATE AdminAccounts

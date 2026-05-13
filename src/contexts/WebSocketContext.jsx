@@ -244,11 +244,12 @@ case "rfid-scanned-for-staff":
           return;
         }
         
-        addOrUpdateStatusLog({
+addOrUpdateStatusLog({
           id: msg.data.id, 
           rfid_tag: msg.data.rfid_tag,
           full_name: msg.data.full_name || "Unknown",
           profile_image_url: msg.data.profile_image_url,
+          customer_number_display: msg.data.customer_number_display || null,
           entry_time: msg.data.entry_time || null,
           exit_time: msg.data.exit_time || null,
           member_status: msg.data.status || msg.data.member_status || "outside",
@@ -335,39 +336,38 @@ if (role === "Partner") {
     }));
     return;
   }
-
-  // DayPass renewal (existing guest)
+// DayPass renewal (existing guest)
   if (status === "daypass_renewal") {
     console.log("🔄 Existing Day Pass - navigating to DayPassRenewal");
     customNavigate("/Staff/DayPassRenewal", {
-      state: { rfid_tag, full_name, guest_data, rfid_type, role }
+      state: { rfid_tag, full_name, guest_data, rfid_type, role, customer_number_display: msg.data.customer_number_display || null }
     }, "staff");
     return;
   }
 
-  // DayPass new registration
+// DayPass new registration
   if (role === "DayPass") {
     console.log("🎟️ New Day Pass - navigating to DayPass");
     customNavigate("/Staff/DayPass", {
-      state: { rfid_tag, rfid_type, role }
+      state: { rfid_tag, rfid_type, role, customer_number_display: msg.data.customer_number_display || null }
     }, "staff");
     return;
   }
 
-  // Member found (existing)
+// Member found (existing)
   if (status === "member_found") {
     console.log("💳 Registered Member - navigating to MembershipTransactions");
     customNavigate("/Staff/MembershipTransactions", {
-      state: { rfid_tag, full_name, ...msg.data }
+      state: { rfid_tag, full_name, customer_number_display: msg.data.customer_number_display || null, ...msg.data }
     }, "staff");
     return;
   }
 
-  // Member new registration
+// Member new registration
   if (role === "Member") {
     console.log("🆕 New Member - navigating to AddMember");
     customNavigate("/Staff/AddMember", {
-      state: { rfid_tag, rfid_type, role }
+      state: { rfid_tag, rfid_type, role, customer_number_display: msg.data.customer_number_display || null }
     }, "staff");
     return;
   }

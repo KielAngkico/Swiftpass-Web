@@ -4,6 +4,7 @@ const db = require("../db");
 const daypassUpload = require("../middleware/daypassUploads");
 const logAudit = require("../middleware/auditLogger");
 const formatPaymentMethod = require('../helpers/formatPaymentMethod');
+const assignCustomerNumbers = require('../helpers/assignCustomerNumbers');
 
 router.get("/session-fee", async (req, res) => {
   const { admin_id } = req.query;
@@ -135,16 +136,15 @@ router.post("/register-session", daypassUpload.single("guest_image"), async (req
       });
     }
 
-    await conn.query(
-      `UPDATE RegisteredRfid 
-       SET assigned_to_id = ?,
-           assigned_to_name = ?,
-           assigned_to_type = 'DayPass',
-           status = 'in_use',
-           assignment_date = NOW()
-       WHERE rfid_tag = ? AND role = 'DayPass'`,
-      [guestId, guest_name, rfid_tag]
-    );
+if (guestRows.length === 0) {
+      const [rfidRow] = await conn.query(
+        `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'DayPass' LIMIT 1`,
+        [rfid_tag]
+      );
+      if (rfidRow.length > 0) {
+        await assignCustomerNumbers(conn, admin_id, [rfidRow[0].id], 'DayPass');
+      }
+    }
 
     await conn.query(
       `INSERT INTO AdminTransactions

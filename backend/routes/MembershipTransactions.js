@@ -7,8 +7,11 @@ router.get("/member-by-rfid/:rfid", async (req, res) => {
   const { rfid } = req.params;
 
   try {
-    const [rows] = await dbSuperAdmin.promise().query(
-      "SELECT * FROM MembersAccounts WHERE rfid_tag = ? LIMIT 1",
+const [rows] = await dbSuperAdmin.promise().query(
+      `SELECT m.*, r.customer_number_display
+       FROM MembersAccounts m
+       LEFT JOIN RegisteredRfid r ON r.rfid_tag = m.rfid_tag AND r.role = 'Member'
+       WHERE m.rfid_tag = ? LIMIT 1`,
       [rfid]
     );
 
@@ -33,8 +36,11 @@ router.get("/member-by-id/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [rows] = await dbSuperAdmin.promise().query(
-      "SELECT * FROM MembersAccounts WHERE id = ? LIMIT 1",
+const [rows] = await dbSuperAdmin.promise().query(
+      `SELECT m.*, r.customer_number_display
+       FROM MembersAccounts m
+       LEFT JOIN RegisteredRfid r ON r.rfid_tag = m.rfid_tag AND r.role = 'Member'
+       WHERE m.id = ? LIMIT 1`,
       [id]
     );
 

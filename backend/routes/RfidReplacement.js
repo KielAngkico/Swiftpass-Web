@@ -101,6 +101,19 @@ const updateSql = `
        WHERE rfid_tag = ? AND role = 'Member'`,
       [member.id, member.full_name, new_rfid_tag]
     );
+    // Inherit customer number from old RFID to new RFID
+    const [oldRfidRow] = await dbSuperAdmin.promise().query(
+      `SELECT customer_number, customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Member' LIMIT 1`,
+      [oldRfid]
+    );
+    if (oldRfidRow.length > 0 && oldRfidRow[0].customer_number != null) {
+      await dbSuperAdmin.promise().query(
+        `UPDATE RegisteredRfid
+         SET customer_number = ?, customer_number_display = ?
+         WHERE rfid_tag = ? AND role = 'Member'`,
+        [oldRfidRow[0].customer_number, oldRfidRow[0].customer_number_display, new_rfid_tag]
+      );
+    }
 
     const txnSql = `
       INSERT INTO AdminTransactions

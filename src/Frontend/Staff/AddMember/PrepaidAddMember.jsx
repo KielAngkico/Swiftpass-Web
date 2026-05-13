@@ -51,6 +51,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
       setFormData((prev) => ({ ...prev, rfid_tag: rfidFromState }));
     }
   }, [location.state, formData.rfid_tag]);
+  const customerNumberDisplay = location.state?.customer_number_display || null;
 
   useEffect(() => {
     if (!adminId) return;
@@ -327,9 +328,12 @@ const validate = () => {
                   <label className={labelClass}>Full Name</label>
                   <input type="text" name="full_name" value={formData.full_name} onChange={handleChange} required placeholder="Enter full name" className={inputClass} />
                 </div>
-                <div>
+<div>
                   <label className={labelClass}>RFID Tag</label>
                   <input type="text" name="rfid_tag" value={formData.rfid_tag} readOnly className={readonlyClass} />
+                  {customerNumberDisplay && (
+                    <p className="text-[11px] text-blue-600 font-medium mt-1">{customerNumberDisplay}</p>
+                  )}
                 </div>
               </div>
               <div>

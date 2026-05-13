@@ -11,12 +11,17 @@ router.get("/get-members", async (req, res) => {
   }
 
   try {
-    const [members] = await dbSuperAdmin
+const [members] = await dbSuperAdmin
       .promise()
       .query(
-        "SELECT * FROM MembersAccounts WHERE admin_id = ? ORDER BY created_at DESC",
+        `SELECT m.*, r.customer_number_display
+         FROM MembersAccounts m
+         LEFT JOIN RegisteredRfid r ON r.rfid_tag = m.rfid_tag AND r.role = 'Member'
+         WHERE m.admin_id = ?
+         ORDER BY m.created_at DESC`,
         [admin_id]
       );
+      
     
     const baseURL = `${req.protocol}://${req.get("host")}`;
     

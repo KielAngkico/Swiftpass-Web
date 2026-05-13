@@ -88,15 +88,7 @@ const [existing] = await conn.query(
         console.warn(`RFID ${rfid_tag} was NOT updated in RegisteredRfid`);
       }
     }
-if (rfid_tag && rfid_tag.trim() !== "") {
-      const [rfidRow] = await conn.query(
-        `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Partner' LIMIT 1`,
-        [rfid_tag]
-      );
-      if (rfidRow.length > 0) {
-        await assignCustomerNumbers(conn, admin_id, [rfidRow[0].id], 'Partner');
-      }
-    }
+
     await conn.commit();
 
     await logAudit({
@@ -266,8 +258,8 @@ router.put("/replace-employee-rfid/:id",
     if (oldRfid) {
       await conn.query(
         `UPDATE RegisteredRfid 
-         SET assigned_to_id = NULL, assigned_to_name = NULL, assigned_to_type = NULL,
-             status = 'allocated', assignment_date = NULL
+         SET status = 'replaced',
+             assignment_date = NOW()
          WHERE rfid_tag = ? AND role = 'Partner'`,
         [oldRfid]
       );
@@ -282,15 +274,7 @@ router.put("/replace-employee-rfid/:id",
         [employeeId, staffName, new_rfid_tag]
       );
     }
-if (new_rfid_tag && new_rfid_tag.trim() !== "") {
-      const [rfidRow] = await conn.query(
-        `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Partner' LIMIT 1`,
-        [new_rfid_tag]
-      );
-      if (rfidRow.length > 0) {
-        await assignCustomerNumbers(conn, adminId, [rfidRow[0].id], 'Partner');
-      }
-    }
+
     await conn.commit();
 
     await logAudit({
@@ -459,15 +443,7 @@ router.put("/staff/:id/restore", async (req, res) => {
         [staffData.id, staffData.staff_name, staffData.rfid_tag]
       );
     }
-if (staffData.rfid_tag) {
-      const [rfidRow] = await conn.query(
-        `SELECT id FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Partner' LIMIT 1`,
-        [staffData.rfid_tag]
-      );
-      if (rfidRow.length > 0) {
-        await assignCustomerNumbers(conn, staffData.admin_id, [rfidRow[0].id], 'Partner');
-      }
-    }
+
     await conn.query("DELETE FROM StaffAccounts_Archived WHERE id = ?", [id]);
     await conn.commit();
 

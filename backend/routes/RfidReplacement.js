@@ -21,13 +21,16 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
     });
   }
 
+  const conn = await dbSuperAdmin.promise().getConnection();
   try {
-    const [memberRows] = await dbSuperAdmin.promise().query(
+    await conn.beginTransaction();
+
+    const [memberRows] = await conn.query(
       "SELECT * FROM MembersAccounts WHERE id = ? LIMIT 1",
       [memberId]
     );
-
     if (memberRows.length === 0) {
+      await conn.rollback();
       return res.status(404).json({ message: "Member not found." });
     }
 
@@ -40,49 +43,48 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
       oldRfid: oldRfid,
       newRfid: new_rfid_tag
     });
-
     if (oldRfid === new_rfid_tag) {
+      await conn.rollback();
       return res.status(400).json({
         message: "New RFID must be different from current RFID"
       });
     }
 
-    const [existingRfid] = await dbSuperAdmin.promise().query(
-      "SELECT id, full_name FROM MembersAccounts WHERE rfid_tag = ? AND id != ?",
-      [new_rfid_tag, memberId]
+    // Validate new card in RegisteredRfid
+    const [[newCard]] = await conn.query(
+      `SELECT id, role, status, allocated_to_admin
+       FROM RegisteredRfid WHERE rfid_tag = ? LIMIT 1`,
+      [new_rfid_tag]
+    );
+    if (!newCard) {
+      await conn.rollback();
+      return res.status(400).json({ message: "New RFID not found in system." });
+    }
+    if (newCard.role !== 'Member') {
+      await conn.rollback();
+      return res.status(400).json({ message: `New card is a ${newCard.role} card. Only Member cards allowed.` });
+    }
+    if (newCard.status !== 'allocated') {
+      await conn.rollback();
+      return res.status(400).json({ message: `New card status is '${newCard.status}'. Must be 'allocated'.` });
+    }
+    if (newCard.allocated_to_admin !== parseInt(admin_id)) {
+      await conn.rollback();
+      return res.status(400).json({ message: "New card is not allocated to this gym." });
+    }
+    // Update MembersAccounts
+    await conn.query(
+      `UPDATE MembersAccounts
+       SET previous_rfid = ?,
+           rfid_tag = ?,
+           replaced_by = ?,
+           replaced_at = NOW()
+       WHERE id = ?`,
+      [oldRfid, new_rfid_tag, staff_name, memberId]
     );
 
-    if (existingRfid.length > 0) {
-      return res.status(400).json({
-        message: `RFID tag "${new_rfid_tag}" is already assigned to ${existingRfid[0].full_name}`,
-      });
-    }
-
-const updateSql = `
-      UPDATE MembersAccounts
-      SET previous_rfid = ?, 
-          rfid_tag = ?, 
-          replaced_by = ?, 
-          replaced_at = NOW()
-      WHERE id = ?
-    `;
-
-    console.log("📝 Updating with:", {
-      previous_rfid: oldRfid,
-      rfid_tag: new_rfid_tag,
-      replaced_by: staff_name,
-      member_id: memberId
-    });
-
-    await dbSuperAdmin.promise().query(updateSql, [
-      oldRfid,
-      new_rfid_tag,
-      staff_name,
-      memberId,
-    ]);
-
-    // Mark old RFID as replaced
-    await dbSuperAdmin.promise().query(
+    // Mark old card as replaced — dead forever
+    await conn.query(
       `UPDATE RegisteredRfid
        SET status = 'replaced',
            assignment_date = NOW()
@@ -90,8 +92,8 @@ const updateSql = `
       [oldRfid]
     );
 
-    // Mark new RFID as in_use
-    await dbSuperAdmin.promise().query(
+    // Move WHO to new card — customer_number stays untouched (set at order time)
+    await conn.query(
       `UPDATE RegisteredRfid
        SET assigned_to_id = ?,
            assigned_to_name = ?,
@@ -101,53 +103,30 @@ const updateSql = `
        WHERE rfid_tag = ? AND role = 'Member'`,
       [member.id, member.full_name, new_rfid_tag]
     );
-    // Inherit customer number from old RFID to new RFID
-    const [oldRfidRow] = await dbSuperAdmin.promise().query(
-      `SELECT customer_number, customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Member' LIMIT 1`,
-      [oldRfid]
-    );
-    if (oldRfidRow.length > 0 && oldRfidRow[0].customer_number != null) {
-      await dbSuperAdmin.promise().query(
-        `UPDATE RegisteredRfid
-         SET customer_number = ?, customer_number_display = ?
-         WHERE rfid_tag = ? AND role = 'Member'`,
-        [oldRfidRow[0].customer_number, oldRfidRow[0].customer_number_display, new_rfid_tag]
-      );
-    }
 
-    const txnSql = `
+    await conn.query(`
       INSERT INTO AdminTransactions
       (admin_id, member_id, member_name, rfid_tag, amount, payment_method, reference, staff_name, transaction_type, plan_name)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'rfid_replacement', 'RFID Replacement')
-    `;
-    await dbSuperAdmin.promise().query(txnSql, [
-      admin_id,
-      member.id,
-      member.full_name,
-      new_rfid_tag,
-      replacement_fee || 0,
-formatPaymentMethod(payment_method || "Cash"),
-formatPaymentMethod(payment_method || "Cash") !== "Cash" ? reference : null,
+    `, [
+      admin_id, member.id, member.full_name, new_rfid_tag, replacement_fee || 0,
+      formatPaymentMethod(payment_method || "Cash"),
+      formatPaymentMethod(payment_method || "Cash") !== "Cash" ? reference : null,
       staff_name,
     ]);
 
-const memberTxnSql = `
+    await conn.query(`
       INSERT INTO AdminMembersTransactions
       (member_id, admin_id, rfid_tag, full_name, transaction_type, amount, balance_added, new_balance,
        payment_method, reference, tax, processed_by, subscription_type)
       VALUES (?, ?, ?, ?, 'rfid_replacement', ?, 0.00, 0.00, ?, ?, 1.00, ?, ?)
-    `;
-    await dbSuperAdmin.promise().query(memberTxnSql, [
-      member.id,
-      admin_id,
-      new_rfid_tag,
-      member.full_name,
-      replacement_fee || 0,
-formatPaymentMethod(payment_method || "Cash"),
-formatPaymentMethod(payment_method || "Cash") !== "Cash" ? reference : null,
-      staff_name,
-      member.subscription_type || null,
+    `, [
+      member.id, admin_id, new_rfid_tag, member.full_name, replacement_fee || 0,
+      formatPaymentMethod(payment_method || "Cash"),
+      formatPaymentMethod(payment_method || "Cash") !== "Cash" ? reference : null,
+      staff_name, member.subscription_type || null,
     ]);
+
 
     await logAudit({
       req,
@@ -159,19 +138,24 @@ formatPaymentMethod(payment_method || "Cash") !== "Cash" ? reference : null,
       payload: req.body,
     });
 
+    await conn.commit();
+
     res.status(200).json({
-      message: " RFID replaced successfully.",
+      message: "RFID replaced successfully.",
       old_rfid: oldRfid,
       new_rfid: new_rfid_tag,
       member_name: member.full_name,
       processed_by: staff_name,
     });
   } catch (err) {
+    await conn.rollback();
     console.error("Error replacing RFID:", err);
     res.status(500).json({
       message: "Server error while replacing RFID.",
       error: err.message
     });
+  } finally {
+    conn.release();
   }
 });
 

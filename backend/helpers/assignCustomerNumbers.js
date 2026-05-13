@@ -24,17 +24,18 @@ async function assignCustomerNumbers(conn, adminId, rfidIds, role) {
 
   // Count existing numbered RFIDs for this admin+role, excluding the current batch.
   // Do NOT filter by status — allocated and in_use both count.
-  const [countRows] = await q(`
-    SELECT COUNT(*) as existingCount
+  const [maxRows] = await q(`
+    SELECT COALESCE(MAX(customer_number), 0) AS maxNumber
     FROM RegisteredRfid
     WHERE allocated_to_admin = ?
       AND role = ?
+      AAND status != 'replaced'
       AND customer_number IS NOT NULL
       AND id NOT IN (?)
   `, [adminId, role, rfidIds]);
 
-  const existingCount = countRows[0].existingCount;
-  console.log(`   Existing numbered RFIDs (excluding this batch): ${existingCount}`);
+  const existingCount = maxRows[0].maxNumber;
+  console.log(`   MAX non-replaced customer_number (excluding batch): ${existingCount}`);
 
   for (let i = 0; i < rfidIds.length; i++) {
     const customerNumber = existingCount + i + 1;

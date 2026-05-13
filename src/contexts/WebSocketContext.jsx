@@ -142,12 +142,11 @@ if (msg.data.next_action === "in_stock_error") {
         }
         return;
 
-      case "rfid-replacement-scanned":
-        if (msg.data?.rfid_tag) {
-          console.log("📡 Replacement RFID Scanned:", msg.data);
-          setReplacementScannedRfid(msg.data);
-        }
-        return;
+case "rfid-replacement-scanned":
+  if (msg.data) {             // ← was: msg.data?.rfid_tag
+    setReplacementScannedRfid(msg.data);
+  }
+  return;
 
       case "replacement-scan-mode-updated":
         setReplacementScanModeEnabled(msg.data?.enabled || false);
@@ -302,13 +301,15 @@ if (partnerScanModeEnabled) {
   }
 
 // Block non-Partner cards when scan mode is active
-  if (scanModeEnabled && role !== "Partner") {
+if (scanModeEnabled) {
+  if (role !== "Partner") {
     showToast({ 
       message: "Invalid card — please use a Partner RFID card", 
       type: "error" 
     });
-    return;
   }
+  return;
+}
 
   // Duplicate check
   if (rfid_tag === lastProcessedRfid.current) {

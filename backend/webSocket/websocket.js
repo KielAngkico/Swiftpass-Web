@@ -675,15 +675,15 @@ if (location.toUpperCase() === "STAFF") {
 const validation = await validateReplacementRfid(rfid_tag, targetAdminId);
 
     if (!validation.valid) {
-      broadcastToClients({
-        type: "rfid-replacement-scanned",
-        data: {
-          status: "error",
-          rfid_tag,
-          reason: validation.reason,
-          admin_id: targetAdminId
-        }
-      });
+broadcastToClients({
+  type: "rfid-replacement-scanned",
+  data: {
+    status: "error",
+    rfid_tag: rfid_tag || "",   // ← add this
+    reason: validation.reason,
+    admin_id: targetAdminId
+  }
+});
       console.log(`===== END REPLACEMENT SCAN =====\n`);
       return;
     }

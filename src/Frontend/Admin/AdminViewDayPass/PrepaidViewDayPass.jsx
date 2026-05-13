@@ -16,7 +16,7 @@ const PrepaidViewDayPass = () => {
         setLoading(true);
         const { data: authData } = await api.get("/api/me");
         if (!authData.authenticated || !authData.user) throw new Error("Not authenticated");
-        const adminId = authData.user.adminId || authData.user.admin_id || authData.user.userId;
+        const adminId = authData.user.adminId || authData.user.admin_id || authData.user.userId || authData.user.id;
         if (!adminId) throw new Error("Admin ID missing");
         const res = await api.get(`/api/daypass-guests?admin_id=${adminId}&system_type=prepaid_entry`);
         setGuests(res.data.guests || []);

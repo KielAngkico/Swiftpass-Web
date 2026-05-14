@@ -29,7 +29,7 @@ async function assignCustomerNumbers(conn, adminId, rfidIds, role) {
     FROM RegisteredRfid
     WHERE allocated_to_admin = ?
       AND role = ?
-      AAND status != 'replaced'
+      AND status != 'replaced'
       AND customer_number IS NOT NULL
       AND id NOT IN (?)
   `, [adminId, role, rfidIds]);

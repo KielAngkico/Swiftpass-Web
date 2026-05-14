@@ -217,15 +217,9 @@ return (
                         {getRoleLabel(rfid.role)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-800">
-                      {rfid.assigned_to_name ? (
-                        rfid.assigned_to_name
-                      ) : (
-                        <span className="inline-block px-2 py-0.5 rounded-full text-[11px] border bg-green-50 text-green-700 border-green-100 font-medium">
-                          Available
-                        </span>
-                      )}
-                    </td>
+<td className="px-4 py-3 text-xs text-gray-800">
+  {rfid.assigned_to_name ? rfid.assigned_to_name : "—"}
+</td>
 <td className="px-4 py-3">
   <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] border font-medium ${getStatusBadge(rfid.status)}`}>
     {getStatusLabel(rfid.status)}

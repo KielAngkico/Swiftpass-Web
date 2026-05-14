@@ -14,7 +14,7 @@ const SubscriptionBanner = ({ user }) => {
   endDate.setHours(0, 0, 0, 0);
   const daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
 
-  if (daysLeft > 7) return null; // only show within 7 days
+  if (daysLeft > 14) return null;
 
   let message = "";
   let bgColor = "";

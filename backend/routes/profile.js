@@ -102,19 +102,31 @@ router.put("/profile/update", authenticateJWT, upload.single("profile_image"), a
         [name.trim(), id]
       );
 
-    } else if (role === "admin") {
-      const fields = [`admin_name = ?`];
-      const values = [name.trim()];
+} else if (role === "admin") {
+  const { gym_code } = req.body;
 
-      if (age)      { fields.push("age = ?");               values.push(age); }
-      if (address)  { fields.push("address = ?");           values.push(address); }
-      if (imageUrl) { fields.push("profile_image_url = ?"); values.push(imageUrl); }
+  if (gym_code?.trim()) {
+    const [existing] = await dbSuperAdmin.promise().query(
+      `SELECT id FROM AdminAccounts WHERE gym_code = ? AND id != ?`,
+      [gym_code.trim(), id]
+    );
+    if (existing.length > 0) {
+      return res.status(400).json({ message: "Gym code already in use by another gym." });
+    }
+  }
 
-      values.push(id);
-      await dbSuperAdmin.promise().query(
-        `UPDATE AdminAccounts SET ${fields.join(", ")} WHERE id = ?`,
-        values
-      );
+  const fields = [`admin_name = ?`];
+  const values = [name.trim()];
+
+  if (address)          { fields.push("address = ?");           values.push(address); }
+  if (gym_code?.trim()) { fields.push("gym_code = ?");          values.push(gym_code.trim().toUpperCase()); }
+  if (imageUrl)         { fields.push("profile_image_url = ?"); values.push(imageUrl); }
+
+  values.push(id);
+  await dbSuperAdmin.promise().query(
+    `UPDATE AdminAccounts SET ${fields.join(", ")} WHERE id = ?`,
+    values
+  );
 
     } else if (role === "staff") {
       const fields = [`staff_name = ?`];
@@ -140,14 +152,14 @@ router.put("/profile/update", authenticateJWT, upload.single("profile_image"), a
          FROM SuperAdminAccounts WHERE id = ?`,
         [id]
       );
-    } else if (role === "admin") {
-      [updatedRows] = await dbSuperAdmin.promise().query(
-        `SELECT id, admin_name AS name, age, email, address,
-                gym_name, system_type, profile_image_url, status, created_at
-         FROM AdminAccounts WHERE id = ?`,
-        [id]
-      );
-    } else if (role === "staff") {
+} else if (role === "admin") {
+  [updatedRows] = await dbSuperAdmin.promise().query(
+    `SELECT id, admin_name AS name, age, email, address,
+            gym_name, gym_code, system_type, profile_image_url, status, created_at
+     FROM AdminAccounts WHERE id = ?`,
+    [id]
+  );
+}else if (role === "staff") {
       [updatedRows] = await dbSuperAdmin.promise().query(
         `SELECT s.id, s.staff_name AS name, s.age, s.email,
                 s.contact_number, s.address, s.profile_image_url,

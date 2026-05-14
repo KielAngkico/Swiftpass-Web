@@ -26,12 +26,13 @@ const MyProfile = ({ isOpen, onClose }) => {
   };
 
   const startEdit = () => {
-    setForm({
-      name: user?.name || "",
-      age: user?.age || "",
-      address: user?.address || "",
-      contact_number: user?.contact_number || "",
-    });
+setForm({
+  name: user?.name || "",
+  age: user?.age || "",
+  address: user?.address || "",
+  contact_number: user?.contact_number || "",
+  gym_code: user?.gym_code || "",
+});
     setPreviewImage(null);
     setImageFile(null);
     setEditing(true);
@@ -66,6 +67,7 @@ const MyProfile = ({ isOpen, onClose }) => {
       formData.append("name", form.name);
       if (form.age) formData.append("age", form.age);
       if (form.address) formData.append("address", form.address);
+      if (form.gym_code) formData.append("gym_code", form.gym_code);
       if (form.contact_number) formData.append("contact_number", form.contact_number);
       if (imageFile) formData.append("profile_image", imageFile);
 
@@ -131,7 +133,7 @@ const MyProfile = ({ isOpen, onClose }) => {
         {/* Avatar + name row */}
         <div className="flex items-center gap-4 mb-6">
           <div className="relative flex-shrink-0">
-            <div className="w-16 h-16 bg-gray-100 border border-gray-200 rounded-md flex items-center justify-center overflow-hidden">
+            <div className="w-30 h-30 bg-gray-100 border border-gray-200 rounded-md flex items-center justify-center overflow-hidden">
               {avatarSrc ? (
                 <img
                   src={avatarSrc}
@@ -190,7 +192,17 @@ const MyProfile = ({ isOpen, onClose }) => {
         className={inputCls}
       />
     </EditField>
-
+    {user?.role === "admin" && (
+  <EditField label="Gym Code" fullWidth={true}>
+    <input
+      type="text"
+      value={form.gym_code}
+      onChange={(e) => setForm({ ...form, gym_code: e.target.value.toUpperCase() })}
+      placeholder="Enter gym code"
+      className={inputCls}
+    />
+  </EditField>
+)}
     {user?.role === "staff" && (
       <EditField label="Age">
         <input
@@ -227,32 +239,46 @@ const MyProfile = ({ isOpen, onClose }) => {
   </>
           ) : (
             <>
-              <Field label="Email Address" value={user?.email} fullWidth={true} />
-              <Field label="Status" value={user?.status} />
-              <Field label="Age" value={user?.age} />
+<Field label="Email Address" value={user?.email} fullWidth={true} />
 
-              {user?.role === "admin" && (
-                <>
-                  <Field label="System" value={user?.system_type} />
-                  <Field label="Gym" value={user?.gym_name} />
-                  <Field label="Address" value={user?.address} fullWidth={true} />
-                </>
-              )}
+{user?.role === "admin" && (
+  <>
+<Field label="Gym Name" value={user?.gym_name} />
+<Field label="Status" value={user?.status} />
+<Field label="Gym Code" value={user?.gym_code} />
+<Field
+  label="Joined Date"
+  value={user?.created_at ? new Date(user.created_at).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : null}
+/>
+<Field label="Address" value={user?.address} />
+<Field
+  label="Subscription Start"
+  value={user?.subscription_start_date ? new Date(user.subscription_start_date).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : null}
+/>
+<Field label="System" value={user?.system_type} />
+<Field
+  label="Subscription End"
+  value={user?.subscription_end_date ? new Date(user.subscription_end_date).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : null}
+/>
 
-              {user?.role === "staff" && (
-                <>
-                  <Field label="Gym" value={user?.gym_name} />
-                  <Field label="Contact" value={user?.contact_number} />
-                  <Field label="Manager" value={user?.admin_name} fullWidth={true} />
-                  <Field label="Address" value={user?.address} fullWidth={true} />
-                </>
-              )}
+  </>
+)}
+{user?.role === "staff" && (
+  <>
+    <Field label="Gym Name" value={user?.gym_name} />
+    <Field label="Status" value={user?.status} />
+    <Field label="Gym Code" value={user?.gym_code} />
+    <Field label="Address" value={user?.address} />
+    <Field label="Gym Owner" value={user?.admin_name} />
+    <Field label="Age" value={user?.age} />
+    <Field
+      label="Joined Date"
+      value={user?.created_at ? new Date(user.created_at).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : null}
+    />
+    <Field label="Contact" value={user?.contact_number} />
+  </>
+)}
 
-              <Field
-                label="Joined Date"
-                value={user?.created_at ? new Date(user.created_at).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : null}
-                fullWidth={true}
-              />
             </>
           )}
         </div>

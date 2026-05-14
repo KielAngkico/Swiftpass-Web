@@ -91,10 +91,10 @@ router.get("/me", (req, res) => {
 
       } else if (user.role === "admin") {
   const rows = await query(
-    `SELECT id, admin_name AS name, age, email, address, gym_name, 
-            system_type, profile_image_url, session_fee, status, created_at,
-            subscription_end_date
-     FROM AdminAccounts WHERE id = ?`,
+   `SELECT id, admin_name AS name, age, email, address, gym_name, gym_code,
+        system_type, profile_image_url, session_fee, status, created_at,
+        subscription_end_date, subscription_start_date
+ FROM AdminAccounts WHERE id = ?`,
     [user.id]
   );
   if (rows.length) {
@@ -107,6 +107,8 @@ router.get("/me", (req, res) => {
             gym_name: rows[0].gym_name,
             system_type: rows[0].system_type,
             profile_image_url: rows[0].profile_image_url,
+            gym_code: rows[0].gym_code,
+subscription_start_date: rows[0].subscription_start_date,
              subscription_end_date: rows[0].subscription_end_date, 
             session_fee: rows[0].session_fee,
             status: rows[0].status,
@@ -119,12 +121,12 @@ router.get("/me", (req, res) => {
 
       } else if (user.role === "staff") {
         const rows = await query(
-          `SELECT s.id, s.staff_name AS name, s.age, s.email, s.address, 
-                  s.contact_number, s.profile_image_url, s.status, s.created_at,
-                  s.admin_id, a.gym_name, a.admin_name AS admin_name
-           FROM StaffAccounts s
-           LEFT JOIN AdminAccounts a ON s.admin_id = a.id
-           WHERE s.id = ?`,
+`SELECT s.id, s.staff_name AS name, s.age, s.email, s.address, 
+        s.contact_number, s.profile_image_url, s.status, s.created_at,
+        s.admin_id, a.gym_name, a.gym_code, a.admin_name AS admin_name
+ FROM StaffAccounts s
+ LEFT JOIN AdminAccounts a ON s.admin_id = a.id
+ WHERE s.id = ?`,
           [user.id]
         );
         if (rows.length) {
@@ -144,6 +146,7 @@ router.get("/me", (req, res) => {
             role: "staff",
             adminId: user.adminId,
             systemType: user.systemType,
+            gym_code: rows[0].gym_code,
           };
         }
       }

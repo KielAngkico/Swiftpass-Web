@@ -15,7 +15,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
     age: "",
     rfid_tag: rfid_tag || "",
     phone_number: "",
-    address: registration.address || "",
+    address: "",
     email: "",
     password: "1234",
     payment_method: "",

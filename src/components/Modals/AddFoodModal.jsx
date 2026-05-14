@@ -64,19 +64,19 @@ const AddFoodModal = ({ isOpen, onClose, onFoodAdded, editFood = null }) => {
   }, [isOpen]);
 useEffect(() => {
     if (editFood && isOpen) {
-      setFormData({
-        name: editFood.name || "",
-        general_group: editFood.general_group || "",
-        category: editFood.category || "",
-        grams_reference: editFood.grams_reference || 100,
-        calories: editFood.calories ?? "",
-        protein: editFood.protein ?? "",
-        carbs: editFood.carbs ?? "",
-        fats: editFood.fats ?? "",
-        allergens: editFood.allergen_ids || [],
-        is_meat: !!editFood.is_meat,
-        is_red_meat: !!editFood.is_red_meat,
-      });
+     setFormData({
+  name: editFood.name || "",
+  general_group: editFood.general_group || "",
+  category: editFood.category || "",
+  grams_reference: editFood.grams_reference || 100,
+  calories: editFood.calories ?? "",
+  protein: editFood.protein ?? "",
+  carbs: editFood.carbs ?? "",
+  fats: editFood.fats ?? "",
+  allergens: editFood.allergen_ids || [],
+  is_meat: editFood.is_meat === 1 || editFood.is_meat === true,
+  is_red_meat: editFood.is_red_meat === 1 || editFood.is_red_meat === true,
+});
     } else if (!editFood && isOpen) {
       resetForm();
     }

@@ -126,11 +126,11 @@ router.post("/food-database", (req, res) => {
 
 router.get("/food-database", (req, res) => {
   const sql = `
-    SELECT f.id, f.name, f.calories, f.protein, f.carbs, f.fats, f.created_by, f.grams_reference,
-           g.id AS group_id, g.name AS general_group, g.category,
-           GROUP_CONCAT(a.name ORDER BY a.name) AS allergens
-    FROM FoodLibrary f
-    JOIN FoodGroups g ON f.group_id = g.id
+SELECT f.id, f.name, f.calories, f.protein, f.carbs, f.fats, f.created_by, f.grams_reference,
+       g.id AS group_id, g.name AS general_group, g.category, g.is_meat, g.is_red_meat,
+       GROUP_CONCAT(a.name ORDER BY a.name) AS allergens
+FROM FoodLibrary f
+JOIN FoodGroups g ON f.group_id = g.id
     LEFT JOIN FoodAllergens fa ON f.id = fa.food_id
     LEFT JOIN Allergens a ON fa.allergen_id = a.id
     GROUP BY f.id
@@ -181,9 +181,15 @@ router.put("/food-database/:id", (req, res) => {
   db.query(findGroupSql, [general_group], (err, rows) => {
     if (err) return res.status(500).json({ error: "Failed to check group" });
 
-    if (rows.length > 0) {
-      updateFood(rows[0].id);
-    } else {
+if (rows.length > 0) {
+  // Update is_meat and is_red_meat on existing group too
+  db.query(
+    `UPDATE FoodGroups SET is_meat = ?, is_red_meat = ? WHERE id = ?`,
+    [meatFlag, redMeatFlag, rows[0].id],
+    () => {}
+  );
+  updateFood(rows[0].id);
+} else {
       const insertGroupSql = `INSERT INTO FoodGroups (name, category, is_meat, is_red_meat) VALUES (?, ?, ?, ?)`;
       db.query(insertGroupSql, [general_group, category || "Unknown", meatFlag, redMeatFlag], (err, result) => {
         if (err) return res.status(500).json({ error: "Failed to create group" });

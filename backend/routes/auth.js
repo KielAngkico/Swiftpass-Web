@@ -75,10 +75,8 @@ router.get("/me", (req, res) => {
 
       if (user.role === "superadmin") {
         const rows = await query(
-          `SELECT id, admin_name AS name, age, email, address, gym_name, 
-                  system_type, profile_image_url, session_fee, status, created_at,
-                  subscription_end_date
-          FROM AdminAccounts WHERE id = ?`,
+          `SELECT id, superadmin_name AS name, email, created_at 
+           FROM SuperAdminAccounts WHERE id = ?`,
           [user.id]
         );
         if (rows.length) {
@@ -87,19 +85,19 @@ router.get("/me", (req, res) => {
             name: rows[0].name,
             email: rows[0].email,
             created_at: rows[0].created_at,
-            subscription_end_date: rows[0].subscription_end_date,
             role: "superadmin",
           };
         }
 
       } else if (user.role === "admin") {
-        const rows = await query(
-          `SELECT id, admin_name AS name, age, email, address, gym_name, 
-                  system_type, profile_image_url, session_fee, status, created_at 
-           FROM AdminAccounts WHERE id = ?`,
-          [user.id]
-        );
-        if (rows.length) {
+  const rows = await query(
+    `SELECT id, admin_name AS name, age, email, address, gym_name, 
+            system_type, profile_image_url, session_fee, status, created_at,
+            subscription_end_date
+     FROM AdminAccounts WHERE id = ?`,
+    [user.id]
+  );
+  if (rows.length) {
           userData = {
             id: rows[0].id,
             name: rows[0].name,
@@ -109,6 +107,7 @@ router.get("/me", (req, res) => {
             gym_name: rows[0].gym_name,
             system_type: rows[0].system_type,
             profile_image_url: rows[0].profile_image_url,
+             subscription_end_date: rows[0].subscription_end_date, 
             session_fee: rows[0].session_fee,
             status: rows[0].status,
             created_at: rows[0].created_at,

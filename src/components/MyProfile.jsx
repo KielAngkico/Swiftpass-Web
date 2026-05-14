@@ -180,49 +180,51 @@ const MyProfile = ({ isOpen, onClose }) => {
 
         {/* Fields — same grid layout, switches between read/edit */}
         <div className="grid grid-cols-2 gap-x-4">
-          {editing ? (
-            <>
-              <EditField label="Full Name" fullWidth={true}>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className={inputCls}
-                />
-              </EditField>
+{editing ? (
+  <>
+    <EditField label="Full Name" fullWidth={true}>
+      <input
+        type="text"
+        value={form.name}
+        onChange={(e) => setForm({ ...form, name: e.target.value })}
+        className={inputCls}
+      />
+    </EditField>
 
-              <EditField label="Age">
-                <input
-                  type="text"
-                  value={form.age}
-                  onChange={(e) => setForm({ ...form, age: e.target.value.replace(/\D/g, "") })}
-                  placeholder="e.g. 25"
-                  className={inputCls}
-                />
-              </EditField>
+    {user?.role === "staff" && (
+      <EditField label="Age">
+        <input
+          type="text"
+          value={form.age}
+          onChange={(e) => setForm({ ...form, age: e.target.value.replace(/\D/g, "") })}
+          placeholder="Enter age"
+          className={inputCls}
+        />
+      </EditField>
+    )}
 
-              <EditField label="Address" fullWidth={true}>
-                <input
-                  type="text"
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  placeholder="e.g. Manila, Philippines"
-                  className={inputCls}
-                />
-              </EditField>
+    <EditField label="Address" fullWidth={true}>
+      <input
+        type="text"
+        value={form.address}
+        onChange={(e) => setForm({ ...form, address: e.target.value })}
+        placeholder="Enter address"
+        className={inputCls}
+      />
+    </EditField>
 
-              {user?.role === "staff" && (
-                <EditField label="Contact Number" fullWidth={true}>
-                  <input
-                    type="text"
-                    value={form.contact_number}
-                    onChange={(e) => setForm({ ...form, contact_number: e.target.value })}
-                    placeholder="e.g. 09xxxxxxxxx"
-                    className={inputCls}
-                  />
-                </EditField>
-              )}
-            </>
+    {user?.role === "staff" && (
+      <EditField label="Contact Number" fullWidth={true}>
+        <input
+          type="text"
+          value={form.contact_number}
+          onChange={(e) => setForm({ ...form, contact_number: e.target.value })}
+          placeholder="Enter contact number"
+          className={inputCls}
+        />
+      </EditField>
+    )}
+  </>
           ) : (
             <>
               <Field label="Email Address" value={user?.email} fullWidth={true} />

@@ -52,7 +52,7 @@ const [page, setPage] = useState(1);
   }, [user]);
 
   useEffect(() => {
-    let filtered = (inventory.rfids || []).filter(r => r.status !== 'replaced' && r.status !== 'deactivated');
+    let filtered = [...(inventory.rfids || [])];
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -68,7 +68,25 @@ else if (filterStatus === "In Use") filtered = filtered.filter((rfid) => rfid.st
     setFilteredRfids(filtered);
 setPage(1);
   }, [searchTerm, filterType, filterStatus, inventory.rfids]);
+const getStatusLabel = (status) => {
+  const labels = {
+    allocated: "Available",
+    in_use: "In Use",
+    replaced: "Replaced",
+    deactivated: "Deactivated",
+  };
+  return labels[status] || status;
+};
 
+const getStatusBadge = (status) => {
+  const config = {
+    allocated: "bg-green-50 text-green-700 border-green-100",
+    in_use: "bg-blue-50 text-blue-700 border-blue-100",
+    replaced: "bg-orange-50 text-orange-700 border-orange-100",
+    deactivated: "bg-red-50 text-red-700 border-red-100",
+  };
+  return config[status] || "bg-gray-100 text-gray-500 border-gray-200";
+};
   const getRoleLabel = (role) => {
     const labels = { Member: "Member", Partner: "Staff/Admin", DayPass: "Day Pass" };
     return labels[role] || role;
@@ -163,7 +181,8 @@ return (
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">RFID Tag</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Type</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Allocated To</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Received Date</th>
+<th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Status</th>
+<th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Received Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -207,9 +226,14 @@ return (
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-400">
-                      {rfid.allocation_date ? formatDate(rfid.allocation_date) : "—"}
-                    </td>
+<td className="px-4 py-3">
+  <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] border font-medium ${getStatusBadge(rfid.status)}`}>
+    {getStatusLabel(rfid.status)}
+  </span>
+</td>
+<td className="px-4 py-3 text-xs text-gray-400">
+  {rfid.allocation_date ? formatDate(rfid.allocation_date) : "—"}
+</td>
                   </tr>
                 ))
               )}

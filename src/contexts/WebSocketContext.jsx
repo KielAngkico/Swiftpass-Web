@@ -173,7 +173,7 @@ case "partner-slot-scan-result":
   }
   return;
 case "rfid-scanned-for-staff":
-        if (msg.data?.rfid_tag) {
+        if (msg.data) {
           console.log("📡 RFID Scanned for Staff Registration:", msg.data);
 
           if (msg.data.status === "error") {

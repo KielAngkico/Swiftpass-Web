@@ -84,13 +84,17 @@ router.put("/replace-member-rfid/:id", async (req, res) => {
     );
 
     // Mark old card as replaced — dead forever
-    await conn.query(
-      `UPDATE RegisteredRfid
-       SET status = 'replaced',
-           assignment_date = NOW()
-       WHERE rfid_tag = ? AND role = 'Member'`,
-      [oldRfid]
-    );
+// Mark old card as replaced — dead forever
+await conn.query(
+  `UPDATE RegisteredRfid
+   SET status = 'replaced',
+       assigned_to_id = NULL,
+       assigned_to_name = NULL,
+       assigned_to_type = NULL,
+       assignment_date = NULL
+   WHERE rfid_tag = ? AND role = 'Member'`,
+  [oldRfid]
+);
 
     // Move WHO to new card — customer_number stays untouched (set at order time)
     await conn.query(

@@ -5,7 +5,6 @@ const bcrypt = require("bcrypt");
 const staffUpload = require("../middleware/staffupload");
 const path = require("path");
 const logAudit = require("../middleware/auditLogger");
-const assignCustomerNumbers = require('../helpers/assignCustomerNumbers');
 
 router.post("/add-employee", staffUpload.single("profile_image"), async (req, res) => {
   const conn = await dbSuperAdmin.promise().getConnection();
@@ -255,15 +254,18 @@ router.put("/replace-employee-rfid/:id",
       [new_rfid_tag || null, employeeId]
     );
 
-    if (oldRfid) {
-      await conn.query(
-        `UPDATE RegisteredRfid 
-         SET status = 'replaced',
-             assignment_date = NOW()
-         WHERE rfid_tag = ? AND role = 'Partner'`,
-        [oldRfid]
-      );
-    }
+if (oldRfid) {
+  await conn.query(
+    `UPDATE RegisteredRfid 
+     SET status = 'replaced',
+         assigned_to_id = NULL,
+         assigned_to_name = NULL,
+         assigned_to_type = NULL,
+         assignment_date = NULL
+     WHERE rfid_tag = ? AND role = 'Partner'`,
+    [oldRfid]
+  );
+}
 
     if (new_rfid_tag && new_rfid_tag.trim() !== "") {
       await conn.query(
@@ -343,10 +345,10 @@ router.put("/staff/:id/archive", async (req, res) => {
 
     if (staffData.rfid_tag) {
       await conn.query(
-        `UPDATE RegisteredRfid 
-         SET assigned_to_id = NULL, assigned_to_name = NULL, assigned_to_type = NULL,
-             status = 'allocated', assignment_date = NULL
-         WHERE rfid_tag = ? AND role = 'Partner'`,
+`UPDATE RegisteredRfid 
+ SET assigned_to_id = NULL, assigned_to_name = NULL, assigned_to_type = NULL,
+     status = 'allocated', assignment_date = NULL
+ WHERE rfid_tag = ? AND role = 'Partner'`,
         [staffData.rfid_tag]
       );
     }
@@ -532,10 +534,10 @@ router.delete("/staff/:id", async (req, res) => {
 
     if (staffData.rfid_tag) {
       await conn.query(
-        `UPDATE RegisteredRfid 
-         SET assigned_to_id = NULL, assigned_to_name = NULL, assigned_to_type = NULL,
-             status = 'allocated', assignment_date = NULL
-         WHERE rfid_tag = ? AND role = 'Partner'`,
+`UPDATE RegisteredRfid 
+ SET assigned_to_id = NULL, assigned_to_name = NULL, assigned_to_type = NULL,
+     status = 'allocated', assignment_date = NULL
+ WHERE rfid_tag = ? AND role = 'Partner'`,
         [staffData.rfid_tag]
       );
     }

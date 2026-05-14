@@ -5,6 +5,43 @@ import api from "../api";
 import { getAccessToken, setAccessToken } from "../tokenMemory"; 
 import ProfileDropdown from "./ProfileDropdown";
 
+const SubscriptionBanner = ({ user }) => {
+  if (user?.role !== "admin" || !user?.subscription_end_date) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endDate = new Date(user.subscription_end_date);
+  endDate.setHours(0, 0, 0, 0);
+  const daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+
+  if (daysLeft > 7) return null; // only show within 7 days
+
+  let message = "";
+  let bgColor = "";
+  let textColor = "";
+
+  if (daysLeft < 0) {
+    message = "Your subscription has expired.";
+    bgColor = "#dc2626";
+    textColor = "#fff";
+  } else if (daysLeft === 0) {
+    message = "Your subscription expires today!";
+    bgColor = "#dc2626";
+    textColor = "#fff";
+  } else {
+    message = `Your subscription expires in ${daysLeft} day${daysLeft > 1 ? "s" : ""}.`;
+    bgColor = "#f59e0b";
+    textColor = "#1c1917";
+  }
+
+  return (
+    <div style={{ background: bgColor, color: textColor }}
+      className="w-full text-center text-xs py-1.5 px-4 font-medium tracking-wide">
+      ⚠️ {message}
+    </div>
+  );
+};
+
 const Header = ({ onLogoutClick, loading }) => {
   const { user, setUser } = useAuth();
 
@@ -38,6 +75,8 @@ const Header = ({ onLogoutClick, loading }) => {
           <ProfileDropdown onLogoutClick={onLogoutClick} loading={loading} />
         )}
       </header>
+
+      {user && <SubscriptionBanner user={user} />}
     </>
   );
 };

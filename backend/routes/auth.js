@@ -75,8 +75,10 @@ router.get("/me", (req, res) => {
 
       if (user.role === "superadmin") {
         const rows = await query(
-          `SELECT id, superadmin_name AS name, email, created_at 
-           FROM SuperAdminAccounts WHERE id = ?`,
+          `SELECT id, admin_name AS name, age, email, address, gym_name, 
+                  system_type, profile_image_url, session_fee, status, created_at,
+                  subscription_end_date
+          FROM AdminAccounts WHERE id = ?`,
           [user.id]
         );
         if (rows.length) {
@@ -85,6 +87,7 @@ router.get("/me", (req, res) => {
             name: rows[0].name,
             email: rows[0].email,
             created_at: rows[0].created_at,
+            subscription_end_date: rows[0].subscription_end_date,
             role: "superadmin",
           };
         }

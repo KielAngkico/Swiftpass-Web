@@ -37,10 +37,14 @@ const MemberCard = ({ member, onClose }) => {
                 <label className="text-gray-500 text-xs">Full Name</label>
                 <p className="text-gray-800 font-medium">{member.full_name}</p>
               </div>
-              <div>
-                <label className="text-gray-500 text-xs">RFID Tag</label>
-                <p className="text-gray-800 font-medium">{member.rfid_tag}</p>
-              </div>
+ <div>
+  <label className="text-gray-500 text-xs">RFID Number</label>
+  <p className="text-gray-800 font-medium">{member.customer_number_display || "N/A"}</p>
+</div>
+<div>
+  <label className="text-gray-500 text-xs">RFID Tag</label>
+  <p className="text-gray-800 font-medium">{member.rfid_tag}</p>
+</div>
               <div>
                 <label className="text-gray-500 text-xs">Age</label>
                 <p className="text-gray-800 font-medium">{member.age}</p>

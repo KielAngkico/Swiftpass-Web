@@ -38,10 +38,14 @@ const DayPassMemberCard = ({ guest, onClose }) => {
                 <label className="text-gray-500 text-xs">Guest Name</label>
                 <p className="text-gray-800 font-medium">{guest.guest_name || "N/A"}</p>
               </div>
-              <div>
-                <label className="text-gray-500 text-xs">RFID Tag</label>
-                <p className="text-gray-800 font-medium">{guest.rfid_tag || "N/A"}</p>
-              </div>
+<div>
+  <label className="text-gray-500 text-xs">RFID Number</label>
+  <p className="text-gray-800 font-medium">{guest.customer_number_display || "N/A"}</p>
+</div>
+<div>
+  <label className="text-gray-500 text-xs">RFID Tag</label>
+  <p className="text-gray-800 font-medium">{guest.rfid_tag || "N/A"}</p>
+</div>
               <div>
                 <label className="text-gray-500 text-xs">Gender</label>
                 <p className="text-gray-800 font-medium capitalize">{guest.gender || "N/A"}</p>

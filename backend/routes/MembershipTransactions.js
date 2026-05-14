@@ -210,7 +210,7 @@ const insertMemberTxnSql = `
     });
 
     return res.status(200).json({
-      message: "Subscription renewed successfully. Member is now active.",
+      message: "Subscription renewed successfully!",
       status: "active",
       subscription_start: formattedStart,
       subscription_expiry: formattedExpiry
@@ -316,10 +316,8 @@ formatPaymentMethod(payment_method) !== "Cash" ? reference : null,
       payload: req.body,
     });
 
-    return res.status(200).json({
-      message: newStatus === 'active'
-        ? "✅ Tap-up successful. Member is now active!"
-        : `✅ Tap-up successful. Balance still below session fee (₱${minimumSessionFee}).`,
+return res.status(200).json({
+  message: "Tap-up successful!",
       status: newStatus,
       new_balance: newBalance,
       minimum_session_fee: minimumSessionFee

@@ -232,7 +232,7 @@ if (rfid_tag_2 && rfid_tag_2.trim() !== "") {
           `, [order_id, item.item_name, item.sub_package_id, item.item_type, item.quantity, item.unit_price, subtotal]);
         }
 
-        console.log(`✅ Created initial order ${order_number} for partner ${admin_id} with ${orderItems.length} line items`);
+        console.log(`Created initial order ${order_number} for partner ${admin_id} with ${orderItems.length} line items`);
       }
  
     }

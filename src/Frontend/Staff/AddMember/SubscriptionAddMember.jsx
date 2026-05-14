@@ -428,7 +428,6 @@ const validate = () => {
                 Add Member
               </button>
             </div>
-            {serverMessage && <p className="text-xs text-gray-400 mt-1">{serverMessage}</p>}
           </div>
 
           <div className="flex flex-col gap-4 h-full self-stretch">

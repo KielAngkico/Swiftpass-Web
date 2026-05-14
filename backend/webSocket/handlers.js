@@ -45,7 +45,7 @@ async function handleStaffScan(rfid_tag, location, admin_id, allocation, helpers
 
     if (dayPassRows.length > 0) {
       const guest = dayPassRows[0];
-      console.log(`✅ Day Pass guest found: ${guest.guest_name}`);
+      console.log(`Day Pass guest found: ${guest.guest_name}`);
       
       let imageUrl = guest.profile_image_url;
       if (imageUrl && !imageUrl.startsWith('http')) {
@@ -199,7 +199,7 @@ async function handleEntryExit(rfid_tag, location, admin_id, allocation, helpers
   console.log(`🔍 Checking StaffAccounts for admin ${target_admin_id}...`);
   const staffMember = await getStaffByRfid(rfid_tag, target_admin_id);
   if (staffMember) {
-    console.log(`✅ Staff Found: ${staffMember.staff_name}`);
+    console.log(`Staff Found: ${staffMember.staff_name}`);
     await logStaffActivity(rfid_tag, staffMember, location, location.toUpperCase());
 
 broadcastToClients({
@@ -234,7 +234,7 @@ broadcastToClients({
 
     if (memberRows.length > 0) {
       const member = memberRows[0];
-      console.log(`✅ Member Found: ${member.full_name} (Status: ${member.status})`);
+      console.log(`Member Found: ${member.full_name} (Status: ${member.status})`);
       
       if (member.status === 'inactive') {
         console.log(`❌ Member is inactive`);
@@ -323,7 +323,7 @@ async function handleDayPassGuest(rfid_tag, location, admin_id) {
     const guest = guestRows[0];
     const now = new Date();
 
-    console.log(`✅ DayPass guest found: ${guest.guest_name}`);
+    console.log(`DayPass guest found: ${guest.guest_name}`);
 
     if (guest.expires_at && new Date(guest.expires_at) < now) {
       console.log(`❌ DayPass expired for ${guest.guest_name}`);
@@ -624,7 +624,7 @@ const [logResult] = await dbSuperAdmin.promise().query(
             console.log(`❌ Subscription expired for ${member.full_name} on ${expiryDate.toISOString()}`);
           } else {
             accessGranted = true;
-            console.log(`✅ Subscription valid until ${expiryDate.toISOString()}`);
+            console.log(`Subscription valid until ${expiryDate.toISOString()}`);
           }
         } else {
           accessGranted = true;

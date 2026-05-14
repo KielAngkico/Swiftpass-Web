@@ -130,9 +130,7 @@ const insertMemberTxnSql = `
     });
 
     return res.status(200).json({
-      message: memberStatus === 'inactive'
-        ? "✅ Member added! Please top-up to activate (balance below minimum session fee)."
-        : "✅ Member added and activated successfully!",
+     message: "Member added successfully!",
       rfid_tag, full_name, age: ageNumber, phone_number, address, email, staff_name,
       profile_image_url: profileImage, initial_balance: initialBalance, balance_after: initialBalance,
       payment: paymentNumber, status: memberStatus, minimum_session_fee: minimumSessionFee
@@ -264,7 +262,7 @@ const insertMemberTxnSql = `
     });
 
     return res.status(200).json({
-      message: "✅ Member registered successfully! Please renew subscription to activate.",
+     message: "Member added successfully!",
       rfid_tag, full_name, status: 'inactive', payment: paymentNumber,
       note: "Member needs subscription renewal to become active"
     });

@@ -53,7 +53,7 @@ async function getRfidAllocation(rfidTag) {
       };
     }
 
-    console.log(`✅ RFID Allocation Found:`, {
+    console.log(`RFID Allocation Found:`, {
       rfid_tag: allocation.rfid_tag,
       allocated_to_admin: allocation.allocated_to_admin,
       rfid_type: allocation.rfid_type,

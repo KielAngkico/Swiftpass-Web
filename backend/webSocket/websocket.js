@@ -275,8 +275,7 @@ if (data.type === "rfid-scanned-for-staff" ||
     return;
   }
 
-  // ✅ Handle member-update messages (ENTRY/EXIT logs)
- // ✅ Handle member-update messages (ENTRY/EXIT logs)
+
 if (data.type === "member-update") {
   if (!data.data || !data.data.admin_id) {
     console.log("member-update dropped - missing admin_id");
@@ -294,17 +293,16 @@ if (data.type === "member-update") {
   connectedClients.forEach((client) => {
     if (client.readyState !== WebSocket.OPEN) return;
 
-    // ✅ Send to dashboard clients (Staff/Admin viewing)
+
     if (client.clientType === "dashboard" && client.admin_id === targetAdminId) {
       client.send(JSON.stringify(data));
       sentCount++;
       console.log(`   ✅ Sent to dashboard client (admin_id: ${client.admin_id})`);
     }
     
-    // ✅ NEW: Send to Arduino clients at the same location
-// ✅ NEW: Send to Arduino clients at the same location
+
+
 if (client.clientType === "arduino") {
-  // ✅ Send to ENTRY/EXIT arduinos matching the location
   if (["ENTRY", "EXIT"].includes(client.location?.toUpperCase()) && 
       client.location?.toUpperCase() === messageLocation?.toUpperCase()) {
     client.send(JSON.stringify(data));
@@ -312,7 +310,6 @@ if (client.clientType === "arduino") {
     console.log(`   ✅ Sent to Arduino at ${client.location}`);
   }
   
-  // ✅ ALSO send to LOCK arduino for ALL entry/exit events
   if (client.location?.toUpperCase() === "LOCK" && 
       ["ENTRY", "EXIT"].includes(messageLocation?.toUpperCase())) {
     client.send(JSON.stringify(data));
@@ -433,7 +430,6 @@ if (parsed.type === "toggle-partner-slot-mode") {
       return;
     }
 
-    // ✅ ADD THIS CHECK - Is this an RFID scan?
     const { rfid_tag, location } = parsed;
     
     console.log("📍 Extracted from message:");
@@ -446,7 +442,7 @@ if (parsed.type === "toggle-partner-slot-mode") {
       return;
     }
 
-    console.log("✅ Valid RFID scan detected");
+    console.log("Valid RFID scan detected");
     console.log("   Location:", location.toUpperCase());
     console.log("   RFID Tag:", rfid_tag);
 
@@ -464,7 +460,7 @@ if (parsed.type === "toggle-partner-slot-mode") {
       return;
     }
 
-    console.log("✅ Authentication check passed");
+    console.log("Authentication check passed");
     
 // ============= ENTRY/EXIT LOCATION =============
 if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
@@ -473,7 +469,7 @@ if (["ENTRY", "EXIT"].includes(location.toUpperCase())) {
   console.log(`   Location: ${location}`);
   console.log(`   Scanner Admin ID: ${scanner_admin_id}`);
 
-  // ✅ CHECK SUPERADMIN FIRST
+  
   const superAdminMember = await getSuperAdminByRfid(rfid_tag);
   if (superAdminMember) {
     console.log(`✅ SuperAdmin Found: ${superAdminMember.superadmin_name}`);
@@ -742,7 +738,7 @@ broadcastToClients({
 
     if (guestRows.length > 0) {
       const guest = guestRows[0];
-      console.log("✅ Found existing DayPass guest:", guest.guest_name);
+      console.log("Found existing DayPass guest:", guest.guest_name);
       
       broadcastToClients({
         type: "staff-scan",
@@ -790,7 +786,7 @@ const [[daypassRfidRow]] = await dbSuperAdmin.promise().query(
     const memberCheck = await getMemberByRfid(rfid_tag, targetAdminId);
     
 if (memberCheck) {
-      console.log("✅ Found existing Member:", memberCheck.full_name);
+      console.log("Found existing Member:", memberCheck.full_name);
       broadcastToClients({
         type: "staff-scan",
         data: {
@@ -837,7 +833,7 @@ if (allocation.role === 'Partner') {
 
   // ✅ Scan mode active — owner is assigning RFID to a staff member
   if (adminScanModes[targetAdminId]) {
-    console.log("✅ Scan mode active — validating Partner card for staff assignment");
+    console.log("Scan mode active — validating Partner card for staff assignment");
 
     const validation = await validateScanModeRfid(rfid_tag, targetAdminId);
 
@@ -857,7 +853,7 @@ if (allocation.role === 'Partner') {
     }
 
     // ✅ All checks passed
-    console.log("✅ Partner card valid for staff RFID assignment:", rfid_tag);
+    console.log("Partner card valid for staff RFID assignment:", rfid_tag);
     broadcastToClients({
       type: "rfid-scanned-for-staff",
       data: {

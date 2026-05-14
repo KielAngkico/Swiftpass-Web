@@ -209,7 +209,7 @@ router.post("/renew-daypass", async (req, res) => {
     const guestId = guestRows[0].id;
     const guestName = guestRows[0].guest_name;
 
-    console.log("✅ Guest found:", { guestId, guestName });
+    console.log("Guest found:", { guestId, guestName });
 
     const [sessionRows] = await conn.query(
       "SELECT amount_to_pay FROM AdminPricingOptions WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1 LIMIT 1",
@@ -232,7 +232,7 @@ router.post("/renew-daypass", async (req, res) => {
       [expires_at, admin_id, now, guestId]
     );
 
-    console.log("✅ Guest expiry and renewed_at updated");
+    console.log("Guest expiry and renewed_at updated");
 
     await conn.query(
       `INSERT INTO AdminTransactions
@@ -240,7 +240,7 @@ router.post("/renew-daypass", async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, 'day_pass_renewal', NOW(), ?)`,
 [admin_id, guestName, rfid_tag, sessionFeeAmount, formatPaymentMethod(payment_method), staff_name, cashless_reference || null]    );
 
-    console.log("✅ Transaction recorded");
+    console.log("Transaction recorded");
 
     await logAudit({
       req,
@@ -254,7 +254,7 @@ router.post("/renew-daypass", async (req, res) => {
 
     await conn.commit();
 
-    console.log("✅ Day pass renewal completed successfully");
+    console.log("Day pass renewal completed successfully");
 
     return res.status(200).json({
       message: "Day pass renewed successfully",

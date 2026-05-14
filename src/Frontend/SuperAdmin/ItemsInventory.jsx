@@ -23,6 +23,7 @@ const [rfidPage, setRfidPage] = useState(1);
 const [rfidStatusFilter, setRfidStatusFilter] = useState("all");
 const [rfidRoleFilter, setRfidRoleFilter] = useState("all");const inventoryPerPage = 10;
 const rfidPerPage = 10;
+const [rfidLoading, setRfidLoading] = useState(false);
 
   const rfidOptions = [
     { label: "Partner/Staff - Card", rfid_type: "card", role: "Partner", inventory_item: "Partner/Staff - Card" },
@@ -72,39 +73,42 @@ const rfidPerPage = 10;
     }
   };
 
-  const addScannedItem = async (rfidTag) => {
-    const tag = rfidTag || scanValue.trim();
-    if (!tag) {
-      showToast({ message: "Please scan an RFID tag or enter one manually", type: "error" });
-      return;
-    }
+const addScannedItem = async (rfidTag) => {
+  if (rfidLoading) return; 
+  
+  const tag = rfidTag || scanValue.trim();
+  if (!tag) {
+    showToast({ message: "Please scan an RFID tag or enter one manually", type: "error" });
+    return;
+  }
 
-    if (rfids.some((r) => r.rfid_tag === tag)) {
-      showToast({ message: `RFID ${tag} is already registered.`, type: "error" });
-      return;
-    }
+  if (rfids.some((r) => r.rfid_tag === tag)) {
+    showToast({ message: `RFID ${tag} is already registered.`, type: "error" });
+    return;
+  }
 
-    try {
-      const response = await api.post("/api/rfid", {
-        rfid_tag: tag,
-        rfid_type: selectedRfidOption.rfid_type,
-        role: selectedRfidOption.role
-      });
-      console.log("RFID registered successfully:", response.data);
+  setRfidLoading(true); 
+  try {
+    const response = await api.post("/api/rfid", {
+      rfid_tag: tag,
+      rfid_type: selectedRfidOption.rfid_type,
+      role: selectedRfidOption.role
+    });
 
-      await fetchRfids();
-      await fetchItems();
+    await fetchRfids();
+    await fetchItems();
 
-      if (!rfidTag) setScanValue("");
-      showToast({
-        message: `RFID registered successfully! Warehouse #: ${response.data.warehouse_number}`,
-        type: "success"
-      });
-    } catch (error) {
-      console.error("Failed to add RFID:", error.response?.data || error.message);
-      showToast({ message: error.response?.data?.message || "Failed to add RFID", type: "error" });
-    }
-  };
+    if (!rfidTag) setScanValue("");
+    showToast({
+      message: `RFID registered successfully! Warehouse #: ${response.data.warehouse_number}`,
+      type: "success"
+    });
+  } catch (error) {
+    showToast({ message: error.response?.data?.message || "Failed to add RFID", type: "error" });
+  } finally {
+    setRfidLoading(false); 
+  }
+};
 
   const addManualItem = async (e) => {
     e.preventDefault();
@@ -403,12 +407,13 @@ const getStatusDisplay = (status) => {
               </div>
 
               <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
-                <button
-                  onClick={() => addScannedItem()}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
-                >
-                  Register RFID
-                </button>
+<button
+  onClick={() => addScannedItem()}
+  disabled={rfidLoading} 
+  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+>
+  {rfidLoading ? "Registering..." : "Register RFID"} 
+</button>
               </div>
             </div>
           </div>

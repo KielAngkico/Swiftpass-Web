@@ -15,7 +15,7 @@ const PrepaidAddMember = ({ rfid_tag, staffUser }) => {
     age: "",
     rfid_tag: rfid_tag || "",
     phone_number: "",
-    address: "",
+    address: registration.address || "",
     email: "",
     password: "1234",
     payment_method: "",
@@ -428,7 +428,6 @@ const validate = () => {
                 Add Member
               </button>
             </div>
-            {serverMessage && <p className="text-xs text-gray-400 mt-1">{serverMessage}</p>}
           </div>
 
           <div className="flex flex-col gap-4 h-full self-stretch">

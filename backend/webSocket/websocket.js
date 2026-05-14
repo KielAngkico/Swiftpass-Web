@@ -661,7 +661,7 @@ if (location.toUpperCase() === "STAFF") {
     console.log(`===== END STAFF SCAN =====\n`);
     return;
   }
-}
+
 
   const targetAdminId = allocation.allocated_to_admin;
 
@@ -856,8 +856,7 @@ broadcastToClients({
     console.log(`===== END STAFF SCAN =====\n`);
     return;
   }
-
-  if (allocation.role === 'Partner') {
+if (allocation.role === 'Partner') {
     console.log("Partner card detected, scan mode not active");
     broadcastToClients({
       type: "staff-scan",
@@ -875,7 +874,9 @@ broadcastToClients({
     console.log(`===== END STAFF SCAN =====\n`);
     return;
   }
-  
+
+} // closes STAFF if-block
+
 // ============= SUPERADMIN LOCATION =============
 if (location.toUpperCase() === "SUPERADMIN") {
   const allocation = await getRfidAllocation(rfid_tag);

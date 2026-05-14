@@ -4,6 +4,8 @@ import OwnerSidebar from "../../components/OwnerSidebar";
 import api from "../../api";
 import { useToast } from "../../components/ToastManager";
 
+const ROWS_PER_PAGE = 20;
+
 const MyRfidsInventory = () => {
   const [user, setUser] = useState(null);
   const [inventory, setInventory] = useState({ stats: {}, rfids: [] });
@@ -12,6 +14,7 @@ const MyRfidsInventory = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
+const [page, setPage] = useState(1);
 
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -49,7 +52,7 @@ const MyRfidsInventory = () => {
   }, [user]);
 
   useEffect(() => {
-    let filtered = inventory.rfids || [];
+    let filtered = (inventory.rfids || []).filter(r => r.status !== 'replaced' && r.status !== 'deactivated');
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -60,9 +63,10 @@ const MyRfidsInventory = () => {
       );
     }
     if (filterType !== "All") filtered = filtered.filter((rfid) => rfid.role === filterType);
-    if (filterStatus === "Available") filtered = filtered.filter((rfid) => !rfid.assigned_to_name);
-    else if (filterStatus === "In Use") filtered = filtered.filter((rfid) => rfid.assigned_to_name);
+if (filterStatus === "Available") filtered = filtered.filter((rfid) => rfid.status === 'allocated');
+else if (filterStatus === "In Use") filtered = filtered.filter((rfid) => rfid.status === 'in_use');
     setFilteredRfids(filtered);
+setPage(1);
   }, [searchTerm, filterType, filterStatus, inventory.rfids]);
 
   const getRoleLabel = (role) => {
@@ -83,9 +87,11 @@ const MyRfidsInventory = () => {
     new Date(date).toLocaleDateString("en-US", {
       month: "short", day: "numeric", year: "numeric",
     });
+const totalPages = Math.max(1, Math.ceil(filteredRfids.length / ROWS_PER_PAGE));
+const paginated = filteredRfids.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
 
-  return (
-    <div className="flex min-h-screen bg-gray-50">
+return (
+  <div className="flex min-h-screen bg-gray-50">
       <OwnerSidebar />
       <main className="flex-1 min-w-0 p-6">
         <div className="mb-5">
@@ -174,7 +180,7 @@ const MyRfidsInventory = () => {
                   </td>
                 </tr>
               ) : (
-                filteredRfids.map((rfid) => (
+                paginated.map((rfid) => (
                   <tr key={rfid.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-xs text-gray-400">{rfid.customer_number || "—"}</td>
                     <td className="px-4 py-3 text-xs font-medium text-gray-800">
@@ -208,8 +214,27 @@ const MyRfidsInventory = () => {
                 ))
               )}
             </tbody>
-          </table>
+</table>
         </div>
+
+        {filteredRfids.length > ROWS_PER_PAGE && (
+          <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100 bg-white rounded-b-xl">
+            <p className="text-xs text-gray-400">
+              {(page - 1) * ROWS_PER_PAGE + 1}–{Math.min(page * ROWS_PER_PAGE, filteredRfids.length)} of {filteredRfids.length}
+            </p>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(1)} disabled={page === 1}
+                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors">«</button>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">Prev</button>
+              <span className="text-xs text-gray-500 px-2">Page {page} of {totalPages}</span>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">Next</button>
+              <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
+                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors">»</button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

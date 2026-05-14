@@ -28,17 +28,17 @@ router.get("/inventory/:admin_id", async (req, res) => {
       ORDER BY role, customer_number
     `, [admin_id]);
 
-    const stats = {
-      total: rfids.length,
-      staff_left: rfids.filter(r => r.role === 'Partner' && !r.assigned_to_name).length,
-      member_left: rfids.filter(r => r.role === 'Member' && !r.assigned_to_name).length,
-      daypass_left: rfids.filter(r => r.role === 'DayPass' && !r.assigned_to_name).length,
-      staff_total: rfids.filter(r => r.role === 'Partner').length,
-      member_total: rfids.filter(r => r.role === 'Member').length,
-      daypass_total: rfids.filter(r => r.role === 'DayPass').length,
-      in_use: rfids.filter(r => r.assigned_to_name).length,
-      available: rfids.filter(r => !r.assigned_to_name).length
-    };
+const stats = {
+  total: rfids.filter(r => r.status !== 'replaced' && r.status !== 'deactivated').length,
+  staff_left: rfids.filter(r => r.role === 'Partner' && r.status === 'allocated').length,
+  member_left: rfids.filter(r => r.role === 'Member' && r.status === 'allocated').length,
+  daypass_left: rfids.filter(r => r.role === 'DayPass' && r.status === 'allocated').length,
+  staff_total: rfids.filter(r => r.role === 'Partner' && r.status !== 'replaced' && r.status !== 'deactivated').length,
+  member_total: rfids.filter(r => r.role === 'Member' && r.status !== 'replaced' && r.status !== 'deactivated').length,
+  daypass_total: rfids.filter(r => r.role === 'DayPass' && r.status !== 'replaced' && r.status !== 'deactivated').length,
+  in_use: rfids.filter(r => r.status === 'in_use').length,
+  available: rfids.filter(r => r.status === 'allocated').length
+};
 
     res.json({
       stats,

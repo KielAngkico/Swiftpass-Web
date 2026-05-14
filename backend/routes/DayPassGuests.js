@@ -4,7 +4,6 @@ const db = require("../db");
 const daypassUpload = require("../middleware/daypassUploads");
 const logAudit = require("../middleware/auditLogger");
 const formatPaymentMethod = require('../helpers/formatPaymentMethod');
-const assignCustomerNumbers = require('../helpers/assignCustomerNumbers');
 
 router.get("/session-fee", async (req, res) => {
   const { admin_id } = req.query;
@@ -107,9 +106,20 @@ router.post("/register-session", daypassUpload.single("guest_image"), async (req
         ]
       );
 
-      guestId = insertResult.insertId;
+guestId = insertResult.insertId;
 
-      await logAudit({
+// Move WHO to card — customer_number stays untouched
+await conn.query(
+  `UPDATE RegisteredRfid
+   SET assigned_to_name = ?,
+       assigned_to_type = 'DayPass',
+       status = 'in_use',
+       assignment_date = NOW()
+   WHERE rfid_tag = ? AND role = 'DayPass'`,
+  [guest_name, rfid_tag]
+);
+
+await logAudit({
         req,
         action: 'CREATE',
         module: 'DayPass',

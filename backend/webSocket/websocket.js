@@ -16,6 +16,7 @@ const {
 
 let connectedClients = [];
 let adminScanModes = {};
+const connectedGates = new Set();
 
 function setupWebSocket(server) {
 const wss = new WebSocket.Server({ noServer: true });
@@ -90,6 +91,18 @@ server.on('upgrade', (request, socket, head) => {
             }
 
             ws.send(JSON.stringify({ type: "auth-success" }));
+
+connectedGates.add(ws.location.toUpperCase());
+
+if (connectedGates.has("ENTRY") && connectedGates.has("EXIT")) {
+  connectedClients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN && client.clientType === "arduino") {
+      client.send(JSON.stringify({ type: "all-gates-online" }));
+    }
+  });
+  ws.send(JSON.stringify({ type: "all-gates-online" }));
+  console.log("All gates online - broadcast sent");
+}
           } else {
             ws.send(JSON.stringify({ type: "auth-failed", reason: "Invalid secret" }));
             ws.close();
@@ -107,6 +120,9 @@ server.on('upgrade', (request, socket, head) => {
 
         ws.on("close", () => {
           connectedClients = connectedClients.filter((client) => client !== ws);
+if (ws.clientType === "arduino" && ws.location) {
+  connectedGates.delete(ws.location.toUpperCase());
+}
           if (ws.clientType === "dashboard" && ws.admin_id) {
             delete adminScanModes[ws.admin_id];
             if (adminScanModes.replacement) {

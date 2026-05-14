@@ -661,6 +661,7 @@ if (location.toUpperCase() === "STAFF") {
     console.log(`===== END STAFF SCAN =====\n`);
     return;
   }
+}
 
   const targetAdminId = allocation.allocated_to_admin;
 
@@ -724,9 +725,39 @@ broadcastToClients({
   }
 
   // NORMAL STAFF SCAN
-  console.log("🔍 Normal STAFF scan");
-  
-  // Check if DayPass guest already exists
+  console.log("Normal STAFF scan");
+
+  if (adminScanModes[targetAdminId]) {
+    const validation = await validateScanModeRfid(rfid_tag, targetAdminId);
+
+    if (!validation.valid) {
+      broadcastToClients({
+        type: "rfid-scanned-for-staff",
+        data: {
+          status: "error",
+          rfid_tag,
+          reason: validation.reason,
+          admin_id: targetAdminId
+        }
+      });
+      console.log(`===== END STAFF SCAN =====\n`);
+      return;
+    }
+
+    broadcastToClients({
+      type: "rfid-scanned-for-staff",
+      data: {
+        status: "success",
+        rfid_tag,
+        role: allocation.role,
+        rfid_type: allocation.rfid_type,
+        admin_id: targetAdminId
+      }
+    });
+    console.log(`===== END STAFF SCAN =====\n`);
+    return;
+  }
+
   if (allocation.role === 'DayPass') {
     const [guestRows] = await dbSuperAdmin.promise().query(
 `SELECT id, guest_name, gender, mobile_number, email, profile_image_url, expires_at, status, paid_amount
@@ -739,7 +770,6 @@ broadcastToClients({
     if (guestRows.length > 0) {
       const guest = guestRows[0];
       console.log("Found existing DayPass guest:", guest.guest_name);
-      
       broadcastToClients({
         type: "staff-scan",
         data: {
@@ -757,10 +787,9 @@ broadcastToClients({
       console.log(`===== END STAFF SCAN =====\n`);
       return;
     }
-  
-    // ✅ NEW: No existing DayPass guest — new registration
-    console.log("🆕 New DayPass registration");
-const [[daypassRfidRow]] = await dbSuperAdmin.promise().query(
+
+    console.log("New DayPass registration");
+    const [[daypassRfidRow]] = await dbSuperAdmin.promise().query(
       `SELECT customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'DayPass' LIMIT 1`,
       [rfid_tag]
     );
@@ -781,11 +810,11 @@ const [[daypassRfidRow]] = await dbSuperAdmin.promise().query(
     console.log(`===== END STAFF SCAN =====\n`);
     return;
   }
-  // Check if Member already exists
+
   if (allocation.role === 'Member') {
     const memberCheck = await getMemberByRfid(rfid_tag, targetAdminId);
-    
-if (memberCheck) {
+
+    if (memberCheck) {
       console.log("Found existing Member:", memberCheck.full_name);
       broadcastToClients({
         type: "staff-scan",
@@ -804,9 +833,9 @@ if (memberCheck) {
       console.log(`===== END STAFF SCAN =====\n`);
       return;
     }
- // ✅ NEW: No existing member — new registration
-    console.log("🆕 New Member registration");
-const [[memberRfidRow]] = await dbSuperAdmin.promise().query(
+
+    console.log("New Member registration");
+    const [[memberRfidRow]] = await dbSuperAdmin.promise().query(
       `SELECT customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Member' LIMIT 1`,
       [rfid_tag]
     );
@@ -827,67 +856,26 @@ const [[memberRfidRow]] = await dbSuperAdmin.promise().query(
     console.log(`===== END STAFF SCAN =====\n`);
     return;
   }
-  
-// Check if Partner card
-if (allocation.role === 'Partner') {
 
-  // ✅ Scan mode active — owner is assigning RFID to a staff member
-  if (adminScanModes[targetAdminId]) {
-    console.log("Scan mode active — validating Partner card for staff assignment");
-
-    const validation = await validateScanModeRfid(rfid_tag, targetAdminId);
-
-    if (!validation.valid) {
-      console.log("❌ Validation failed:", validation.reason);
-      broadcastToClients({
-        type: "rfid-scanned-for-staff",
-        data: {
-          status: "error",
-          rfid_tag,
-          reason: validation.reason,
-          admin_id: targetAdminId
-        }
-      });
-      console.log(`===== END STAFF SCAN =====\n`);
-      return;
-    }
-
-    // ✅ All checks passed
-    console.log("Partner card valid for staff RFID assignment:", rfid_tag);
+  if (allocation.role === 'Partner') {
+    console.log("Partner card detected, scan mode not active");
     broadcastToClients({
-      type: "rfid-scanned-for-staff",
+      type: "staff-scan",
       data: {
-        status: "success",
         rfid_tag,
-        role: allocation.role,
+        status: "partner_card",
+        reason: "This is a Partner card - for admin use only",
         rfid_type: allocation.rfid_type,
-        admin_id: targetAdminId
+        role: allocation.role,
+        location,
+        admin_id: targetAdminId,
+        timestamp: new Date().toISOString()
       }
     });
-
     console.log(`===== END STAFF SCAN =====\n`);
     return;
   }
-
-  // Scan mode not active — block Partner card as before
-  console.log("🚫 Partner card detected, scan mode not active");
-  broadcastToClients({
-    type: "staff-scan",
-    data: {
-      rfid_tag,
-      status: "partner_card",
-      reason: "This is a Partner card - for admin use only",
-      rfid_type: allocation.rfid_type,
-      role: allocation.role,
-      location,
-      admin_id: targetAdminId,
-      timestamp: new Date().toISOString()
-	}
-      });
-  console.log(`===== END STAFF SCAN =====\n`);
-  return;
-}
-} // closes STAFF if-block
+  
 // ============= SUPERADMIN LOCATION =============
 if (location.toUpperCase() === "SUPERADMIN") {
   const allocation = await getRfidAllocation(rfid_tag);

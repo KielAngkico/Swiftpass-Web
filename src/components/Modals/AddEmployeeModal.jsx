@@ -43,29 +43,35 @@ const AddEmployeeModal = ({
   }, [mode, editingEmployee, isOpen]);
 
 useEffect(() => {
-    if (scannedRfidForStaff && isOpen) {
-      const rfidTag = typeof scannedRfidForStaff === 'string' ? scannedRfidForStaff : scannedRfidForStaff.rfid_tag;
-      const status = scannedRfidForStaff?.status;
-      const reason = scannedRfidForStaff?.reason;
+  if (!scannedRfidForStaff) return;
 
-      if (status === "error") {
-        showToast({ message: reason || "RFID scan failed.", type: "error" });
-        clearScannedRfid();
-        return;
-      }
+  const status = scannedRfidForStaff?.status;
+  const reason = scannedRfidForStaff?.reason;
 
-      if (!rfidTag) {
-        showToast({ message: "Invalid RFID data received.", type: "error" });
-        clearScannedRfid();
-        return;
-      }
+  // Always show error toast, regardless of isOpen or scanModeEnabled
+  if (status === "error") {
+    showToast({ message: reason || "RFID scan failed.", type: "error" });
+    clearScannedRfid();
+    if (scanModeEnabled) toggleScanMode(false);
+    return;
+  }
 
-      setFormData(prev => ({ ...prev, rfid_tag: rfidTag }));
-      clearScannedRfid();
-      if (scanModeEnabled) toggleScanMode(false);
-      showToast({ message: `RFID scanned: ${rfidTag}`, type: "success" });
-    }
-  }, [scannedRfidForStaff, isOpen]);
+  // Only auto-fill if modal is open
+  if (!isOpen) return;
+
+  const rfidTag = typeof scannedRfidForStaff === 'string' ? scannedRfidForStaff : scannedRfidForStaff.rfid_tag;
+
+  if (!rfidTag) {
+    showToast({ message: "Invalid RFID data received.", type: "error" });
+    clearScannedRfid();
+    return;
+  }
+
+  setFormData(prev => ({ ...prev, rfid_tag: rfidTag }));
+  clearScannedRfid();
+  if (scanModeEnabled) toggleScanMode(false);
+  showToast({ message: `RFID scanned: ${rfidTag}`, type: "success" });
+}, [scannedRfidForStaff, isOpen]);
 
   // ✅ Stop webcam when modal closes
   useEffect(() => {

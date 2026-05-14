@@ -80,29 +80,29 @@ const SubscriptionReplacement = ({ staffUser }) => {
     fetchPaymentMethods();
   }, [adminId]);
 
-  useEffect(() => {
-    if (replacementScannedRfid && scanActive) {
-      console.log("🔄 Replacement RFID scanned:", replacementScannedRfid);
+useEffect(() => {
+  if (!replacementScannedRfid) return;
 
-      if (replacementScannedRfid.status === "error") {
-        showToast({
-          message: replacementScannedRfid.reason || "Invalid RFID for replacement",
-          type: "error"
-        });
-        setScanActive(false);
-        clearReplacementScannedRfid();
-        toggleReplacementScanMode(false);
-        return;
-      }
+  if (replacementScannedRfid.status === "error") {
+    showToast({
+      message: replacementScannedRfid.reason || "Invalid RFID for replacement",
+      type: "error"
+    });
+    setScanActive(false);
+    clearReplacementScannedRfid();
+    toggleReplacementScanMode(false);
+    return;
+  }
 
-      const scannedTag = replacementScannedRfid.rfid_tag || replacementScannedRfid;
-      setNewRfidTag(scannedTag);
-      setScanActive(false);
-      showToast({ message: `✅ RFID captured: ${scannedTag}`, type: "success" });
-      clearReplacementScannedRfid();
-      toggleReplacementScanMode(false);
-    }
-  }, [replacementScannedRfid, scanActive, clearReplacementScannedRfid, showToast, toggleReplacementScanMode]);
+  if (!scanActive) return;
+
+  const scannedTag = replacementScannedRfid.rfid_tag || replacementScannedRfid;
+  setNewRfidTag(scannedTag);
+  setScanActive(false);
+  showToast({ message: `RFID captured: ${scannedTag}`, type: "success" });
+  clearReplacementScannedRfid();
+  toggleReplacementScanMode(false);
+}, [replacementScannedRfid, scanActive]);
 
   const fetchMember = async () => {
     if (!searchTerm) return;

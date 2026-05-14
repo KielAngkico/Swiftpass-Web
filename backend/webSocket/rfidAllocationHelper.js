@@ -107,84 +107,36 @@ async function validateScanModeRfid(rfidTag, requestingAdminId) {
     const allocation = await getRfidAllocation(rfidTag);
 
     if (!allocation) {
-      return {
-        valid: false,
-        reason: 'RFID not registered with SwiftPass company'
-      };
+      return { valid: false, reason: 'RFID not registered with SwiftPass' };
     }
 
     if (!allocation.isValid) {
-      return {
-        valid: false,
-        reason: allocation.reason
-      };
+      return { valid: false, reason: allocation.reason };
     }
 
-    // Partner RFIDs must be allocated to requesting admin
-    if (allocation.role === 'Partner') {
-      if (allocation.allocated_to_admin !== requestingAdminId) {
-        return {
-          valid: false,
-          reason: 'This Partner RFID is allocated to another gym',
-          silent: true
-        };
-      }
-    }
-
-    // Check if RFID belongs to this admin
     if (allocation.allocated_to_admin !== requestingAdminId) {
-      return {
-        valid: false,
-        reason: `This ${allocation.role} RFID is allocated to a different gym`,
-        silent: false
-      };
+      return { valid: false, reason: 'This RFID is allocated to a different gym' };
     }
 
-    // ✅ NEW: Check if already assigned to a staff member
-if (allocation.status === 'in_use') {
-      return {
-        valid: false,
-        reason: 'This RFID card is already in use'
-      };
+    if (allocation.role !== 'Partner') {
+      const roleLabel = allocation.role === 'DayPass' ? 'DayPass Key Fob'
+        : allocation.role === 'Member' ? 'Member Wristband'
+        : `${allocation.role} card`;
+      return { valid: false, reason: `This is a ${roleLabel}` };
     }
 
-    const [staffRows] = await dbSuperAdmin.promise().query(
-      `SELECT staff_name FROM StaffAccounts WHERE rfid_tag = ? AND admin_id = ? LIMIT 1`,
-      [rfidTag, requestingAdminId]
-    );
-
-    if (staffRows.length > 0) {
-      return {
-        valid: false,
-        reason: `RFID already assigned to Staff: ${staffRows[0].staff_name}`
-      };
+    if (allocation.status === 'in_use') {
+      return { valid: false, reason: 'This RFID card is already in use' };
     }
 
-    const [adminRows] = await dbSuperAdmin.promise().query(
-      `SELECT admin_name FROM AdminAccounts WHERE rfid_tag = ? OR rfid_tag_2 = ? LIMIT 1`,
-      [rfidTag, rfidTag]
-    );
-
-    if (adminRows.length > 0) {
-      return {
-        valid: false,
-        reason: `RFID already assigned to Admin: ${adminRows[0].admin_name}`
-      };
-    }
-
-    return {
-      valid: true,
-      allocation
-    };
+    return { valid: true, allocation };
 
   } catch (error) {
-    console.error("❌ Scan mode validation error:", error.message);
-    return {
-      valid: false,
-      reason: 'System error during validation'
-    };
+    console.error("Scan mode validation error:", error.message);
+    return { valid: false, reason: 'System error during validation' };
   }
 }
+
 /**
  * Check if RFID exists in RegisteredRfid table (for SuperAdmin check)
  * @param {string} rfidTag - The RFID tag
@@ -196,54 +148,33 @@ async function validateReplacementRfid(rfidTag, requestingAdminId) {
     const allocation = await getRfidAllocation(rfidTag);
 
     if (!allocation) {
-      return {
-        valid: false,
-        reason: 'RFID not registered with SwiftPass'
-      };
+      return { valid: false, reason: 'RFID not registered with SwiftPass' };
     }
 
     if (!allocation.isValid) {
-      return {
-        valid: false,
-        reason: allocation.reason
-      };
+      return { valid: false, reason: allocation.reason };
     }
 
-    // Must be allocated to the same admin
     if (allocation.allocated_to_admin !== requestingAdminId) {
-      return {
-        valid: false,
-        reason: 'This RFID is allocated to a different gym'
-      };
+      return { valid: false, reason: 'This RFID is allocated to a different gym' };
     }
 
-    // Must be a Member wristband
     if (allocation.role !== 'Member') {
-      return {
-        valid: false,
-        reason: `This is a ${allocation.role} card — only Member wristbands can be replaced here`
-      };
+      const roleLabel = allocation.role === 'DayPass' ? 'DayPass Key Fob'
+        : allocation.role === 'Partner' ? 'Partner Card'
+        : `${allocation.role} card`;
+      return { valid: false, reason: `This is a ${roleLabel}` };
     }
 
-    // Must not already be in use
     if (allocation.status === 'in_use') {
-      return {
-        valid: false,
-        reason: 'This RFID card is already assigned to a member'
-      };
+      return { valid: false, reason: 'This RFID is already assigned to a member' };
     }
 
-    return {
-      valid: true,
-      allocation
-    };
+    return { valid: true, allocation };
 
   } catch (error) {
-    console.error("❌ Replacement RFID validation error:", error.message);
-    return {
-      valid: false,
-      reason: 'System error during validation'
-    };
+    console.error("Replacement RFID validation error:", error.message);
+    return { valid: false, reason: 'System error during validation' };
   }
 }
 module.exports = {

@@ -1,110 +1,146 @@
 import React from 'react';
 
-const PaymentModal = ({ 
-  order, 
-  paymentOptions, 
-  paymentData, 
-  setPaymentData, 
-  onComplete, 
-  onClose, 
+const PaymentModal = ({
+  order,
+  paymentOptions,
+  paymentData,
+  setPaymentData,
+  onComplete,
+  onClose,
   completingOrder,
-  show 
+  show
 }) => {
   if (!show || !order) return null;
 
   return (
-    <div className="fixed inset-0  flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-md shadow-xl">
-        <div className="border-b px-4 py-3">
-          <h2 className="text-lg font-semibold">Complete Order</h2>
-          <p className="text-xs text-gray-500">{order.order_number}</p>
+    <div
+      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white border border-gray-200 rounded-xl w-full max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
+
+        {/* Header (matched style) */}
+        <div className="sticky top-0 bg-white flex justify-between items-center px-5 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="text-sm font-medium text-gray-900">
+              Complete Order
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {order.order_number}
+            </p>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        <div className="p-4">
-          {order.order_type === 'initial_package' ? (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
-              <p className="font-medium text-blue-900 mb-1">Initial Package Order</p>
-              <p className="text-xs text-blue-700">
-                Payment was already recorded at signup. Click "Complete" to finalize.
+        {/* Body */}
+        <div className="p-5 space-y-5">
+
+          {/* Summary (OrderDetails card style) */}
+          <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-500">Partner</span>
+              <span className="text-xs font-medium text-gray-900">
+                {order.gym_name}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-xs text-gray-500">Total</span>
+              <span className="text-xs font-medium text-gray-900">
+                ₱{order.total_amount.toLocaleString()}
+              </span>
+            </div>
+          </div>
+
+          {/* Initial package notice */}
+          {order.order_type === 'initial_package' && (
+            <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+              <p className="text-xs text-gray-600">
+                Payment already recorded during onboarding.
               </p>
             </div>
-          ) : (
-            <>
-              <div className="mb-4 p-3 bg-gray-50 rounded">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-gray-600">Partner:</span>
-                  <span className="text-sm font-medium">{order.gym_name}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Total Amount:</span>
-                  <span className="text-xl font-bold text-green-600">
-                    ₱{order.total_amount.toLocaleString()}
-                  </span>
-                </div>
-              </div>
+          )}
 
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Payment Method *
-                </label>
+          {/* Payment form */}
+          {order.order_type !== 'initial_package' && (
+            <div className="space-y-4">
+
+              {/* Payment Method */}
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Payment Method</p>
                 <select
                   value={paymentData.payment_method}
-                  onChange={(e) => setPaymentData({ ...paymentData, payment_method: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  required
+                  onChange={(e) =>
+                    setPaymentData({
+                      ...paymentData,
+                      payment_method: e.target.value
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none"
                 >
-                  <option value="">Select payment method</option>
-                  {paymentOptions.map((option) => (
-                    <option key={option.id} value={option.payment_method}>
-                      {option.payment_method}
+                  <option value="">Select method</option>
+                  {paymentOptions.map((opt) => (
+                    <option key={opt.id} value={opt.payment_method}>
+                      {opt.payment_method}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {paymentData.payment_method && paymentData.payment_method.toLowerCase() !== 'cash' && (
-                <div className="mb-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Reference Number *
-                  </label>
-                  <input
-                    type="text"
-                    value={paymentData.reference_number}
-                    onChange={(e) => setPaymentData({ ...paymentData, reference_number: e.target.value })}
-                    placeholder="Enter reference number"
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Required for {paymentData.payment_method} payments
-                  </p>
-                </div>
-              )}
-
-              <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-                Make sure you've received the payment before completing.
-              </div>
-            </>
+              {/* Reference */}
+              {paymentData.payment_method &&
+                paymentData.payment_method.toLowerCase() !== 'cash' && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">
+                      Reference Number
+                    </p>
+                    <input
+                      value={paymentData.reference_number}
+                      onChange={(e) =>
+                        setPaymentData({
+                          ...paymentData,
+                          reference_number: e.target.value
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none"
+                      placeholder="Enter reference number"
+                    />
+                  </div>
+                )}
+            </div>
           )}
-
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 text-sm"
-              disabled={completingOrder}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={onComplete}
-              disabled={completingOrder}
-              className="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm disabled:bg-green-400"
-            >
-              {completingOrder ? 'Completing...' : 'Complete Order'}
-            </button>
-          </div>
         </div>
+
+        {/* Footer */}
+        <div className="flex gap-2 px-5 py-4 border-t border-gray-100">
+          <button
+            onClick={onClose}
+            disabled={completingOrder}
+            className="flex-1 bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={onComplete}
+            disabled={completingOrder}
+            className="flex-1 bg-green-600 text-white hover:bg-green-700 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+          >
+            {completingOrder ? 'Processing...' : 'Complete'}
+          </button>
+        </div>
+
       </div>
     </div>
   );

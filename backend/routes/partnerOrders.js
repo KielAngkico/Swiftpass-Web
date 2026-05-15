@@ -558,6 +558,15 @@ router.put("/:id/process", async (req, res) => {
     await conn.rollback();
     return res.status(400).json({ error: "Payment method is required for renewals" });
   }
+  if (
+  formatPaymentMethod(payment_method) !== 'Cash' &&
+  !reference_number
+) {
+  await conn.rollback();
+  return res.status(400).json({
+    error: "Reference number is required for non-cash payments"
+  });
+}
 
   // Extend subscription
   if (order.package_id) {

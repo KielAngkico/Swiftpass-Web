@@ -37,7 +37,7 @@ const SubscriptionBanner = ({ user }) => {
   return (
     <div style={{ background: bgColor, color: textColor }}
       className="w-full text-center text-xs py-1.5 px-4 font-medium tracking-wide">
-      ⚠️ {message}
+       {message}
     </div>
   );
 };

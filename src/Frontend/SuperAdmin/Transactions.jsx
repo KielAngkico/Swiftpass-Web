@@ -76,9 +76,21 @@ useEffect(() => {
       data = data.filter((txn) => txn.transaction_type === filterType);
     }
 
-    if (filterMethod !== "All") {
-      data = data.filter((txn) => txn.payment_method.toLowerCase() === filterMethod.toLowerCase());
-    }
+const normalizeMethod = (m) => {
+  if (!m) return "";
+  m = m.toLowerCase();
+
+  if (m === "gcash" || m === "cashless") return "cashless";
+  if (m === "cash") return "cash";
+
+  return m;
+};
+
+if (filterMethod !== "All") {
+  data = data.filter((txn) =>
+    normalizeMethod(txn.payment_method) === filterMethod.toLowerCase()
+  );
+}
 
     if (startDate) {
       data = data.filter((txn) => new Date(txn.created_at) >= startDate);
@@ -96,9 +108,12 @@ useEffect(() => {
   const cashRevenue = filtered
     .filter((txn) => txn.payment_method.toLowerCase() === "cash")
     .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
-  const gcashRevenue = filtered
-    .filter((txn) => txn.payment_method.toLowerCase() === "cashless")
-    .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
+ const cashlessRevenue = filtered
+  .filter((txn) => {
+    const m = txn.payment_method?.toLowerCase();
+    return m === "gcash" || m === "cashless";
+  })
+  .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
   const packagePurchases = filtered.filter((txn) => txn.transaction_type === "Package Purchase").length;
   const orderPayments = filtered.filter((txn) => txn.transaction_type === "Order Payment").length;
 const subscriptionRevenue = filtered
@@ -129,7 +144,7 @@ setFilterRange("all");
 <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 mb-6">          <KpiBox title="Total Revenue" value={`₱${totalRevenue.toFixed(2)}`} color="text-green-700" />
           <KpiBox title="Total Transactions" value={totalTransactions} color="text-blue-600" />
           <KpiBox title="Cash Revenue" value={`₱${cashRevenue.toFixed(2)}`} color="text-gray-900" />
-          <KpiBox title="Cashless Revenue" value={`₱${gcashRevenue.toFixed(2)}`} color="text-blue-600" />
+          <KpiBox title="Cashless Revenue" value={`₱${cashlessRevenue.toFixed(2)}`} color="text-blue-600" />
 <KpiBox title="Subscription Total" value={`₱${subscriptionRevenue.toFixed(2)}`} color="text-violet-600" />
           <KpiBox title="Package Purchases" value={packagePurchases} color="text-gray-900" />
           <KpiBox title="Order Payments" value={orderPayments} color="text-gray-900" />

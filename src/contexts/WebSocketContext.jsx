@@ -216,12 +216,13 @@ case "member-update":
  
         if (!msg.data || msg.data.status === "unregistered") return;
 
-        // Guard: ENTRY gate should never produce an "outside" status (tailgate protection)
+// Guard: ENTRY gate - skip tailgate (already inside) scans only
         if (
           msg.data.location?.toUpperCase() === "ENTRY" &&
-          (msg.data.status === "outside" || msg.data.action === "exit")
+          msg.data.status === "denied" &&
+          msg.data.reason === "Already inside"
         ) {
-          console.log("⏭️ Skipping ENTRY scan that resolved to outside (possible tailgate)");
+          console.log("⏭️ Skipping ENTRY tailgate - person already inside");
           return;
         }
         

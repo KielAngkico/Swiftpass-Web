@@ -262,7 +262,16 @@ const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs font-medium text-gray-800">{txn.member_name}</td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{txn.transaction_type}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400">
+  {{
+    new_membership: "New Membership",
+    Tapup: "Tap-Up",
+    renewal: "Renewal",
+    day_pass_session: "Day Pass Session",
+    day_pass_renewal: "Day Pass Renewal",
+    rfid_replacement: "RFID Replacement",
+  }[txn.transaction_type] || txn.transaction_type}
+</td>
                     <td className="px-4 py-3 text-xs text-gray-400">{txn.plan_name || "N/A"}</td>
                     <td className="px-4 py-3 text-xs font-medium text-gray-800">₱{parseFloat(txn.amount).toFixed(2)}</td>
                     <td className="px-4 py-3">

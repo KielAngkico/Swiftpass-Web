@@ -240,8 +240,16 @@ const filteredInside = sampleData.currentlyInside.filter((m) => {
     ? { labels: sampleData.revenueCard.labels, datasets: [{ data: sampleData.revenueCard.values, backgroundColor: ["#10B981", "#6366F1"], borderWidth: 0 }] }
     : EMPTY_PIE_DATA;
 
-  const transactionBreakdownData = hasTransaction
-    ? { labels: sampleData.transactionTypeBreakdown.labels, datasets: [{ data: sampleData.transactionTypeBreakdown.values, backgroundColor: ["#10B981", "#6366F1", "#F59E0B", "#8B5CF6"], borderWidth: 0 }] }
+const TYPE_LABELS = {
+  new_membership: "New Membership",
+  renewal: "Renewal",
+  day_pass_session: "Day Pass",
+  day_pass_renewal: "Day Pass Renewal",
+  rfid_replacement: "RFID Replacement",
+};
+
+const transactionBreakdownData = hasTransaction
+    ? { labels: sampleData.transactionTypeBreakdown.labels.map((l) => TYPE_LABELS[l] || l), datasets: [{ data: sampleData.transactionTypeBreakdown.values, backgroundColor: ["#10B981", "#6366F1", "#F59E0B", "#8B5CF6"], borderWidth: 0 }] }
     : EMPTY_PIE_DATA;
 
   const revenueByTypeData = hasRevenueByType

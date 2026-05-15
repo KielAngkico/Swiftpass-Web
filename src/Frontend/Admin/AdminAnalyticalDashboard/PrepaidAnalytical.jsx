@@ -209,8 +209,17 @@ const pieOptions = {
   },
 };
 
-  const topupsVsDeductionsData = {
-    labels: Object.keys(sampleData.transaction_breakdown || {}),
+const TYPE_LABELS = {
+  new_membership: "New Membership",
+  Tapup: "Tap-Up",
+  renewal: "Renewal",
+  day_pass_session: "Day Pass",
+  day_pass_renewal: "Day Pass Renewal",
+  rfid_replacement: "RFID Replacement",
+};
+
+const topupsVsDeductionsData = {
+    labels: Object.keys(sampleData.transaction_breakdown || {}).map((k) => TYPE_LABELS[k] || k),
     datasets: [
       {
         data: Object.values(sampleData.transaction_breakdown || {}),

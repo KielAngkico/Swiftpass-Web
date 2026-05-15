@@ -194,7 +194,7 @@ const payload = {
               </div>
               <div>
                 <label className={labelClass}>Current Expiry</label>
-                <input type="text" value={member?.subscription_expiry || ""} readOnly placeholder="—" className={readonlyClass} />
+                <input type="text" value={member?.subscription_expiry ? new Date(member.subscription_expiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : ""} readOnly placeholder="—" className={readonlyClass} />
               </div>
               {member?.subscription_type && (
                 <div>
@@ -296,7 +296,7 @@ const payload = {
                 <p className="text-xs text-gray-400 text-center">Plan: {member.subscription_type}</p>
               )}
               {member?.subscription_expiry && (
-                <p className="text-xs text-gray-400 text-center">Expires: {member.subscription_expiry}</p>
+                <p className="text-xs text-gray-400 text-center">Expires: {new Date(member.subscription_expiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
               )}
             </div>
           </div>

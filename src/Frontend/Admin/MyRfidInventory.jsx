@@ -4,7 +4,7 @@ import OwnerSidebar from "../../components/OwnerSidebar";
 import api from "../../api";
 import { useToast } from "../../components/ToastManager";
 
-const ROWS_PER_PAGE = 20;
+const ROWS_PER_PAGE = 10;
 
 const MyRfidsInventory = () => {
   const [user, setUser] = useState(null);

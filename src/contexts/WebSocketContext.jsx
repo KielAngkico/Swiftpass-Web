@@ -212,7 +212,7 @@ case "rfid-scanned-for-staff":
         }));
         return;
 
- case "member-update":
+case "member-update":
  
         if (!msg.data || msg.data.status === "unregistered") return;
 
@@ -224,7 +224,6 @@ case "rfid-scanned-for-staff":
           console.log("⏭️ Skipping ENTRY scan that resolved to outside (possible tailgate)");
           return;
         }
-        if (!msg.data || msg.data.status === "unregistered") return;
         
         console.log("📥 Received member-update:", msg.data);
         

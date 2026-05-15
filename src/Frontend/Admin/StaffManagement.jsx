@@ -30,7 +30,8 @@ const StaffManagement = () => {
   const [selectedStaffFilter, setSelectedStaffFilter] = useState("All");
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-
+const [sessionPage, setSessionPage] = useState(1);
+const SESSION_ROWS_PER_PAGE = 10;
   const navigate = useNavigate();
   const { showToast, showConfirm } = useToast();
 
@@ -106,7 +107,8 @@ const StaffManagement = () => {
     if (selectedStaffFilter !== "All") filtered = filtered.filter(log => log.staff_name === selectedStaffFilter);
     if (startDate) filtered = filtered.filter(log => new Date(log.login_time) >= startDate);
     if (endDate) filtered = filtered.filter(log => new Date(log.login_time) <= endDate);
-    setFilteredSessionLogs(filtered);
+setFilteredSessionLogs(filtered);
+setSessionPage(1);
   }, [selectedStaffFilter, startDate, endDate, sessionLogs]);
 
   const handleArchive = async (id, name) => {
@@ -230,7 +232,8 @@ const StaffManagement = () => {
       showToast({ message: "Failed to generate PDF", type: "error" });
     }
   };
-
+const sessionTotalPages = Math.max(1, Math.ceil(filteredSessionLogs.length / SESSION_ROWS_PER_PAGE));
+const paginatedSessionLogs = filteredSessionLogs.slice((sessionPage - 1) * SESSION_ROWS_PER_PAGE, sessionPage * SESSION_ROWS_PER_PAGE);
   const ProfilePicture = ({ employee }) => {
     if (!employee?.profile_image_url) {
       return (
@@ -459,7 +462,7 @@ const StaffManagement = () => {
                           <td colSpan={6} className="px-4 py-6 text-center text-xs text-gray-400">No session logs found.</td>
                         </tr>
                       ) : (
-                        filteredSessionLogs.map((log, index) => (
+                        paginatedSessionLogs.map((log, index) => (
                           <tr key={log.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-4 py-3 text-xs text-gray-400">{index + 1}</td>
                             <td className="px-4 py-3 text-xs font-medium text-gray-800">{log.staff_name}</td>
@@ -482,8 +485,55 @@ const StaffManagement = () => {
                           </tr>
                         ))
                       )}
-                    </tbody>
+</tbody>
                   </table>
+                  {filteredSessionLogs.length > 0 && (
+  <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center">
+    <p className="text-xs text-gray-400">
+      Showing {(sessionPage - 1) * SESSION_ROWS_PER_PAGE + 1}–{Math.min(sessionPage * SESSION_ROWS_PER_PAGE, filteredSessionLogs.length)} of {filteredSessionLogs.length}
+    </p>
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => setSessionPage((p) => Math.max(1, p - 1))}
+        disabled={sessionPage === 1}
+        className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+      >
+        Prev
+      </button>
+      {Array.from({ length: sessionTotalPages }, (_, i) => i + 1)
+        .filter((p) => p === 1 || p === sessionTotalPages || Math.abs(p - sessionPage) <= 1)
+        .reduce((acc, p, idx, arr) => {
+          if (idx > 0 && p - arr[idx - 1] > 1) acc.push("...");
+          acc.push(p);
+          return acc;
+        }, [])
+        .map((p, idx) =>
+          p === "..." ? (
+            <span key={`ellipsis-${idx}`} className="text-xs text-gray-400 px-1">...</span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => setSessionPage(p)}
+              className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors border ${
+                sessionPage === p
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              {p}
+            </button>
+          )
+        )}
+      <button
+        onClick={() => setSessionPage((p) => Math.min(sessionTotalPages, p + 1))}
+        disabled={sessionPage === sessionTotalPages}
+        className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+)}
                 </div>
               </div>
             )}

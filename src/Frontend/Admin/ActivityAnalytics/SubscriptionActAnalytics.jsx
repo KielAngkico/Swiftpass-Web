@@ -31,6 +31,8 @@ const SubscriptionActAnalytics = () => {
   const [peakHour, setPeakHour] = useState("—");
   const [loginData, setLoginData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+const ROWS_PER_PAGE = 10;
   const { showToast } = useToast();
 
   const today = new Date().toISOString().split("T")[0];
@@ -122,7 +124,8 @@ const SubscriptionActAnalytics = () => {
       showToast({ message: "Failed to generate PDF", type: "error" });
     }
   };
-
+const totalPages = Math.max(1, Math.ceil(loginData.length / ROWS_PER_PAGE));
+const paginated = loginData.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
   const membersInside = loginData.filter((l) => l.status === "inside").length;
 
   return (
@@ -145,10 +148,11 @@ const SubscriptionActAnalytics = () => {
               {FILTER_OPTIONS.filter((opt) => opt.value !== "custom").map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => {
+onClick={() => {
                     setFilterType(opt.value);
                     setStartDate("");
                     setEndDate("");
+                    setPage(1);
                   }}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                     filterType === opt.value
@@ -176,7 +180,7 @@ const SubscriptionActAnalytics = () => {
                       type="date"
                       value={startDate}
                       max={today}
-                      onChange={(e) => setStartDate(e.target.value)}
+                      onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
                       className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white w-32"
                     />
                     <input
@@ -244,7 +248,7 @@ const SubscriptionActAnalytics = () => {
                   </td>
                 </tr>
               ) : (
-                loginData.map((log, i) => (
+                paginated.map((log, i) => (
                   <tr key={log.id || i} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-xs text-gray-400">{i + 1}</td>
                     <td className="px-4 py-3">
@@ -282,8 +286,20 @@ const SubscriptionActAnalytics = () => {
                   </tr>
                 ))
               )}
-            </tbody>
+</tbody>
           </table>
+          {loginData.length > 0 && (
+  <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center">
+    <p className="text-xs text-gray-400">
+      Showing {(page - 1) * ROWS_PER_PAGE + 1}–{Math.min(page * ROWS_PER_PAGE, loginData.length)} of {loginData.length}
+    </p>
+    <div className="flex items-center gap-1">
+      <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors">Prev</button>
+      {Array.from({ length: totalPages }, (_, i) => i + 1).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1).reduce((acc, p, idx, arr) => { if (idx > 0 && p - arr[idx - 1] > 1) acc.push("..."); acc.push(p); return acc; }, []).map((p, idx) => p === "..." ? (<span key={`ellipsis-${idx}`} className="text-xs text-gray-400 px-1">...</span>) : (<button key={p} onClick={() => setPage(p)} className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors border ${page === p ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>{p}</button>))}
+      <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors">Next</button>
+    </div>
+  </div>
+)}
         </div>
       </div>
     </div>

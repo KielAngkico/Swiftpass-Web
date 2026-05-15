@@ -16,7 +16,8 @@ const StaffActivityLogs = () => {
   const [filterActivity, setFilterActivity] = useState("All");
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-
+const [page, setPage] = useState(1);
+const ROWS_PER_PAGE = 10;
   const navigate = useNavigate();
   const { showToast } = useToast();
 
@@ -64,7 +65,8 @@ const StaffActivityLogs = () => {
       filtered = filtered.filter((log) => new Date(log.timestamp) >= startDate);
     if (endDate)
       filtered = filtered.filter((log) => new Date(log.timestamp) <= endDate);
-    setFilteredLogs(filtered);
+setFilteredLogs(filtered);
+setPage(1);
  }, [searchTerm, filterActivity, startDate, endDate, activityLogs]);
 
   const handleDownloadPDF = async () => {
@@ -100,7 +102,8 @@ const StaffActivityLogs = () => {
       showToast({ message: "Failed to generate PDF", type: "error" });
     }
   };
-
+const totalPages = Math.max(1, Math.ceil(filteredLogs.length / ROWS_PER_PAGE));
+const paginated = filteredLogs.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
   const totalEntries = filteredLogs.filter((log) => log.activity_type === "ENTRY").length;
   const totalExits = filteredLogs.filter((log) => log.activity_type === "EXIT").length;
 
@@ -195,8 +198,8 @@ const StaffActivityLogs = () => {
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log, index) => (
-                  <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+paginated.map((log, index) => (
+                    <tr key={log.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-xs text-gray-400">{index + 1}</td>
                     <td className="px-4 py-3 text-xs font-medium text-gray-800">{log.staff_name}</td>
                     <td className="px-4 py-3 text-xs text-gray-400 font-mono">{log.rfid_tag || "—"}</td>
@@ -222,8 +225,55 @@ const StaffActivityLogs = () => {
                   </tr>
                 ))
               )}
-            </tbody>
+</tbody>
           </table>
+          {filteredLogs.length > 0 && (
+  <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center">
+    <p className="text-xs text-gray-400">
+      Showing {(page - 1) * ROWS_PER_PAGE + 1}–{Math.min(page * ROWS_PER_PAGE, filteredLogs.length)} of {filteredLogs.length}
+    </p>
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => setPage((p) => Math.max(1, p - 1))}
+        disabled={page === 1}
+        className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+      >
+        Prev
+      </button>
+      {Array.from({ length: totalPages }, (_, i) => i + 1)
+        .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+        .reduce((acc, p, idx, arr) => {
+          if (idx > 0 && p - arr[idx - 1] > 1) acc.push("...");
+          acc.push(p);
+          return acc;
+        }, [])
+        .map((p, idx) =>
+          p === "..." ? (
+            <span key={`ellipsis-${idx}`} className="text-xs text-gray-400 px-1">...</span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors border ${
+                page === p
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              {p}
+            </button>
+          )
+        )}
+      <button
+        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+        disabled={page === totalPages}
+        className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+)}
         </div>
       </main>
     </div>

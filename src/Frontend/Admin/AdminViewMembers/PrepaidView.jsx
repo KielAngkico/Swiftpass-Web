@@ -21,6 +21,8 @@ const PrepaidView = () => {
   const [selectedMember, setSelectedMember] = useState(null);
   const [filterStatus, setFilterStatus] = useState("All");
   const [user, setUser] = useState(null);
+  const [page, setPage] = useState(1);
+const ROWS_PER_PAGE = 10;
   const sidebarRef = useRef(null);
   const { showToast } = useToast();
 
@@ -56,7 +58,8 @@ const PrepaidView = () => {
   const totalMembers = members.length;
   const activeMembers = members.filter((m) => (m.status || "").toLowerCase() === "active").length;
   const inactiveMembers = members.filter((m) => (m.status || "").toLowerCase() === "inactive").length;
-
+const totalPages = Math.max(1, Math.ceil(filteredMembers.length / ROWS_PER_PAGE));
+const paginated = filteredMembers.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
   const handleDownloadPDF = async () => {
     if (filteredMembers.length === 0) {
       showToast({ message: "No members to download", type: "error" });
@@ -105,12 +108,12 @@ const PrepaidView = () => {
               placeholder="Search member"
               className={`${inputClass} w-48`}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             />
             <select
               className={`${inputClass} w-36`}
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
             >
               <option value="All">All Members</option>
               <option value="active">Active</option>
@@ -163,7 +166,7 @@ const PrepaidView = () => {
                   <td colSpan={7} className="px-4 py-6 text-center text-xs text-gray-400">No members found.</td>
                 </tr>
               ) : (
-                filteredMembers.map((member, index) => (
+                paginated.map((member, index) => (
                   <tr key={member.rfid_tag || index} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-xs text-gray-400">{index + 1}</td>
                     <td className="px-4 py-3">
@@ -196,8 +199,20 @@ const PrepaidView = () => {
                   </tr>
                 ))
               )}
-            </tbody>
+ </tbody>
           </table>
+          {filteredMembers.length > 0 && (
+  <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center">
+    <p className="text-xs text-gray-400">
+      Showing {(page - 1) * ROWS_PER_PAGE + 1}–{Math.min(page * ROWS_PER_PAGE, filteredMembers.length)} of {filteredMembers.length}
+    </p>
+    <div className="flex items-center gap-1">
+      <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors">Prev</button>
+      {Array.from({ length: totalPages }, (_, i) => i + 1).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1).reduce((acc, p, idx, arr) => { if (idx > 0 && p - arr[idx - 1] > 1) acc.push("..."); acc.push(p); return acc; }, []).map((p, idx) => p === "..." ? (<span key={`ellipsis-${idx}`} className="text-xs text-gray-400 px-1">...</span>) : (<button key={p} onClick={() => setPage(p)} className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors border ${page === p ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>{p}</button>))}
+      <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors">Next</button>
+    </div>
+  </div>
+)}
         </div>
       </div>
 

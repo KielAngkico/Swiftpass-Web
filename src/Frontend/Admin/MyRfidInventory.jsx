@@ -235,21 +235,50 @@ return (
 </table>
         </div>
 
-        {filteredRfids.length > ROWS_PER_PAGE && (
-          <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100 bg-white rounded-b-xl">
+{filteredRfids.length > 0 && (
+          <div className="px-4 py-3 border-t border-gray-100 bg-white rounded-b-xl flex justify-between items-center">
             <p className="text-xs text-gray-400">
-              {(page - 1) * ROWS_PER_PAGE + 1}–{Math.min(page * ROWS_PER_PAGE, filteredRfids.length)} of {filteredRfids.length}
+              Showing {(page - 1) * ROWS_PER_PAGE + 1}–{Math.min(page * ROWS_PER_PAGE, filteredRfids.length)} of {filteredRfids.length}
             </p>
             <div className="flex items-center gap-1">
-              <button onClick={() => setPage(1)} disabled={page === 1}
-                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors">«</button>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">Prev</button>
-              <span className="text-xs text-gray-500 px-2">Page {page} of {totalPages}</span>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">Next</button>
-              <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
-                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors">»</button>
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+              >
+                Prev
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                .reduce((acc, p, idx, arr) => {
+                  if (idx > 0 && p - arr[idx - 1] > 1) acc.push("...");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  p === "..." ? (
+                    <span key={`ellipsis-${idx}`} className="text-xs text-gray-400 px-1">...</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors border ${
+                        page === p
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+              >
+                Next
+              </button>
             </div>
           </div>
         )}

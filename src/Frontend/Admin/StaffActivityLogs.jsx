@@ -13,7 +13,6 @@ const StaffActivityLogs = () => {
   const [filteredLogs, setFilteredLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterLocation, setFilterLocation] = useState("All");
   const [filterActivity, setFilterActivity] = useState("All");
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
@@ -59,8 +58,6 @@ const StaffActivityLogs = () => {
       filtered = filtered.filter((log) =>
         log.staff_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-    if (filterLocation !== "All")
-      filtered = filtered.filter((log) => log.location === filterLocation);
     if (filterActivity !== "All")
       filtered = filtered.filter((log) => log.activity_type === filterActivity);
     if (startDate)
@@ -68,7 +65,7 @@ const StaffActivityLogs = () => {
     if (endDate)
       filtered = filtered.filter((log) => new Date(log.timestamp) <= endDate);
     setFilteredLogs(filtered);
-  }, [searchTerm, filterLocation, filterActivity, startDate, endDate, activityLogs]);
+ }, [searchTerm, filterActivity, startDate, endDate, activityLogs]);
 
   const handleDownloadPDF = async () => {
     if (filteredLogs.length === 0) {
@@ -93,7 +90,6 @@ const StaffActivityLogs = () => {
         owner_name: gymInfo.admin_name,
         start_date: startDate ? startDate.toISOString().split("T")[0] : null,
         end_date: endDate ? endDate.toISOString().split("T")[0] : null,
-        filter_location: filterLocation !== "All" ? filterLocation : null,
         filter_activity: filterActivity !== "All" ? filterActivity : null,
         search_term: searchTerm || null,
       };
@@ -143,15 +139,7 @@ const StaffActivityLogs = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
-          <select
-            value={filterLocation}
-            onChange={(e) => setFilterLocation(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="All">All Locations</option>
-            <option value="ENTRY">Entry</option>
-            <option value="EXIT">Exit</option>
-          </select>
+
           <select
             value={filterActivity}
             onChange={(e) => setFilterActivity(e.target.value)}
@@ -189,7 +177,6 @@ const StaffActivityLogs = () => {
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">#</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Staff Name</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">RFID Tag</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Location</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Activity</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Timestamp</th>
               </tr>
@@ -197,13 +184,13 @@ const StaffActivityLogs = () => {
             <tbody className="divide-y divide-gray-50">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="px-4 py-8 text-center">
+                  <td colSpan="5" className="px-4 py-8 text-center">
                     <p className="text-xs text-gray-400">Loading activity logs...</p>
                   </td>
                 </tr>
               ) : filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-4 py-8 text-center">
+                  <td colSpan="5" className="px-4 py-8 text-center">
                     <p className="text-xs text-gray-400">No activity logs found</p>
                   </td>
                 </tr>
@@ -213,15 +200,7 @@ const StaffActivityLogs = () => {
                     <td className="px-4 py-3 text-xs text-gray-400">{index + 1}</td>
                     <td className="px-4 py-3 text-xs font-medium text-gray-800">{log.staff_name}</td>
                     <td className="px-4 py-3 text-xs text-gray-400 font-mono">{log.rfid_tag || "—"}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] border font-medium ${
-                        log.location === "ENTRY"
-                          ? "bg-blue-50 text-blue-700 border-blue-100"
-                          : "bg-purple-50 text-purple-700 border-purple-100"
-                      }`}>
-                        {log.location}
-                      </span>
-                    </td>
+
                     <td className="px-4 py-3">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] border font-medium ${
                         log.activity_type === "ENTRY"

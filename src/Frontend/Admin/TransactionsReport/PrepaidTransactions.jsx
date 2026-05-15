@@ -22,8 +22,10 @@ const PrepaidTransactions = () => {
   const [filterType, setFilterType] = useState("All");
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-  const [loading, setLoading] = useState(true);
+const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const { showToast } = useToast();
+  const ROWS_PER_PAGE = 10;
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -78,7 +80,8 @@ const PrepaidTransactions = () => {
     if (endDate)
       filteredData = filteredData.filter((txn) => new Date(txn.transaction_date) <= endDate);
 
-    setFiltered(filteredData);
+setFiltered(filteredData);
+    setPage(1);
   }, [search, filterMethod, filterType, transactions, members, startDate, endDate]);
 
   const handleDownloadPDF = async () => {
@@ -126,8 +129,10 @@ const PrepaidTransactions = () => {
     .filter((txn) => txn.payment_method === "GCash")
     .reduce((sum, txn) => sum + parseFloat(txn.amount || 0), 0);
 
-  const inputClass =
-    "w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white";
+const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
+  const paginated = filtered.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
+
+  const inputClass =    "w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white";
 
   return (
     <div className="flex flex-col">
@@ -159,10 +164,12 @@ const PrepaidTransactions = () => {
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
               >
-                <option value="All">All Types</option>
-                <option value="new_membership">New Membership</option>
-                <option value="Tapup">Tap-Up</option>
-                <option value="product_purchase">Others</option>
+<option value="All">All Types</option>
+<option value="new_membership">New Membership</option>
+<option value="Tapup">Tap-Up</option>
+<option value="day_pass_session">Day Pass</option>
+<option value="day_pass_renewal">Day Pass Renewal</option>
+<option value="rfid_replacement">RFID Replacement</option>
               </select>
               <select
                 className={`${inputClass} max-w-[140px]`}
@@ -238,7 +245,7 @@ const PrepaidTransactions = () => {
                   </td>
                 </tr>
               ) : (
-                filtered.map((txn, index) => (
+                paginated.map((txn, index) => (
                   <tr key={txn.transaction_id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-xs text-gray-400">{index + 1}</td>
                     <td className="px-4 py-3">
@@ -272,11 +279,51 @@ const PrepaidTransactions = () => {
           </table>
         </div>
 
-        {filtered.length > 0 && (
-          <div className="px-4 py-2.5 border-t border-gray-100 flex justify-end">
-            <span className="text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-0.5">
-              {filtered.length} {filtered.length === 1 ? "record" : "records"}
-            </span>
+{filtered.length > 0 && (
+          <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center">
+            <p className="text-xs text-gray-400">
+              Showing {(page - 1) * ROWS_PER_PAGE + 1}–{Math.min(page * ROWS_PER_PAGE, filtered.length)} of {filtered.length}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+              >
+                Prev
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                .reduce((acc, p, idx, arr) => {
+                  if (idx > 0 && p - arr[idx - 1] > 1) acc.push("...");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  p === "..." ? (
+                    <span key={`ellipsis-${idx}`} className="text-xs text-gray-400 px-1">...</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors border ${
+                        page === p
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>

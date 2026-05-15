@@ -326,9 +326,16 @@ if (client.clientType === "arduino") {
     console.log(`   ✅ Sent to Arduino at ${client.location}`);
   }
   
-  if (client.location?.toUpperCase() === "LOCK" && 
+if (client.location?.toUpperCase() === "LOCK" && 
       ["ENTRY", "EXIT"].includes(messageLocation?.toUpperCase())) {
-    client.send(JSON.stringify(data));
+    const lockPayload = {
+      type: "member-update",
+      data: {
+        status: data.data.status,
+        location: data.data.location
+      }
+    };
+    client.send(JSON.stringify(lockPayload));
     sentCount++;
     console.log(`   ✅ Sent to LOCK Arduino`);
   }

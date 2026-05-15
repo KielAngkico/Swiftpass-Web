@@ -212,8 +212,18 @@ case "rfid-scanned-for-staff":
         }));
         return;
 
-      case "member-update":
+ case "member-update":
  
+        if (!msg.data || msg.data.status === "unregistered") return;
+
+        // Guard: ENTRY gate should never produce an "outside" status (tailgate protection)
+        if (
+          msg.data.location?.toUpperCase() === "ENTRY" &&
+          (msg.data.status === "outside" || msg.data.action === "exit")
+        ) {
+          console.log("⏭️ Skipping ENTRY scan that resolved to outside (possible tailgate)");
+          return;
+        }
         if (!msg.data || msg.data.status === "unregistered") return;
         
         console.log("📥 Received member-update:", msg.data);

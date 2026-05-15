@@ -314,11 +314,19 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
         Serial.println("Auth failed");
         deniedBeep();
       }
-if (message.indexOf("\"status\":\"granted\"") != -1) {
+
+      if (message.indexOf("\"status\":\"inside\"") != -1 ||
+          message.indexOf("\"status\":\"outside\"") != -1 ||
+          message.indexOf("\"status\":\"staff_granted\"") != -1 ||
+          message.indexOf("\"status\":\"admin_granted\"") != -1 ||
+          message.indexOf("\"status\":\"member_granted\"") != -1 ||
+          message.indexOf("\"status\":\"daypass_granted\"") != -1) {
+
         Serial.println("ONLINE: access granted - opening relay");
         openRelay();
       }
-      else if (message.indexOf("\"status\":\"denied\"") != -1) {
+      else if (message.indexOf("\"status\":\"denied\"") != -1 ||
+               message.indexOf("\"status\":\"unregistered\"") != -1) {
         Serial.println("ONLINE: access denied");
         deniedBeep();
       }

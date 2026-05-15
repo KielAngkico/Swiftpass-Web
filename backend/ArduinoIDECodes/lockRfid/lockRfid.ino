@@ -1,5 +1,6 @@
 #include <WiFi.h>
 #include <WebSocketsClient.h>
+#include <esp_now.h>
 #include "esp_wifi.h"
 
 #define RELAY_PIN 12
@@ -26,17 +27,18 @@ bool relayOpen = false;
 unsigned long relayOpenTime = 0;
 const unsigned long relayDuration = 5000;
 
-bool buzzerOn = false;
-unsigned long buzzerStartTime = 0;
-unsigned long buzzerDuration = 0;
-char wsMessage[1024];
+bool pendingUnlock = false;
+bool pendingDenied = false;
 
-void startBuzzer(unsigned long duration) {
-  digitalWrite(BUZZER_PIN, HIGH);
-  buzzerOn = true;
-  buzzerStartTime = millis();
-  buzzerDuration = duration;
-}
+typedef struct struct_message {
+  char command[10];
+  char rfid[20];
+  bool authorized;
+} struct_message;
+
+struct_message incomingMessage;
+
+// ============= BUZZER =============
 
 void bootBeep() {
   for (int i = 0; i < 2; i++) {
@@ -76,9 +78,24 @@ void modeSwitchBeep() {
   }
 }
 
+void espNowReadyBeep() {
+  for (int i = 0; i < 5; i++) {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(80);
+    digitalWrite(BUZZER_PIN, LOW);
+    delay(80);
+  }
+}
+
 void wsAuthBeep() {
   digitalWrite(BUZZER_PIN, HIGH);
   delay(200);
+  digitalWrite(BUZZER_PIN, LOW);
+}
+
+void unlockBeep() {
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(500);
   digitalWrite(BUZZER_PIN, LOW);
 }
 
@@ -91,33 +108,36 @@ void deniedBeep() {
   }
 }
 
+// ============= SETUP =============
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  setCpuFrequencyMhz(240);
 
   pinMode(RELAY_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, HIGH);
   digitalWrite(BUZZER_PIN, LOW);
 
-Serial.println("SwiftPass Lock Controller");
-  Serial.println("Free heap: " + String(ESP.getFreeHeap()));
+  Serial.println("SwiftPass Lock Controller");
   bootBeep();
 
   connectWiFi();
+  initESPNow();
 
   if (!offlineMode) {
     connectWebSocket();
   }
 }
 
+// ============= WIFI =============
+
 void connectWiFi() {
   Serial.println("Connecting to WiFi...");
   WiFi.disconnect(true);
   delay(1000);
-WiFi.mode(WIFI_STA);
-  WiFi.setTxPower(WIFI_POWER_8_5dBm);
+  WiFi.mode(WIFI_STA);
+  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
   delay(500);
   WiFi.begin(ssid, password);
 
@@ -133,24 +153,53 @@ WiFi.mode(WIFI_STA);
     offlineMode = false;
     wifiConnectedBeep();
   } else {
-    Serial.println("\nWiFi failed - offline mode");
+    Serial.println("\nWiFi failed - entering offline mode");
     offlineMode = true;
     wifiFailedBeep();
   }
 }
 
+// ============= ESP-NOW =============
+
+void initESPNow() {
+  esp_now_deinit();
+  delay(100);
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW init failed");
+    return;
+  }
+
+  Serial.println("ESP-NOW initialized - ready to receive");
+  esp_now_register_recv_cb(onDataReceived);
+  espNowReadyBeep();
+}
+
+void onDataReceived(const esp_now_recv_info *recvInfo, const uint8_t *incomingData, int len) {
+  memcpy(&incomingMessage, incomingData, sizeof(incomingMessage));
+
+  if (strcmp(incomingMessage.command, "UNLOCK") == 0 && incomingMessage.authorized) {
+    pendingUnlock = true;
+  } else {
+    pendingDenied = true;
+  }
+}
+
+// ============= LOOP =============
+
 void loop() {
   unsigned long now = millis();
 
-  if (heap_caps_get_free_size(MALLOC_CAP_DEFAULT) < 10000) {
-    Serial.println("Low memory - restarting");
-    delay(500);
-    ESP.restart();
+  if (pendingUnlock) {
+    pendingUnlock = false;
+    Serial.println("ESP-NOW: unlock received");
+    openRelay();
   }
 
-  if (buzzerOn && now - buzzerStartTime >= buzzerDuration) {
-    digitalWrite(BUZZER_PIN, LOW);
-    buzzerOn = false;
+  if (pendingDenied) {
+    pendingDenied = false;
+    Serial.println("ESP-NOW: denied received");
+    deniedBeep();
   }
 
   if (relayOpen && now - relayOpenTime >= relayDuration) {
@@ -164,17 +213,23 @@ void loop() {
     bool wifiUp = (WiFi.status() == WL_CONNECTED);
 
     if (!wifiUp && !offlineMode) {
-      Serial.println("WiFi lost - offline mode");
+      Serial.println("WiFi lost - switching to offline mode");
       offlineMode = true;
       isAuthenticated = false;
       connectionInProgress = false;
       webSocket.disconnect();
       modeSwitchBeep();
+      esp_now_deinit();
+      delay(100);
+      initESPNow();
 
     } else if (wifiUp && offlineMode) {
-      Serial.println("WiFi restored - online mode");
+      Serial.println("WiFi restored - switching to online mode");
       offlineMode = false;
       modeSwitchBeep();
+      esp_now_deinit();
+      delay(100);
+      initESPNow();
       connectWebSocket();
     }
   }
@@ -205,12 +260,14 @@ void loop() {
   }
 }
 
+// ============= WEBSOCKET =============
+
 void connectWebSocket() {
   if (WiFi.status() != WL_CONNECTED) return;
 
   connectionInProgress = true;
   webSocket.disconnect();
-  delay(2000);
+  delay(500);
 
   webSocket.beginSSL(websocketServer, websocketPort, "/arduino-ws");
   webSocket.onEvent(webSocketEvent);
@@ -245,32 +302,23 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       authenticateArduino();
       break;
 
-case WStype_TEXT: {
-      memset(wsMessage, 0, sizeof(wsMessage));
-      memcpy(wsMessage, payload, min((size_t)1023, length));
+    case WStype_TEXT: {
+      String message = String((char*)payload);
 
-if (strstr(wsMessage, "auth-success") != NULL) {
+      if (message.indexOf("auth-success") != -1) {
         isAuthenticated = true;
         Serial.println("Authenticated");
         wsAuthBeep();
-      } else if (strstr(wsMessage, "auth-failed") != NULL) {
+      } else if (message.indexOf("auth-failed") != -1) {
         isAuthenticated = false;
         Serial.println("Auth failed");
         deniedBeep();
       }
-
-      if (strstr(wsMessage, "\"status\":\"inside\"") != NULL ||
-          strstr(wsMessage, "\"status\":\"outside\"") != NULL ||
-          strstr(wsMessage, "\"status\":\"staff_granted\"") != NULL ||
-          strstr(wsMessage, "\"status\":\"admin_granted\"") != NULL ||
-          strstr(wsMessage, "\"status\":\"member_granted\"") != NULL ||
-          strstr(wsMessage, "\"status\":\"daypass_granted\"") != NULL) {
-
+if (message.indexOf("\"status\":\"granted\"") != -1) {
         Serial.println("ONLINE: access granted - opening relay");
         openRelay();
       }
-      else if (strstr(wsMessage, "\"status\":\"denied\"") != NULL ||
-               strstr(wsMessage, "\"status\":\"unregistered\"") != NULL) {
+      else if (message.indexOf("\"status\":\"denied\"") != -1) {
         Serial.println("ONLINE: access denied");
         deniedBeep();
       }
@@ -286,6 +334,8 @@ if (strstr(wsMessage, "auth-success") != NULL) {
   }
 }
 
+// ============= RELAY =============
+
 void openRelay() {
   if (relayOpen) {
     relayOpenTime = millis();
@@ -293,7 +343,7 @@ void openRelay() {
     return;
   }
 
-  startBuzzer(500);
+  unlockBeep();
   digitalWrite(RELAY_PIN, LOW);
   relayOpen = true;
   relayOpenTime = millis();

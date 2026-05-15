@@ -328,12 +328,11 @@ if (client.clientType === "arduino") {
   
 if (client.location?.toUpperCase() === "LOCK" && 
       ["ENTRY", "EXIT"].includes(messageLocation?.toUpperCase())) {
+    const isGranted = ["inside", "outside", "staff_granted", 
+                       "admin_granted", "daypass_granted"].includes(data.data.status);
     const lockPayload = {
-      type: "member-update",
-      data: {
-        status: data.data.status,
-        location: data.data.location
-      }
+      type: "lock",
+      status: isGranted ? "granted" : "denied"
     };
     client.send(JSON.stringify(lockPayload));
     sentCount++;

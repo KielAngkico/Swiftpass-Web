@@ -211,7 +211,9 @@ const pieOptions = {
 
 const TYPE_LABELS = {
   new_membership: "New Membership",
+  new_member: "New Membership",
   Tapup: "Top Up",
+  top_up: "Top Up",
   renewal: "Renewal",
   day_pass_session: "Day Pass",
   day_pass_renewal: "Day Pass Renewal",

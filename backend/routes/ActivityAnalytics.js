@@ -380,8 +380,8 @@ let entryDateCondition = "1=1";
   if (start_date && end_date) {
     txnDateCondition = "DATE(transaction_date) BETWEEN ? AND ?";
     txnParams = [start_date, end_date];
-  } else if (range && txnDateConditions[range]) {
-    txnDateCondition = txnDateConditions[range];
+} else if (effectiveRange && txnDateConditions[effectiveRange]) {
+    txnDateCondition = txnDateConditions[effectiveRange];
   }
 
   const transactionFilter = isPrepaid

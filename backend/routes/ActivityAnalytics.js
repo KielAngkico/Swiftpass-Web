@@ -460,7 +460,7 @@ const [actionCounts] = await dbSuperAdmin.promise().query(
        ) AS combined
        GROUP BY transaction_type`,
       [admin_id, ...txnParams, admin_id]
-    );
+    );  
 
     let transactionBreakdown = {};
     actionCounts.forEach(row => {

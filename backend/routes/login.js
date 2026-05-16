@@ -122,7 +122,6 @@ if (!user) {
       });
     }
 
-/* admin and staff OTP — uncomment when ready
     if (user.role === "admin" || user.role === "staff") {
       const otp = generateOTP();
       otpLoginSessions[email] = {
@@ -142,7 +141,6 @@ if (!user) {
         success: true,
       });
     }
-    */
 
     const accessToken = jwt.sign(
       {

@@ -445,7 +445,7 @@ AND ${txnDateCondition}`,
       [system_type, admin_id, ...entryParams]
     );
 
-    const [actionCounts] = await dbSuperAdmin.promise().query(
+const [actionCounts] = await dbSuperAdmin.promise().query(
       `SELECT transaction_type, COUNT(*) AS count
        FROM (
          SELECT transaction_type, transaction_date
@@ -456,10 +456,10 @@ AND ${txnDateCondition}`,
          SELECT transaction_type, timestamp AS transaction_date
          FROM AdminMembersTransactions
          WHERE admin_id = ?
-           AND ${txnDateCondition}
+           AND DATE(timestamp) = DATE(NOW())
        ) AS combined
        GROUP BY transaction_type`,
-      [admin_id, ...txnParams, admin_id, ...txnParams]
+      [admin_id, ...txnParams, admin_id]
     );
 
     let transactionBreakdown = {};

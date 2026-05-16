@@ -87,7 +87,8 @@ if (filterType === "custom") {
   params.start_date = startDate;
   params.end_date = endDate;
 }
-        const { data } = await api.get("/api/prepaid-activity-analytics", { params });
+const { data } = await api.get("/api/prepaid-activity-analytics", { params });
+        console.log("prepaid_revenue from backend:", data.prepaid_revenue, "filter:", filterType);
         setAnalyticsData(data);
       } catch (err) {
         console.error("Failed to load analytics:", err);

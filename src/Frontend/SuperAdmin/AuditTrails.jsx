@@ -87,8 +87,19 @@ const AuditTrails = () => {
   }, [search, filterModule, filterAction, filterRole, startDate, endDate, logs]);
 
   const modules = ["All", ...Array.from(new Set(logs.map((l) => l.module).filter(Boolean)))];
-  const actions = ["All", "CREATE", "UPDATE", "DELETE", "LOGIN_SUCCESS", "LOGIN_FAILED", "FORGOT_PASSWORD", "RESET_PASSWORD", "RFID_REPLACEMENT", "PAGE_VISIT"];
-  const roles = ["All", "superadmin", "admin", "staff"];
+const actions = ["All", "CREATE", "UPDATE", "DELETE", "LOGIN_SUCCESS", "LOGIN_FAILED", "FORGOT_PASSWORD", "RESET_PASSWORD", "RFID_REPLACEMENT", "PAGE_VISIT"];
+
+const ACTION_LABELS = {
+  CREATE: "Create",
+  UPDATE: "Update",
+  DELETE: "Delete",
+  LOGIN_SUCCESS: "Login Success",
+  LOGIN_FAILED: "Login Failed",
+  FORGOT_PASSWORD: "Forgot Password",
+  RESET_PASSWORD: "Reset Password",
+  RFID_REPLACEMENT: "RFID Replacement",
+  PAGE_VISIT: "Page Visit",
+};  const roles = ["All", "superadmin", "admin", "staff"];
 
   const totalLogs = filtered.length;
   const createCount = filtered.filter((l) => l.action === "CREATE").length;
@@ -174,8 +185,8 @@ return (
               value={filterAction}
               onChange={(e) => setFilterAction(e.target.value)}
             >
-              {actions.map((a) => (
-                <option key={a} value={a}>{a === "All" ? "All Actions" : a}</option>
+{actions.map((a) => (
+                <option key={a} value={a}>{a === "All" ? "All Actions" : ACTION_LABELS[a] || a}</option>
               ))}
             </select>
             <select
@@ -259,9 +270,9 @@ return (
                         ) : <span className="text-xs text-gray-400">—</span>}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`text-[11px] border rounded-full px-2.5 py-0.5 font-medium ${actionBadge(log.action)}`}>
-                          {log.action}
-                        </span>
+<span className={`text-[11px] border rounded-full px-2.5 py-0.5 font-medium ${actionBadge(log.action)}`}>
+                            {ACTION_LABELS[log.action] || log.action}
+                          </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-500">{log.module || "—"}</td>
                       <td className="px-4 py-3">

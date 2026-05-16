@@ -246,6 +246,7 @@ const TYPE_LABELS = {
   day_pass_session: "Day Pass",
   day_pass_renewal: "Day Pass Renewal",
   rfid_replacement: "RFID Replacement",
+  Tapup: "Top Up",
 };
 
 const transactionBreakdownData = hasTransaction

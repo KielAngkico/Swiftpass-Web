@@ -32,8 +32,12 @@ router.get("/subscription-activity-analytics", async (req, res) => {
   let entryDateCondition = "1=1";
   let queryParams = [admin_id];
   
-  if (filter_type === "today") {
+if (filter_type === "today") {
     entryDateCondition = "DATE(entry_time) = CURDATE()";
+  } else if (filter_type === "this_week") {
+    entryDateCondition = "YEARWEEK(entry_time, 1) = YEARWEEK(CURDATE(), 1)";
+  } else if (filter_type === "this_month") {
+    entryDateCondition = "YEAR(entry_time) = YEAR(CURDATE()) AND MONTH(entry_time) = MONTH(CURDATE())";
   } else if (filter_type === "custom" && start_date && end_date) {
     entryDateCondition = "DATE(entry_time) BETWEEN ? AND ?";
     queryParams.push(start_date, end_date);
@@ -42,9 +46,13 @@ router.get("/subscription-activity-analytics", async (req, res) => {
   // For transaction queries
   let txnDateCondition = "1=1";
   let txnParams = [admin_id];
-  
+
   if (filter_type === "today") {
     txnDateCondition = "DATE(transaction_date) = CURDATE()";
+  } else if (filter_type === "this_week") {
+    txnDateCondition = "YEARWEEK(transaction_date, 1) = YEARWEEK(CURDATE(), 1)";
+  } else if (filter_type === "this_month") {
+    txnDateCondition = "YEAR(transaction_date) = YEAR(CURDATE()) AND MONTH(transaction_date) = MONTH(CURDATE())";
   } else if (filter_type === "custom" && start_date && end_date) {
     txnDateCondition = "DATE(transaction_date) BETWEEN ? AND ?";
     txnParams.push(start_date, end_date);
@@ -273,11 +281,12 @@ router.get("/subscription-activity-analytics", async (req, res) => {
 
     // ✅ Format response to match frontend expectations
     const responseData = {
-      summary: {
+summary: {
         totalRevenue: Number(revenueResult[0]?.total) || 0,
         membersInside: Number(membersInsideResult[0]?.count) || 0,
         dayPassInside: Number(dayPassInsideResult[0]?.count) || 0,
         totalTransactions: Number(transactionsResult[0]?.count) || 0,
+        totalLogins: Number(loginResult[0]?.count) || 0,
         peakHour: peakHourFormatted
       },
       revenueCard: {
@@ -314,8 +323,10 @@ router.get("/subscription-activity-analytics", async (req, res) => {
 });
 router.get("/prepaid-activity-analytics", async (req, res) => {
   console.log("Received query params:", req.query);
-  const { admin_id, range, system_type = "prepaid_entry", start_date, end_date } = req.query;
-  
+const { admin_id, range, filter_type, system_type = "prepaid_entry", start_date, end_date } = req.query;
+
+// map filter_type to range so existing logic works
+const effectiveRange = range || filter_type;  
   if (!admin_id || isNaN(admin_id)) {
     return res.status(400).json({ error: "Invalid admin_id" });
   }
@@ -339,25 +350,29 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
 
   const isPrepaid = system_type === "prepaid_entry";
 
-  const dateConditions = {
+const dateConditions = {
     today: "DATE(e.entry_time) = CURDATE()",
     yesterday: "DATE(e.entry_time) = CURDATE() - INTERVAL 1 DAY",
     "last-7-days": "DATE(e.entry_time) BETWEEN CURDATE() - INTERVAL 7 DAY AND CURDATE()",
+    this_week: "YEARWEEK(e.entry_time, 1) = YEARWEEK(CURDATE(), 1)",
+    this_month: "YEAR(e.entry_time) = YEAR(CURDATE()) AND MONTH(e.entry_time) = MONTH(CURDATE())",
   };
 
   const txnDateConditions = {
     today: "DATE(transaction_date) = CURDATE()",
     yesterday: "DATE(transaction_date) = CURDATE() - INTERVAL 1 DAY",
     "last-7-days": "DATE(transaction_date) BETWEEN CURDATE() - INTERVAL 7 DAY AND CURDATE()",
+    this_week: "YEARWEEK(transaction_date, 1) = YEARWEEK(CURDATE(), 1)",
+    this_month: "YEAR(transaction_date) = YEAR(CURDATE()) AND MONTH(transaction_date) = MONTH(CURDATE())",
   };
 
-  let entryDateCondition = "1=1";
+let entryDateCondition = "1=1";
   let entryParams = [];
   if (start_date && end_date) {
     entryDateCondition = "DATE(e.entry_time) BETWEEN ? AND ?";
     entryParams = [start_date, end_date];
-  } else if (range && dateConditions[range]) {
-    entryDateCondition = dateConditions[range];
+  } else if (effectiveRange && dateConditions[effectiveRange]) {
+    entryDateCondition = dateConditions[effectiveRange];
   }
 
   let txnDateCondition = "1=1";
@@ -390,8 +405,8 @@ router.get("/prepaid-activity-analytics", async (req, res) => {
        WHERE a.system_type = ?
          AND t.admin_id = ?
          AND t.transaction_type IN (?)
-         AND DATE(t.transaction_date) = CURDATE()`,
-      [system_type, admin_id, transactionFilter]
+AND ${txnDateCondition}`,
+      [system_type, admin_id, transactionFilter, ...txnParams]
     );
 
     const [loginResult] = await dbSuperAdmin.promise().query(

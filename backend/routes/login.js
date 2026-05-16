@@ -88,7 +88,7 @@ router.post("/login", async (req, res) => {
       }
     }
 
-    if (!user) {
+if (!user) {
       await logAudit({
         req,
         action: "LOGIN_FAILED",
@@ -100,6 +100,49 @@ router.post("/login", async (req, res) => {
       });
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
+
+    // OTP for superadmin only
+    if (user.role === "superadmin") {
+      const otp = generateOTP();
+      otpLoginSessions[email] = {
+        otp,
+        userId: user.id,
+        role: user.role,
+        systemType: null,
+        adminId: null,
+        name: user.name,
+        createdAt: Date.now(),
+        userData: user,
+      };
+      await sendOTPEmail(email, otp, user.name);
+      return res.json({
+        message: "Credentials verified. Check your email for the verification code.",
+        requiresOTP: true,
+        success: true,
+      });
+    }
+
+/* admin and staff OTP — uncomment when ready
+    if (user.role === "admin" || user.role === "staff") {
+      const otp = generateOTP();
+      otpLoginSessions[email] = {
+        otp,
+        userId: user.id,
+        role: user.role,
+        systemType: user.systemType || user.system_type || null,
+        adminId: user.role === "admin" ? user.id : user.admin_id,
+        name: user.name,
+        createdAt: Date.now(),
+        userData: user,
+      };
+      await sendOTPEmail(email, otp, user.name);
+      return res.json({
+        message: "Credentials verified. Check your email for the verification code.",
+        requiresOTP: true,
+        success: true,
+      });
+    }
+    */
 
     const accessToken = jwt.sign(
       {

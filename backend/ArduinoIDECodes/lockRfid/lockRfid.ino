@@ -4,7 +4,6 @@
 #include "esp_wifi.h"
 
 #define RELAY_PIN 12
-#define BUZZER_PIN 13
 
 const char* ssid = "Galaxy A14";
 const char* password = "10102022";
@@ -38,75 +37,6 @@ typedef struct struct_message {
 
 struct_message incomingMessage;
 
-// ============= BUZZER =============
-
-void bootBeep() {
-  for (int i = 0; i < 2; i++) {
-    digitalWrite(BUZZER_PIN, HIGH);
-    delay(300);
-    digitalWrite(BUZZER_PIN, LOW);
-    delay(300);
-  }
-}
-
-void wifiConnectedBeep() {
-  int durations[] = {100, 150, 200};
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(BUZZER_PIN, HIGH);
-    delay(durations[i]);
-    digitalWrite(BUZZER_PIN, LOW);
-    delay(100);
-  }
-}
-
-void wifiFailedBeep() {
-  digitalWrite(BUZZER_PIN, HIGH);
-  delay(1000);
-  digitalWrite(BUZZER_PIN, LOW);
-}
-
-void modeSwitchBeep() {
-  for (int i = 0; i < 2; i++) {
-    digitalWrite(BUZZER_PIN, HIGH);
-    delay(100);
-    digitalWrite(BUZZER_PIN, LOW);
-    delay(80);
-    digitalWrite(BUZZER_PIN, HIGH);
-    delay(100);
-    digitalWrite(BUZZER_PIN, LOW);
-    delay(200);
-  }
-}
-
-void espNowReadyBeep() {
-  for (int i = 0; i < 5; i++) {
-    digitalWrite(BUZZER_PIN, HIGH);
-    delay(80);
-    digitalWrite(BUZZER_PIN, LOW);
-    delay(80);
-  }
-}
-
-void wsAuthBeep() {
-  digitalWrite(BUZZER_PIN, HIGH);
-  delay(200);
-  digitalWrite(BUZZER_PIN, LOW);
-}
-
-void unlockBeep() {
-  digitalWrite(BUZZER_PIN, HIGH);
-  delay(500);
-  digitalWrite(BUZZER_PIN, LOW);
-}
-
-void deniedBeep() {
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(BUZZER_PIN, HIGH);
-    delay(150);
-    digitalWrite(BUZZER_PIN, LOW);
-    delay(150);
-  }
-}
 
 // ============= SETUP =============
 
@@ -115,12 +45,9 @@ void setup() {
   delay(1000);
 
   pinMode(RELAY_PIN, OUTPUT);
-  pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, HIGH);
-  digitalWrite(BUZZER_PIN, LOW);
 
   Serial.println("SwiftPass Lock Controller");
-  bootBeep();
 
   connectWiFi();
   initESPNow();
@@ -151,11 +78,9 @@ void connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\nWiFi connected | IP: " + WiFi.localIP().toString());
     offlineMode = false;
-    wifiConnectedBeep();
   } else {
     Serial.println("\nWiFi failed - entering offline mode");
     offlineMode = true;
-    wifiFailedBeep();
   }
 }
 
@@ -172,7 +97,6 @@ void initESPNow() {
 
   Serial.println("ESP-NOW initialized - ready to receive");
   esp_now_register_recv_cb(onDataReceived);
-  espNowReadyBeep();
 }
 
 void onDataReceived(const esp_now_recv_info *recvInfo, const uint8_t *incomingData, int len) {
@@ -199,7 +123,6 @@ void loop() {
   if (pendingDenied) {
     pendingDenied = false;
     Serial.println("ESP-NOW: denied received");
-    deniedBeep();
   }
 
   if (relayOpen && now - relayOpenTime >= relayDuration) {
@@ -218,15 +141,13 @@ void loop() {
       isAuthenticated = false;
       connectionInProgress = false;
       webSocket.disconnect();
-      modeSwitchBeep();
-      esp_now_deinit();
+esp_now_deinit();
       delay(100);
       initESPNow();
 
     } else if (wifiUp && offlineMode) {
       Serial.println("WiFi restored - switching to online mode");
       offlineMode = false;
-      modeSwitchBeep();
       esp_now_deinit();
       delay(100);
       initESPNow();
@@ -308,11 +229,9 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       if (message.indexOf("auth-success") != -1) {
         isAuthenticated = true;
         Serial.println("Authenticated");
-        wsAuthBeep();
       } else if (message.indexOf("auth-failed") != -1) {
         isAuthenticated = false;
         Serial.println("Auth failed");
-        deniedBeep();
       }
 
       if (message.indexOf("\"status\":\"inside\"") != -1 ||
@@ -328,7 +247,6 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       else if (message.indexOf("\"status\":\"denied\"") != -1 ||
                message.indexOf("\"status\":\"unregistered\"") != -1) {
         Serial.println("ONLINE: access denied");
-        deniedBeep();
       }
       break;
     }
@@ -351,7 +269,6 @@ void openRelay() {
     return;
   }
 
-  unlockBeep();
   digitalWrite(RELAY_PIN, LOW);
   relayOpen = true;
   relayOpenTime = millis();

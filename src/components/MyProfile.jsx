@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "../App";
 import { API_URL } from "../config";
 import api from "../api";
@@ -10,8 +11,10 @@ const MyProfile = ({ isOpen, onClose }) => {
   const [notification, setNotification] = useState({ message: "", type: "" });
   const [form, setForm] = useState({});
   const fileRef = useRef(null);
-  const [previewImage, setPreviewImage] = useState(null);
-  const [imageFile, setImageFile] = useState(null);
+const [previewImage, setPreviewImage] = useState(null);
+const [imageFile, setImageFile] = useState(null);
+const [showQR, setShowQR] = useState(false);
+const qrRef = useRef(null);
 
   if (!isOpen) return null;
 
@@ -246,6 +249,16 @@ setForm({
 <Field label="Gym Name" value={user?.gym_name} />
 <Field label="Status" value={user?.status} />
 <Field label="Gym Code" value={user?.gym_code} />
+{user?.gym_code && (
+  <div className="col-span-2 mb-3">
+    <button
+      onClick={() => setShowQR(true)}
+      className="text-[11px] text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors"
+    >
+      View QR Code
+    </button>
+  </div>
+)}
 <Field
   label="Joined Date"
   value={user?.created_at ? new Date(user.created_at).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : null}
@@ -284,6 +297,49 @@ setForm({
         </div>
 
         {/* Footer buttons */}
+{showQR && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowQR(false)}>
+            <div className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col items-center gap-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <p className="text-sm font-medium text-gray-900">Members Registration QR Code</p>
+              <p className="text-xs text-gray-500">{user?.gym_name}</p>
+              <div ref={qrRef} className="p-3 border border-gray-200 rounded-lg bg-white">
+                <QRCodeSVG
+                  value={`${import.meta.env.VITE_IP}/member-registration?gym_code=${user?.gym_code}`}
+                  size={180}
+                />
+              </div>
+<p className="text-[10px] text-gray-400 break-all text-center">
+                {import.meta.env.VITE_IP}/member-registration?gym_code={user?.gym_code}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    const svg = qrRef.current?.querySelector("svg");
+                    if (!svg) return;
+                    const serialized = new XMLSerializer().serializeToString(svg);
+                    const blob = new Blob([serialized], { type: "image/svg+xml" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${user?.gym_code}-qr.svg`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  Download
+                </button>
+                <button
+                  onClick={() => setShowQR(false)}
+                  className="text-xs border border-gray-200 text-gray-600 hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {editing ? (
           <div className="flex gap-2 mt-4">
             <button

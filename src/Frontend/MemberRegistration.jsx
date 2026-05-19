@@ -29,6 +29,22 @@ const termsContentRef = useRef(null);
 
   useEffect(() => { fetchGyms(); }, []);
 
+useEffect(() => {
+  if (gyms.length === 0) return;
+  const params = new URLSearchParams(window.location.search);
+  const codeFromUrl = params.get('gym_code');
+  if (codeFromUrl) {
+    const upper = codeFromUrl.toUpperCase();
+    const gym = gyms.find(g => g.gym_code === upper);
+    setSelectedGym(gym || null);
+    setFormData(prev => ({
+      ...prev,
+      gym_code_input: upper,
+      admin_id: gym ? gym.id : ''
+    }));
+  }
+}, [gyms]);
+
   const fetchGyms = async () => {
     try {
       const response = await fetch(`${API_URL}/api/available-gyms`);
@@ -222,6 +238,7 @@ const validate = () => {
                   placeholder="Enter GYM CODE" onChange={handleChange}  maxLength={10}
                   className={`w-full border rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 uppercase ${errors.gym_code_input ? 'border-red-400' : 'border-gray-200'}`} />
                 {errors.gym_code_input && <p className="text-xs text-red-500 mt-1">{errors.gym_code_input}</p>}
+{selectedGym && <p className="text-xs text-green-600 mt-1"> {selectedGym.name}</p>}
               </div>
             </div>
 

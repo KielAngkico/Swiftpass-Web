@@ -170,10 +170,12 @@ const validate = () => {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-2xl mx-auto">
 
-        <div className="mb-5">
-          <h1 className="text-xl font-semibold text-gray-900">Member Registration</h1>
-
-        </div>
+<div className="mb-5">
+  <a href="/" className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 mb-3 transition-colors">
+    ← Back to Home
+  </a>
+  <h1 className="text-xl font-semibold text-gray-900">Member Registration</h1>
+</div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-6">
 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">

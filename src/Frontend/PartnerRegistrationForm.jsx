@@ -30,11 +30,16 @@ const termsContentRef = useRef(null);
     fetchPackages();
   }, []);
 
-  const fetchPackages = async () => {
+const fetchPackages = async () => {
     try {
       const response = await fetch(`${API_URL}/api/subscription-packages-with-items`);
       const data = await response.json();
       setPackages(data);
+      const onboarding = data.find(p => p.package_type === 'onboarding');
+      if (onboarding) {
+        setSelectedPackage(onboarding);
+        setFormData(prev => ({ ...prev, package_id: onboarding.id }));
+      }
     } catch (error) {
       console.error('Failed to fetch packages:', error);
     }
@@ -158,10 +163,13 @@ const validate = () => {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-4xl mx-auto">
 
-        <div className="mb-5">
-          <h1 className="text-xl font-semibold text-gray-900">Partner Registration</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Join SwiftPass Tech — Gym Management System</p>
-        </div>
+<div className="mb-5">
+  <a href="/" className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 mb-3 transition-colors">
+    ← Back to Home
+  </a>
+  <h1 className="text-xl font-semibold text-gray-900">Partner Registration</h1>
+  <p className="text-xs text-gray-500 mt-0.5">Join SwiftPass Tech — Gym Management System</p>
+</div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-0">
@@ -257,25 +265,7 @@ placeholder="Enter Email Address"
   <div className="space-y-3 mt-6 md:mt-0">
   <p className="text-sm font-medium text-gray-900 pb-3 border-b border-gray-100">Package</p>
 
-  <div>
-    <label className="block text-xs text-gray-500 mb-1">Select Package</label>
-<select
-      name="package_id"
-      value={formData.package_id}
-      onChange={handleChange}
-      className={`w-full bg-white border rounded-lg px-3 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${errors.package_id ? 'border-red-400' : 'border-gray-200'}`}
-    >
-      <option value="">Select a package</option>
-      {packages
-        .filter((pkg) => pkg.package_type === 'onboarding')
-        .map((pkg) => (
-          <option key={pkg.id} value={pkg.id}>
-            {pkg.name} — ₱{parseFloat(pkg.price).toLocaleString('en-PH', { minimumFractionDigits: 2 })} ({pkg.duration_days} days)
-          </option>
-        ))}
-    </select>
-{errors.package_id && <p className="text-xs text-red-500 mt-1">{errors.package_id}</p>}
-  </div>
+
 
   {selectedPackage ? (
     <div className="bg-white border border-blue-400 ring-1 ring-blue-200 rounded-xl p-4 flex flex-col">

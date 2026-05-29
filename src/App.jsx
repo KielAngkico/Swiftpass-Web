@@ -72,8 +72,7 @@ const RfidReplacement = React.lazy(() => import("./Frontend/Staff/RfidReplacemen
 
 
 const AdminReimbursements = React.lazy(() => import("./Frontend/Admin/Reimbursements"));
-const StaffReimbursements = React.lazy(() => import("./Frontend/Staff/Reimbursements"));
-
+const StaffReimbursements = React.lazy(() => import("./Frontend/Staff/Reimbursments"));
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 

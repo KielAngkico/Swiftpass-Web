@@ -28,13 +28,14 @@ const qrRef = useRef(null);
     setTimeout(() => setNotification({ message: "", type: "" }), 4000);
   };
 
-  const startEdit = () => {
+const startEdit = () => {
 setForm({
   name: user?.name || "",
   age: user?.age || "",
   address: user?.address || "",
   contact_number: user?.contact_number || "",
   gym_code: user?.gym_code || "",
+  grace_period_minutes: user?.grace_period_minutes || 60,
 });
     setPreviewImage(null);
     setImageFile(null);
@@ -66,13 +67,20 @@ setForm({
     }
     setSaving(true);
     try {
-      const formData = new FormData();
+const formData = new FormData();
       formData.append("name", form.name);
       if (form.age) formData.append("age", form.age);
       if (form.address) formData.append("address", form.address);
       if (form.gym_code) formData.append("gym_code", form.gym_code);
       if (form.contact_number) formData.append("contact_number", form.contact_number);
       if (imageFile) formData.append("profile_image", imageFile);
+
+      // Save grace period separately for prepaid admins
+      if (user?.role === "admin" && user?.system_type === "prepaid_entry" && form.grace_period_minutes) {
+        await api.patch(`/api/admin/${user.adminId}/grace-period`, {
+          grace_period_minutes: parseInt(form.grace_period_minutes)
+        });
+      }
 
       const res = await api.put("/api/profile/update", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -227,6 +235,21 @@ setForm({
         className={inputCls}
       />
     </EditField>
+    {user?.role === "admin" && user?.system_type === "prepaid_entry" && (
+      <EditField label="Grace Period (minutes)" fullWidth={true}>
+        <input
+          type="number"
+          min="1"
+          value={form.grace_period_minutes}
+          onChange={(e) => setForm({ ...form, grace_period_minutes: e.target.value })}
+          placeholder="Default: 60"
+          className={inputCls}
+        />
+        <div className="text-[9px] text-gray-400 mt-1">
+          How long a member can stay before being charged another session fee.
+        </div>
+      </EditField>
+    )}
 
     {user?.role === "staff" && (
       <EditField label="Contact Number" fullWidth={true}>
@@ -269,6 +292,12 @@ setForm({
   value={user?.subscription_start_date ? new Date(user.subscription_start_date).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : null}
 />
 <Field label="System" value={user?.system_type} />
+{user?.system_type === "prepaid_entry" && (
+  <Field
+    label="Grace Period"
+    value={user?.grace_period_minutes ? `${user.grace_period_minutes} minutes` : "60 minutes (default)"}
+  />
+)}
 <Field
   label="Subscription End"
   value={user?.subscription_end_date ? new Date(user.subscription_end_date).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : null}

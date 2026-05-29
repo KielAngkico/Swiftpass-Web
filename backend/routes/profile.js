@@ -49,9 +49,10 @@ router.get("/profile", authenticateJWT, async (req, res) => {
 
     } else if (role === "admin") {
       const [rows] = await dbSuperAdmin.promise().query(
-        `SELECT id, admin_name AS name, age, email, address,
-                gym_name, system_type, profile_image_url,
-                status, created_at
+`SELECT id, admin_name AS name, age, email, address,
+                gym_name, gym_code, system_type, profile_image_url,
+                status, created_at, grace_period_minutes,
+                subscription_start_date, subscription_end_date
          FROM AdminAccounts WHERE id = ? AND is_archived = 0`,
         [id]
       );
@@ -154,8 +155,10 @@ router.put("/profile/update", authenticateJWT, upload.single("profile_image"), a
       );
 } else if (role === "admin") {
   [updatedRows] = await dbSuperAdmin.promise().query(
-    `SELECT id, admin_name AS name, age, email, address,
-            gym_name, gym_code, system_type, profile_image_url, status, created_at
+`SELECT id, admin_name AS name, age, email, address,
+            gym_name, gym_code, system_type, profile_image_url,
+            status, created_at, grace_period_minutes,
+            subscription_start_date, subscription_end_date
      FROM AdminAccounts WHERE id = ?`,
     [id]
   );

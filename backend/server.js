@@ -1,6 +1,7 @@
 const http = require("http");
 const app = require("./app");
-require("./backup/cron"); 
+require("./backup/cron");
+require("./webSocket/gracePeriodCron");
 const { setupWebSocket } = require("./webSocket/websocket");
 
 // Ensure environment variables are loaded

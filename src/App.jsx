@@ -53,6 +53,7 @@ const TransactionsReport = React.lazy(() => import("./Frontend/Admin/Transaction
 const PricingManagement = React.lazy(() => import("./Frontend/Admin/PricingManagement"));
 const StaffManagement = React.lazy(() => import("./Frontend/Admin/StaffManagement"));
 const StaffActivityLogs = React.lazy(() => import("./Frontend/Admin/StaffActivityLogs"));
+
 const MyOrders = React.lazy(() => import("./Frontend/Admin/MyOrders"));
 const MyRfidInventory = React.lazy(() => import("./Frontend/Admin/MyRfidInventory"));
 
@@ -68,6 +69,10 @@ const MemberEntry = React.lazy(() => import("./Frontend/Staff/member-entry"));
 const MembershipTransactions = React.lazy(() => import("./Frontend/Staff/MembershipTransactions"));
 const DayPassRenewal = React.lazy(() => import("./Frontend/Staff/DayPassRenewal"));
 const RfidReplacement = React.lazy(() => import("./Frontend/Staff/RfidReplacement"));
+
+
+const AdminReimbursements = React.lazy(() => import("./Frontend/Admin/Reimbursements"));
+const StaffReimbursements = React.lazy(() => import("./Frontend/Staff/Reimbursements"));
 
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
@@ -323,6 +328,7 @@ return (
               <Route path="/Admin/PricingManagement" element={<PricingManagement />} />
               <Route path="/Admin/StaffManagement" element={<StaffManagement />} />
               <Route path="/Admin/StaffActivityLogs" element={<StaffActivityLogs/>} />
+              <Route path="/Admin/Reimbursements" element={<AdminReimbursements />} />
             </>
           )}
 
@@ -337,6 +343,7 @@ return (
               <Route path="/Staff/MembershipTransactions" element={<MembershipTransactions />} />
               <Route path="/Staff/DayPassRenewal" element={<DayPassRenewal />} />
               <Route path="/Staff/RfidReplacement" element={<RfidReplacement />} />
+              <Route path="/Staff/Reimbursements" element={<StaffReimbursements />} />
             </>
           )}
           <Route path="/SuperAdmin/MyProfile" element={<MyProfile />} />

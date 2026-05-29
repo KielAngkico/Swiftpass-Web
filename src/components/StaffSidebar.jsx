@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { NavLink } from "react-router-dom";
 import { 
   FiMenu, FiLogIn, FiUsers, FiSun, FiUserPlus, 
-  FiRefreshCw, FiCreditCard 
+  FiRefreshCw, FiCreditCard, FiDollarSign
 } from "react-icons/fi";
 import { useAuth } from "../App";
 import trackPageVisit from "../utils/trackPageVisit";
@@ -31,6 +31,7 @@ const StaffSidebar = () => {
 { path: "/Staff/MembershipTransactions",  label: "Top Up / Renewal",     icon: <FiRefreshCw /> },
 { path: "/Staff/DayPassRenewal",          label: "Day Pass Renewal",     icon: <FiRefreshCw /> },
 { path: "/Staff/RfidReplacement",         label: "RFID Replacement",     icon: <FiCreditCard /> },
+{ path: "/Staff/Reimbursements", label: "Reimbursements", icon: <FiDollarSign /> },
     ];
   }, [user]);
 

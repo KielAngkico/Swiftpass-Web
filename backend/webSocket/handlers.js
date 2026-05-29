@@ -475,258 +475,364 @@ async function handleMember(member, rfid_tag, location) {
 
   try {
     const [adminRows] = await dbSuperAdmin.promise().query(
-      `SELECT id, admin_name, system_type FROM AdminAccounts WHERE id = ? LIMIT 1`,
+      `SELECT id, admin_name, system_type, session_fee, grace_period_minutes 
+       FROM AdminAccounts WHERE id = ? LIMIT 1`,
       [member.admin_id]
     );
-    
+
     if (adminRows.length === 0) {
-      console.error("❌ Admin not found for member:", member.admin_id);
+      console.error(" Admin not found for member:", member.admin_id);
       return;
     }
-    
+
     const admin = adminRows[0];
 
-    const [staffRows] = await dbSuperAdmin.promise().query(
-      `SELECT staff_name FROM StaffSessionLogs
-      WHERE admin_id = ? AND status = 'online'
-      ORDER BY login_time DESC LIMIT 1`,
-      [admin.id]
-    );
-    const staff_name = staffRows.length ? staffRows[0].staff_name : null;
+    // Only apply grace period logic for prepaid_entry gyms
+    if (admin.system_type !== 'prepaid_entry') {
+      // ---- SUBSCRIPTION LOGIC (unchanged) ----
+      const [staffRows] = await dbSuperAdmin.promise().query(
+        `SELECT staff_name FROM StaffSessionLogs
+         WHERE admin_id = ? AND status = 'online'
+         ORDER BY login_time DESC LIMIT 1`,
+        [admin.id]
+      );
+      const staff_name = staffRows.length ? staffRows[0].staff_name : null;
+      const isEntry = location.toUpperCase() === "ENTRY";
 
-    const isEntry = location.toUpperCase() === "ENTRY";
-    
-const [lastLogRows] = await dbSuperAdmin.promise().query(
-      `SELECT * FROM AdminEntryLogs
-      WHERE (member_id = ? OR rfid_tag = ?) AND admin_id = ?
-      ORDER BY id DESC LIMIT 1`,
-      [member.id, rfid_tag, member.admin_id]
-    );
-    const lastLog = lastLogRows[0];
-    
-    const isCurrentlyInside = lastLog && lastLog.member_status === 'inside';
+      const [lastLogRows] = await dbSuperAdmin.promise().query(
+        `SELECT * FROM AdminEntryLogs
+         WHERE (member_id = ? OR rfid_tag = ?) AND admin_id = ?
+         ORDER BY id DESC LIMIT 1`,
+        [member.id, rfid_tag, member.admin_id]
+      );
+      const lastLog = lastLogRows[0];
+      const isCurrentlyInside = lastLog && lastLog.member_status === 'inside';
 
-    let accessGranted = false;
-    let reason = "";
-    let deductedAmount = null;
-    let remainingBalance = member.current_balance ?? 0;
-    let logId = null;
+      let accessGranted = false;
+      let reason = "";
+      let logId = null;
 
-    if (isEntry) {
-      if (isCurrentlyInside) {
-        reason = "Already inside";
-        accessGranted = false;
-      } 
-      else if (admin.system_type === "prepaid_entry") {
-        const [pricingRows] = await dbSuperAdmin.promise().query(
-          `SELECT amount_to_pay FROM AdminPricingOptions
-          WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1
-          LIMIT 1`,
-          [admin.id]
-        );
-
-        if (pricingRows.length === 0) {
-          reason = "Daily Session price not configured";
+      if (isEntry) {
+        if (isCurrentlyInside) {
+          reason = "Already inside";
           accessGranted = false;
         } else {
-          const price = parseFloat(pricingRows[0].amount_to_pay);
-          console.log(`💰 Daily Session Price: ₱${price}`);
-
-          let isGracePeriod = false;
-          if (lastLog && lastLog.exit_time) {
-            const exitTime = new Date(lastLog.exit_time);
+          if (member.subscription_expiry) {
+            const expiryDate = new Date(member.subscription_expiry);
             const now = new Date();
-            const timeDiff = (now - exitTime) / 1000;
-
-            if (timeDiff <= 60) {
-              isGracePeriod = true;
-              console.log(`⏱️ Grace period active - ${timeDiff.toFixed(1)}s since last exit`);
+            if (expiryDate < now) {
+              reason = "Subscription expired";
+              accessGranted = false;
+            } else {
+              accessGranted = true;
             }
-          }
-
-          if (!isGracePeriod && remainingBalance < price) {
-            reason = "Insufficient balance";
-            accessGranted = false;
-            console.log(`❌ Insufficient balance: ₱${remainingBalance} < ₱${price}`);
           } else {
             accessGranted = true;
-            
-            if (isGracePeriod) {
-              deductedAmount = 0;
-              reason = "Grace period - no charge";
-            } else {
-              deductedAmount = price;
-              remainingBalance -= price;
+          }
 
-              await dbSuperAdmin.promise().query(
-                `UPDATE MembersAccounts SET current_balance = ? WHERE id = ?`,
-                [remainingBalance, member.id]
-              );
-              console.log(`💾 Balance updated in database`);
-
-              try {
-                const [transResult] = await dbSuperAdmin.promise().query(
-                  `INSERT INTO AdminMembersTransactions
-                  (member_id, admin_id, transaction_type, amount, payment_method, staff_name, description, transaction_date)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                  [
-                    member.id,
-                    member.admin_id,
-                    'session_deduction',
-                    -deductedAmount,
-                    'balance',
-                    staff_name || 'System',
-                    'Session Fee',
-                    new Date()
-                  ]
-                );
-                console.log(`💾 Transaction logged with ID: ${transResult.insertId}`);
-              } catch (transError) {
-                console.error("❌ Transaction logging failed:", transError.message);
-              }
-            }
-
+          if (accessGranted) {
             try {
-const [logResult] = await dbSuperAdmin.promise().query(
+              const [logResult] = await dbSuperAdmin.promise().query(
                 `INSERT INTO AdminEntryLogs
-                (member_id, rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, deducted_amount, member_status, entry_time, location)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                  member.id,
-                  rfid_tag, 
-                  member.full_name, 
-                  member.admin_id, 
-                  isGracePeriod ? "Entry Grace Period" : staff_name, 
-                  "Member", 
-                  admin.system_type, 
-                  deductedAmount,
-                  "inside", 
-                  new Date(), 
-                  location
-                ]
+                 (member_id, rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, member_status, entry_time, location)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [member.id, rfid_tag, member.full_name, member.admin_id, staff_name, "Member", admin.system_type, "inside", new Date(), location]
               );
               logId = logResult.insertId;
-              console.log(`💾 Entry log created with ID: ${logId}`);
             } catch (logError) {
-              console.error("❌ Entry log creation failed:", logError.message);
+              console.error("❌ Subscription entry log failed:", logError.message);
             }
           }
         }
-      } 
-      else {
-        if (member.subscription_expiry) {
-          const expiryDate = new Date(member.subscription_expiry);
-          const now = new Date();
-          
-          if (expiryDate < now) {
-            reason = "Subscription expired";
-            accessGranted = false;
-            console.log(`❌ Subscription expired for ${member.full_name} on ${expiryDate.toISOString()}`);
-          } else {
-            accessGranted = true;
-            console.log(`Subscription valid until ${expiryDate.toISOString()}`);
-          }
+      } else {
+        if (!isCurrentlyInside) {
+          reason = "Not inside - cannot exit";
+          accessGranted = false;
         } else {
           accessGranted = true;
-          console.log(`⚠️ No subscription expiry set for ${member.full_name}`);
-        }
-
-        if (accessGranted) {
           try {
-const [logResult] = await dbSuperAdmin.promise().query(
-              `INSERT INTO AdminEntryLogs
-              (member_id, rfid_tag, full_name, admin_id, staff_name, visitor_type, system_type, member_status, entry_time, location)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [member.id, rfid_tag, member.full_name, member.admin_id, staff_name, "Member", admin.system_type, "inside", new Date(), location]
+            await dbSuperAdmin.promise().query(
+              `UPDATE AdminEntryLogs 
+               SET member_status = ?, exit_time = ?, location = ? 
+               WHERE id = ?`,
+              ["outside", new Date(), location, lastLog.id]
             );
-            logId = logResult.insertId;
-            console.log(`💾 Subscription entry logged with ID: ${logId}`);
+            logId = lastLog.id;
           } catch (logError) {
-            console.error("❌ Subscription entry log failed:", logError.message);
+            console.error("❌ Exit log update failed:", logError.message);
           }
         }
       }
-    } 
-    else {
-      if (!isCurrentlyInside) {
-        reason = "Not inside - cannot exit";
-        accessGranted = false;
-        console.log(`❌ Exit denied - member not inside`);
-      } else {
-        accessGranted = true;
-        
-        try {
-          await dbSuperAdmin.promise().query(
-            `UPDATE AdminEntryLogs 
-            SET member_status = ?, exit_time = ?, location = ? 
-            WHERE id = ?`,
-            ["outside", new Date(), location, lastLog.id]
-          );
-          logId = lastLog.id;
-          console.log(`💾 Exit log updated with ID: ${logId}`);
-        } catch (logError) {
-          console.error("❌ Exit log update failed:", logError.message);
+
+      const finalStatus = accessGranted ? (isEntry ? "inside" : "outside") : "denied";
+      const [memberRfidRow] = await dbSuperAdmin.promise().query(
+        `SELECT customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Member' LIMIT 1`,
+        [rfid_tag]
+      );
+      const memberCustomerDisplay = memberRfidRow.length > 0 ? memberRfidRow[0].customer_number_display : null;
+
+      broadcastToClients({
+        type: "member-update",
+        data: {
+          id: logId || lastLog?.id,
+          rfid_tag,
+          full_name: member.full_name,
+          profile_image_url: member.profile_image_url,
+          customer_number_display: memberCustomerDisplay,
+          visitor_type: "Member",
+          system_type: admin.system_type,
+          status: finalStatus,
+          member_status: finalStatus,
+          reason: reason || (accessGranted ? (isEntry ? "Entry granted" : "Exit granted") : "Access denied"),
+          deducted_amount: null,
+          current_balance: null,
+          remaining_balance: null,
+          entry_time: isEntry && accessGranted ? new Date().toISOString() : (lastLog?.entry_time ? new Date(lastLog.entry_time).toISOString() : null),
+          exit_time: !isEntry && accessGranted ? new Date().toISOString() : (lastLog?.exit_time ? new Date(lastLog.exit_time).toISOString() : null),
+          location,
+          admin_id: member.admin_id,
+          action: isEntry ? "entry" : "exit",
+          last_activity: new Date().toISOString(),
+          timestamp: new Date().toISOString()
         }
+      });
+
+      if (!accessGranted) {
+        broadcastToClients({
+          type: "dashboard-alert",
+          data: {
+            full_name: member.full_name,
+            reason: reason || "Access denied",
+            admin_id: member.admin_id,
+            timestamp: new Date().toISOString()
+          }
+        });
       }
+      return;
     }
 
-    const finalStatus = accessGranted ? (isEntry ? "inside" : "outside") : "denied";
+    // ---- PREPAID ENTRY GRACE PERIOD LOGIC ----
+    const isEntry = location.toUpperCase() === "ENTRY";
+    const gracePeriodMs = (admin.grace_period_minutes || 60) * 60 * 1000;
+    const sessionFee = parseFloat(admin.session_fee || 0);
 
-const [memberRfidRow] = await dbSuperAdmin.promise().query(
+    console.log(`\nPrepaid Entry — Grace Period: ${admin.grace_period_minutes} min | Fee: ₱${sessionFee}`);
+
+    // Find existing open session for this member
+    const [openSessionRows] = await dbSuperAdmin.promise().query(
+      `SELECT * FROM AdminEntryLogs
+       WHERE member_id = ? AND admin_id = ?
+         AND session_closed = 0
+       ORDER BY id DESC LIMIT 1
+       FOR UPDATE`,
+      [member.id, member.admin_id]
+    );
+    const openSession = openSessionRows[0] || null;
+
+    const [memberRfidRow] = await dbSuperAdmin.promise().query(
       `SELECT customer_number_display FROM RegisteredRfid WHERE rfid_tag = ? AND role = 'Member' LIMIT 1`,
       [rfid_tag]
     );
     const memberCustomerDisplay = memberRfidRow.length > 0 ? memberRfidRow[0].customer_number_display : null;
 
-    const broadcastData = {
-      type: "member-update",
-      data: {
-        id: logId || lastLog?.id,
-        rfid_tag,
-        full_name: member.full_name,
-        profile_image_url: member.profile_image_url,
-        customer_number_display: memberCustomerDisplay,
-        visitor_type: "Member",
-        system_type: admin.system_type,
-        status: finalStatus,
-        member_status: finalStatus,
-        reason: reason || (accessGranted ? (isEntry ? "Entry granted" : "Exit granted") : "Access denied"),
-        deducted_amount: deductedAmount,
-        current_balance: remainingBalance,
-        remaining_balance: remainingBalance,
-        entry_time: isEntry && accessGranted ? new Date().toISOString() : (lastLog?.entry_time ? new Date(lastLog.entry_time).toISOString() : null),
-        exit_time: !isEntry && accessGranted ? new Date().toISOString() : (lastLog?.exit_time ? new Date(lastLog.exit_time).toISOString() : null),
-        location,
-        admin_id: member.admin_id,
-        action: isEntry ? "entry" : "exit",
-        last_activity: (isEntry && accessGranted) ? new Date().toISOString() : 
-                      (!isEntry && accessGranted) ? new Date().toISOString() : 
-                      (lastLog?.exit_time ? new Date(lastLog.exit_time).toISOString() : 
-                       lastLog?.entry_time ? new Date(lastLog.entry_time).toISOString() : 
-                       new Date().toISOString()),
-        timestamp: new Date().toISOString()
+    // ---- ENTRY ----
+    if (isEntry) {
+
+      // Block if payment pending
+      if (openSession && openSession.payment_pending === 1) {
+        console.log(`Entry blocked — payment pending for ${member.full_name}`);
+        broadcastToClients({
+          type: "member-update",
+          data: {
+            rfid_tag,
+            full_name: member.full_name,
+            profile_image_url: member.profile_image_url,
+            customer_number_display: memberCustomerDisplay,
+            visitor_type: "Member",
+            system_type: admin.system_type,
+            status: "denied",
+            member_status: "denied",
+            reason: "Insufficient balance — please top up at the front desk",
+            location,
+            admin_id: member.admin_id,
+            action: "entry",
+            timestamp: new Date().toISOString()
+          }
+        });
+        return;
       }
-    };
 
-    console.log(`📡 Broadcasting member ${isEntry ? 'entry' : 'exit'}:`, JSON.stringify(broadcastData, null, 2));
-   broadcastToClients(broadcastData);
+      // Free re-entry within active grace window
+      if (openSession && new Date() < new Date(openSession.grace_expires_at)) {
+        console.log(`Free re-entry within grace window for ${member.full_name}`);
 
-    if (!accessGranted) {
+        await dbSuperAdmin.promise().query(
+          `UPDATE AdminEntryLogs
+           SET member_status = 'inside', entry_time = ?
+           WHERE id = ?`,
+          [new Date(), openSession.id]
+        );
+
+        broadcastToClients({
+          type: "member-update",
+          data: {
+            id: openSession.id,
+            rfid_tag,
+            full_name: member.full_name,
+            profile_image_url: member.profile_image_url,
+            customer_number_display: memberCustomerDisplay,
+            visitor_type: "Member",
+            system_type: admin.system_type,
+            status: "inside",
+            member_status: "inside",
+            reason: "Free re-entry within grace window",
+            current_balance: member.current_balance,
+            remaining_balance: member.current_balance,
+            entry_time: new Date().toISOString(),
+            location,
+            admin_id: member.admin_id,
+            action: "entry",
+            last_activity: new Date().toISOString(),
+            timestamp: new Date().toISOString()
+          }
+        });
+        return;
+      }
+
+      // New session — create log and set grace window
+      const graceExpiresAt = new Date(Date.now() + gracePeriodMs);
+      console.log(` New session for ${member.full_name} — grace expires at ${graceExpiresAt}`);
+
+      const [logResult] = await dbSuperAdmin.promise().query(
+        `INSERT INTO AdminEntryLogs
+         (member_id, rfid_tag, full_name, admin_id, visitor_type, system_type,
+          member_status, entry_time, location,
+          sessions_deducted, grace_expires_at, session_closed, payment_pending)
+         VALUES (?, ?, ?, ?, 'Member', ?, 'inside', ?, ?, 0, ?, 0, 0)`,
+        [
+          member.id, rfid_tag, member.full_name, member.admin_id,
+          admin.system_type, new Date(), location, graceExpiresAt
+        ]
+      );
+      const logId = logResult.insertId;
+
       broadcastToClients({
-        type: "dashboard-alert",
+        type: "member-update",
         data: {
+          id: logId,
+          rfid_tag,
           full_name: member.full_name,
-          reason: reason || "Access denied",
+          profile_image_url: member.profile_image_url,
+          customer_number_display: memberCustomerDisplay,
+          visitor_type: "Member",
+          system_type: admin.system_type,
+          status: "inside",
+          member_status: "inside",
+          reason: "Entry granted — grace period started",
+          current_balance: member.current_balance,
+          remaining_balance: member.current_balance,
+          entry_time: new Date().toISOString(),
+          location,
           admin_id: member.admin_id,
+          action: "entry",
+          last_activity: new Date().toISOString(),
           timestamp: new Date().toISOString()
         }
       });
+      return;
+    }
+
+    // ---- EXIT ----
+    if (!isEntry) {
+
+      // No open session found
+      if (!openSession) {
+        console.log(`Exit denied — no open session for ${member.full_name}`);
+        broadcastToClients({
+          type: "member-update",
+          data: {
+            rfid_tag,
+            full_name: member.full_name,
+            profile_image_url: member.profile_image_url,
+            visitor_type: "Member",
+            system_type: admin.system_type,
+            status: "denied",
+            member_status: "denied",
+            reason: "Not inside — cannot exit",
+            location,
+            admin_id: member.admin_id,
+            action: "exit",
+            timestamp: new Date().toISOString()
+          }
+        });
+        return;
+      }
+
+      // Block exit if payment pending
+      if (openSession.payment_pending === 1) {
+        console.log(`Exit blocked — payment pending for ${member.full_name}`);
+        broadcastToClients({
+          type: "member-update",
+          data: {
+            rfid_tag,
+            full_name: member.full_name,
+            profile_image_url: member.profile_image_url,
+            customer_number_display: memberCustomerDisplay,
+            visitor_type: "Member",
+            system_type: admin.system_type,
+            status: "denied",
+            member_status: "denied",
+            reason: "Insufficient balance — please top up at the front desk",
+            location,
+            admin_id: member.admin_id,
+            action: "exit",
+            timestamp: new Date().toISOString()
+          }
+        });
+        return;
+      }
+
+      // Exit allowed — just log exit_time and update member_status
+      await dbSuperAdmin.promise().query(
+        `UPDATE AdminEntryLogs
+         SET member_status = 'outside', exit_time = ?
+         WHERE id = ?`,
+        [new Date(), openSession.id]
+      );
+
+      console.log(`Exit granted for ${member.full_name} — cron will handle deduction at window expiry`);
+
+      broadcastToClients({
+        type: "member-update",
+        data: {
+          id: openSession.id,
+          rfid_tag,
+          full_name: member.full_name,
+          profile_image_url: member.profile_image_url,
+          customer_number_display: memberCustomerDisplay,
+          visitor_type: "Member",
+          system_type: admin.system_type,
+          status: "outside",
+          member_status: "outside",
+          reason: "Exit granted",
+          current_balance: member.current_balance,
+          remaining_balance: member.current_balance,
+          entry_time: openSession.entry_time ? new Date(openSession.entry_time).toISOString() : null,
+          exit_time: new Date().toISOString(),
+          location,
+          admin_id: member.admin_id,
+          action: "exit",
+          last_activity: new Date().toISOString(),
+          timestamp: new Date().toISOString()
+        }
+      });
+      return;
     }
 
   } catch (error) {
-    console.error("❌ Member handler error:", error.message);
+    console.error(" Member handler error:", error.message);
     console.error(error.stack);
-    
+
     broadcastToClients({
       type: "member-update",
       data: {

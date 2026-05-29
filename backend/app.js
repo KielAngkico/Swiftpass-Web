@@ -42,6 +42,7 @@ const RfidReplacementRoutes = require ("./routes/RfidReplacement");
 const partnerOrdersRoutes = require("./routes/partnerOrders");
 
 const viewDayPassGuestsRoute = require("./routes/ViewDayPassGuests");
+const refundRoutes = require("./routes/refunds");
 
 const app = express();
 
@@ -119,5 +120,6 @@ app.use("/api", RfidReplacementRoutes);
 app.use("/api", SuperAdminTransactions);
 
 app.use("/api", auditRoutes);
+app.use("/api", refundRoutes);
 
 module.exports = app;

@@ -752,5 +752,35 @@ router.put("/update-admin/:id", upload.single("profile_image_url"), async (req, 
     conn.release();
   }
 });
+router.patch("/admin/:id/grace-period", async (req, res) => {
+  const { id } = req.params;
+  const { grace_period_minutes } = req.body;
 
+  if (
+    grace_period_minutes === undefined ||
+    isNaN(grace_period_minutes) ||
+    parseInt(grace_period_minutes) < 1
+  ) {
+    return res.status(400).json({ error: "Invalid grace period value" });
+  }
+
+  try {
+    const [result] = await query(
+      `UPDATE AdminAccounts SET grace_period_minutes = ? WHERE id = ?`,
+      [parseInt(grace_period_minutes), id]
+    );
+
+    if (!result.affectedRows) {
+      return res.status(404).json({ error: "Admin not found" });
+    }
+
+    res.json({
+      message: "Grace period updated successfully",
+      grace_period_minutes: parseInt(grace_period_minutes)
+    });
+  } catch (err) {
+    console.error("Grace period update error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 module.exports = router;

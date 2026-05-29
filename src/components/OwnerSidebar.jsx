@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { NavLink } from "react-router-dom";
-import { FiMenu, FiUsers, FiPieChart, FiBarChart2, FiShoppingCart, FiPackage } from "react-icons/fi";
+import { FiMenu, FiUsers, FiPieChart, FiBarChart2, FiShoppingCart, FiPackage, FiDollarSign } from "react-icons/fi";
 import { IoPricetagOutline } from "react-icons/io5";
 import { useAuth } from "../App";
 import trackPageVisit from "../utils/trackPageVisit";
@@ -76,6 +76,11 @@ const OwnerSidebar = () => {
         label: "Employees Activity",
         icon: <FiUsers />,
       },
+      {
+  path: "/Admin/Reimbursements",
+  label: "Reimbursements",
+  icon: <FiDollarSign />,
+},
     ];
   }, [user]);
 

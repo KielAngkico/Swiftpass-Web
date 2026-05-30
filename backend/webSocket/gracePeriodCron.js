@@ -9,7 +9,7 @@ cron.schedule("* * * * *", async () => {
     const db = dbSuperAdmin.promise();
 
     // Get all expired, open, non-pending sessions
-    const [expiredSessions] = await db.query(
+const [expiredSessions] = await db.query(
       `SELECT 
         el.id,
         el.member_id,
@@ -22,10 +22,13 @@ cron.schedule("* * * * *", async () => {
         el.deducted_amount,
         ma.current_balance,
         aa.grace_period_minutes,
-        aa.session_fee
+        ap.amount_to_pay AS session_fee
        FROM AdminEntryLogs el
        JOIN MembersAccounts ma ON ma.id = el.member_id
        JOIN AdminAccounts aa ON aa.id = el.admin_id
+       JOIN AdminPricingOptions ap ON ap.admin_id = aa.id
+         AND ap.plan_name = 'Daily Session'
+         AND ap.is_active = 1
        WHERE el.grace_expires_at <= NOW()
          AND el.session_closed = 0
          AND el.payment_pending = 0

@@ -316,12 +316,107 @@ formatPaymentMethod(payment_method) !== "Cash" ? reference : null,
       payload: req.body,
     });
 
-return res.status(200).json({
-  message: "Tap-up successful!",
-      status: newStatus,
-      new_balance: newBalance,
-      minimum_session_fee: minimumSessionFee
-    });
+// Check if member has a payment_pending session that needs deduction
+    try {
+      const [pendingSessionRows] = await dbSuperAdmin.promise().query(
+        `SELECT * FROM AdminEntryLogs 
+         WHERE member_id = ? AND payment_pending = 1 AND session_closed = 0 
+         ORDER BY id DESC LIMIT 1`,
+        [member_id]
+      );
+
+      if (pendingSessionRows.length > 0) {
+        const pendingSession = pendingSessionRows[0];
+
+        // Get session fee
+        const [feeRows] = await dbSuperAdmin.promise().query(
+          `SELECT amount_to_pay AS session_fee 
+           FROM AdminPricingOptions 
+           WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1 
+           LIMIT 1`,
+          [admin_id]
+        );
+
+        // Get grace period minutes
+        const [adminRows] = await dbSuperAdmin.promise().query(
+          `SELECT grace_period_minutes FROM AdminAccounts WHERE id = ? LIMIT 1`,
+          [admin_id]
+        );
+
+        if (feeRows.length > 0 && adminRows.length > 0) {
+          const sessionFee = parseFloat(feeRows[0].session_fee);
+          const gracePeriodMs = adminRows[0].grace_period_minutes * 60 * 1000;
+          const graceExpiresAt = new Date(pendingSession.grace_expires_at);
+          const now = new Date();
+
+          // Calculate missed windows — minimum 1 always owed
+          const timePastExpiry = now - graceExpiresAt;
+          const missedWindows = Math.max(1, Math.floor(timePastExpiry / gracePeriodMs) + 1);
+          const totalOwed = missedWindows * sessionFee;
+
+          console.log(`Payment pending recovery: ${missedWindows} window(s) owed — ₱${totalOwed}`);
+
+          // Calculate how many sessions we can actually cover
+          const coverableWindows = Math.floor(newBalance / sessionFee);
+          const windowsToDeduct = Math.min(missedWindows, coverableWindows);
+          const amountToDeduct = windowsToDeduct * sessionFee;
+
+          if (windowsToDeduct > 0) {
+            // Deduct from balance
+            const balanceAfterDeduction = newBalance - amountToDeduct;
+
+            await dbSuperAdmin.promise().query(
+              `UPDATE MembersAccounts SET current_balance = ? WHERE id = ?`,
+              [balanceAfterDeduction, member_id]
+            );
+
+            // Log each window as a separate session_deduction
+            for (let i = 0; i < windowsToDeduct; i++) {
+              const balanceAfterThisWindow = newBalance - ((i + 1) * sessionFee);
+              await dbSuperAdmin.promise().query(
+                `INSERT INTO AdminMembersTransactions
+                 (member_id, rfid_tag, full_name, admin_id, transaction_type,
+                  amount, new_balance, payment_method, processed_by, timestamp)
+                 VALUES (?, ?, ?, ?, 'session_deduction', ?, ?, 'balance', 'system', NOW())`,
+                [
+                  member_id,
+                  currentRfid,
+                  full_name,
+                  admin_id,
+                  -sessionFee,
+                  balanceAfterThisWindow
+                ]
+              );
+            }
+
+            // Advance grace_expires_at and update session
+            const newGraceExpiresAt = new Date(Date.now() + gracePeriodMs);
+            const stillPending = balanceAfterDeduction < sessionFee ? 1 : 0;
+
+            await dbSuperAdmin.promise().query(
+              `UPDATE AdminEntryLogs
+               SET payment_pending = ?,
+                   sessions_deducted = sessions_deducted + ?,
+                   deducted_amount = deducted_amount + ?,
+                   grace_expires_at = ?
+               WHERE id = ?`,
+              [
+                stillPending,
+                windowsToDeduct,
+                amountToDeduct,
+                newGraceExpiresAt,
+                pendingSession.id
+              ]
+            );
+
+            console.log(`Recovery complete — deducted ₱${amountToDeduct}, payment_pending = ${stillPending}`);
+          }
+        }
+      }
+    } catch (recoveryError) {
+      console.error("Payment pending recovery error:", recoveryError.message);
+      // Do not fail the top-up if recovery fails — balance was already credited
+    }
   } catch (err) {
     console.error("❌ Tap-up error:", err);
     return res.status(500).json({ message: "Server error during tap-up." });

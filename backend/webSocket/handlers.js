@@ -792,7 +792,55 @@ async function handleMember(member, rfid_tag, location) {
         return;
       }
 
-      // Exit allowed — just log exit_time and update member_status
+// Check balance before allowing exit
+      const [pricingRows] = await dbSuperAdmin.promise().query(
+        `SELECT amount_to_pay AS session_fee 
+         FROM AdminPricingOptions 
+         WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1
+         LIMIT 1`,
+        [member.admin_id]
+      );
+
+      const exitSessionFee = pricingRows.length > 0 ? parseFloat(pricingRows[0].session_fee) : 0;
+      const currentBalance = parseFloat(member.current_balance || 0);
+
+      if (exitSessionFee > 0 && currentBalance < exitSessionFee) {
+        console.log(`Exit denied — insufficient balance for ${member.full_name}: ₱${currentBalance} < ₱${exitSessionFee}`);
+
+        broadcastToClients({
+          type: "member-update",
+          data: {
+            rfid_tag,
+            full_name: member.full_name,
+            profile_image_url: member.profile_image_url,
+            customer_number_display: memberCustomerDisplay,
+            visitor_type: "Member",
+            system_type: admin.system_type,
+            status: "denied",
+            member_status: "denied",
+            reason: "Insufficient balance — please top up at the front desk",
+            current_balance: currentBalance,
+            remaining_balance: currentBalance,
+            location,
+            admin_id: member.admin_id,
+            action: "exit",
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        broadcastToClients({
+          type: "dashboard-alert",
+          data: {
+            full_name: member.full_name,
+            reason: "Exit denied — insufficient balance to cover session fee",
+            admin_id: member.admin_id,
+            timestamp: new Date().toISOString()
+          }
+        });
+        return;
+      }
+
+      // Balance sufficient — allow exit
       await dbSuperAdmin.promise().query(
         `UPDATE AdminEntryLogs
          SET member_status = 'outside', exit_time = ?

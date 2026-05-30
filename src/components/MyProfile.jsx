@@ -76,8 +76,9 @@ const formData = new FormData();
       if (imageFile) formData.append("profile_image", imageFile);
 
       // Save grace period separately for prepaid admins
-      if (user?.role === "admin" && user?.system_type === "prepaid_entry" && form.grace_period_minutes) {
-        await api.patch(`/api/admin/${user.adminId}/grace-period`, {
+if (user?.role === "admin" && user?.system_type === "prepaid_entry" && form.grace_period_minutes) {
+        const adminId = user.adminId || user.id;
+        await api.patch(`/api/admin/${adminId}/grace-period`, {
           grace_period_minutes: parseInt(form.grace_period_minutes)
         });
       }

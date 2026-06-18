@@ -179,9 +179,12 @@ updated[existingIndex] = {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const insideCount = entryLogs.filter((l) => l.member_status === "inside" || l.status === "inside").length;
-  const outsideCount = entryLogs.filter((l) => l.member_status === "outside" || l.status === "outside").length;
+const insideCount = entryLogs.filter((l) => 
+  (l.member_status === "inside" || l.status === "inside") && !l.is_grace_reentry
+).length;
+const outsideCount = entryLogs.filter((l) => 
+  (l.member_status === "outside" || l.status === "outside") && !l.is_grace_reentry
+).length;
 
   if (loading) {
     return (

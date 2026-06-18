@@ -125,13 +125,13 @@ cron.schedule("* * * * *", async () => {
           [newSessionsDeducted, newDeductedAmount, session.id]
         );
 
-        // 4. Close the latest grace row if open
-        if (latestGrace && latestGrace.exit_time !== null) {
-          await db.query(
-            `UPDATE AdminEntryLogs SET session_closed = 1 WHERE id = ?`,
-            [latestGrace.id]
-          );
-        }
+// 4. Close ALL grace rows for this parent session
+        await db.query(
+          `UPDATE AdminEntryLogs SET session_closed = 1 
+           WHERE parent_session_id = ?
+             AND is_grace_reentry = 1`,
+          [session.id]
+        );
 
         console.log(`   Session closed — ₱${totalOwed} deducted across ${missedWindows} window(s)`);
 

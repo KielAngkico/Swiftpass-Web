@@ -432,5 +432,48 @@ formatPaymentMethod(payment_method) !== "Cash" ? reference : null,
     return res.status(500).json({ message: "Server error during tap-up." });
   }
 });
+router.get("/member-pending-debt/:member_id", async (req, res) => {
+  const { member_id } = req.params;
+
+  try {
+    const [pendingRows] = await dbSuperAdmin.promise().query(
+      `SELECT el.*, aa.grace_period_minutes, ap.amount_to_pay AS session_fee
+       FROM AdminEntryLogs el
+       JOIN AdminAccounts aa ON aa.id = el.admin_id
+       JOIN AdminPricingOptions ap ON ap.admin_id = el.admin_id
+         AND ap.plan_name = 'Daily Session' AND ap.is_active = 1
+       WHERE el.member_id = ? AND el.payment_pending = 1 AND el.session_closed = 0
+       ORDER BY el.id DESC LIMIT 1`,
+      [member_id]
+    );
+
+    if (pendingRows.length === 0) {
+      return res.json({ has_pending: false });
+    }
+
+    const session = pendingRows[0];
+    const sessionFee = parseFloat(session.session_fee);
+    const gracePeriodMs = session.grace_period_minutes * 60 * 1000;
+    const graceExpiresAt = new Date(session.grace_expires_at);
+    const now = new Date();
+
+    const timePastExpiry = now - graceExpiresAt;
+    const missedWindows = Math.max(1, Math.floor(timePastExpiry / gracePeriodMs) + 1);
+    const totalOwed = missedWindows * sessionFee;
+    const minimumToCredit = totalOwed + sessionFee;
+
+    return res.json({
+      has_pending: true,
+      missed_windows: missedWindows,
+      session_fee: sessionFee,
+      total_owed: totalOwed,
+      minimum_to_credit: minimumToCredit
+    });
+
+  } catch (err) {
+    console.error("Pending debt check error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
 
 module.exports = router;

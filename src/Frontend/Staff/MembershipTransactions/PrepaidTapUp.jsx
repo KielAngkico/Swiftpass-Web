@@ -21,7 +21,8 @@ const PrepaidTapUp = ({ rfid_tag, full_name, current_balance, staffUser }) => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [reference, setReference] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
-  const [loading, setLoading] = useState(false);
+const [loading, setLoading] = useState(false);
+  const [pendingDebt, setPendingDebt] = useState(null);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -78,10 +79,18 @@ const fetchMember = async () => {
         const res = await api.get(`/api/member-by-id/${rfid}`);
         data = res.data;
       }
-      if (data && data.system_type === "prepaid_entry") {
+if (data && data.system_type === "prepaid_entry") {
         data.admin_id = data.admin_id || adminId;
         data.member_id = data.id;
         setMember(data);
+
+        // Check for pending debt
+        try {
+          const debtRes = await api.get(`/api/member-pending-debt/${data.id}`);
+          setPendingDebt(debtRes.data);
+        } catch {
+          setPendingDebt(null);
+        }
       } else {
         setMember(null);
         showToast({ message: "Member not found or not a prepaid account.", type: "error" });
@@ -317,10 +326,21 @@ const payload = {
               <p className="text-xs font-medium text-gray-900 text-center">
                 {member?.full_name || "No member loaded"}
               </p>
-              {member && (
+ {member && (
                 <p className="text-xs text-gray-400 text-center">
                   Balance: ₱{parseFloat(member.current_balance).toFixed(2)}
                 </p>
+              )}
+              {pendingDebt && pendingDebt.has_pending && (
+                <div className="mt-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-center">
+                  <p className="text-xs font-medium text-red-600">Member has unpaid sessions</p>
+                  <p className="text-xs text-red-500 mt-0.5">
+                    Owed: ₱{pendingDebt.total_owed.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-red-500 mt-0.5">
+                    Minimum to credit: ₱{pendingDebt.minimum_to_credit.toFixed(2)}
+                  </p>
+                </div>
               )}
             </div>
           </div>

@@ -15,12 +15,22 @@ const MemberEntryBranch = () => {
 const processedTimestamps = useRef(new Set());
   const { showToast } = useToast();
 
-  useEffect(() => {
+useEffect(() => {
     const handleAlert = (e) => {
       showToast({ message: `${e.detail.full_name} - ${e.detail.reason}`, type: "error" });
     };
+    const handleBalanceAlert = (e) => {
+      showToast({ 
+        message: `Low Balance: ${e.detail.full_name} — ₱${e.detail.current_balance} remaining, session fee ₱${e.detail.session_fee}`, 
+        type: "error" 
+      });
+    };
     window.addEventListener("dashboard-alert", handleAlert);
-    return () => window.removeEventListener("dashboard-alert", handleAlert);
+    window.addEventListener("balance-alert", handleBalanceAlert);
+    return () => {
+      window.removeEventListener("dashboard-alert", handleAlert);
+      window.removeEventListener("balance-alert", handleBalanceAlert);
+    };
   }, [showToast]);
 
 

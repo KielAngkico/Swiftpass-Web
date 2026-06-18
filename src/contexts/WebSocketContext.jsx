@@ -200,12 +200,25 @@ case "rfid-scanned-for-staff":
         setScanModeEnabled(msg.data?.enabled || false);
         console.log("🔄 Staff registration scan mode:", msg.data?.enabled ? "ENABLED" : "DISABLED");
         return;
-        case "dashboard-alert":
+case "dashboard-alert":
         if (!msg.data) return;
         window.dispatchEvent(new CustomEvent("dashboard-alert", {
           detail: {
             reason: msg.data.reason,
             full_name: msg.data.full_name,
+            admin_id: msg.data.admin_id,
+            timestamp: msg.data.timestamp
+          }
+        }));
+        return;
+
+        case "balance-alert":
+        if (!msg.data) return;
+        window.dispatchEvent(new CustomEvent("balance-alert", {
+          detail: {
+            full_name: msg.data.full_name,
+            current_balance: msg.data.current_balance,
+            session_fee: msg.data.session_fee,
             admin_id: msg.data.admin_id,
             timestamp: msg.data.timestamp
           }

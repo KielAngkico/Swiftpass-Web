@@ -852,29 +852,6 @@ async function handleMember(member, rfid_tag, location) {
         );
         const parentSession = parentRows[0] || null;
 
-        if (parentSession && parentSession.payment_pending === 1) {
-          console.log(`Exit blocked — payment pending on parent session`);
-          broadcastToClients({
-            type: "member-update",
-            data: {
-              rfid_tag,
-              full_name: member.full_name,
-              profile_image_url: member.profile_image_url,
-              customer_number_display: memberCustomerDisplay,
-              visitor_type: "Member",
-              system_type: admin.system_type,
-              status: "denied",
-              member_status: "denied",
-              reason: "Insufficient balance — please top up at the front desk",
-              location,
-              admin_id: member.admin_id,
-              action: "exit",
-              timestamp: new Date().toISOString()
-            }
-          });
-          return;
-        }
-
         // Check balance using parent's grace window
         const [pricingRowsG] = await dbSuperAdmin.promise().query(
           `SELECT amount_to_pay AS session_fee 
@@ -968,28 +945,7 @@ async function handleMember(member, rfid_tag, location) {
       }
 
       // Block exit if payment pending
-      if (openSession.payment_pending === 1) {
-        console.log(`Exit blocked — payment pending for ${member.full_name}`);
-        broadcastToClients({
-          type: "member-update",
-          data: {
-            rfid_tag,
-            full_name: member.full_name,
-            profile_image_url: member.profile_image_url,
-            customer_number_display: memberCustomerDisplay,
-            visitor_type: "Member",
-            system_type: admin.system_type,
-            status: "denied",
-            member_status: "denied",
-            reason: "Insufficient balance — please top up at the front desk",
-            location,
-            admin_id: member.admin_id,
-            action: "exit",
-            timestamp: new Date().toISOString()
-          }
-        });
-        return;
-      }
+
 
 // Check balance before allowing exit
       const [pricingRows] = await dbSuperAdmin.promise().query(

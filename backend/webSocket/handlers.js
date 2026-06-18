@@ -1011,12 +1011,12 @@ const [openSessionRows] = await dbSuperAdmin.promise().query(
       }
 
       console.log(`Exit granted for ${member.full_name} — cron will handle deduction at window expiry`);
-
 broadcastToClients({
         type: "member-update",
         data: {
-          id: openSession.id,
+          id: latestGraceRow ? latestGraceRow.id : openSession.id,
           grace_row_id: latestGraceRow ? latestGraceRow.id : null,
+          parent_session_id: openSession.id,
           rfid_tag,
           full_name: member.full_name,
           profile_image_url: member.profile_image_url,
@@ -1032,7 +1032,8 @@ broadcastToClients({
           exit_time: new Date().toISOString(),
           location,
           admin_id: member.admin_id,
-          action: "exit",
+action: "exit",
+          is_grace_reentry: latestGraceRow ? 1 : 0,
           last_activity: new Date().toISOString(),
           timestamp: new Date().toISOString()
         }

@@ -18,7 +18,6 @@ const queryAllLogs = `
       LEFT JOIN DayPassGuests d ON logs.rfid_tag = d.rfid_tag AND logs.admin_id = d.admin_id
       LEFT JOIN RegisteredRfid r ON logs.rfid_tag = r.rfid_tag
 WHERE logs.admin_id = ?
-        AND logs.is_grace_reentry = 0
       ORDER BY logs.entry_time DESC
     `;
 
@@ -59,9 +58,11 @@ WHERE logs.admin_id = ?
         deducted_amount: row.deducted_amount,
         remaining_balance: row.remaining_balance,
         subscription_expiry: row.subscription_expiry,
-        location: row.location,
+location: row.location,
         staff_name: row.staff_name,
         customer_number_display: row.customer_number_display || null,
+        is_grace_reentry: row.is_grace_reentry || 0,
+        parent_session_id: row.parent_session_id || null,
       };
     });
 

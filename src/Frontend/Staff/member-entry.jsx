@@ -371,9 +371,14 @@ return (
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5">
+<span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5">
                             {log.visitor_type || "Member"}
                           </span>
+                          {log.is_grace_reentry === 1 && (
+                            <span className="text-[11px] bg-yellow-50 text-yellow-700 border border-yellow-100 rounded-full px-2 py-0.5 mt-0.5">
+                              Grace Re-entry
+                            </span>
+                          )}
                           {log.system_type && (
                             <p className="text-[11px] text-gray-400 mt-0.5">
                               {log.system_type.replace("_", " ")}

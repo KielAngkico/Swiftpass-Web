@@ -17,6 +17,7 @@ cron.schedule("* * * * *", async () => {
         el.rfid_tag,
         el.full_name,
         el.admin_id,
+el.entry_time,
         el.grace_expires_at,
         el.sessions_deducted,
         el.deducted_amount,
@@ -77,10 +78,14 @@ cron.schedule("* * * * *", async () => {
       console.log(`   Latest grace row: ${latestGrace ? `ID ${latestGrace.id}, exit_time=${latestGrace.exit_time}` : 'none'}`);
       console.log(`   Resolved status: ${isOutside ? 'outside' : 'inside'}`);
 
-      if (isOutside) {
-        // Member is outside — exit was already balance-checked so we know
-        // balance covers the full owed amount. Deduct all missed windows.
-        const missedWindows = Math.max(1, Math.floor((now - graceExpiresAt) / gracePeriodMs) + 1);
+if (isOutside) {
+        // Count total windows from entry to exit
+        // Each window = grace_period_minutes, any partial window = full charge
+        const exitTime = latestGrace ? new Date(latestGrace.exit_time) : now;
+        const entryTime = new Date(session.entry_time || graceExpiresAt - gracePeriodMs);
+        const totalTimeInGym = exitTime - entryTime;
+        const windowsCrossed = Math.ceil(totalTimeInGym / gracePeriodMs);
+        const missedWindows = Math.max(1, windowsCrossed) - session.sessions_deducted;
         const totalOwed = missedWindows * sessionFee;
 
         console.log(`   Outside — deducting ${missedWindows} window(s), total ₱${totalOwed}`);

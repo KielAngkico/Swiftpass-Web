@@ -118,8 +118,17 @@ if (data && data.system_type === "prepaid_entry") {
 
     setLoading(true);
 
-    const amountToPay = selectedPlan?.amount_to_pay || parseFloat(customAmount);
+const amountToPay = selectedPlan?.amount_to_pay || parseFloat(customAmount);
     const amountToCredit = selectedPlan?.amount_to_credit || parseFloat(customAmount);
+
+    if (pendingDebt?.has_pending && amountToCredit < pendingDebt.minimum_to_credit) {
+      showToast({
+        message: `Minimum top-up is ₱${pendingDebt.minimum_to_credit.toFixed(2)} to cover unpaid sessions.`,
+        type: "error"
+      });
+      setLoading(false);
+      return;
+    }
 
 const payload = {
       member_id: member.member_id || member.id,

@@ -649,7 +649,29 @@ async function handleMember(member, rfid_tag, location) {
         [member.id, member.admin_id]
       );
       const openGraceSession = openGraceRows[0] || null;
-
+// Block if parent session itself shows member is still inside
+      if (openSession && openSession.member_status === 'inside') {
+        console.log(`Entry blocked — parent session still open and inside`);
+        broadcastToClients({
+          type: "member-update",
+          data: {
+            rfid_tag,
+            full_name: member.full_name,
+            profile_image_url: member.profile_image_url,
+            customer_number_display: memberCustomerDisplay,
+            visitor_type: "Member",
+            system_type: admin.system_type,
+            status: "denied",
+            member_status: "denied",
+            reason: "Already inside",
+            location,
+            admin_id: member.admin_id,
+            action: "entry",
+            timestamp: new Date().toISOString()
+          }
+        });
+        return;
+      }
       // Block if grace re-entry is open and member is inside
       if (openGraceSession && openGraceSession.member_status === 'inside') {
         console.log(`Entry blocked — member already inside via grace re-entry`);

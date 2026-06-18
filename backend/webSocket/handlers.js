@@ -933,7 +933,7 @@ const [openSessionRows] = await dbSuperAdmin.promise().query(
          LIMIT 1`,
         [member.admin_id]
       );
-      const exitSessionFee = pricingRows.length > 0 ? parseFloat(pricingRows[0].session_fee) : 0;
+      const exitSessionFee = pricingRows.length > 0 ? parseFloat(pricingRows[0].session_fee) : sessionFee;
       const currentBalance = parseFloat(member.current_balance || 0);
       const graceExpiresAt = new Date(openSession.grace_expires_at);
       const now = new Date();

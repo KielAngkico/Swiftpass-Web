@@ -17,7 +17,8 @@ const queryAllLogs = `
       LEFT JOIN MembersAccounts m ON logs.rfid_tag = m.rfid_tag AND logs.admin_id = m.admin_id
       LEFT JOIN DayPassGuests d ON logs.rfid_tag = d.rfid_tag AND logs.admin_id = d.admin_id
       LEFT JOIN RegisteredRfid r ON logs.rfid_tag = r.rfid_tag
-      WHERE logs.admin_id = ?
+WHERE logs.admin_id = ?
+        AND logs.is_grace_reentry = 0
       ORDER BY logs.entry_time DESC
     `;
 

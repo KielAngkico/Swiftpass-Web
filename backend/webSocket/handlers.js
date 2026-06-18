@@ -618,11 +618,12 @@ async function handleMember(member, rfid_tag, location) {
 
     console.log(`\nPrepaid Entry — Grace Period: ${admin.grace_period_minutes} min | Fee: ₱${sessionFee}`);
 
-    // Find existing open session for this member
+// Find existing open session for this member (exclude grace re-entries)
     const [openSessionRows] = await dbSuperAdmin.promise().query(
       `SELECT * FROM AdminEntryLogs
        WHERE member_id = ? AND admin_id = ?
          AND session_closed = 0
+         AND is_grace_reentry = 0
        ORDER BY id DESC LIMIT 1
        FOR UPDATE`,
       [member.id, member.admin_id]
@@ -662,21 +663,29 @@ async function handleMember(member, rfid_tag, location) {
         return;
       }
 
-      // Free re-entry within active grace window
+ // Free re-entry within active grace window
       if (openSession && new Date() < new Date(openSession.grace_expires_at)) {
         console.log(`Free re-entry within grace window for ${member.full_name}`);
 
-        await dbSuperAdmin.promise().query(
-          `UPDATE AdminEntryLogs
-           SET member_status = 'inside', entry_time = ?
-           WHERE id = ?`,
-          [new Date(), openSession.id]
+        const [reentryResult] = await dbSuperAdmin.promise().query(
+          `INSERT INTO AdminEntryLogs
+           (member_id, rfid_tag, full_name, admin_id, visitor_type, system_type,
+            member_status, entry_time, location,
+            sessions_deducted, grace_expires_at, session_closed, payment_pending,
+            is_grace_reentry, parent_session_id)
+           VALUES (?, ?, ?, ?, 'Member', ?, 'inside', ?, ?, 0, ?, 1, 0, 1, ?)`,
+          [
+            member.id, rfid_tag, member.full_name, member.admin_id,
+            admin.system_type, new Date(), location,
+            openSession.grace_expires_at,
+            openSession.id
+          ]
         );
 
         broadcastToClients({
           type: "member-update",
           data: {
-            id: openSession.id,
+            id: reentryResult.insertId,
             rfid_tag,
             full_name: member.full_name,
             profile_image_url: member.profile_image_url,
@@ -692,13 +701,13 @@ async function handleMember(member, rfid_tag, location) {
             location,
             admin_id: member.admin_id,
             action: "entry",
+            is_grace_reentry: true,
             last_activity: new Date().toISOString(),
             timestamp: new Date().toISOString()
           }
         });
         return;
       }
-
       // New session — create log and set grace window
       const graceExpiresAt = new Date(Date.now() + gracePeriodMs);
       console.log(` New session for ${member.full_name} — grace expires at ${graceExpiresAt}`);
@@ -801,11 +810,25 @@ async function handleMember(member, rfid_tag, location) {
         [member.admin_id]
       );
 
-      const exitSessionFee = pricingRows.length > 0 ? parseFloat(pricingRows[0].session_fee) : 0;
+const exitSessionFee = pricingRows.length > 0 ? parseFloat(pricingRows[0].session_fee) : 0;
       const currentBalance = parseFloat(member.current_balance || 0);
+      const gracePeriodMs2 = (admin.grace_period_minutes || 2) * 60 * 1000;
+      const graceExpiresAt = new Date(openSession.grace_expires_at);
+      const now = new Date();
+      const timePastExpiry = now - graceExpiresAt;
 
-      if (exitSessionFee > 0 && currentBalance < exitSessionFee) {
-        console.log(`Exit denied — insufficient balance for ${member.full_name}: ₱${currentBalance} < ₱${exitSessionFee}`);
+      const missedWindows = timePastExpiry > 0
+        ? Math.max(1, Math.floor(timePastExpiry / gracePeriodMs2) + 1)
+        : 0;
+      const totalOwed = missedWindows * exitSessionFee;
+      const minimumRequired = totalOwed + exitSessionFee;
+
+      if (exitSessionFee > 0 && currentBalance < minimumRequired) {
+        const denyReason = totalOwed > 0
+          ? `Unpaid: ₱${totalOwed.toFixed(2)} + ₱${exitSessionFee.toFixed(2)} next session. Minimum top-up: ₱${minimumRequired.toFixed(2)}`
+          : `Insufficient balance — minimum ₱${exitSessionFee.toFixed(2)} required`;
+
+        console.log(`Exit denied — ${denyReason}`);
 
         broadcastToClients({
           type: "member-update",
@@ -818,7 +841,7 @@ async function handleMember(member, rfid_tag, location) {
             system_type: admin.system_type,
             status: "denied",
             member_status: "denied",
-            reason: "Insufficient balance — please top up at the front desk",
+            reason: denyReason,
             current_balance: currentBalance,
             remaining_balance: currentBalance,
             location,
@@ -832,7 +855,7 @@ async function handleMember(member, rfid_tag, location) {
           type: "dashboard-alert",
           data: {
             full_name: member.full_name,
-            reason: "Exit denied — insufficient balance to cover session fee",
+            reason: denyReason,
             admin_id: member.admin_id,
             timestamp: new Date().toISOString()
           }

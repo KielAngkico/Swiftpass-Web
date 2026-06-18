@@ -29,11 +29,12 @@ const [expiredSessions] = await db.query(
        JOIN AdminPricingOptions ap ON ap.admin_id = aa.id
          AND ap.plan_name = 'Daily Session'
          AND ap.is_active = 1
-       WHERE el.grace_expires_at <= NOW()
+WHERE el.grace_expires_at <= NOW()
          AND el.session_closed = 0
          AND el.payment_pending = 0
          AND el.system_type = 'prepaid_entry'
          AND el.visitor_type = 'Member'
+         AND el.is_grace_reentry = 0
       FOR UPDATE`
     );
 
@@ -52,11 +53,10 @@ const [expiredSessions] = await db.query(
       console.log(`   Balance: ₱${currentBalance} | Fee: ₱${sessionFee}`);
       console.log(`   Status: ${session.member_status}`);
 
-      // Check balance
+// Check balance — outside+insufficient cannot happen (exit check prevents it)
       if (currentBalance < sessionFee) {
-        console.log(`Insufficient balance for ${session.full_name}`);
+        console.log(`Insufficient balance for ${session.full_name} — member is inside, blocking`);
 
-        // Set payment_pending — keep session open
         await db.query(
           `UPDATE AdminEntryLogs 
            SET payment_pending = 1
@@ -64,7 +64,6 @@ const [expiredSessions] = await db.query(
           [session.id]
         );
 
-        // Broadcast alert to admin dashboard
         broadcastToClients({
           type: "balance-alert",
           data: {
@@ -74,7 +73,7 @@ const [expiredSessions] = await db.query(
             current_balance: currentBalance,
             session_fee: sessionFee,
             admin_id: session.admin_id,
-            reason: "Insufficient balance — RFID entry and exit blocked until topped up",
+            reason: "Insufficient balance — entry and exit blocked until topped up",
             timestamp: new Date().toISOString()
           }
         });

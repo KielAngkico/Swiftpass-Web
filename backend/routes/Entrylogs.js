@@ -21,9 +21,14 @@ WHERE logs.admin_id = ?
   AND (
     logs.session_closed = 0
     OR logs.is_grace_reentry = 1
-    OR DATE(logs.entry_time) = CURDATE()
+    OR DATE(COALESCE(logs.entry_time, logs.exit_time)) = CURDATE()
+    OR EXISTS (
+      SELECT 1 FROM AdminEntryLogs g
+      WHERE g.parent_session_id = logs.id
+        AND DATE(COALESCE(g.entry_time, g.exit_time)) = CURDATE()
+    )
   )
-ORDER BY logs.entry_time DESC, logs.id DESC
+ORDER BY COALESCE(logs.entry_time, logs.exit_time) DESC, logs.id DESC
     `;
 
     const [logRows] = await dbSuperAdmin.promise().query(queryAllLogs, [admin_id]);

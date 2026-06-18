@@ -18,7 +18,12 @@ const queryAllLogs = `
       LEFT JOIN DayPassGuests d ON logs.rfid_tag = d.rfid_tag AND logs.admin_id = d.admin_id
       LEFT JOIN RegisteredRfid r ON logs.rfid_tag = r.rfid_tag
 WHERE logs.admin_id = ?
-      ORDER BY logs.entry_time DESC
+  AND (
+    logs.session_closed = 0
+    OR logs.is_grace_reentry = 1
+    OR DATE(logs.entry_time) = CURDATE()
+  )
+ORDER BY logs.entry_time DESC, logs.id DESC
     `;
 
     const [logRows] = await dbSuperAdmin.promise().query(queryAllLogs, [admin_id]);

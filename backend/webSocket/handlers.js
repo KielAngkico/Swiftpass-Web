@@ -673,7 +673,7 @@ async function handleMember(member, rfid_tag, location) {
             member_status, entry_time, location,
             sessions_deducted, grace_expires_at, session_closed, payment_pending,
             is_grace_reentry, parent_session_id)
-           VALUES (?, ?, ?, ?, 'Member', ?, 'inside', ?, ?, 0, ?, 1, 0, 1, ?)`,
+           VALUES (?, ?, ?, ?, 'Member', ?, 'inside', ?, ?, 0, ?, 0, 0, 1, ?)`,
           [
             member.id, rfid_tag, member.full_name, member.admin_id,
             admin.system_type, new Date(), location,

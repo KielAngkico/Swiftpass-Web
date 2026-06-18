@@ -651,6 +651,7 @@ const [openSessionRows] = await dbSuperAdmin.promise().query(
        WHERE member_id = ? AND admin_id = ?
          AND session_closed = 0
          AND is_grace_reentry = 0
+         AND exit_time IS NULL
        ORDER BY id DESC LIMIT 1
        FOR UPDATE`,
       [member.id, member.admin_id]

@@ -389,9 +389,11 @@ formatPaymentMethod(payment_method) !== "Cash" ? reference : null,
               );
             }
 
-            // Advance grace_expires_at and update session
-            const newGraceExpiresAt = new Date(Date.now() + gracePeriodMs);
-            const stillPending = balanceAfterDeduction < sessionFee ? 1 : 0;
+ const remainingMissed = missedWindows - windowsToDeduct;
+            const stillPending = (remainingMissed > 0 || balanceAfterDeduction < sessionFee) ? 1 : 0;
+            const newGraceExpiresAt = stillPending === 0
+              ? new Date(Date.now() + gracePeriodMs)
+              : pendingSession.grace_expires_at;
 
             await dbSuperAdmin.promise().query(
               `UPDATE AdminEntryLogs
@@ -413,10 +415,18 @@ formatPaymentMethod(payment_method) !== "Cash" ? reference : null,
           }
         }
       }
-    } catch (recoveryError) {
+} catch (recoveryError) {
       console.error("Payment pending recovery error:", recoveryError.message);
       // Do not fail the top-up if recovery fails — balance was already credited
     }
+
+    return res.status(200).json({
+      message: "Tap-up successful!",
+      status: newStatus,
+      new_balance: newBalance,
+      minimum_session_fee: minimumSessionFee
+    });
+
   } catch (err) {
     console.error("❌ Tap-up error:", err);
     return res.status(500).json({ message: "Server error during tap-up." });

@@ -21,13 +21,13 @@ WHERE logs.admin_id = ?
   AND (
     logs.session_closed = 0
     OR logs.is_grace_reentry = 1
-    OR DATE(COALESCE(logs.entry_time, logs.exit_time)) = CURDATE()
-    OR logs.id IN (
+    OR COALESCE(logs.entry_time, logs.exit_time) >= NOW() - INTERVAL 2 DAY
+OR logs.id IN (
       SELECT DISTINCT g.parent_session_id 
       FROM AdminEntryLogs g
       WHERE g.parent_session_id IS NOT NULL
         AND g.admin_id = logs.admin_id
-        AND DATE(COALESCE(g.entry_time, g.exit_time)) = CURDATE()
+        AND COALESCE(g.entry_time, g.exit_time) >= NOW() - INTERVAL 2 DAY
     )
   )
 ORDER BY COALESCE(logs.entry_time, logs.exit_time) DESC, logs.id DESC

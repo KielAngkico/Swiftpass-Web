@@ -277,7 +277,7 @@ const payload = {
                   />
                 </div>
               )}
-              <div>
+<div>
                 <label className={labelClass}>Payment Method</label>
                 <select
                   value={paymentMethod}
@@ -290,6 +290,18 @@ const payload = {
                   ))}
                 </select>
               </div>
+              {paymentMethod !== "cash" && paymentMethod !== "" && (
+                <div>
+                  <label className={labelClass}>Account Number</label>
+                  <input
+                    type="text"
+                    value={paymentMethods.find(m => m.name.toLowerCase() === paymentMethod)?.reference_number || "—"}
+                    readOnly
+                    placeholder="—"
+                    className={readonlyClass}
+                  />
+                </div>
+              )}
               {paymentMethod !== "cash" && paymentMethod !== "" && (
                 <div>
                   <label className={labelClass}>

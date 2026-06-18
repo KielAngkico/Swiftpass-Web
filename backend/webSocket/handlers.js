@@ -639,7 +639,42 @@ async function handleMember(member, rfid_tag, location) {
     // ---- ENTRY ----
     if (isEntry) {
 
-      // Block if payment pending
+// Check for open grace re-entry (member already inside)
+      const [openGraceRows] = await dbSuperAdmin.promise().query(
+        `SELECT * FROM AdminEntryLogs
+         WHERE member_id = ? AND admin_id = ?
+           AND session_closed = 0
+           AND is_grace_reentry = 1
+         ORDER BY id DESC LIMIT 1`,
+        [member.id, member.admin_id]
+      );
+      const openGraceSession = openGraceRows[0] || null;
+
+      // Block if grace re-entry is open and member is inside
+      if (openGraceSession && openGraceSession.member_status === 'inside') {
+        console.log(`Entry blocked — member already inside via grace re-entry`);
+        broadcastToClients({
+          type: "member-update",
+          data: {
+            rfid_tag,
+            full_name: member.full_name,
+            profile_image_url: member.profile_image_url,
+            customer_number_display: memberCustomerDisplay,
+            visitor_type: "Member",
+            system_type: admin.system_type,
+            status: "denied",
+            member_status: "denied",
+            reason: "Already inside",
+            location,
+            admin_id: member.admin_id,
+            action: "entry",
+            timestamp: new Date().toISOString()
+          }
+        });
+        return;
+      }
+
+      // Block if payment pending on parent
       if (openSession && openSession.payment_pending === 1) {
         console.log(`Entry blocked — payment pending for ${member.full_name}`);
         broadcastToClients({
@@ -754,23 +789,156 @@ async function handleMember(member, rfid_tag, location) {
     // ---- EXIT ----
     if (!isEntry) {
 
-      // No open session found
+// No open parent session — check for open grace re-entry
       if (!openSession) {
-        console.log(`Exit denied — no open session for ${member.full_name}`);
+        const [openGraceExitRows] = await dbSuperAdmin.promise().query(
+          `SELECT * FROM AdminEntryLogs
+           WHERE member_id = ? AND admin_id = ?
+             AND session_closed = 0
+             AND is_grace_reentry = 1
+           ORDER BY id DESC LIMIT 1`,
+          [member.id, member.admin_id]
+        );
+        const openGraceExit = openGraceExitRows[0] || null;
+
+        if (!openGraceExit || openGraceExit.member_status !== 'inside') {
+          console.log(`Exit denied — no open session for ${member.full_name}`);
+          broadcastToClients({
+            type: "member-update",
+            data: {
+              rfid_tag,
+              full_name: member.full_name,
+              profile_image_url: member.profile_image_url,
+              visitor_type: "Member",
+              system_type: admin.system_type,
+              status: "denied",
+              member_status: "denied",
+              reason: "Not inside — cannot exit",
+              location,
+              admin_id: member.admin_id,
+              action: "exit",
+              timestamp: new Date().toISOString()
+            }
+          });
+          return;
+        }
+
+        // Found open grace re-entry — check parent for payment_pending
+        const [parentRows] = await dbSuperAdmin.promise().query(
+          `SELECT * FROM AdminEntryLogs WHERE id = ? LIMIT 1`,
+          [openGraceExit.parent_session_id]
+        );
+        const parentSession = parentRows[0] || null;
+
+        if (parentSession && parentSession.payment_pending === 1) {
+          console.log(`Exit blocked — payment pending on parent session`);
+          broadcastToClients({
+            type: "member-update",
+            data: {
+              rfid_tag,
+              full_name: member.full_name,
+              profile_image_url: member.profile_image_url,
+              customer_number_display: memberCustomerDisplay,
+              visitor_type: "Member",
+              system_type: admin.system_type,
+              status: "denied",
+              member_status: "denied",
+              reason: "Insufficient balance — please top up at the front desk",
+              location,
+              admin_id: member.admin_id,
+              action: "exit",
+              timestamp: new Date().toISOString()
+            }
+          });
+          return;
+        }
+
+        // Check balance using parent's grace window
+        const [pricingRowsG] = await dbSuperAdmin.promise().query(
+          `SELECT amount_to_pay AS session_fee 
+           FROM AdminPricingOptions 
+           WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1
+           LIMIT 1`,
+          [member.admin_id]
+        );
+        const graceExitFee = pricingRowsG.length > 0 ? parseFloat(pricingRowsG[0].session_fee) : 0;
+        const graceCurrentBalance = parseFloat(member.current_balance || 0);
+        const graceExpiresAt2 = new Date(openGraceExit.grace_expires_at);
+        const now2 = new Date();
+        const timePastExpiry2 = now2 - graceExpiresAt2;
+        const missedWindows2 = timePastExpiry2 > 0
+          ? Math.max(1, Math.floor(timePastExpiry2 / gracePeriodMs) + 1)
+          : 0;
+        const totalOwed2 = missedWindows2 * graceExitFee;
+        const minimumRequired2 = totalOwed2 + graceExitFee;
+
+        if (graceExitFee > 0 && graceCurrentBalance < minimumRequired2) {
+          const denyReason2 = totalOwed2 > 0
+            ? `Unpaid: ₱${totalOwed2.toFixed(2)} + ₱${graceExitFee.toFixed(2)} next session. Minimum top-up: ₱${minimumRequired2.toFixed(2)}`
+            : `Insufficient balance — minimum ₱${graceExitFee.toFixed(2)} required`;
+
+          broadcastToClients({
+            type: "member-update",
+            data: {
+              rfid_tag,
+              full_name: member.full_name,
+              profile_image_url: member.profile_image_url,
+              customer_number_display: memberCustomerDisplay,
+              visitor_type: "Member",
+              system_type: admin.system_type,
+              status: "denied",
+              member_status: "denied",
+              reason: denyReason2,
+              current_balance: graceCurrentBalance,
+              location,
+              admin_id: member.admin_id,
+              action: "exit",
+              timestamp: new Date().toISOString()
+            }
+          });
+          broadcastToClients({
+            type: "dashboard-alert",
+            data: {
+              full_name: member.full_name,
+              reason: denyReason2,
+              admin_id: member.admin_id,
+              timestamp: new Date().toISOString()
+            }
+          });
+          return;
+        }
+
+        // Allow exit — close grace re-entry row
+        await dbSuperAdmin.promise().query(
+          `UPDATE AdminEntryLogs
+           SET member_status = 'outside', exit_time = ?, session_closed = 1
+           WHERE id = ?`,
+          [new Date(), openGraceExit.id]
+        );
+
+        console.log(`Exit granted for ${member.full_name} — grace re-entry session closed`);
+
         broadcastToClients({
           type: "member-update",
           data: {
+            id: openGraceExit.id,
             rfid_tag,
             full_name: member.full_name,
             profile_image_url: member.profile_image_url,
+            customer_number_display: memberCustomerDisplay,
             visitor_type: "Member",
             system_type: admin.system_type,
-            status: "denied",
-            member_status: "denied",
-            reason: "Not inside — cannot exit",
+            status: "outside",
+            member_status: "outside",
+            reason: "Exit granted",
+            current_balance: member.current_balance,
+            remaining_balance: member.current_balance,
+            entry_time: openGraceExit.entry_time ? new Date(openGraceExit.entry_time).toISOString() : null,
+            exit_time: new Date().toISOString(),
             location,
             admin_id: member.admin_id,
             action: "exit",
+            last_activity: new Date().toISOString(),
             timestamp: new Date().toISOString()
           }
         });

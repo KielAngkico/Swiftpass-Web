@@ -1009,20 +1009,37 @@ const exitSessionFee = pricingRows.length > 0 ? parseFloat(pricingRows[0].sessio
         return;
       }
 
-      // Balance sufficient — allow exit
-      await dbSuperAdmin.promise().query(
-        `UPDATE AdminEntryLogs
-         SET member_status = 'outside', exit_time = ?
-         WHERE id = ?`,
-        [new Date(), openSession.id]
-      );
+// resolve actual active session (parent or grace re-entry)
+const [activeRows] = await dbSuperAdmin.promise().query(
+  `SELECT *
+   FROM AdminEntryLogs
+   WHERE member_id = ?
+     AND admin_id = ?
+     AND session_closed = 0
+   ORDER BY id DESC
+   LIMIT 1`,
+  [member.id, member.admin_id]
+);
+
+const active = activeRows[0];
+
+if (!active) return;
+
+// update correct active row (NOT openSession)
+await dbSuperAdmin.promise().query(
+  `UPDATE AdminEntryLogs
+   SET member_status = 'outside',
+       exit_time = ?
+   WHERE id = ?`,
+  [new Date(), active.id]
+);
 
       console.log(`Exit granted for ${member.full_name} — cron will handle deduction at window expiry`);
 
       broadcastToClients({
         type: "member-update",
         data: {
-          id: openSession.id,
+          id,
           rfid_tag,
           full_name: member.full_name,
           profile_image_url: member.profile_image_url,

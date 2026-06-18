@@ -114,15 +114,25 @@ cron.schedule("* * * * *", async () => {
           );
         }
 
-        // 3. Close parent session, clear payment_pending
+// 3. Close parent session, clear payment_pending, reflect final exit
         await db.query(
           `UPDATE AdminEntryLogs
            SET session_closed = 1,
                payment_pending = 0,
                sessions_deducted = ?,
-               deducted_amount = ?
+               deducted_amount = ?,
+               member_status = 'outside',
+               exit_time = (
+                 SELECT exit_time FROM (
+                   SELECT exit_time FROM AdminEntryLogs 
+                   WHERE parent_session_id = ? 
+                     AND is_grace_reentry = 1 
+                     AND exit_time IS NOT NULL
+                   ORDER BY id DESC LIMIT 1
+                 ) AS last_grace
+               )
            WHERE id = ?`,
-          [newSessionsDeducted, newDeductedAmount, session.id]
+          [newSessionsDeducted, newDeductedAmount, session.id, session.id]
         );
 
 // 4. Close ALL grace rows for this parent session

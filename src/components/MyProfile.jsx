@@ -313,6 +313,16 @@ if (user?.role === "admin" && user?.system_type === "prepaid_entry" && form.grac
     <Field label="Gym Code" value={user?.gym_code} />
     <Field label="Address" value={user?.address} />
     <Field label="Gym Owner" value={user?.admin_name} />
+    {user?.gym_code && (
+  <div className="col-span-2 mb-3">
+    <button
+      onClick={() => setShowQR(true)}
+      className="text-[11px] text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors"
+    >
+      View QR Code
+    </button>
+  </div>
+)}
     <Field label="Age" value={user?.age} />
     <Field
       label="Joined Date"

@@ -389,12 +389,25 @@ const memberStatus = accessGranted ? (isEntry ? "inside" : "outside") : "denied"
           logId = result.insertId;
           console.log(`💾 Entry log created with ID: ${logId}`);
         } else {
-          await dbSuperAdmin.promise().query(
-            `UPDATE AdminEntryLogs
-             SET member_status = ?, exit_time = ?, location = ?
-             WHERE id = ?`,
-            [memberStatus, exitTime, location, lastLog.id]
-          );
+await dbSuperAdmin.promise().query(
+  `INSERT INTO AdminEntryLogs
+   (rfid_tag, full_name, admin_id, visitor_type, system_type,
+    member_status, entry_time, exit_time, location, action, parent_session_id)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  [
+    rfid_tag,
+    guest.guest_name,
+    guest.admin_id,
+    "Day Pass",
+    guest.system_type,
+    "outside",
+    null,
+    new Date(),
+    location,
+    "exit",
+    lastLog.id
+  ]
+);
           logId = lastLog.id;
           console.log(`💾 Exit log updated with ID: ${logId}`);
         }
@@ -551,12 +564,26 @@ async function handleMember(member, rfid_tag, location) {
         } else {
           accessGranted = true;
           try {
-            await dbSuperAdmin.promise().query(
-              `UPDATE AdminEntryLogs 
-               SET member_status = ?, exit_time = ?, location = ? 
-               WHERE id = ?`,
-              ["outside", new Date(), location, lastLog.id]
-            );
+await dbSuperAdmin.promise().query(
+  `INSERT INTO AdminEntryLogs
+   (member_id, rfid_tag, full_name, admin_id, visitor_type, system_type,
+    member_status, entry_time, exit_time, location, action, parent_session_id)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  [
+    member.id,
+    rfid_tag,
+    member.full_name,
+    member.admin_id,
+    "Member",
+    admin.system_type,
+    "outside",
+    null,
+    new Date(),
+    location,
+    "exit",
+    lastLog.id
+  ]
+);
             logId = lastLog.id;
           } catch (logError) {
             console.error("❌ Exit log update failed:", logError.message);
@@ -619,7 +646,7 @@ async function handleMember(member, rfid_tag, location) {
     console.log(`\nPrepaid Entry — Grace Period: ${admin.grace_period_minutes} min | Fee: ₱${sessionFee}`);
 
 // Find existing open session for this member (exclude grace re-entries)
-    const [openSessionRows] = await dbSuperAdmin.promise().query(
+const [openSessionRows] = await dbSuperAdmin.promise().query(
       `SELECT * FROM AdminEntryLogs
        WHERE member_id = ? AND admin_id = ?
          AND session_closed = 0
@@ -640,13 +667,13 @@ async function handleMember(member, rfid_tag, location) {
     if (isEntry) {
 
 // Check for open grace re-entry (member already inside)
+// Latest grace row — check if member is still inside via re-entry
       const [openGraceRows] = await dbSuperAdmin.promise().query(
         `SELECT * FROM AdminEntryLogs
-         WHERE member_id = ? AND admin_id = ?
-           AND session_closed = 0
+         WHERE parent_session_id = ?
            AND is_grace_reentry = 1
          ORDER BY id DESC LIMIT 1`,
-        [member.id, member.admin_id]
+        [openSession?.id]
       );
       const openGraceSession = openGraceRows[0] || null;
 // Block if parent session itself shows member is still inside
@@ -807,164 +834,111 @@ async function handleMember(member, rfid_tag, location) {
       });
       return;
     }
-
-    // ---- EXIT ----
+// ---- EXIT ----
     if (!isEntry) {
 
-// No open parent session — check for open grace re-entry
+      // No open parent session at all — nothing to exit from
       if (!openSession) {
-        const [openGraceExitRows] = await dbSuperAdmin.promise().query(
-          `SELECT * FROM AdminEntryLogs
-           WHERE member_id = ? AND admin_id = ?
-             AND session_closed = 0
-             AND is_grace_reentry = 1
-           ORDER BY id DESC LIMIT 1`,
-          [member.id, member.admin_id]
-        );
-        const openGraceExit = openGraceExitRows[0] || null;
-
-        if (!openGraceExit || openGraceExit.member_status !== 'inside') {
-          console.log(`Exit denied — no open session for ${member.full_name}`);
-          broadcastToClients({
-            type: "member-update",
-            data: {
-              rfid_tag,
-              full_name: member.full_name,
-              profile_image_url: member.profile_image_url,
-              visitor_type: "Member",
-              system_type: admin.system_type,
-              status: "denied",
-              member_status: "denied",
-              reason: "Not inside — cannot exit",
-              location,
-              admin_id: member.admin_id,
-              action: "exit",
-              timestamp: new Date().toISOString()
-            }
-          });
-          return;
-        }
-
-        // Found open grace re-entry — check parent for payment_pending
-        const [parentRows] = await dbSuperAdmin.promise().query(
-          `SELECT * FROM AdminEntryLogs WHERE id = ? LIMIT 1`,
-          [openGraceExit.parent_session_id]
-        );
-        const parentSession = parentRows[0] || null;
-
-        // Check balance using parent's grace window
-        const [pricingRowsG] = await dbSuperAdmin.promise().query(
-          `SELECT amount_to_pay AS session_fee 
-           FROM AdminPricingOptions 
-           WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1
-           LIMIT 1`,
-          [member.admin_id]
-        );
-        const graceExitFee = pricingRowsG.length > 0 ? parseFloat(pricingRowsG[0].session_fee) : 0;
-        const graceCurrentBalance = parseFloat(member.current_balance || 0);
-        const graceExpiresAt2 = new Date(openGraceExit.grace_expires_at);
-        const now2 = new Date();
-        const timePastExpiry2 = now2 - graceExpiresAt2;
-        const missedWindows2 = timePastExpiry2 > 0
-          ? Math.max(1, Math.floor(timePastExpiry2 / gracePeriodMs) + 1)
-          : 0;
-        const totalOwed2 = missedWindows2 * graceExitFee;
-        const minimumRequired2 = totalOwed2 + graceExitFee;
-
-        if (graceExitFee > 0 && graceCurrentBalance < minimumRequired2) {
-          const denyReason2 = totalOwed2 > 0
-            ? `Unpaid: ₱${totalOwed2.toFixed(2)} + ₱${graceExitFee.toFixed(2)} next session. Minimum top-up: ₱${minimumRequired2.toFixed(2)}`
-            : `Insufficient balance — minimum ₱${graceExitFee.toFixed(2)} required`;
-
-          broadcastToClients({
-            type: "member-update",
-            data: {
-              rfid_tag,
-              full_name: member.full_name,
-              profile_image_url: member.profile_image_url,
-              customer_number_display: memberCustomerDisplay,
-              visitor_type: "Member",
-              system_type: admin.system_type,
-              status: "denied",
-              member_status: "denied",
-              reason: denyReason2,
-              current_balance: graceCurrentBalance,
-              location,
-              admin_id: member.admin_id,
-              action: "exit",
-              timestamp: new Date().toISOString()
-            }
-          });
-          broadcastToClients({
-            type: "dashboard-alert",
-            data: {
-              full_name: member.full_name,
-              reason: denyReason2,
-              admin_id: member.admin_id,
-              timestamp: new Date().toISOString()
-            }
-          });
-          return;
-        }
-
-        // Allow exit — close grace re-entry row
-        await dbSuperAdmin.promise().query(
-          `UPDATE AdminEntryLogs
-           SET member_status = 'outside', exit_time = ?, session_closed = 1
-           WHERE id = ?`,
-          [new Date(), openGraceExit.id]
-        );
-
-        console.log(`Exit granted for ${member.full_name} — grace re-entry session closed`);
-
+        console.log(`Exit denied — no open parent session for ${member.full_name}`);
         broadcastToClients({
           type: "member-update",
           data: {
-            id: openGraceExit.id,
             rfid_tag,
             full_name: member.full_name,
             profile_image_url: member.profile_image_url,
-            customer_number_display: memberCustomerDisplay,
             visitor_type: "Member",
             system_type: admin.system_type,
-            status: "outside",
-            member_status: "outside",
-            reason: "Exit granted",
-            current_balance: member.current_balance,
-            remaining_balance: member.current_balance,
-            entry_time: openGraceExit.entry_time ? new Date(openGraceExit.entry_time).toISOString() : null,
-            exit_time: new Date().toISOString(),
+            status: "denied",
+            member_status: "denied",
+            reason: "Not inside — cannot exit",
             location,
             admin_id: member.admin_id,
             action: "exit",
-            last_activity: new Date().toISOString(),
             timestamp: new Date().toISOString()
           }
         });
         return;
       }
 
-      // Block exit if payment pending
+      // Block exit if payment pending on parent
+      if (openSession.payment_pending === 1) {
+        console.log(`Exit blocked — payment pending for ${member.full_name}`);
+        broadcastToClients({
+          type: "member-update",
+          data: {
+            rfid_tag,
+            full_name: member.full_name,
+            profile_image_url: member.profile_image_url,
+            customer_number_display: memberCustomerDisplay,
+            visitor_type: "Member",
+            system_type: admin.system_type,
+            status: "denied",
+            member_status: "denied",
+            reason: "Insufficient balance — please top up at the front desk",
+            location,
+            admin_id: member.admin_id,
+            action: "exit",
+            timestamp: new Date().toISOString()
+          }
+        });
+        return;
+      }
 
+      // Find latest grace row for this parent
+      const [openGraceExitRows] = await dbSuperAdmin.promise().query(
+        `SELECT * FROM AdminEntryLogs
+         WHERE parent_session_id = ?
+           AND is_grace_reentry = 1
+         ORDER BY id DESC LIMIT 1`,
+        [openSession.id]
+      );
+      const latestGraceRow = openGraceExitRows[0] || null;
 
-// Check balance before allowing exit
+      // Determine if member is actually inside
+      // - Latest grace row exists with exit_time null → inside via re-entry
+      // - Latest grace row exists with exit_time filled → already outside
+      // - No grace row and parent member_status inside → inside via initial entry
+      // - No grace row and parent member_status outside → already outside
+      const memberIsInside = latestGraceRow
+        ? latestGraceRow.exit_time === null
+        : openSession.member_status === 'inside';
+
+      if (!memberIsInside) {
+        console.log(`Exit denied — member already outside`);
+        broadcastToClients({
+          type: "member-update",
+          data: {
+            rfid_tag,
+            full_name: member.full_name,
+            profile_image_url: member.profile_image_url,
+            visitor_type: "Member",
+            system_type: admin.system_type,
+            status: "denied",
+            member_status: "denied",
+            reason: "Not inside — cannot exit",
+            location,
+            admin_id: member.admin_id,
+            action: "exit",
+            timestamp: new Date().toISOString()
+          }
+        });
+        return;
+      }
+// Balance check before allowing exit
       const [pricingRows] = await dbSuperAdmin.promise().query(
-        `SELECT amount_to_pay AS session_fee 
-         FROM AdminPricingOptions 
+        `SELECT amount_to_pay AS session_fee
+         FROM AdminPricingOptions
          WHERE admin_id = ? AND plan_name = 'Daily Session' AND is_active = 1
          LIMIT 1`,
         [member.admin_id]
       );
-
-const exitSessionFee = pricingRows.length > 0 ? parseFloat(pricingRows[0].session_fee) : 0;
+      const exitSessionFee = pricingRows.length > 0 ? parseFloat(pricingRows[0].session_fee) : 0;
       const currentBalance = parseFloat(member.current_balance || 0);
-      const gracePeriodMs2 = (admin.grace_period_minutes || 2) * 60 * 1000;
       const graceExpiresAt = new Date(openSession.grace_expires_at);
       const now = new Date();
       const timePastExpiry = now - graceExpiresAt;
-
       const missedWindows = timePastExpiry > 0
-        ? Math.max(1, Math.floor(timePastExpiry / gracePeriodMs2) + 1)
+        ? Math.max(1, Math.floor(timePastExpiry / gracePeriodMs) + 1)
         : 0;
       const totalOwed = missedWindows * exitSessionFee;
       const minimumRequired = totalOwed + exitSessionFee;
@@ -975,7 +949,6 @@ const exitSessionFee = pricingRows.length > 0 ? parseFloat(pricingRows[0].sessio
           : `Insufficient balance — minimum ₱${exitSessionFee.toFixed(2)} required`;
 
         console.log(`Exit denied — ${denyReason}`);
-
         broadcastToClients({
           type: "member-update",
           data: {
@@ -996,7 +969,6 @@ const exitSessionFee = pricingRows.length > 0 ? parseFloat(pricingRows[0].sessio
             timestamp: new Date().toISOString()
           }
         });
-
         broadcastToClients({
           type: "dashboard-alert",
           data: {
@@ -1008,38 +980,42 @@ const exitSessionFee = pricingRows.length > 0 ? parseFloat(pricingRows[0].sessio
         });
         return;
       }
-
-// resolve actual active session (parent or grace re-entry)
-const [activeRows] = await dbSuperAdmin.promise().query(
-  `SELECT *
-   FROM AdminEntryLogs
-   WHERE member_id = ?
-     AND admin_id = ?
-     AND session_closed = 0
-   ORDER BY id DESC
-   LIMIT 1`,
-  [member.id, member.admin_id]
-);
-
-const active = activeRows[0];
-
-if (!active) return;
-
-// update correct active row (NOT openSession)
-await dbSuperAdmin.promise().query(
-  `UPDATE AdminEntryLogs
-   SET member_status = 'outside',
-       exit_time = ?
-   WHERE id = ?`,
-  [new Date(), active.id]
-);
+// Write exit to DB
+      if (latestGraceRow && latestGraceRow.exit_time === null) {
+        // Re-entry grace row is open — update it in place
+        await dbSuperAdmin.promise().query(
+          `UPDATE AdminEntryLogs
+           SET member_status = 'outside', exit_time = ?
+           WHERE id = ?`,
+          [new Date(), latestGraceRow.id]
+        );
+        console.log(`Exit granted — updated grace row ${latestGraceRow.id}`);
+} else {
+        // No open grace row — first exit, create G1
+        const [g1Result] = await dbSuperAdmin.promise().query(
+          `INSERT INTO AdminEntryLogs
+           (member_id, rfid_tag, full_name, admin_id, visitor_type, system_type,
+            member_status, entry_time, exit_time, location,
+            sessions_deducted, grace_expires_at, session_closed, payment_pending,
+            is_grace_reentry, parent_session_id)
+           VALUES (?, ?, ?, ?, 'Member', ?, 'outside', NULL, ?, ?, 0, ?, 0, 0, 1, ?)`,
+          [
+            member.id, rfid_tag, member.full_name, member.admin_id,
+            admin.system_type, new Date(), location,
+            openSession.grace_expires_at,
+            openSession.id
+          ]
+        );
+        console.log(`Exit granted — created G1 grace row ID: ${g1Result.insertId} for parent ${openSession.id}`);
+      }
 
       console.log(`Exit granted for ${member.full_name} — cron will handle deduction at window expiry`);
 
-      broadcastToClients({
+broadcastToClients({
         type: "member-update",
         data: {
-          id: openSession?.id || null,
+          id: openSession.id,
+          grace_row_id: latestGraceRow ? latestGraceRow.id : null,
           rfid_tag,
           full_name: member.full_name,
           profile_image_url: member.profile_image_url,

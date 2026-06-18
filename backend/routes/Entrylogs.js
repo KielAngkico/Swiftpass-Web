@@ -22,9 +22,11 @@ WHERE logs.admin_id = ?
     logs.session_closed = 0
     OR logs.is_grace_reentry = 1
     OR DATE(COALESCE(logs.entry_time, logs.exit_time)) = CURDATE()
-    OR EXISTS (
-      SELECT 1 FROM AdminEntryLogs g
-      WHERE g.parent_session_id = logs.id
+    OR logs.id IN (
+      SELECT DISTINCT g.parent_session_id 
+      FROM AdminEntryLogs g
+      WHERE g.parent_session_id IS NOT NULL
+        AND g.admin_id = logs.admin_id
         AND DATE(COALESCE(g.entry_time, g.exit_time)) = CURDATE()
     )
   )

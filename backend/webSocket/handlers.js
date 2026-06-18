@@ -677,8 +677,8 @@ const [openSessionRows] = await dbSuperAdmin.promise().query(
         [openSession?.id]
       );
       const openGraceSession = openGraceRows[0] || null;
-// Block if parent session itself shows member is still inside
-      if (openSession && openSession.member_status === 'inside') {
+// Block if parent session shows inside AND no grace row has exited yet
+      if (openSession && openSession.member_status === 'inside' && !openGraceSession) {
         console.log(`Entry blocked — parent session still open and inside`);
         broadcastToClients({
           type: "member-update",

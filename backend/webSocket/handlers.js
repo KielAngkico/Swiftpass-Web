@@ -1039,7 +1039,7 @@ await dbSuperAdmin.promise().query(
       broadcastToClients({
         type: "member-update",
         data: {
-          id,
+          id: openSession?.id || null,
           rfid_tag,
           full_name: member.full_name,
           profile_image_url: member.profile_image_url,
